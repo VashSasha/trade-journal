@@ -1,0 +1,15 @@
+<div class="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
+    <!-- Sidebar -->
+    <app-sidebar />
+
+    <!-- Main Content Wrapper -->
+    <div class="relative flex flex-1 flex-col overflow-hidden">
+        <!-- Header -->
+        <app-header />
+
+        <!-- Scrollable Content Area -->
+        <main class="flex-1 overflow-y-auto overflow-x-hidden p-6">
+            <router-outlet />
+        </main>
+    </div>
+</div>
