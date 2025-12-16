@@ -28,8 +28,27 @@ export const routes: Routes = [
             },
             {
                 path: 'journal/new',
-                loadComponent: () => import('./features/journal/trade-entry/trade-entry').then(m => m.TradeEntryComponent)
-            }
+                loadComponent: () => import('./features/journal/trade-entry/trade-entry')
+                    .then(m => m.TradeEntryComponent),
+                canActivate: [authGuard]
+            },
+            {
+                path: 'journal/edit/:id',
+                loadComponent: () => import('./features/journal/trade-entry/trade-entry')
+                    .then(m => m.TradeEntryComponent),
+                canActivate: [authGuard]
+            },
+            {
+                path: 'settings',
+                loadChildren: () => import('./features/integrations/integrations.routes')
+                    .then(m => m.INTEGRATION_ROUTES)
+            },
+            {
+                path: 'journal/:id',
+                loadComponent: () => import('./features/journal/trade-detail/trade-detail')
+                    .then(m => m.TradeDetailComponent),
+                canActivate: [authGuard]
+            },
             // More routes will be added here
         ]
     }

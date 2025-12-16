@@ -149,4 +149,114 @@ export class DashboardComponent implements AfterViewInit {
             year: 'numeric'
         });
     }
+
+    // --- Calendar Logic ---
+
+    currentDate = signal(new Date());
+
+    calendarData = computed(() => {
+        const current = this.currentDate();
+        const year = current.getFullYear();
+        const month = current.getMonth();
+
+        // Get all trades
+        const trades = this.tradeService.trades();
+
+        // Group trades by date string (YYYY-MM-DD)
+        const dailyStats = new Map<string, { pnl: number, count: number }>();
+
+        trades.forEach(trade => {
+            // Use local date string to match calendar days
+            const dateStr = new Date(trade.entryDate).toISOString().split('T')[0];
+
+            const currentStats = dailyStats.get(dateStr) || { pnl: 0, count: 0 };
+
+            // Only count P&L for closed trades
+            if (trade.status === 'closed' && trade.netPnl !== undefined) {
+                currentStats.pnl += trade.netPnl;
+            }
+
+            currentStats.count++;
+            dailyStats.set(dateStr, currentStats);
+        });
+
+        // Generate calendar days
+        const days = [];
+
+        // First day of the month
+        const firstDay = new Date(year, month, 1);
+        // Last day of the month
+        const lastDay = new Date(year, month + 1, 0);
+
+        // Days from previous month to fill grid
+        const startPadding = firstDay.getDay(); // 0 = Sunday
+
+        // Previous month days
+        const prevMonthLastDay = new Date(year, month, 0).getDate();
+        for (let i = startPadding - 1; i >= 0; i--) {
+            const date = new Date(year, month - 1, prevMonthLastDay - i);
+            const dateStr = date.toISOString().split('T')[0];
+            const stats = dailyStats.get(dateStr) || { pnl: 0, count: 0 };
+            days.push({
+                date,
+                day: date.getDate(),
+                isCurrentMonth: false,
+                pnl: stats.pnl,
+                count: stats.count,
+                hasTrades: stats.count > 0
+            });
+        }
+
+        // Current month days
+        for (let i = 1; i <= lastDay.getDate(); i++) {
+            const date = new Date(year, month, i);
+            const dateStr = date.toISOString().split('T')[0];
+            const stats = dailyStats.get(dateStr) || { pnl: 0, count: 0 };
+            days.push({
+                date,
+                day: i,
+                isCurrentMonth: true,
+                pnl: stats.pnl,
+                count: stats.count,
+                hasTrades: stats.count > 0,
+                isToday: new Date().toDateString() === date.toDateString()
+            });
+        }
+
+        // Next month days to complete the grid (42 cells total for 6 rows standard)
+        const remainingCells = 42 - days.length;
+        for (let i = 1; i <= remainingCells; i++) {
+            const date = new Date(year, month + 1, i);
+            const dateStr = date.toISOString().split('T')[0];
+            const stats = dailyStats.get(dateStr) || { pnl: 0, count: 0 };
+            days.push({
+                date,
+                day: i,
+                isCurrentMonth: false,
+                pnl: stats.pnl,
+                count: stats.count,
+                hasTrades: stats.count > 0
+            });
+        }
+
+        return days;
+    });
+
+    currentMonthYear = computed(() => {
+        return this.currentDate().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    });
+
+    nextMonth(): void {
+        const current = this.currentDate();
+        this.currentDate.set(new Date(current.getFullYear(), current.getMonth() + 1, 1));
+    }
+
+    prevMonth(): void {
+        const current = this.currentDate();
+        this.currentDate.set(new Date(current.getFullYear(), current.getMonth() - 1, 1));
+    }
+
+    today(): void {
+        this.currentDate.set(new Date());
+    }
 }

@@ -1,8 +1,11 @@
-import { Component, inject, signal, computed } from '@angular/core';
+
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TradeService } from '../../../core/services/trade.service';
-import { Trade } from '../../../core/models/trade.model';
+import { SyncService } from '../../../core/services/sync.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { Trade, TradeStatus, TradeDirection } from '../../../core/models/trade.model';
 
 type SortField = 'symbol' | 'entryDate' | 'pnl' | 'status';
 type SortDirection = 'asc' | 'desc';
@@ -12,14 +15,34 @@ type SortDirection = 'asc' | 'desc';
     standalone: true,
     imports: [CommonModule, RouterLink],
     templateUrl: './trade-list.html',
-    styleUrl: './trade-list.scss'
+    styles: []
 })
 export class TradeListComponent {
     private tradeService = inject(TradeService);
+    private authService = inject(AuthService);
+    private syncService = inject(SyncService);
+    private router = inject(Router);
 
     // Signals for filtering and sorting
     searchQuery = signal('');
-    statusFilter = signal<'all' | 'open' | 'closed'>('all');
+    statusFilter = signal<'all' | 'open' | 'closed' | 'missed'>('all');
+
+    isImporting = this.syncService.isSyncing;
+
+    constructor() { }
+
+    async importTrades() {
+        try {
+            const count = await this.syncService.syncTrades();
+            if (count > 0) {
+                alert(`Successfully imported ${count} trades!`);
+            } else {
+                alert('No new trades found to import.');
+            }
+        } catch (err) {
+            alert('Failed to import trades. Please check your settings.');
+        }
+    }
     sortField = signal<SortField>('entryDate');
     sortDirection = signal<SortDirection>('desc');
 
@@ -68,8 +91,9 @@ export class TradeListComponent {
 
     // Stats
     stats = this.tradeService.stats;
+    missedTradesCount = computed(() => this.allTrades().filter(t => t.status === 'missed').length);
 
-    setStatusFilter(status: 'all' | 'open' | 'closed'): void {
+    setStatusFilter(status: 'all' | 'open' | 'closed' | 'missed'): void {
         this.statusFilter.set(status);
     }
 
@@ -107,5 +131,9 @@ export class TradeListComponent {
     deleteTrade(trade: Trade, event: Event): void {
         event.stopPropagation(); // Prevent row click if we add that later
         this.tradeService.deleteTrade(trade.id);
+    }
+
+    viewTrade(trade: Trade): void {
+        this.router.navigate(['/journal', trade.id]);
     }
 }

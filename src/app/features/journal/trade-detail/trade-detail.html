@@ -1,0 +1,120 @@
+<div class="min-h-full bg-slate-50 p-6 dark:bg-slate-950">
+  @if (trade(); as t) {
+  <div class="mx-auto max-w-4xl">
+
+    <!-- Back Link -->
+    <a routerLink="/journal"
+      class="mb-6 inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
+      <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+      </svg>
+      Back to Journal
+    </a>
+
+    <!-- Header -->
+    <div class="mb-6 flex items-start justify-between">
+      <div>
+        <div class="flex items-center gap-3">
+          <h1 class="text-3xl font-bold text-slate-900 dark:text-white">{{ t.symbol }}</h1>
+          <span class="rounded-lg px-3 py-1 text-sm font-medium" [class.bg-emerald-100]="t.direction === 'long'"
+            [class.text-emerald-700]="t.direction === 'long'" [class.dark:bg-emerald-900/30]="t.direction === 'long'"
+            [class.dark:text-emerald-400]="t.direction === 'long'" [class.bg-red-100]="t.direction === 'short'"
+            [class.text-red-700]="t.direction === 'short'" [class.dark:bg-red-900/30]="t.direction === 'short'"
+            [class.dark:text-red-400]="t.direction === 'short'">
+            {{ t.direction | titlecase }}
+          </span>
+          <span
+            class="rounded-lg bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            {{ t.assetType | titlecase }}
+          </span>
+        </div>
+        <p class="mt-2 text-slate-600 dark:text-slate-400">
+          Opened on {{ formatDate(t.entryDate) }}
+        </p>
+      </div>
+
+      <div class="flex gap-3">
+        <button (click)="deleteTrade()"
+          class="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-red-900/20">
+          Delete
+        </button>
+        <a [routerLink]="['/journal/edit', t.id]"
+          class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600">
+          Edit Trade
+        </a>
+      </div>
+    </div>
+
+    <!-- Main Overview Card -->
+    <div class="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <!-- P&L Card -->
+      <div
+        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:col-span-1">
+        <h3 class="mb-4 text-sm font-medium text-slate-500 dark:text-slate-400">Total P&L</h3>
+
+        @if (t.netPnl !== undefined) {
+        <div class="text-4xl font-bold" [class.text-emerald-600]="t.netPnl > 0"
+          [class.dark:text-emerald-400]="t.netPnl > 0" [class.text-red-600]="t.netPnl < 0"
+          [class.dark:text-red-400]="t.netPnl < 0" [class.text-slate-900]="t.netPnl === 0"
+          [class.dark:text-white]="t.netPnl === 0">
+          {{ t.netPnl >= 0 ? '+' : '' }}{{ formatCurrency(t.netPnl) }}
+        </div>
+        <div class="mt-2 text-lg font-medium" [class.text-emerald-600]="t.netPnl > 0"
+          [class.dark:text-emerald-500]="t.netPnl > 0" [class.text-red-600]="t.netPnl < 0"
+          [class.dark:text-red-500]="t.netPnl < 0" [class.text-slate-600]="t.netPnl === 0"
+          [class.dark:text-slate-400]="t.netPnl === 0">
+          {{ t.pnlPercent && t.pnlPercent >= 0 ? '+' : '' }}{{ t.pnlPercent?.toFixed(2) }}%
+        </div>
+        } @else {
+        <div class="text-4xl font-bold text-slate-400">Open</div>
+        <div class="mt-2 text-sm text-slate-500">Position is still active</div>
+        }
+      </div>
+
+      <!-- Trade Details Grid -->
+      <div
+        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:col-span-2">
+        <h3 class="mb-4 text-sm font-medium text-slate-500 dark:text-slate-400">Trade Details</h3>
+        <div class="grid grid-cols-2 gap-y-6 gap-x-8 md:grid-cols-4">
+          <div>
+            <div class="text-xs text-slate-500">Entry Price</div>
+            <div class="mt-1 font-semibold text-slate-900 dark:text-white">{{ formatCurrency(t.entryPrice) }}</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">Exit Price</div>
+            <div class="mt-1 font-semibold text-slate-900 dark:text-white">{{ t.exitPrice ? formatCurrency(t.exitPrice)
+              : '-' }}</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">Quantity</div>
+            <div class="mt-1 font-semibold text-slate-900 dark:text-white">{{ t.quantity }}</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">Fees</div>
+            <div class="mt-1 font-semibold text-slate-900 dark:text-white">{{ t.fees ? formatCurrency(t.fees) : '$0.00'
+              }}</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">Setup</div>
+            <div class="mt-1 font-semibold text-slate-900 dark:text-white">{{ t.setup || '-' }}</div>
+          </div>
+          <!-- Placeholder for Risk/Reward if we add fields later -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes Section -->
+    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <h3 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Analysis & Notes</h3>
+      @if (t.notes) {
+      <div class="prose prose-slate dark:prose-invert max-w-none">
+        <p class="whitespace-pre-wrap text-slate-600 dark:text-slate-300">{{ t.notes }}</p>
+      </div>
+      } @else {
+      <p class="text-slate-500 italic">No notes added for this trade.</p>
+      }
+    </div>
+
+  </div>
+  }
+</div>

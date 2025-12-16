@@ -1,6 +1,6 @@
 export type AssetType = 'stock' | 'option' | 'forex' | 'futures' | 'crypto';
 export type TradeDirection = 'long' | 'short';
-export type TradeStatus = 'open' | 'closed';
+export type TradeStatus = 'open' | 'closed' | 'missed';
 
 export interface Trade {
     id: string;
@@ -30,7 +30,15 @@ export interface Trade {
 
     // Strategy & Tags
     setup?: string;
+    playbookId?: string;
     tags?: string[];
+
+    // Psychology
+    emotions?: string[];
+
+    // Integration Fields
+    source?: 'manual' | 'tradovate';
+    externalId?: string;
 
     // Notes & Media
     notes?: string;
@@ -57,7 +65,17 @@ export interface TradeFormData {
     exitPrice?: number;
     fees?: number;
     setup?: string;
+    playbookId?: string; // For future detailed strategies
+
+    // Integration Fields
+    source?: 'manual' | 'tradovate';
+    externalId?: string; // ID from external broker (e.g. Fill ID)
+
+    status?: TradeStatus; // explicit status override (e.g. 'missed')
+
+    // Metadata
     tags?: string[];
+    emotions?: string[];
     notes?: string;
 }
 

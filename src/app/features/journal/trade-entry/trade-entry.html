@@ -1,9 +1,13 @@
 <div class="min-h-full bg-slate-50 p-6 dark:bg-slate-950">
     <div class="mx-auto max-w-4xl">
         <!-- Header -->
-        <div class="mb-6">
-            <h1 class="text-3xl font-bold text-slate-900 dark:text-white">New Trade</h1>
-            <p class="mt-1 text-slate-600 dark:text-slate-400">Log a new trade to your journal</p>
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-slate-900 dark:text-white">
+                {{ isEditMode() ? 'Edit Trade' : 'Log New Trade' }}
+            </h1>
+            <p class="mt-2 text-slate-600 dark:text-slate-400">
+                {{ isEditMode() ? 'Update trade details below.' : 'Enter your trade details below.' }}
+            </p>
         </div>
 
         <!-- Form Card -->
@@ -205,9 +209,29 @@
 
             <!-- Strategy & Notes -->
             <div class="mb-8">
-                <h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Strategy & Notes</h2>
+                <h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Strategy & Psychology</h2>
 
-                <div class="space-y-4">
+                <div class="space-y-6">
+                    <!-- Missed Trade Toggle -->
+                    <div class="flex items-center gap-4 rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                        <div class="flex-1">
+                            <label class="text-sm font-medium text-slate-900 dark:text-white">Missed Trade</label>
+                            <p class="text-xs text-slate-500">Log a trade you planned but didn't take.</p>
+                        </div>
+                        <button type="button"
+                            (click)="tradeForm.patchValue({ status: tradeForm.get('status')?.value === 'missed' ? 'open' : 'missed' })"
+                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+                            [class.bg-emerald-500]="tradeForm.get('status')?.value === 'missed'"
+                            [class.bg-slate-200]="tradeForm.get('status')?.value !== 'missed'"
+                            [class.dark:bg-slate-700]="tradeForm.get('status')?.value !== 'missed'">
+                            <span class="sr-only">Use setting</span>
+                            <span aria-hidden="true"
+                                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                                [class.translate-x-5]="tradeForm.get('status')?.value === 'missed'"
+                                [class.translate-x-0]="tradeForm.get('status')?.value !== 'missed'"></span>
+                        </button>
+                    </div>
+
                     <div>
                         <label for="setup" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
                             Setup/Strategy
@@ -219,6 +243,32 @@
                             <option [value]="setup">{{ setup }}</option>
                             }
                         </select>
+                    </div>
+
+                    <div>
+                        <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Emotions
+                        </label>
+                        <div class="flex flex-wrap gap-2">
+                            @for (emotion of commonEmotions; track emotion) {
+                            <button type="button" (click)="toggleEmotion(emotion)"
+                                [class.bg-indigo-100]="isEmotionSelected(emotion)"
+                                [class.text-indigo-700]="isEmotionSelected(emotion)"
+                                [class.border-indigo-200]="isEmotionSelected(emotion)"
+                                [class.dark:bg-indigo-900/30]="isEmotionSelected(emotion)"
+                                [class.dark:text-indigo-400]="isEmotionSelected(emotion)"
+                                [class.dark:border-indigo-800]="isEmotionSelected(emotion)"
+                                [class.bg-white]="!isEmotionSelected(emotion)"
+                                [class.text-slate-600]="!isEmotionSelected(emotion)"
+                                [class.border-slate-200]="!isEmotionSelected(emotion)"
+                                [class.dark:bg-slate-800]="!isEmotionSelected(emotion)"
+                                [class.dark:text-slate-400]="!isEmotionSelected(emotion)"
+                                [class.dark:border-slate-700]="!isEmotionSelected(emotion)"
+                                class="rounded-full border px-3 py-1 text-sm font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-700">
+                                {{ emotion }}
+                            </button>
+                            }
+                        </div>
                     </div>
 
                     <div>

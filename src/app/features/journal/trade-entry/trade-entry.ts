@@ -1,7 +1,7 @@
-import { Component, signal, inject, effect } from '@angular/core';
+import { Component, signal, inject, effect, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { TradeService } from '../../../core/services/trade.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { AssetType, TradeDirection } from '../../../core/models/trade.model';
@@ -13,14 +13,17 @@ import { AssetType, TradeDirection } from '../../../core/models/trade.model';
     templateUrl: './trade-entry.html',
     styleUrl: './trade-entry.scss'
 })
-export class TradeEntryComponent {
+export class TradeEntryComponent implements OnInit {
     private fb = inject(FormBuilder);
     private tradeService = inject(TradeService);
     private authService = inject(AuthService);
     private router = inject(Router);
+    private route = inject(ActivatedRoute);
 
     tradeForm: FormGroup;
     isSubmitting = signal(false);
+    isEditMode = signal(false);
+    editingTradeId: string | null = null;
 
     // P&L as a signal that updates when form changes
     estimatedPnL = signal<{ gross: number; net: number; percent: number } | null>(null);
@@ -41,6 +44,19 @@ export class TradeEntryComponent {
         'Custom'
     ];
 
+    // Emotions
+    commonEmotions = [
+        'Confident',
+        'Hesitant',
+        'FOMO',
+        'Revenge',
+        'Disciplined',
+        'Anxious',
+        'Tilt',
+        'Patient',
+        'Impulsive'
+    ];
+
     constructor() {
         const today = new Date().toISOString().split('T')[0];
 
@@ -48,6 +64,7 @@ export class TradeEntryComponent {
             symbol: ['', [Validators.required, Validators.pattern(/^[A-Z]{1,5}$/)]],
             assetType: ['stock' as AssetType, Validators.required],
             direction: ['long' as TradeDirection, Validators.required],
+            status: ['open', Validators.required], // Add status control to toggle missed
             entryDate: [today, Validators.required],
             entryTime: [''],
             entryPrice: [null, [Validators.required, Validators.min(0.01)]],
@@ -58,6 +75,7 @@ export class TradeEntryComponent {
             fees: [0, Validators.min(0)],
             setup: [''],
             tags: [[]],
+            emotions: [[]],
             notes: ['']
         });
 
@@ -65,6 +83,47 @@ export class TradeEntryComponent {
         this.tradeForm.valueChanges.subscribe(() => {
             this.calculatePnL();
         });
+    }
+
+    ngOnInit(): void {
+        this.route.paramMap.subscribe(params => {
+            const id = params.get('id');
+            if (id) {
+                this.isEditMode.set(true);
+                this.editingTradeId = id;
+                this.loadTrade(id);
+            }
+        });
+    }
+
+    private loadTrade(id: string): void {
+        const trade = this.tradeService.getTradeById(id);
+        if (trade) {
+            this.tradeForm.patchValue({
+                symbol: trade.symbol,
+                assetType: trade.assetType,
+                direction: trade.direction,
+                status: trade.status === 'missed' ? 'missed' : trade.status, // Preserve 'missed' or map to current
+                entryDate: this.formatDateForInput(trade.entryDate),
+                entryPrice: trade.entryPrice,
+                quantity: trade.quantity,
+                exitDate: trade.exitDate ? this.formatDateForInput(trade.exitDate) : '',
+                exitPrice: trade.exitPrice,
+                fees: trade.fees,
+                setup: trade.setup,
+                notes: trade.notes,
+                tags: trade.tags,
+                emotions: trade.emotions || []
+            });
+            // Recalculate P&L after patching
+            this.calculatePnL();
+        } else {
+            this.router.navigate(['/journal']);
+        }
+    }
+
+    private formatDateForInput(dateString: string): string {
+        return new Date(dateString).toISOString().split('T')[0];
     }
 
     private calculatePnL(): void {
@@ -108,19 +167,27 @@ export class TradeEntryComponent {
 
         try {
             const formData = this.tradeForm.value;
-            this.tradeService.createTrade(formData, currentUser.id);
 
-            // Navigate to journal to see the saved trade
-            this.router.navigate(['/journal']);
+            if (this.isEditMode() && this.editingTradeId) {
+                this.tradeService.updateTrade(this.editingTradeId, formData);
+                this.router.navigate(['/journal', this.editingTradeId]);
+            } else {
+                this.tradeService.createTrade(formData, currentUser.id);
+                this.router.navigate(['/journal']);
+            }
         } catch (error) {
-            console.error('Error creating trade:', error);
+            console.error('Error saving trade:', error);
         } finally {
             this.isSubmitting.set(false);
         }
     }
 
     cancel(): void {
-        this.router.navigate(['/journal']);
+        if (this.isEditMode() && this.editingTradeId) {
+            this.router.navigate(['/journal', this.editingTradeId]);
+        } else {
+            this.router.navigate(['/journal']);
+        }
     }
 
     // Helper to convert symbol to uppercase
@@ -128,5 +195,23 @@ export class TradeEntryComponent {
         const input = event.target as HTMLInputElement;
         input.value = input.value.toUpperCase();
         this.tradeForm.patchValue({ symbol: input.value });
+    }
+
+    toggleEmotion(emotion: string): void {
+        const currentEmotions = this.tradeForm.get('emotions')?.value as string[];
+        if (currentEmotions.includes(emotion)) {
+            this.tradeForm.patchValue({
+                emotions: currentEmotions.filter(e => e !== emotion)
+            });
+        } else {
+            this.tradeForm.patchValue({
+                emotions: [...currentEmotions, emotion]
+            });
+        }
+    }
+
+    isEmotionSelected(emotion: string): boolean {
+        const currentEmotions = this.tradeForm.get('emotions')?.value as string[] || [];
+        return currentEmotions.includes(emotion);
     }
 }

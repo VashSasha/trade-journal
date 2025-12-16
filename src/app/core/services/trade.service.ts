@@ -42,20 +42,26 @@ export class TradeService {
     /**
      * Create new trade
      */
+    /**
+     * Create new trade
+     */
     createTrade(formData: TradeFormData, userId: string): Trade {
         const now = new Date().toISOString();
+
+        // Determine status: use form status if valid (missed), otherwise infer from exit price
+        let status: TradeStatus = formData.status === 'missed' ? 'missed' : (formData.exitPrice ? 'closed' : 'open');
 
         const trade: Trade = {
             id: this.generateId(),
             userId,
             ...formData,
-            status: formData.exitPrice ? 'closed' : 'open',
+            status,
             createdAt: now,
             updatedAt: now
         };
 
-        // Calculate P&L if trade is closed
-        if (trade.status === 'closed' && trade.exitPrice) {
+        // Calculate P&L if trade is closed OR missed (missed trades can have theoretical P&L)
+        if ((trade.status === 'closed' || trade.status === 'missed') && trade.exitPrice) {
             this.calculatePnL(trade);
         }
 
@@ -76,15 +82,27 @@ export class TradeService {
 
         if (index === -1) return;
 
+        // Determine new status
+        let newStatus = trades[index].status;
+
+        if (updates.status) {
+            newStatus = updates.status;
+        } else if (updates.exitPrice) {
+            // If exiting an open trade, close it, UNLESS it was missed
+            if (newStatus !== 'missed') {
+                newStatus = 'closed';
+            }
+        }
+
         const updatedTrade = {
             ...trades[index],
             ...updates,
-            status: updates.exitPrice ? 'closed' as TradeStatus : trades[index].status,
+            status: newStatus,
             updatedAt: new Date().toISOString()
         };
 
-        // Recalculate P&L if closed
-        if (updatedTrade.status === 'closed' && updatedTrade.exitPrice) {
+        // Recalculate P&L if closed or missed
+        if ((updatedTrade.status === 'closed' || updatedTrade.status === 'missed') && updatedTrade.exitPrice) {
             this.calculatePnL(updatedTrade);
         }
 
@@ -126,7 +144,10 @@ export class TradeService {
      */
     private calculateStats(): TradeStats {
         const allTrades = this.tradesSignal();
-        const closed = allTrades.filter(t => t.status === 'closed');
+
+        // Exclude missed trades from active P&L stats
+        const activeTrades = allTrades.filter(t => t.status !== 'missed');
+        const closed = activeTrades.filter(t => t.status === 'closed');
 
         const winning = closed.filter(t => (t.netPnl || 0) > 0);
         const losing = closed.filter(t => (t.netPnl || 0) < 0);
@@ -136,8 +157,8 @@ export class TradeService {
         const losingPnls = losing.map(t => t.netPnl || 0);
 
         return {
-            totalTrades: allTrades.length,
-            openTrades: allTrades.filter(t => t.status === 'open').length,
+            totalTrades: activeTrades.length,
+            openTrades: activeTrades.filter(t => t.status === 'open').length,
             closedTrades: closed.length,
             totalPnl,
             winningTrades: winning.length,
