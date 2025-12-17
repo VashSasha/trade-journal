@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { TradeService } from '../../core/services/trade.service';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
+import { GoalsWidgetComponent } from './components/goals-widget/goals-widget.component';
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -10,7 +11,7 @@ Chart.register(...registerables);
 @Component({
     selector: 'app-dashboard',
     standalone: true,
-    imports: [CommonModule, RouterLink],
+    imports: [CommonModule, RouterLink, GoalsWidgetComponent],
     templateUrl: './dashboard.html',
     styleUrl: './dashboard.scss'
 })
