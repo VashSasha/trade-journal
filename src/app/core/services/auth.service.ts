@@ -5,7 +5,7 @@ import { User, LoginCredentials } from '../models/user.model';
 const MOCK_USERS: Array<User & { password: string }> = [
     {
         id: '1',
-        email: 'demo@tradezella.com',
+        email: 'sasha@tradejournal.com',
         password: 'demo123',
         name: 'Sasha Vash',
         initials: 'SV',

@@ -86,11 +86,6 @@ export class SyncService {
             // Wait, I need to actually save them.
             // Let's modify TradeService to allow `importTrade` which might bypass some form logic or handle it.
 
-            console.log(`Found ${tradesToImport.length} new trades to import.`);
-
-            // Mock Saving for the moment since I don't have user ID handy in this service readily without injecting Auth
-            // But I can inject Auth.
-
             const currentUser = this.authService.currentUser();
             if (!currentUser) throw new Error('User not logged in');
 

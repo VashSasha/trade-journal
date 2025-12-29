@@ -170,7 +170,7 @@ export class TradeEntryComponent implements OnInit {
 
             if (this.isEditMode() && this.editingTradeId) {
                 this.tradeService.updateTrade(this.editingTradeId, formData);
-                this.router.navigate(['/journal', this.editingTradeId]);
+                this.router.navigate(['/journal/trade', this.editingTradeId]);
             } else {
                 this.tradeService.createTrade(formData, currentUser.id);
                 this.router.navigate(['/journal']);
@@ -184,7 +184,7 @@ export class TradeEntryComponent implements OnInit {
 
     cancel(): void {
         if (this.isEditMode() && this.editingTradeId) {
-            this.router.navigate(['/journal', this.editingTradeId]);
+            this.router.navigate(['/journal/trade', this.editingTradeId]);
         } else {
             this.router.navigate(['/journal']);
         }

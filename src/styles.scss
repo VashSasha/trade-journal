@@ -2,7 +2,79 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Global Styles can go here */
+/* Quill Editor Styles */
+@import 'quill/dist/quill.snow.css';
+
+/* Custom Global Styles */
 html, body {
     height: 100%;
+}
+
+/* Quill Editor Custom Styling */
+.quill-editor-custom {
+    .ql-toolbar {
+        @apply border-slate-200 bg-slate-50 rounded-t-lg dark:border-slate-700 dark:bg-slate-800;
+        
+        .ql-stroke {
+            @apply stroke-slate-700 dark:stroke-slate-300;
+        }
+        
+        .ql-fill {
+            @apply fill-slate-700 dark:fill-slate-300;
+        }
+        
+        .ql-picker-label {
+            @apply text-slate-700 dark:text-slate-300;
+        }
+        
+        button:hover,
+        button.ql-active {
+            .ql-stroke {
+                @apply stroke-emerald-600 dark:stroke-emerald-400;
+            }
+            .ql-fill {
+                @apply fill-emerald-600 dark:fill-emerald-400;
+            }
+        }
+    }
+    
+    .ql-container {
+        @apply border-slate-200 bg-white rounded-b-lg dark:border-slate-700 dark:bg-slate-900;
+        font-family: inherit;
+        
+        .ql-editor {
+            @apply text-slate-900 dark:text-white;
+            min-height: 500px;
+            font-size: 1rem;
+            line-height: 1.75;
+            
+            &.ql-blank::before {
+                @apply text-slate-400 dark:text-slate-500 italic;
+            }
+            
+            h1 {
+                @apply text-3xl font-bold mb-4 text-slate-900 dark:text-white;
+            }
+            
+            h2 {
+                @apply text-2xl font-bold mb-3 text-slate-900 dark:text-white;
+            }
+            
+            blockquote {
+                @apply border-l-4 border-slate-300 pl-4 italic text-slate-600 dark:border-slate-600 dark:text-slate-400;
+            }
+            
+            code {
+                @apply bg-slate-100 px-1.5 py-0.5 rounded text-sm dark:bg-slate-800;
+            }
+            
+            pre {
+                @apply bg-slate-100 p-4 rounded-lg dark:bg-slate-800;
+            }
+            
+            a {
+                @apply text-emerald-600 underline dark:text-emerald-400;
+            }
+        }
+    }
 }

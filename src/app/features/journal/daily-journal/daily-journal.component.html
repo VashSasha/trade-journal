@@ -1,0 +1,126 @@
+<div class="flex gap-6 h-full">
+    <!-- Timeline Sidebar -->
+    <div class="w-80 flex-shrink-0 hidden lg:block">
+        <div
+            class="sticky top-4 rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
+            <div class="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+                <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Journal Timeline</h3>
+            </div>
+
+            <div class="max-h-[calc(100vh-12rem)] overflow-y-auto p-4">
+                @for (group of groupedTimeline(); track group.monthYear) {
+                <div class="mb-6">
+                    <h4 class="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+                        {{ group.monthYear }}
+                    </h4>
+
+                    <div class="space-y-2">
+                        @for (entry of group.entries; track entry.date) {
+                        <button (click)="selectDate(entry.date)" [class.bg-emerald-50]="entry.date === selectedDate()"
+                            [class.dark:bg-emerald-900/20]="entry.date === selectedDate()"
+                            [class.border-emerald-500]="entry.date === selectedDate()"
+                            class="group relative w-full rounded-lg border border-slate-200 p-3 text-left transition-all hover:border-emerald-400 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
+                            <div class="flex items-start gap-3">
+                                <!-- Timeline dot -->
+                                <div class="mt-1 flex-shrink-0">
+                                    @if (entry.hasContent) {
+                                    <div [class.bg-emerald-500]="entry.date === selectedDate()"
+                                        [class.bg-blue-500]="entry.isToday && entry.date !== selectedDate()"
+                                        [class.bg-slate-400]="!entry.isToday && entry.date !== selectedDate()"
+                                        class="h-2.5 w-2.5 rounded-full"></div>
+                                    } @else {
+                                    <div
+                                        class="h-2.5 w-2.5 rounded-full border-2 border-slate-300 dark:border-slate-600">
+                                    </div>
+                                    }
+                                </div>
+
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <span [class.font-semibold]="entry.date === selectedDate()"
+                                            [class.text-emerald-700]="entry.date === selectedDate()"
+                                            [class.dark:text-emerald-400]="entry.date === selectedDate()"
+                                            class="text-sm text-slate-900 dark:text-white">
+                                            {{ entry.displayDate }}
+                                        </span>
+                                        @if (entry.isToday) {
+                                        <span
+                                            class="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                            Today
+                                        </span>
+                                        }
+                                    </div>
+
+                                    @if (entry.preview) {
+                                    <p class="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
+                                        {{ entry.preview }}
+                                    </p>
+                                    } @else {
+                                    <p class="mt-1 text-xs italic text-slate-400 dark:text-slate-500">
+                                        No entry
+                                    </p>
+                                    }
+                                </div>
+                            </div>
+                        </button>
+                        }
+                    </div>
+                </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Editor -->
+    <div class="flex-1 min-w-0">
+        <div class="rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <!-- Toolbar -->
+            <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+                <div class="flex items-center gap-4">
+                    <button (click)="changeDate(-1)" class="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
+                        <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+
+                    <div class="relative">
+                        <input type="date" [ngModel]="selectedDate()" (change)="onDateChange($event)"
+                            class="rounded border border-slate-300 px-3 py-1 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                    </div>
+
+                    <button (click)="changeDate(1)" class="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
+                        <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+
+                    <span class="ml-2 text-sm font-medium text-slate-700 dark:text-slate-300 hidden sm:block">
+                        {{ displayDate() }}
+                    </span>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    @if (lastSaved()) {
+                    <span class="text-xs text-slate-500">
+                        Saved {{ lastSaved() | date:'shortTime' }}
+                    </span>
+                    }
+                    <button (click)="saveNote()"
+                        class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600">
+                        Save Note
+                    </button>
+                </div>
+            </div>
+
+            <!-- Editor Area -->
+            <div class="p-6">
+                <quill-editor [ngModel]="noteContent()" (ngModelChange)="noteContent.set($event)"
+                    [modules]="quillModules" placeholder="How was the market today? What did you learn?..."
+                    class="quill-editor-custom" [styles]="{
+                        'min-height': '500px',
+                        'border-radius': '0.5rem'
+                    }"></quill-editor>
+            </div>
+        </div>
+    </div>
+</div>

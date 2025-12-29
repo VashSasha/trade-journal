@@ -1,11 +1,9 @@
-
 import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { TradeService } from '../../../core/services/trade.service';
 import { SyncService } from '../../../core/services/sync.service';
-import { AuthService } from '../../../core/services/auth.service';
-import { Trade, TradeStatus, TradeDirection } from '../../../core/models/trade.model';
+import { Trade, TradeStatus } from '../../../core/models/trade.model';
 
 type SortField = 'symbol' | 'entryDate' | 'pnl' | 'status';
 type SortDirection = 'asc' | 'desc';
@@ -19,7 +17,6 @@ type SortDirection = 'asc' | 'desc';
 })
 export class TradeListComponent {
     private tradeService = inject(TradeService);
-    private authService = inject(AuthService);
     private syncService = inject(SyncService);
     private router = inject(Router);
 
@@ -134,6 +131,6 @@ export class TradeListComponent {
     }
 
     viewTrade(trade: Trade): void {
-        this.router.navigate(['/journal', trade.id]);
+        this.router.navigate(['/journal/trade', trade.id]);
     }
 }

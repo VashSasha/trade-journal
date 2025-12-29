@@ -17,7 +17,7 @@
       "sourceRoot": "src",
       "prefix": "app",
       "architect": {
-        "build": {
+        "build": {x
           "builder": "@angular/build:application",
           "options": {
             "browser": "src/main.ts",

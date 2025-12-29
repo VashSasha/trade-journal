@@ -24,18 +24,39 @@ export const routes: Routes = [
             },
             {
                 path: 'journal',
-                loadComponent: () => import('./features/journal/trade-list/trade-list').then(m => m.TradeListComponent)
+                loadComponent: () => import('./features/journal/layout/journal-layout.component').then(m => m.JournalLayoutComponent),
+                children: [
+                    {
+                        path: '',
+                        redirectTo: 'trades',
+                        pathMatch: 'full'
+                    },
+                    {
+                        path: 'trades',
+                        loadComponent: () => import('./features/journal/trade-list/trade-list').then(m => m.TradeListComponent)
+                    },
+                    {
+                        path: 'daily',
+                        loadComponent: () => import('./features/journal/daily-journal/daily-journal.component').then(m => m.DailyJournalComponent)
+                    }
+                ]
             },
             {
-                path: 'journal/new',
+                path: 'journal/trade/new',
                 loadComponent: () => import('./features/journal/trade-entry/trade-entry')
                     .then(m => m.TradeEntryComponent),
                 canActivate: [authGuard]
             },
             {
-                path: 'journal/edit/:id',
+                path: 'journal/trade/:id/edit',
                 loadComponent: () => import('./features/journal/trade-entry/trade-entry')
                     .then(m => m.TradeEntryComponent),
+                canActivate: [authGuard]
+            },
+            {
+                path: 'journal/trade/:id',
+                loadComponent: () => import('./features/journal/trade-detail/trade-detail')
+                    .then(m => m.TradeDetailComponent),
                 canActivate: [authGuard]
             },
             {
@@ -43,13 +64,6 @@ export const routes: Routes = [
                 loadChildren: () => import('./features/integrations/integrations.routes')
                     .then(m => m.INTEGRATION_ROUTES)
             },
-            {
-                path: 'journal/:id',
-                loadComponent: () => import('./features/journal/trade-detail/trade-detail')
-                    .then(m => m.TradeDetailComponent),
-                canActivate: [authGuard]
-            },
-            // More routes will be added here
         ]
     }
 ];
