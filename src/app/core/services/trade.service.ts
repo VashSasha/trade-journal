@@ -62,7 +62,14 @@ export class TradeService {
 
         // Calculate P&L if trade is closed OR missed (missed trades can have theoretical P&L)
         if ((trade.status === 'closed' || trade.status === 'missed') && trade.exitPrice) {
-            this.calculatePnL(trade);
+            // Respect pre-calculated PnL (e.g. from Import service which knows multipliers)
+            if (trade.pnl !== undefined) {
+                if (trade.netPnl === undefined) {
+                    trade.netPnl = trade.pnl - (trade.fees || 0);
+                }
+            } else {
+                this.calculatePnL(trade);
+            }
         }
 
         // Add to array
@@ -132,9 +139,10 @@ export class TradeService {
         if (!trade.exitPrice || !trade.entryPrice) return;
 
         const multiplier = trade.direction === 'long' ? 1 : -1;
+        const contractMult = trade.multiplier || 1;
         const priceDiff = (trade.exitPrice - trade.entryPrice) * multiplier;
 
-        trade.pnl = priceDiff * trade.quantity;
+        trade.pnl = priceDiff * trade.quantity * contractMult;
         trade.pnlPercent = (priceDiff / trade.entryPrice) * 100;
         trade.netPnl = trade.pnl - (trade.fees || 0);
     }

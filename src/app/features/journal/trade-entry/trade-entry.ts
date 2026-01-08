@@ -28,6 +28,9 @@ export class TradeEntryComponent implements OnInit {
     // P&L as a signal that updates when form changes
     estimatedPnL = signal<{ gross: number; net: number; percent: number } | null>(null);
 
+    // Contract multiplier (defaults to 1, updated on load)
+    private multiplier = 1;
+
     // Asset types for dropdown
     assetTypes: AssetType[] = ['stock', 'option', 'forex', 'futures', 'crypto'];
 
@@ -61,7 +64,7 @@ export class TradeEntryComponent implements OnInit {
         const today = new Date().toISOString().split('T')[0];
 
         this.tradeForm = this.fb.group({
-            symbol: ['', [Validators.required, Validators.pattern(/^[A-Z]{1,5}$/)]],
+            symbol: ['', [Validators.required, Validators.maxLength(20)]],
             assetType: ['stock' as AssetType, Validators.required],
             direction: ['long' as TradeDirection, Validators.required],
             status: ['open', Validators.required], // Add status control to toggle missed
@@ -105,9 +108,11 @@ export class TradeEntryComponent implements OnInit {
                 direction: trade.direction,
                 status: trade.status === 'missed' ? 'missed' : trade.status, // Preserve 'missed' or map to current
                 entryDate: this.formatDateForInput(trade.entryDate),
+                entryTime: this.formatTimeForInput(trade.entryDate),
                 entryPrice: trade.entryPrice,
                 quantity: trade.quantity,
                 exitDate: trade.exitDate ? this.formatDateForInput(trade.exitDate) : '',
+                exitTime: trade.exitDate ? this.formatTimeForInput(trade.exitDate) : '',
                 exitPrice: trade.exitPrice,
                 fees: trade.fees,
                 setup: trade.setup,
@@ -115,6 +120,10 @@ export class TradeEntryComponent implements OnInit {
                 tags: trade.tags,
                 emotions: trade.emotions || []
             });
+
+            // Set multiplier for PnL calculation
+            this.multiplier = trade.multiplier || 1;
+
             // Recalculate P&L after patching
             this.calculatePnL();
         } else {
@@ -123,7 +132,19 @@ export class TradeEntryComponent implements OnInit {
     }
 
     private formatDateForInput(dateString: string): string {
-        return new Date(dateString).toISOString().split('T')[0];
+        const d = new Date(dateString);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    private formatTimeForInput(dateString: string): string {
+        const date = new Date(dateString);
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${hours}:${minutes}:${seconds}`;
     }
 
     private calculatePnL(): void {
@@ -138,9 +159,9 @@ export class TradeEntryComponent implements OnInit {
             return;
         }
 
-        const multiplier = direction === 'long' ? 1 : -1;
-        const priceDiff = (exit - entry) * multiplier;
-        const grossPnL = priceDiff * quantity;
+        const dirMultiplier = direction === 'long' ? 1 : -1;
+        const priceDiff = (exit - entry) * dirMultiplier;
+        const grossPnL = priceDiff * quantity * this.multiplier;
         const netPnL = grossPnL - fees;
         const pnlPercent = (priceDiff / entry) * 100;
 
@@ -167,6 +188,13 @@ export class TradeEntryComponent implements OnInit {
 
         try {
             const formData = this.tradeForm.value;
+
+            // Combine Date and Time
+            const entryDateTime = this.combineDateAndTime(formData.entryDate, formData.entryTime);
+            if (entryDateTime) formData.entryDate = entryDateTime;
+
+            const exitDateTime = this.combineDateAndTime(formData.exitDate, formData.exitTime);
+            if (exitDateTime) formData.exitDate = exitDateTime;
 
             if (this.isEditMode() && this.editingTradeId) {
                 this.tradeService.updateTrade(this.editingTradeId, formData);
@@ -213,5 +241,14 @@ export class TradeEntryComponent implements OnInit {
     isEmotionSelected(emotion: string): boolean {
         const currentEmotions = this.tradeForm.get('emotions')?.value as string[] || [];
         return currentEmotions.includes(emotion);
+    }
+
+    private combineDateAndTime(dateStr: string, timeStr: string): string | null {
+        if (!dateStr) return null;
+        if (!timeStr) return new Date(dateStr).toISOString(); // Default to date at 00:00 UTC if no time
+
+        // Create local date object
+        const date = new Date(dateStr + 'T' + timeStr);
+        return date.toISOString();
     }
 }

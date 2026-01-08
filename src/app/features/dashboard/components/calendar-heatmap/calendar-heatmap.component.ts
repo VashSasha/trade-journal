@@ -28,7 +28,13 @@ export class CalendarHeatmapComponent {
         const dailyStats = new Map<string, { pnl: number, count: number }>();
 
         this.trades.forEach(trade => {
-            const dateStr = new Date(trade.entryDate).toISOString().split('T')[0];
+            // Use local date to avoid timezone issues (e.g. trading at 8pm should count for today, not tomorrow UTC)
+            const d = new Date(trade.entryDate);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
+
             const currentStats = dailyStats.get(dateStr) || { pnl: 0, count: 0 };
 
             if (trade.status === 'closed' && trade.netPnl !== undefined) {
@@ -47,7 +53,11 @@ export class CalendarHeatmapComponent {
         const prevMonthLastDay = new Date(year, month, 0).getDate();
         for (let i = startPadding - 1; i >= 0; i--) {
             const date = new Date(year, month - 1, prevMonthLastDay - i);
-            const dateStr = date.toISOString().split('T')[0];
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const dStr = String(date.getDate()).padStart(2, '0');
+            const dateStr = `${y}-${m}-${dStr}`;
+
             const stats = dailyStats.get(dateStr) || { pnl: 0, count: 0 };
             days.push({
                 date,

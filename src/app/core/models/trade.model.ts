@@ -24,6 +24,7 @@ export interface Trade {
 
     // Fees & Calculations
     fees?: number;
+    multiplier?: number;
     pnl?: number;
     pnlPercent?: number;
     netPnl?: number;
@@ -64,6 +65,7 @@ export interface TradeFormData {
     exitTime?: string;
     exitPrice?: number;
     fees?: number;
+    multiplier?: number;
     setup?: string;
     playbookId?: string; // For future detailed strategies
 

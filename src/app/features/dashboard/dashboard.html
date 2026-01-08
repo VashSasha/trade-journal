@@ -43,16 +43,17 @@
         <!-- Calendar & Recent Trades Grid -->
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 
-            <!-- Goals Widget -->
-            <div class="lg:col-span-3">
-                <app-goals-widget></app-goals-widget>
-            </div>
 
             <!-- Calendar Section (Takes up 2 cols on large screens) -->
             <app-calendar-heatmap class="lg:col-span-2" [trades]="trades()"></app-calendar-heatmap>
 
             <!-- Recent Trades (Takes up 1 col on large screens) -->
             <app-recent-trades [trades]="recentTrades()"></app-recent-trades>
+            <!-- Goals Widget -->
+            <div class="lg:col-span-1">
+                <app-goals-widget></app-goals-widget>
+            </div>
+
         </div>
     </div>
 </div>

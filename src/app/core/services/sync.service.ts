@@ -35,11 +35,9 @@ export class SyncService {
             for (const id of contractIds) {
                 try {
                     const contract = await firstValueFrom(this.tradovateService.getContract(id));
-                    if (contract) {
-                        contractMap.set(id, contract);
-                    }
-                } catch (e) {
-                    console.warn(`Failed to fetch contract details for ${id}`, e);
+                    contractMap.set(id, contract);
+                } catch (err) {
+                    console.error(`Failed to fetch contract ${id}`, err);
                 }
             }
 
@@ -89,14 +87,26 @@ export class SyncService {
                 const c = contractMap.get(fill.contractId);
                 // Try standard fields from API (pointValue, tickValue, etc)
                 if (c.pointValue) return c.pointValue;
+
+                // Fallback using Contract Name
+                const name = (c.name || '').toUpperCase();
+
+                if (name.includes('MNQ') || name.includes('MICRO E-MINI NASDAQ')) return 2;
+                if (name.includes('MES') || name.includes('MICRO E-MINI S&P')) return 5;
+                if (name.includes('NQ') || name.includes('E-MINI NASDAQ')) return 20;
+                if (name.includes('ES') || name.includes('E-MINI S&P')) return 50;
+                if (name.includes('CL') || name.includes('CRUDE OIL')) return 1000;
+                if (name.includes('GC') || name.includes('GOLD')) return 100;
             }
-            // Fallbacks
-            const sym = fill.symbol;
+
+            // Fallbacks - try symbol if no contract map match
+            const sym = (fill.symbol || '').toUpperCase();
             if (sym.includes('MNQ') || sym.includes('MES')) return sym.includes('MNQ') ? 2 : 5;
             if (sym.includes('NQ')) return 20;
             if (sym.includes('ES')) return 50;
             if (sym.includes('CL')) return 1000;
             if (sym.includes('GC')) return 100;
+
             return 1;
         };
 
@@ -129,14 +139,15 @@ export class SyncService {
                         symbol: sym,
                         assetType: 'futures',
                         direction: isLong ? 'long' : 'short',
-                        entryDate: new Date(openFill.timestamp),
-                        exitDate: new Date(fill.timestamp),
+                        entryDate: new Date(openFill.timestamp).toISOString(),
+                        exitDate: new Date(fill.timestamp).toISOString(),
                         entryPrice: entryPrice,
                         exitPrice: exitPrice,
                         quantity: matchQty,
-                        status: pnl > 0 ? 'won' : 'lost',
+                        status: 'closed',
                         pnl: parseFloat(pnl.toFixed(2)), // Round to 2 decimals
                         fees: 0,
+                        multiplier: multiplier, // Persist multiplier
                         source: 'tradovate',
                         externalId: `tradovate_paired_${openFill.id}_${fill.id}`,
                         notes: `Matched Trade (FIFO)`

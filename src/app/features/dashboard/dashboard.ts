@@ -1,7 +1,8 @@
-import { Component, inject, computed, signal } from '@angular/core';
+import { Component, inject, computed, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TradeService } from '../../core/services/trade.service';
 import { TradovateService } from '../../core/services/tradovate.service';
+import { SyncService } from '../../core/services/sync.service';
 import { GoalsWidgetComponent } from './components/goals-widget/goals-widget.component';
 import { StatsOverviewComponent } from './components/stats-overview/stats-overview.component';
 import { PerformanceChartsComponent } from './components/performance-charts/performance-charts.component';
@@ -22,13 +23,22 @@ import { RecentTradesComponent } from './components/recent-trades/recent-trades.
     templateUrl: './dashboard.html',
     styleUrl: './dashboard.scss'
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnInit {
     private tradeService = inject(TradeService);
     private tradovateService = inject(TradovateService);
+    private syncService = inject(SyncService);
 
     // Account Balance
     accountBalance = signal<number | null>(null);
     isBalancing = signal(false);
+
+    ngOnInit(): void {
+        this.syncBalance();
+        // Auto-load trades
+        this.syncService.syncTrades().catch(err => {
+            console.error('Dashboard auto-sync failed:', err);
+        });
+    }
 
     syncBalance() {
         this.isBalancing.set(true);
