@@ -24,6 +24,7 @@ export class TradovateSettingsComponent {
     isConnecting = signal(false);
     account = signal<any>(null);
     balance = signal<any>(null);
+    showAdvanced = signal(false);
 
     get redirectUri(): string {
         return window.location.origin + '/settings/tradovate/callback';
@@ -37,6 +38,7 @@ export class TradovateSettingsComponent {
             authMode: 'oauth',
             username: '',
             password: '',
+            apiPassword: '',
             environment: 'demo'
         };
 
@@ -50,7 +52,8 @@ export class TradovateSettingsComponent {
             apiSecret: [initialValues.apiSecret],
             // Direct Login fields
             username: [initialValues.username],
-            password: [initialValues.password]
+            password: [initialValues.password],
+            apiPassword: [initialValues.apiPassword]
         });
 
         // Set validators based on mode
@@ -97,32 +100,44 @@ export class TradovateSettingsComponent {
         this.updateValidators(mode);
     }
 
-    private updateValidators(mode: 'oauth' | 'direct'): void {
+    updateValidators(mode: 'oauth' | 'direct'): void {
         const apiKey = this.configForm.get('apiKey');
         const apiSecret = this.configForm.get('apiSecret');
         const username = this.configForm.get('username');
         const password = this.configForm.get('password');
+        const apiPassword = this.configForm.get('apiPassword');
 
         if (mode === 'oauth') {
             apiKey?.setValidators([Validators.required]);
             apiSecret?.setValidators([Validators.required]);
             username?.clearValidators();
             password?.clearValidators();
+            apiPassword?.clearValidators();
         } else {
+            // Direct login (TradingView-style) only requires username/password
+            // No API credentials needed!
             username?.setValidators([Validators.required]);
             password?.setValidators([Validators.required]);
+
+            // API credentials are not required for simple login
             apiKey?.clearValidators();
             apiSecret?.clearValidators();
+            apiPassword?.clearValidators();
         }
 
         apiKey?.updateValueAndValidity();
         apiSecret?.updateValueAndValidity();
         username?.updateValueAndValidity();
         password?.updateValueAndValidity();
+        apiPassword?.updateValueAndValidity();
     }
 
     toggleSecret(): void {
         this.showSecret.update(v => !v);
+    }
+
+    toggleAdvanced(): void {
+        this.showAdvanced.update(v => !v);
     }
 
     onSubmit(): void {
@@ -147,15 +162,21 @@ export class TradovateSettingsComponent {
     }
 
     private initiateOAuth(): void {
+        const isDemo = this.configForm.value.environment === 'demo';
         const clientId = this.configForm.value.apiKey;
         const redirectUri = encodeURIComponent(this.redirectUri);
-        const authUrl = `https://trader.tradovate.com/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code`;
+
+        const host = isDemo ? 'demo.tradovateapi.com' : 'trader.tradovate.com';
+        const authUrl = `https://${host}/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code`;
         window.location.href = authUrl;
     }
 
     private loginDirectly(): void {
         this.isConnecting.set(true);
-        this.tradovateService.directLogin(this.configForm.value).subscribe({
+        const username = this.configForm.value.username;
+        const password = this.configForm.value.password;
+
+        this.tradovateService.simpleLogin(username, password).subscribe({
             next: () => {
                 this.isConnecting.set(false);
                 this.isConnected.set(true);

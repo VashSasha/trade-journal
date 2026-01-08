@@ -235,7 +235,7 @@
                             [class.opacity-60]="trade.status === 'missed'">
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-2">
-                                    <a [routerLink]="['/journal', trade.id]"
+                                    <a [routerLink]="['/journal/trade', trade.id]"
                                         class="font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:underline">
                                         {{ trade.symbol }}
                                     </a>
@@ -303,7 +303,7 @@
                             </td>
                             <td class="px-6 py-4 text-center">
                                 <div class="flex items-center justify-center gap-2">
-                                    <a [routerLink]="['/journal', trade.id]"
+                                    <a [routerLink]="['/journal/trade', trade.id]"
                                         class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
                                         title="View Details">
                                         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

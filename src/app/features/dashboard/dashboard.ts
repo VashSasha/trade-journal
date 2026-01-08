@@ -1,6 +1,7 @@
-import { Component, inject, computed } from '@angular/core';
+import { Component, inject, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TradeService } from '../../core/services/trade.service';
+import { TradovateService } from '../../core/services/tradovate.service';
 import { GoalsWidgetComponent } from './components/goals-widget/goals-widget.component';
 import { StatsOverviewComponent } from './components/stats-overview/stats-overview.component';
 import { PerformanceChartsComponent } from './components/performance-charts/performance-charts.component';
@@ -23,6 +24,31 @@ import { RecentTradesComponent } from './components/recent-trades/recent-trades.
 })
 export class DashboardComponent {
     private tradeService = inject(TradeService);
+    private tradovateService = inject(TradovateService);
+
+    // Account Balance
+    accountBalance = signal<number | null>(null);
+    isBalancing = signal(false);
+
+    syncBalance() {
+        this.isBalancing.set(true);
+        this.tradovateService.getCashBalances().subscribe({
+            next: (balances: any[]) => {
+                // Assuming the first balance is the primary one or summing them up.
+                // Tradovate usually returns an array. Let's try to find 'totalCashValue' or sum 'amount'.
+                // Using 'amount' from the first entry as a default for now.
+                if (balances && balances.length > 0) {
+                    const balance = balances[0].amount || 0;
+                    this.accountBalance.set(balance);
+                }
+                this.isBalancing.set(false);
+            },
+            error: (err) => {
+                console.error('Failed to fetch balance', err);
+                this.isBalancing.set(false);
+            }
+        });
+    }
 
     // Stats
     stats = this.tradeService.stats;

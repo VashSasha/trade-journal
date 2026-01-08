@@ -1,8 +1,9 @@
 import { Component, computed, inject, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { QuillModule } from 'ngx-quill';
 import { DailyJournalService } from '../../../core/services/daily-journal.service';
+import { QuillModule } from 'ngx-quill'
+
 
 interface TimelineEntry {
     date: string;

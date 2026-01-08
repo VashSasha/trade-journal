@@ -11,11 +11,12 @@ export interface TradovateConfig {
 export interface TradovateFill {
     id: number;
     symbol: string;
-    side: 'Buy' | 'Sell';
+    action: 'Buy' | 'Sell'; // Tradovate uses 'action' not 'side'
     qty: number;
     price: number;
     timestamp: string;
-    fee: number;
+    orderId?: number;
+    contractId?: number;
 }
 
 @Injectable({
@@ -43,6 +44,7 @@ export class TradovateService {
         const config = this.getConfig();
         if (!config) return throwError(() => new Error('Tradovate configuration not found'));
 
+        const isDemo = config.environment === 'demo';
         const body = {
             grant_type: 'authorization_code',
             code,
@@ -51,7 +53,11 @@ export class TradovateService {
             redirect_uri: window.location.origin + '/settings/tradovate/callback'
         };
 
-        return this.http.post(`https://live.tradovateapi.com/auth/oauthtoken`, body).pipe(
+        const authUrl = isDemo
+            ? 'https://demo.tradovateapi.com/v1/auth/oauthtoken'
+            : 'https://live.tradovateapi.com/auth/oauthtoken';
+
+        return this.http.post(authUrl, body).pipe(
             map((res: any) => {
                 if (res.access_token) {
                     localStorage.setItem('tradovate_token', res.access_token);
@@ -61,6 +67,48 @@ export class TradovateService {
                 } else {
                     throw new Error('No access token received');
                 }
+            })
+        );
+    }
+
+    // Simple Login (TradingView-style) - Just username/password, no API credentials needed
+    simpleLogin(username: string, password: string): Observable<any> {
+        const config = this.getConfig();
+        if (!config) return throwError(() => new Error('Tradovate configuration not found'));
+
+        const body = {
+            locale: 'en',
+            login: username,
+            password: password
+        };
+
+        // Use the simplified /authorize endpoint (TradingView approach)
+        const authUrl = config.environment === 'live'
+            ? 'https://tv-live.tradovateapi.com/authorize'
+            : 'https://tv-demo.tradovateapi.com/authorize';
+
+        const headers = new HttpHeaders({
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        });
+
+        return this.http.post(authUrl, body, { headers }).pipe(
+            map((res: any) => {
+                // Response format: { s: "ok", d: { access_token: "...", expiration: ... } }
+                const accessToken = res.d?.access_token || res.access_token;
+
+                if (accessToken) {
+                    localStorage.setItem('tradovate_token', accessToken);
+                    return res;
+                } else if (res.errorText) {
+                    throw new Error(res.errorText);
+                } else {
+                    throw new Error('Login failed: No access token received.');
+                }
+            }),
+            catchError(err => {
+                const errorMsg = err.error?.errorText || err.message || 'Login failed. Please check your credentials.';
+                return throwError(() => new Error(errorMsg));
             })
         );
     }
@@ -100,16 +148,49 @@ export class TradovateService {
             'Accept': 'application/json'
         });
 
+        // Note: Data endpoints use standard API domains (demo/live), not tv-demo/tv-live
         return this.http.get<any[]>(`${this.getBaseUrl()}/fill/list`, { headers }).pipe(
-            map(fills => fills.map(f => ({
-                id: f.id,
-                symbol: f.contractId?.toString() || 'Unknown',
-                side: f.side,
-                qty: f.qty,
-                price: f.price,
-                timestamp: f.timestamp,
-                fee: f.fee || 0
-            })))
+            map(fills => {
+                if (!fills || !Array.isArray(fills)) {
+                    console.warn('Unexpected fills response:', fills);
+                    return [];
+                }
+                return fills.map(f => ({
+                    id: f.id,
+                    orderId: f.orderId,
+                    contractId: f.contractId,
+                    symbol: f.contractId?.toString() || 'Unknown',
+                    action: f.action, // 'Buy' or 'Sell'
+                    qty: f.qty,
+                    price: f.price,
+                    timestamp: f.timestamp
+                }));
+            }),
+            catchError(err => {
+                console.error('Failed to fetch fills:', err);
+                const errorMsg = err.error?.errorText || err.message || 'Failed to fetch trade history';
+                return throwError(() => new Error(errorMsg));
+            })
+        );
+    }
+
+    getContract(contractId: number): Observable<any> {
+        const token = localStorage.getItem('tradovate_token');
+        if (!token) return throwError(() => new Error('Tradovate not connected'));
+
+        const headers = new HttpHeaders({
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+        });
+
+        return this.http.get<any>(`${this.getBaseUrl()}/contract/item`, {
+            headers,
+            params: { id: contractId.toString() }
+        }).pipe(
+            catchError(err => {
+                console.error('Failed to fetch contract:', err);
+                return throwError(() => new Error('Failed to fetch contract details'));
+            })
         );
     }
 

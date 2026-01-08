@@ -22,88 +22,168 @@ export class SyncService {
         this.isSyncing.set(true);
 
         try {
-            // 1. Fetch fills from the last month (for safety in this demo)
+            // 1. Fetch fills from the last month
             const fromDate = new Date();
             fromDate.setMonth(fromDate.getMonth() - 1);
 
             const fills = await firstValueFrom(this.tradovateService.getFills(fromDate));
 
-            // 2. Map fills to Trades
-            const tradesToImport: Trade[] = [];
+            // 1.5 Fetch contract details for better symbol names & multipliers
+            const contractIds = new Set(fills.map(f => f.contractId).filter(id => !!id) as number[]);
+            const contractMap = new Map<number, any>();
+
+            for (const id of contractIds) {
+                try {
+                    const contract = await firstValueFrom(this.tradovateService.getContract(id));
+                    if (contract) {
+                        contractMap.set(id, contract);
+                    }
+                } catch (e) {
+                    console.warn(`Failed to fetch contract details for ${id}`, e);
+                }
+            }
+
+            // 2. Process Fills into Trades (FIFO Matching)
+            const matchedTrades = this.matchTrades(fills, contractMap);
+
+            // 3. Filter out duplicates based on existing external IDs
+            // Note: Since we are changing ID format to 'tradovate_paired_...', we need to be careful.
+            // But we rely on externalId uniqueness.
             const existingExternalIds = new Set(
                 this.tradeService.trades()
                     .filter(t => t.source === 'tradovate')
                     .map(t => t.externalId)
             );
 
-            for (const fill of fills) {
-                // De-duplication
-                if (existingExternalIds.has(fill.id.toString())) {
-                    continue;
-                }
-
-                // Simple grouping logic: 
-                // For now, we import each FILL as a separate TRADE for simplicity.
-                // In a real app, we'd group fills into positions.
-
-                const trade: any = { // Using any to partial match the form data structure if needed, or directly model
-                    // But TradeService.createTrade expects form data or complete object? 
-                    // Let's modify TradeService to accept a Trade object directly or reuse the logic.
-                    // Actually TradeEntryComponent constructs the object.
-                    // let's manually construct a valid Trade object mostly.
-
-                    symbol: fill.symbol,
-                    assetType: 'futures' as AssetType, // Tradovate is futures
-                    direction: fill.side === 'Buy' ? 'long' : 'short' as TradeDirection,
-                    entryDate: new Date(fill.timestamp),
-                    entryPrice: fill.price,
-                    quantity: fill.qty,
-
-                    // For a fill, we don't have an exit yet unless we match headers.
-                    // Assuming these are closed trades for the MVP mock? 
-                    // Or we import them as "Open" trades?
-                    // Let's import as Open trades for now to be safe.
-                    status: 'open',
-
-                    fees: fill.fee,
-                    source: 'tradovate',
-                    externalId: fill.id.toString(),
-                    notes: 'Imported from Tradovate'
-                };
-
-                tradesToImport.push(trade);
-            }
-
-            // 3. Save to TradeService
-            // We need a method in TradeService to bulk add or add one by one.
-            // createTrade expects FormData-like object usually?
-            // checking TradeService... it takes (tradeData: Partial<Trade>, userId: string)
-            // We need a userId. Use a placeholder or inject AuthService.
-
-            // For this scaffold, I'll return the count and let the caller handle UI feedback.
-            // I'll assume we inject AuthService here or pass it in.
-
-            // Wait, I need to actually save them.
-            // Let's modify TradeService to allow `importTrade` which might bypass some form logic or handle it.
+            const tradesToImport = matchedTrades.filter(t => !existingExternalIds.has(t.externalId));
 
             const currentUser = this.authService.currentUser();
             if (!currentUser) throw new Error('User not logged in');
 
             let importedCount = 0;
             for (const tradeData of tradesToImport) {
-                // TradeService.createTrade takes (data, userId)
-                // We need to ensure tradeData matches what createTrade expects.
                 this.tradeService.createTrade(tradeData, currentUser.id);
                 importedCount++;
             }
 
+            this.lastSyncTime.set(new Date());
             return importedCount;
-        } catch (error) {
-            console.error('Sync failed', error);
-            throw error;
+        } catch (err) {
+            console.error('Sync failed', err);
+            throw err;
         } finally {
             this.isSyncing.set(false);
-            this.lastSyncTime.set(new Date());
         }
+    }
+
+    private matchTrades(fills: TradovateFill[], contractMap: Map<number, any>): any[] {
+        // Sort fills chronologically
+        const sortedFills = [...fills].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+        const trades: any[] = [];
+        const openPositions = new Map<string, TradovateFill[]>(); // Symbol -> List of Open Fills
+
+        // Refined Point Value Helper
+        const getMultiplier = (fill: TradovateFill): number => {
+            if (fill.contractId && contractMap.has(fill.contractId)) {
+                const c = contractMap.get(fill.contractId);
+                // Try standard fields from API (pointValue, tickValue, etc)
+                if (c.pointValue) return c.pointValue;
+            }
+            // Fallbacks
+            const sym = fill.symbol;
+            if (sym.includes('MNQ') || sym.includes('MES')) return sym.includes('MNQ') ? 2 : 5;
+            if (sym.includes('NQ')) return 20;
+            if (sym.includes('ES')) return 50;
+            if (sym.includes('CL')) return 1000;
+            if (sym.includes('GC')) return 100;
+            return 1;
+        };
+
+        for (const fill of sortedFills) {
+            const sym = fill.contractId ? (contractMap.get(fill.contractId)?.name || fill.symbol) : fill.symbol;
+            const multiplier = getMultiplier(fill);
+
+            // Check if we have opposing positions
+            const currentPosition = openPositions.get(sym) || [];
+
+            if (currentPosition.length === 0 || currentPosition[0].action === fill.action) {
+                // Same side or new position, add to stack
+                currentPosition.push({ ...fill }); // Clone to allow modifying qty
+                openPositions.set(sym, currentPosition);
+            } else {
+                // Opposite side, try to match
+                let remainingQty = fill.qty;
+
+                while (remainingQty > 0 && currentPosition.length > 0) {
+                    const openFill = currentPosition[0]; // FIFO: Take oldest
+                    const matchQty = Math.min(remainingQty, openFill.qty);
+
+                    // Create Closed Trade
+                    const isLong = openFill.action === 'Buy';
+                    const entryPrice = openFill.price;
+                    const exitPrice = fill.price;
+                    const pnl = (isLong ? (exitPrice - entryPrice) : (entryPrice - exitPrice)) * matchQty * multiplier;
+
+                    trades.push({
+                        symbol: sym,
+                        assetType: 'futures',
+                        direction: isLong ? 'long' : 'short',
+                        entryDate: new Date(openFill.timestamp),
+                        exitDate: new Date(fill.timestamp),
+                        entryPrice: entryPrice,
+                        exitPrice: exitPrice,
+                        quantity: matchQty,
+                        status: pnl > 0 ? 'won' : 'lost',
+                        pnl: parseFloat(pnl.toFixed(2)), // Round to 2 decimals
+                        fees: 0,
+                        source: 'tradovate',
+                        externalId: `tradovate_paired_${openFill.id}_${fill.id}`,
+                        notes: `Matched Trade (FIFO)`
+                    });
+
+                    // Update quantities
+                    remainingQty -= matchQty;
+                    openFill.qty -= matchQty;
+
+                    if (openFill.qty <= 0) {
+                        currentPosition.shift(); // Remove fully closed fill
+                    }
+                }
+
+                // If processed all matches and still have qty, add remainder as new position
+                if (remainingQty > 0) {
+                    const remainderFill = { ...fill, qty: remainingQty };
+                    currentPosition.push(remainderFill);
+                    openPositions.set(sym, currentPosition);
+                }
+
+                // Update map
+                if (currentPosition.length === 0) {
+                    openPositions.delete(sym);
+                }
+            }
+        }
+
+        // Add remaining open positions as "Open" trades
+        openPositions.forEach((fills, sym) => {
+            fills.forEach(fill => {
+                trades.push({
+                    symbol: sym,
+                    assetType: 'futures',
+                    direction: fill.action === 'Buy' ? 'long' : 'short',
+                    entryDate: new Date(fill.timestamp),
+                    entryPrice: fill.price,
+                    quantity: fill.qty,
+                    status: 'open',
+                    fees: 0,
+                    source: 'tradovate',
+                    externalId: `tradovate_open_${fill.id}`,
+                    notes: 'Open Position (Unmatched)'
+                });
+            });
+        });
+
+        return trades;
     }
 }

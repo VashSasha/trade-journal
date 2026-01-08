@@ -51,17 +51,15 @@
             </div>
 
             <form [formGroup]="configForm" (ngSubmit)="onSubmit()" class="space-y-6">
-                <!-- Environment Selection -->
-                @if (authMode() === 'direct') {
+                <!-- Environment Selection (Universal) -->
                 <div>
                     <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Environment</label>
-                    <select formControlName="environment"
+                    <select formControlName="environment" (change)="updateValidators(authMode())"
                         class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
                         <option value="demo">Simulation / Demo</option>
                         <option value="live">Live Trading</option>
                     </select>
                 </div>
-                }
 
                 @if (authMode() === 'oauth') {
                 <!-- API Info Alert -->
@@ -111,28 +109,24 @@
                     </div>
                 </div>
                 } @else {
-                <!-- Direct Login Fields -->
-                <div class="rounded-lg bg-amber-50 p-4 text-sm text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                    <p class="font-medium">Direct Authentication (Simulation):</p>
-                    <p class="mt-1">This method uses your Tradovate username and password directly. Great for testing on
-                        demo accounts.</p>
+                <!-- Simplified Direct Login Fields (TradeZella Style) -->
+                <div class="mb-6">
+                    <label for="username" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Tradovate Username
+                    </label>
+                    <input type="text" id="username" formControlName="username"
+                        class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                        placeholder="Enter your username">
                 </div>
 
                 <div class="mb-6">
-                    <label for="username"
-                        class="block text-sm font-medium text-slate-700 dark:text-slate-300">Username</label>
-                    <input type="text" id="username" formControlName="username"
-                        class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                        placeholder="Your Tradovate username">
-                </div>
-
-                <div class="mb-8">
-                    <label for="password"
-                        class="block text-sm font-medium text-slate-700 dark:text-slate-300">Password</label>
+                    <label for="password" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Password
+                    </label>
                     <div class="relative mt-1">
                         <input [type]="showSecret() ? 'text' : 'password'" id="password" formControlName="password"
                             class="block w-full rounded-lg border border-slate-300 bg-white px-4 py-2 pr-10 text-slate-900 focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                            placeholder="Your Tradovate password">
+                            placeholder="Enter your password">
                         <button type="button" (click)="toggleSecret()"
                             class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
                             @if (showSecret()) {
@@ -145,12 +139,49 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268-2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                             }
                         </button>
                     </div>
                 </div>
+
+                <!-- Advanced Settings Toggle -->
+                <div class="mb-4">
+                    <button type="button" (click)="toggleAdvanced()"
+                        class="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1">
+                        <svg class="h-3 w-3 transition-transform" [class.rotate-90]="showAdvanced()" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                        Advanced API Settings
+                    </button>
+                </div>
+
+                @if (showAdvanced()) {
+                <div class="space-y-4 rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50 mb-6">
+                    <div>
+                        <label for="directApiKey" class="block text-xs font-medium text-slate-500 dark:text-slate-400">
+                            Custom Client ID (CID)
+                        </label>
+                        <input type="text" id="directApiKey" formControlName="apiKey"
+                            class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                            placeholder="Optional for Demo">
+                    </div>
+                    <div>
+                        <label for="directApiSecret"
+                            class="block text-xs font-medium text-slate-500 dark:text-slate-400">
+                            Custom Secret
+                        </label>
+                        <input type="password" id="directApiSecret" formControlName="apiSecret"
+                            class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                            placeholder="Optional for Demo">
+                    </div>
+                    <p class="text-[10px] text-slate-400">
+                        Leaving these blank will use the application's default integration keys.
+                    </p>
+                </div>
+                }
                 }
 
                 <!-- Actions -->
