@@ -28,7 +28,12 @@ export class SyncService {
 
             const fills = await firstValueFrom(this.tradovateService.getFills(fromDate));
 
-            // 1.5 Fetch contract details for better symbol names & multipliers
+            // 1.5 Fetch accounts for account name mapping
+            const accounts = await firstValueFrom(this.tradovateService.getAccounts());
+            const accountMap = new Map<number, string>();
+            accounts.forEach(acc => accountMap.set(acc.id, acc.name));
+
+            // 2. Fetch contract details for better symbol names & multipliers
             const contractIds = new Set(fills.map(f => f.contractId).filter(id => !!id) as number[]);
             const contractMap = new Map<number, any>();
 
@@ -41,8 +46,8 @@ export class SyncService {
                 }
             }
 
-            // 2. Process Fills into Trades (FIFO Matching)
-            const matchedTrades = this.matchTrades(fills, contractMap);
+            // 3. Process Fills into Trades (FIFO Matching)
+            const matchedTrades = this.matchTrades(fills, contractMap, accountMap);
 
             // 3. Filter out duplicates based on existing external IDs
             // Note: Since we are changing ID format to 'tradovate_paired_...', we need to be careful.
@@ -74,7 +79,7 @@ export class SyncService {
         }
     }
 
-    private matchTrades(fills: TradovateFill[], contractMap: Map<number, any>): any[] {
+    private matchTrades(fills: TradovateFill[], contractMap: Map<number, any>, accountMap: Map<number, string>): any[] {
         // Sort fills chronologically
         const sortedFills = [...fills].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
@@ -150,6 +155,8 @@ export class SyncService {
                         multiplier: multiplier, // Persist multiplier
                         source: 'tradovate',
                         externalId: `tradovate_paired_${openFill.id}_${fill.id}`,
+                        accountId: openFill.accountId?.toString(),
+                        accountName: openFill.accountId ? accountMap.get(openFill.accountId) : undefined,
                         notes: `Matched Trade (FIFO)`
                     });
 

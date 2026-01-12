@@ -10,6 +10,9 @@
                     [class.dark:text-white]="stats.totalPnl === 0">
                     {{ formatCurrency(stats.totalPnl) }}
                 </div>
+                <div class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    {{ stats.totalPoints >= 0 ? '+' : '' }}{{ stats.totalPoints.toFixed(2) }} points
+                </div>
             </div>
             <div class="rounded-full p-3" [class.bg-emerald-100]="stats.totalPnl > 0"
                 [class.dark:bg-emerald-900/30]="stats.totalPnl > 0" [class.bg-red-100]="stats.totalPnl < 0"

@@ -5,7 +5,7 @@ import { TradeService } from '../../../core/services/trade.service';
 import { SyncService } from '../../../core/services/sync.service';
 import { Trade, TradeStatus } from '../../../core/models/trade.model';
 
-type SortField = 'symbol' | 'entryDate' | 'pnl' | 'status';
+type SortField = 'symbol' | 'assetType' | 'entryDate' | 'pnl' | 'status';
 type SortDirection = 'asc' | 'desc';
 
 @Component({
@@ -23,6 +23,13 @@ export class TradeListComponent {
     // Signals for filtering and sorting
     searchQuery = signal('');
     statusFilter = signal<'all' | 'open' | 'closed' | 'missed'>('all');
+
+    // Selection Logic
+    selectedTradeIds = signal<Set<string>>(new Set());
+    isAllSelected = computed(() => {
+        const filtered = this.filteredTrades();
+        return filtered.length > 0 && filtered.every(t => this.selectedTradeIds().has(t.id));
+    });
 
     isImporting = this.syncService.isSyncing;
 
@@ -132,5 +139,69 @@ export class TradeListComponent {
 
     viewTrade(trade: Trade): void {
         this.router.navigate(['/journal/trade', trade.id]);
+    }
+
+    toggleSelection(id: string, event: Event): void {
+        event.stopPropagation();
+        const current = new Set(this.selectedTradeIds());
+        if (current.has(id)) {
+            current.delete(id);
+        } else {
+            current.add(id);
+        }
+        this.selectedTradeIds.set(current);
+    }
+
+    toggleAll(event: Event): void {
+        const checked = (event.target as HTMLInputElement).checked;
+        const current = new Set(this.selectedTradeIds());
+        const visibleTrades = this.filteredTrades();
+
+        if (checked) {
+            visibleTrades.forEach(t => current.add(t.id));
+        } else {
+            visibleTrades.forEach(t => current.delete(t.id));
+        }
+        this.selectedTradeIds.set(current);
+    }
+
+    deleteSelected(): void {
+        if (!confirm(`Delete ${this.selectedTradeIds().size} trades?`)) return;
+
+        this.tradeService.deleteTrades(this.selectedTradeIds());
+        this.selectedTradeIds.set(new Set()); // Clear selection
+    }
+
+    exportSelected(): void {
+        const ids = this.selectedTradeIds();
+        const trades = this.allTrades().filter(t => ids.has(t.id));
+        if (trades.length === 0) return;
+
+        const headers = ['Date', 'Symbol', 'Type', 'Side', 'Status', 'Entry', 'Exit', 'Qty', 'PnL', 'Fees', 'Setup', 'Notes'];
+        const csvContent = [
+            headers.join(','),
+            ...trades.map(t => [
+                t.entryDate,
+                t.symbol,
+                t.assetType,
+                t.direction,
+                t.status,
+                t.entryPrice,
+                t.exitPrice || '',
+                t.quantity,
+                t.netPnl || 0,
+                t.fees || 0,
+                `"${t.setup || ''}"`,
+                `"${t.notes?.replace(/"/g, '""') || ''}"` // Escape quotes in notes
+            ].join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `trades_export_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
     }
 }

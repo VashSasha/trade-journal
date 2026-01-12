@@ -57,4 +57,14 @@ export class TradeDetailComponent implements OnInit {
       day: 'numeric'
     });
   }
+
+  calculatePoints(trade: Trade): string {
+    if (!trade.entryPrice || !trade.exitPrice) return '0.00';
+
+    const points = trade.direction === 'long'
+      ? trade.exitPrice - trade.entryPrice
+      : trade.entryPrice - trade.exitPrice;
+
+    return (points >= 0 ? '+' : '') + points.toFixed(2);
+  }
 }

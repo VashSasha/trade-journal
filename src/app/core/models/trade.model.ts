@@ -40,6 +40,8 @@ export interface Trade {
     // Integration Fields
     source?: 'manual' | 'tradovate';
     externalId?: string;
+    accountId?: string; // Tradovate account ID
+    accountName?: string; // Display name for the account
 
     // Notes & Media
     notes?: string;
@@ -72,6 +74,8 @@ export interface TradeFormData {
     // Integration Fields
     source?: 'manual' | 'tradovate';
     externalId?: string; // ID from external broker (e.g. Fill ID)
+    accountId?: string; // Tradovate account ID
+    accountName?: string; // Display name for the account
 
     status?: TradeStatus; // explicit status override (e.g. 'missed')
 
@@ -86,6 +90,7 @@ export interface TradeStats {
     openTrades: number;
     closedTrades: number;
     totalPnl: number;
+    totalPoints: number;
     winningTrades: number;
     losingTrades: number;
     winRate: number;

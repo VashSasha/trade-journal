@@ -63,8 +63,17 @@
           [class.dark:text-emerald-500]="t.netPnl > 0" [class.text-red-600]="t.netPnl < 0"
           [class.dark:text-red-500]="t.netPnl < 0" [class.text-slate-600]="t.netPnl === 0"
           [class.dark:text-slate-400]="t.netPnl === 0">
-          {{ t.pnlPercent && t.pnlPercent >= 0 ? '+' : '' }}{{ t.pnlPercent?.toFixed(2) }}%
+          @if (t.pnlPercent !== undefined && t.pnlPercent !== null) {
+          {{ t.pnlPercent >= 0 ? '+' : '' }}{{ t.pnlPercent.toFixed(2) }}%
+          } @else {
+          -
+          }
         </div>
+        @if (t.entryPrice && t.exitPrice) {
+        <div class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          {{ calculatePoints(t) }} points
+        </div>
+        }
         } @else {
         <div class="text-4xl font-bold text-slate-400">Open</div>
         <div class="mt-2 text-sm text-slate-500">Position is still active</div>
@@ -78,12 +87,11 @@
         <div class="grid grid-cols-2 gap-y-6 gap-x-8 md:grid-cols-4">
           <div>
             <div class="text-xs text-slate-500">Entry Price</div>
-            <div class="mt-1 font-semibold text-slate-900 dark:text-white">{{ formatCurrency(t.entryPrice) }}</div>
+            <div class="mt-1 font-semibold text-slate-900 dark:text-white">{{ t.entryPrice || '-' }}</div>
           </div>
           <div>
             <div class="text-xs text-slate-500">Exit Price</div>
-            <div class="mt-1 font-semibold text-slate-900 dark:text-white">{{ t.exitPrice ? formatCurrency(t.exitPrice)
-              : '-' }}</div>
+            <div class="mt-1 font-semibold text-slate-900 dark:text-white">{{ t.exitPrice || '-' }}</div>
           </div>
           <div>
             <div class="text-xs text-slate-500">Quantity</div>

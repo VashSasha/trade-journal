@@ -139,6 +139,10 @@
                 <table class="w-full">
                     <thead class="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50">
                         <tr>
+                            <th class="w-4 px-6 py-3">
+                                <input type="checkbox" [checked]="isAllSelected()" (change)="toggleAll($event)"
+                                    class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:checked:bg-emerald-500" />
+                            </th>
                             <th class="px-6 py-3 text-left">
                                 <button (click)="setSort('symbol')"
                                     class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
@@ -156,9 +160,28 @@
                                     }
                                 </button>
                             </th>
-                            <th
-                                class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                                Type
+                            <th class="px-6 py-3 text-left">
+                                <button (click)="setSort('assetType')"
+                                    class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
+                                    Asset Type
+                                    @if (sortField() === 'assetType') {
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        @if (sortDirection() === 'asc') {
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 15l7-7 7 7" />
+                                        } @else {
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 9l-7 7-7-7" />
+                                        }
+                                    </svg>
+                                    }
+                                </button>
+                            </th>
+                            <th class="px-6 py-3 text-left">
+                                <span
+                                    class="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                                    Account
+                                </span>
                             </th>
                             <th class="px-6 py-3 text-left">
                                 <button (click)="setSort('entryDate')"
@@ -232,7 +255,14 @@
                     <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
                         @for (trade of filteredTrades(); track trade.id) {
                         <tr class="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                            [class.bg-emerald-50]="selectedTradeIds().has(trade.id)"
+                            [class.dark:bg-emerald-900/10]="selectedTradeIds().has(trade.id)"
                             [class.opacity-60]="trade.status === 'missed'">
+                            <td class="w-4 px-6 py-4">
+                                <input type="checkbox" [checked]="selectedTradeIds().has(trade.id)"
+                                    (click)="toggleSelection(trade.id, $event)"
+                                    class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:checked:bg-emerald-500" />
+                            </td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-2">
                                     <a [routerLink]="['/journal/trade', trade.id]"
@@ -256,13 +286,23 @@
                                 {{ trade.assetType | titlecase }}
                             </td>
                             <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
+                                @if (trade.accountName) {
+                                <span
+                                    class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                    {{ trade.accountName }}
+                                </span>
+                                } @else {
+                                <span class="text-slate-400">-</span>
+                                }
+                            </td>
+                            <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
                                 {{ formatDate(trade.entryDate) }}
                             </td>
                             <td class="px-6 py-4 text-right text-sm text-slate-900 dark:text-white">
-                                {{ formatCurrency(trade.entryPrice) }}
+                                {{ trade.entryPrice || '-' }}
                             </td>
                             <td class="px-6 py-4 text-right text-sm text-slate-900 dark:text-white">
-                                {{ trade.exitPrice ? formatCurrency(trade.exitPrice) : '-' }}
+                                {{ trade.exitPrice || '-' }}
                             </td>
                             <td class="px-6 py-4 text-right text-sm text-slate-600 dark:text-slate-400">
                                 {{ trade.quantity }}
@@ -331,4 +371,41 @@
             }
         </div>
     </div>
+
+    <!-- Floating Bulk Actions Toolbar -->
+    @if (selectedTradeIds().size > 0) {
+    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 transform">
+        <div
+            class="flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-6 py-3 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+            <div
+                class="flex items-center gap-2 border-r border-slate-200 pr-4 text-sm font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                <span
+                    class="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                    {{ selectedTradeIds().size }}
+                </span>
+                Selected
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button (click)="exportSelected()"
+                    class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Export
+                </button>
+
+                <button (click)="deleteSelected()"
+                    class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+    }
 </div>

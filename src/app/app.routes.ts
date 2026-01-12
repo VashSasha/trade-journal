@@ -23,6 +23,14 @@ export const routes: Routes = [
                 loadComponent: () => import('./features/dashboard/dashboard').then(m => m.DashboardComponent)
             },
             {
+                path: 'analytics',
+                loadComponent: () => import('./features/analytics/analytics-dashboard.component').then(m => m.AnalyticsDashboardComponent)
+            },
+            {
+                path: 'reports',
+                loadComponent: () => import('./features/reports/ai-reports.component').then(m => m.AiReportsComponent)
+            },
+            {
                 path: 'journal',
                 loadComponent: () => import('./features/journal/layout/journal-layout.component').then(m => m.JournalLayoutComponent),
                 children: [

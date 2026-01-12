@@ -17,6 +17,15 @@ export interface TradovateFill {
     timestamp: string;
     orderId?: number;
     contractId?: number;
+    accountId?: number; // Account ID for the fill
+}
+
+export interface TradovateAccount {
+    id: number;
+    name: string;
+    userId: number;
+    accountType: string;
+    active: boolean;
 }
 
 @Injectable({
@@ -159,6 +168,7 @@ export class TradovateService {
                     id: f.id,
                     orderId: f.orderId,
                     contractId: f.contractId,
+                    accountId: f.accountId, // Include account ID
                     symbol: f.contractId?.toString() || 'Unknown',
                     action: f.action, // 'Buy' or 'Sell'
                     qty: f.qty,
@@ -218,6 +228,41 @@ export class TradovateService {
         return this.http.get<any[]>(`${this.getBaseUrl()}/cashBalance/list`, { headers });
     }
 
+    // Get cash balance for a specific account
+    getCashBalanceForAccount(accountId: number): Observable<any> {
+        const token = localStorage.getItem('tradovate_token');
+        if (!token) return throwError(() => new Error('Tradovate not connected'));
+
+        const headers = new HttpHeaders({
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+        });
+
+        return this.http.get<any>(`${this.getBaseUrl()}/cashBalance/item`, {
+            headers,
+            params: { accountId: accountId.toString() }
+        });
+    }
+
+    // Account selection management (localStorage)
+    getSelectedAccountIds(): number[] {
+        const stored = localStorage.getItem('tradovate_selected_accounts');
+        return stored ? JSON.parse(stored) : [];
+    }
+
+    setSelectedAccountIds(accountIds: number[]): void {
+        localStorage.setItem('tradovate_selected_accounts', JSON.stringify(accountIds));
+    }
+
+    // Check if any accounts are selected, if not, select all by default
+    initializeAccountSelection(accounts: TradovateAccount[]): void {
+        const selected = this.getSelectedAccountIds();
+        if (selected.length === 0 && accounts.length > 0) {
+            // Default: select all accounts
+            this.setSelectedAccountIds(accounts.map(a => a.id));
+        }
+    }
+
     getOrders(): Observable<any[]> {
         const token = localStorage.getItem('tradovate_token');
         if (!token) return throwError(() => new Error('Tradovate not connected'));
@@ -228,5 +273,111 @@ export class TradovateService {
         });
 
         return this.http.get<any[]>(`${this.getBaseUrl()}/order/list`, { headers });
+    }
+
+    getMarketData(symbol: string, timeframe: string = '15min', barsCount: number = 100): Promise<any> {
+        const token = localStorage.getItem('tradovate_token');
+        const wsUrl = 'wss://md.tradovateapi.com/v1/websocket';
+
+        console.log(`[TradovateWS] Connecting to ${wsUrl} (Raw) for ${symbol} (${timeframe}, ${barsCount} bars)...`);
+
+        return new Promise((resolve, reject) => {
+            const ws = new WebSocket(wsUrl);
+            let messageId = 1;
+            let authorized = false;
+
+            const timeout = setTimeout(() => {
+                ws.close();
+                reject(new Error('Market data request timed out (WebSocket). This is often due to Tradovate accounts lacking a CME Real-Time Market Data subscription.'));
+            }, 10000);
+
+            ws.onopen = () => {
+                console.log('[TradovateWS] Connection opened. Authorizing (Raw)...');
+                // Trying raw string format instead of SockJS array
+                ws.send(`authorize\n${messageId++}\n\n${token}`);
+            };
+
+            ws.onmessage = (event) => {
+                const msg = event.data;
+                console.log(`[TradovateWS] Frame received: ${msg.substring(0, 100)}`);
+
+                if (msg === 'o' || msg === 'h' || msg.startsWith('c')) return;
+
+                if (msg.startsWith('a')) {
+                    try {
+                        const data = JSON.parse(msg.substring(1));
+                        data.forEach((item: any) => {
+                            // Check for Auth success
+                            if (!authorized && item.s === 200) {
+                                authorized = true;
+                                console.log('[TradovateWS] Authorized. Requesting chart...');
+                                // Map timeframe to Tradovate chart description
+                                const chartDesc = this.getChartDescription(timeframe, barsCount);
+
+                                const chartRequest = {
+                                    symbol: symbol,
+                                    chartDescription: chartDesc,
+                                    timeRange: {
+                                        asFarAsTimestamp: new Date().toISOString()
+                                    }
+                                };
+                                ws.send(`md/getchart\n${messageId++}\n\n${JSON.stringify(chartRequest)}`);
+                            }
+                            // Check for Chart success
+                            else if (item.s === 200 && item.d && item.d.bars) {
+                                console.log(`[TradovateWS] Received ${item.d.bars.length} bars.`);
+                                clearTimeout(timeout);
+                                const bars = item.d.bars.map((b: any) => ({
+                                    timestamp: b.timestamp,
+                                    open: b.open,
+                                    high: b.high,
+                                    low: b.low,
+                                    close: b.close,
+                                    volume: (b.upVolume || 0) + (b.downVolume || 0)
+                                }));
+                                ws.close();
+                                resolve(bars);
+                            }
+                            // Check for specific Errors
+                            else if (item.s && item.s >= 400) {
+                                console.warn('[TradovateWS] Error frame received:', item);
+                                clearTimeout(timeout);
+                                ws.close();
+                                reject(new Error(`Tradovate MD Error ${item.s}: ${item.d?.errorText || 'Unknown. Possibly missing MD subscription.'}`));
+                            }
+                        });
+                    } catch (e) {
+                        console.error('[TradovateWS] Parse Error', e);
+                    }
+                }
+            };
+
+            ws.onerror = (err) => {
+                console.error('[TradovateWS] WebSocket Error', err);
+                clearTimeout(timeout);
+                reject(new Error('WebSocket connection failed.'));
+            };
+        });
+    }
+
+    private getChartDescription(timeframe: string, barsCount: number): any {
+        // Map user-friendly timeframe to Tradovate chart description
+        const timeframeMap: { [key: string]: any } = {
+            '1min': { underlyingType: 'MinuteBar', elementSize: 1, elementSizeUnit: 'UnderlyingUnits' },
+            '5min': { underlyingType: 'MinuteBar', elementSize: 5, elementSizeUnit: 'UnderlyingUnits' },
+            '15min': { underlyingType: 'MinuteBar', elementSize: 15, elementSizeUnit: 'UnderlyingUnits' },
+            '30min': { underlyingType: 'MinuteBar', elementSize: 30, elementSizeUnit: 'UnderlyingUnits' },
+            '1hr': { underlyingType: 'MinuteBar', elementSize: 60, elementSizeUnit: 'UnderlyingUnits' },
+            '4hr': { underlyingType: 'MinuteBar', elementSize: 240, elementSizeUnit: 'UnderlyingUnits' },
+            'Daily': { underlyingType: 'DailyBar', elementSize: 1, elementSizeUnit: 'UnderlyingUnits' }
+        };
+
+        const desc = timeframeMap[timeframe] || timeframeMap['15min'];
+
+        return {
+            ...desc,
+            withHistogram: false,
+            asMuchAsElements: barsCount
+        };
     }
 }

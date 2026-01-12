@@ -1,0 +1,218 @@
+<div class="min-h-full bg-slate-50 p-6 dark:bg-slate-950">
+    <div class="mx-auto max-w-4xl">
+        <!-- Header -->
+        <div class="mb-6">
+            <h1 class="text-3xl font-bold text-slate-900 dark:text-white">AI Market Analyzer</h1>
+            <p class="mt-2 text-slate-600 dark:text-slate-400">
+                Get AI-powered market analysis from chart screenshots or live data
+            </p>
+        </div>
+
+        <!-- Mode Toggle -->
+        <div class="mb-6 flex gap-2">
+            <button (click)="analysisMode.set('screenshot')" [class.bg-indigo-600]="analysisMode() === 'screenshot'"
+                [class.text-white]="analysisMode() === 'screenshot'" [class.bg-white]="analysisMode() !== 'screenshot'"
+                [class.text-slate-700]="analysisMode() !== 'screenshot'"
+                class="flex-1 rounded-lg border border-slate-200 px-4 py-3 font-medium transition-colors dark:border-slate-700">
+                📸 Screenshot Analysis
+            </button>
+            <button (click)="analysisMode.set('live')" [class.bg-indigo-600]="analysisMode() === 'live'"
+                [class.text-white]="analysisMode() === 'live'" [class.bg-white]="analysisMode() !== 'live'"
+                [class.text-slate-700]="analysisMode() !== 'live'"
+                class="flex-1 rounded-lg border border-slate-200 px-4 py-3 font-medium transition-colors dark:border-slate-700">
+                📊 Live Data (Requires Subscription)
+            </button>
+        </div>
+
+        <!-- Configuration Card -->
+        <div
+            class="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            @if (analysisMode() === 'screenshot') {
+            <!-- Screenshot Upload Mode -->
+            <h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Upload Chart Screenshot</h2>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Symbol (Optional)
+                </label>
+                <input type="text" [(ngModel)]="symbol" placeholder="e.g., MNQH6"
+                    class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+            </div>
+
+            @if (imagePreview()) {
+            <div class="mb-4 relative">
+                <img [src]="imagePreview()" alt="Chart preview"
+                    class="w-full rounded-lg border border-slate-200 dark:border-slate-700" />
+                <button (click)="clearImage()"
+                    class="absolute top-2 right-2 rounded-full bg-red-500 p-2 text-white hover:bg-red-600">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            } @else {
+            <div class="mb-4">
+                <label
+                    class="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
+                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                        <svg class="w-12 h-12 mb-3 text-slate-400" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <p class="mb-2 text-sm text-slate-500 dark:text-slate-400">
+                            <span class="font-semibold">Click to upload</span> or drag and drop
+                        </p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">PNG, JPG or JPEG (MAX. 10MB)</p>
+                    </div>
+                    <input type="file" class="hidden" accept="image/*" (change)="onImageSelected($event)" />
+                </label>
+            </div>
+            }
+            } @else {
+            <!-- Live Data Mode -->
+            <h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Live Data Configuration</h2>
+
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <!-- Symbol Input -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                        Symbol
+                    </label>
+                    <input type="text" [(ngModel)]="symbol" placeholder="e.g., MNQH6"
+                        class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                </div>
+
+                <!-- Timeframe Selector -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                        Timeframe
+                    </label>
+                    <select [(ngModel)]="timeframe"
+                        class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                        <option value="1min">1 Minute</option>
+                        <option value="5min">5 Minutes</option>
+                        <option value="15min">15 Minutes</option>
+                        <option value="30min">30 Minutes</option>
+                        <option value="1hr">1 Hour</option>
+                        <option value="4hr">4 Hours</option>
+                        <option value="Daily">Daily</option>
+                    </select>
+                </div>
+
+                <!-- Lookback Bars -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                        Lookback Bars
+                    </label>
+                    <input type="number" [(ngModel)]="lookbackBars" min="10" max="500"
+                        class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                </div>
+            </div>
+            }
+
+            <!-- OpenAI API Key -->
+            @if (!openAiService.hasApiKey()) {
+            <div
+                class="mt-4 p-4 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-900">
+                <p class="text-sm text-amber-800 dark:text-amber-200 mb-2">
+                    OpenAI API key required for analysis
+                </p>
+                <div class="flex gap-2">
+                    <input type="password" [(ngModel)]="apiKeyInput" placeholder="sk-..."
+                        class="flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm dark:border-amber-700 dark:bg-slate-800" />
+                    <button (click)="saveApiKey()"
+                        class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700">
+                        Save Key
+                    </button>
+                </div>
+            </div>
+            }
+
+            <!-- Analyze Button -->
+            <div class="mt-6">
+                <button (click)="analyze()"
+                    [disabled]="isAnalyzing() || !openAiService.hasApiKey() || (analysisMode() === 'screenshot' && !selectedImage()) || (analysisMode() === 'live' && !symbol())"
+                    class="w-full rounded-lg bg-indigo-600 px-6 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
+                    @if (isAnalyzing()) {
+                    <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                        </circle>
+                        <path class="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                        </path>
+                    </svg>
+                    Analyzing...
+                    } @else {
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Analyze {{ analysisMode() === 'screenshot' ? 'Screenshot' : 'Market' }}
+                    }
+                </button>
+            </div>
+        </div>
+
+        <!-- Error Display -->
+        @if (error()) {
+        <div class="mb-6 rounded-lg bg-amber-50 p-6 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-900">
+            <div class="prose prose-sm prose-amber dark:prose-invert max-w-none">
+                <markdown [data]="error()"></markdown>
+            </div>
+        </div>
+        }
+
+        <!-- Analysis Result -->
+        @if (prediction()) {
+        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div class="mb-4 flex items-center justify-between border-b border-slate-200 pb-4 dark:border-slate-700">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-white">AI Analysis</h2>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                        @if (analysisMode() === 'screenshot') {
+                        Screenshot analysis for {{ symbol() || 'chart' }}
+                        } @else {
+                        {{ symbol() }} • {{ timeframe() }} • {{ lookbackBars() }} bars
+                        }
+                    </p>
+                </div>
+                <button (click)="clearPrediction()"
+                    class="text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                    Clear
+                </button>
+            </div>
+
+            <div class="prose prose-slate dark:prose-invert max-w-none">
+                <markdown [data]="prediction()"></markdown>
+            </div>
+        </div>
+        } @else if (!isAnalyzing()) {
+        <div
+            class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800 p-12 text-center">
+            <div class="h-16 w-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+                @if (analysisMode() === 'screenshot') {
+                <svg class="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                } @else {
+                <svg class="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                }
+            </div>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">Ready to Analyze</h3>
+            <p class="text-slate-500 dark:text-slate-400 max-w-md">
+                @if (analysisMode() === 'screenshot') {
+                Upload a chart screenshot and click "Analyze Screenshot" to get AI-powered insights
+                } @else {
+                Configure your parameters and click "Analyze Market" to get predictions
+                }
+            </p>
+        </div>
+        }
+    </div>
+</div>

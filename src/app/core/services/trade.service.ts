@@ -132,6 +132,12 @@ export class TradeService {
         this.saveTradesToStorage(updatedTrades);
     }
 
+    deleteTrades(ids: Set<string>): void {
+        const updatedTrades = this.tradesSignal().filter(t => !ids.has(t.id));
+        this.tradesSignal.set(updatedTrades);
+        this.saveTradesToStorage(updatedTrades);
+    }
+
     /**
      * Calculate P&L for a trade (mutates trade object)
      */
@@ -161,6 +167,12 @@ export class TradeService {
         const losing = closed.filter(t => (t.netPnl || 0) < 0);
 
         const totalPnl = closed.reduce((sum, t) => sum + (t.netPnl || 0), 0);
+        const totalPoints = closed.reduce((sum, t) => {
+            if (t.exitPrice && t.entryPrice) {
+                return sum + Math.abs(t.exitPrice - t.entryPrice);
+            }
+            return sum;
+        }, 0);
         const winningPnls = winning.map(t => t.netPnl || 0);
         const losingPnls = losing.map(t => t.netPnl || 0);
 
@@ -169,6 +181,7 @@ export class TradeService {
             openTrades: activeTrades.filter(t => t.status === 'open').length,
             closedTrades: closed.length,
             totalPnl,
+            totalPoints,
             winningTrades: winning.length,
             losingTrades: losing.length,
             winRate: closed.length > 0 ? (winning.length / closed.length) * 100 : 0,
