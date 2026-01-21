@@ -4,20 +4,20 @@ import { Observable, throwError, of } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
 
 export interface TradovateConfig {
-    apiKey: string; // CID
+    apiKey: string;
     apiSecret: string;
 }
 
 export interface TradovateFill {
     id: number;
     symbol: string;
-    action: 'Buy' | 'Sell'; // Tradovate uses 'action' not 'side'
+    action: 'Buy' | 'Sell';
     qty: number;
     price: number;
     timestamp: string;
     orderId?: number;
     contractId?: number;
-    accountId?: number; // Account ID for the fill
+    accountId?: number;
 }
 
 export interface TradovateAccount {
@@ -34,7 +34,7 @@ export interface TradovateAccount {
 export class TradovateService {
     private liveBaseUrl = 'https://live.tradovateapi.com/v1';
     private demoBaseUrl = 'https://demo.tradovateapi.com/v1';
-    private demoAuthUrl = 'https://demo.tradovateapi.com/v1/auth'; // Different path for direct login
+    private demoAuthUrl = 'https://demo.tradovateapi.com/v1/auth';
 
     // Reporting API URLs
     private liveRptUrl = 'https://rpt.tradovateapi.com/v1';
@@ -89,7 +89,7 @@ export class TradovateService {
         );
     }
 
-    // Simple Login (TradingView-style) - Just username/password, no API credentials needed
+    // Simple Login - Just username/password, no API credentials needed
     simpleLogin(username: string, password: string): Observable<any> {
         const config = this.getConfig();
         if (!config) return throwError(() => new Error('Tradovate configuration not found'));
@@ -100,7 +100,6 @@ export class TradovateService {
             password: password
         };
 
-        // Use the simplified /authorize endpoint (TradingView approach)
         const authUrl = config.environment === 'live'
             ? 'https://tv-live.tradovateapi.com/authorize'
             : 'https://tv-demo.tradovateapi.com/authorize';
@@ -112,7 +111,6 @@ export class TradovateService {
 
         return this.http.post(authUrl, body, { headers }).pipe(
             map((res: any) => {
-                // Response format: { s: "ok", d: { access_token: "...", expiration: ... } }
                 const accessToken = res.d?.access_token || res.access_token;
 
                 if (accessToken) {
@@ -127,32 +125,6 @@ export class TradovateService {
             catchError(err => {
                 const errorMsg = err.error?.errorText || err.message || 'Login failed. Please check your credentials.';
                 return throwError(() => new Error(errorMsg));
-            })
-        );
-    }
-
-    // Direct Login (Demo/Free) using Username/Password
-    directLogin(credentials: any): Observable<any> {
-        const body = {
-            name: credentials.username,
-            password: credentials.password,
-            appId: 'Sample App',
-            appVersion: '1.0',
-            cid: 8, // Default CID for Sample App
-            deviceId: '9e726d97-b2ad-4cbe-8ba8-21258268ec15', // Static for this app
-            sec: 'f03741b6-f634-48d6-9308-c8fb871150c2d' // Default Secret for Sample App
-        };
-
-        return this.http.post(`${this.demoAuthUrl}/accesstokenrequest`, body).pipe(
-            map((res: any) => {
-                if (res.accessToken) {
-                    localStorage.setItem('tradovate_token', res.accessToken);
-                    return res;
-                } else if (res.errorText) {
-                    throw new Error(res.errorText);
-                } else {
-                    throw new Error('Login failed: No access token received');
-                }
             })
         );
     }
@@ -191,11 +163,7 @@ export class TradovateService {
         );
     }
 
-    /**
-     * Get fills (trades) from Tradovate
-     * Note: Standard API typically returns only current day fills.
-     * For historical data, use getHistoricalFillsReport() method.
-     */
+
     getFills(fromDate: Date): Observable<TradovateFill[]> {
         const token = localStorage.getItem('tradovate_token');
         if (!token) return throwError(() => new Error('Tradovate not connected: Token missing from storage'));
@@ -223,11 +191,11 @@ export class TradovateService {
                     }).pipe(
                         map(fills => fills.map(f => ({
                             ...f,
-                            accountId: account.id // Ensure accountId is set
+                            accountId: account.id
                         }))),
                         catchError(err => {
                             console.warn(`Failed to fetch fills for account ${account.id}:`, err);
-                            return of([]); // Return empty array on error, don't fail entire request
+                            return of([]);
                         })
                     )
                 );
@@ -324,7 +292,6 @@ export class TradovateService {
 
             ws.onopen = () => {
                 console.log('[TradovateWS] Connection opened. Authorizing (Raw)...');
-                // Trying raw string format instead of SockJS array
                 ws.send(`authorize\n${messageId++}\n\n${token}`);
             };
 
@@ -394,9 +361,6 @@ export class TradovateService {
     /**
      * Get historical fills using the Reports API
      * This can fetch fills from previous days (unlike the standard /fill/list which is often limited to current day)
-     * @param startDate - Start date for the report
-     * @param endDate - End date for the report (defaults to today)
-     * @param accountId - Optional specific account ID
      */
     getHistoricalFillsReport(startDate: Date, endDate?: Date, accountId?: number): Observable<any> {
         const token = localStorage.getItem('tradovate_token');
@@ -409,7 +373,7 @@ export class TradovateService {
 
         const end = endDate || new Date();
         const params: any = {
-            startDate: startDate.toISOString().split('T')[0], // YYYY-MM-DD format
+            startDate: startDate.toISOString().split('T')[0],
             endDate: end.toISOString().split('T')[0]
         };
 

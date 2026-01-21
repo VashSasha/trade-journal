@@ -1,7 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { TradovateService, TradovateFill, TradovateAccount } from './tradovate.service';
 import { TradeService } from './trade.service';
-import { Trade, AssetType, TradeDirection } from '../models/trade.model';
 import { firstValueFrom, Observable } from 'rxjs';
 
 import { AuthService } from './auth.service';
@@ -22,18 +21,15 @@ export class SyncService {
         this.isSyncing.set(true);
 
         try {
-            // 1. Fetch fills from Tradovate (Standard API - likely recent only)
             const fromDate = new Date();
-            fromDate.setMonth(fromDate.getMonth() - 12); // Try to ask for data, even if API limits it
+            fromDate.setMonth(fromDate.getMonth() - 12);
 
             const fills = await firstValueFrom(this.tradovateService.getFills(fromDate));
 
-            // 1.5 Fetch accounts for account name mapping
             const accounts = await firstValueFrom(this.tradovateService.getAccounts() as Observable<TradovateAccount[]>);
             const accountMap = new Map<number, string>();
             accounts.forEach((acc: TradovateAccount) => accountMap.set(acc.id, acc.name));
 
-            // 2. Fetch contract details for better symbol names & multipliers
             const contractIds = new Set(fills.map(f => f.contractId).filter(id => !!id) as number[]);
             const contractMap = new Map<number, any>();
 
@@ -46,12 +42,8 @@ export class SyncService {
                 }
             }
 
-            // 3. Process Fills into Trades (FIFO Matching)
             const matchedTrades = this.matchTrades(fills, contractMap, accountMap);
 
-            // 3. Filter out duplicates based on existing external IDs
-            // Note: Since we are changing ID format to 'tradovate_paired_...', we need to be careful.
-            // But we rely on externalId uniqueness.
             const existingExternalIds = new Set(
                 this.tradeService.trades()
                     .filter(t => t.source === 'tradovate')
@@ -80,20 +72,15 @@ export class SyncService {
     }
 
     private matchTrades(fills: TradovateFill[], contractMap: Map<number, any>, accountMap: Map<number, string>): any[] {
-        // Sort fills chronologically
         const sortedFills = [...fills].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
         const trades: any[] = [];
-        const openPositions = new Map<string, TradovateFill[]>(); // Symbol -> List of Open Fills
-
-        // Refined Point Value Helper
+        const openPositions = new Map<string, TradovateFill[]>();
         const getMultiplier = (fill: TradovateFill): number => {
             if (fill.contractId && contractMap.has(fill.contractId)) {
                 const c = contractMap.get(fill.contractId);
-                // Try standard fields from API (pointValue, tickValue, etc)
                 if (c.pointValue) return c.pointValue;
 
-                // Fallback using Contract Name
                 const name = (c.name || '').toUpperCase();
 
                 if (name.includes('MNQ') || name.includes('MICRO E-MINI NASDAQ')) return 2;
@@ -104,7 +91,6 @@ export class SyncService {
                 if (name.includes('GC') || name.includes('GOLD')) return 100;
             }
 
-            // Fallbacks - try symbol if no contract map match
             const sym = (fill.symbol || '').toUpperCase();
             if (sym.includes('MNQ') || sym.includes('MES')) return sym.includes('MNQ') ? 2 : 5;
             if (sym.includes('NQ')) return 20;
@@ -119,22 +105,18 @@ export class SyncService {
             const sym = fill.contractId ? (contractMap.get(fill.contractId)?.name || fill.symbol) : fill.symbol;
             const multiplier = getMultiplier(fill);
 
-            // Check if we have opposing positions
             const currentPosition = openPositions.get(sym) || [];
 
             if (currentPosition.length === 0 || currentPosition[0].action === fill.action) {
-                // Same side or new position, add to stack
-                currentPosition.push({ ...fill }); // Clone to allow modifying qty
+                currentPosition.push({ ...fill });
                 openPositions.set(sym, currentPosition);
             } else {
-                // Opposite side, try to match
                 let remainingQty = fill.qty;
 
                 while (remainingQty > 0 && currentPosition.length > 0) {
-                    const openFill = currentPosition[0]; // FIFO: Take oldest
+                    const openFill = currentPosition[0];
                     const matchQty = Math.min(remainingQty, openFill.qty);
 
-                    // Create Closed Trade
                     const isLong = openFill.action === 'Buy';
                     const entryPrice = openFill.price;
                     const exitPrice = fill.price;
@@ -150,9 +132,9 @@ export class SyncService {
                         exitPrice: exitPrice,
                         quantity: matchQty,
                         status: 'closed',
-                        pnl: parseFloat(pnl.toFixed(2)), // Round to 2 decimals
+                        pnl: parseFloat(pnl.toFixed(2)),
                         fees: 0,
-                        multiplier: multiplier, // Persist multiplier
+                        multiplier: multiplier,
                         pnlPercent: this.calculatePnlPercent(entryPrice, exitPrice, isLong),
                         source: 'tradovate',
                         externalId: `tradovate_paired_${openFill.id}_${fill.id}`,
@@ -161,30 +143,26 @@ export class SyncService {
                         notes: `Matched Trade (FIFO)`
                     });
 
-                    // Update quantities
                     remainingQty -= matchQty;
                     openFill.qty -= matchQty;
 
                     if (openFill.qty <= 0) {
-                        currentPosition.shift(); // Remove fully closed fill
+                        currentPosition.shift();
                     }
                 }
 
-                // If processed all matches and still have qty, add remainder as new position
                 if (remainingQty > 0) {
                     const remainderFill = { ...fill, qty: remainingQty };
                     currentPosition.push(remainderFill);
                     openPositions.set(sym, currentPosition);
                 }
 
-                // Update map
                 if (currentPosition.length === 0) {
                     openPositions.delete(sym);
                 }
             }
         }
 
-        // Add remaining open positions as "Open" trades
         openPositions.forEach((fills, sym) => {
             fills.forEach(fill => {
                 trades.push({

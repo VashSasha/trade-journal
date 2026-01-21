@@ -6,7 +6,7 @@ export interface FilterState {
     symbols: string[];
     setups: string[];
     sides: ('long' | 'short')[];
-    accountIds: string[]; // Account IDs to filter by
+    accountIds: string[];
 }
 
 @Injectable({
@@ -89,7 +89,6 @@ export class FilterService {
             if (s.dateRange.start && new Date(t.entryDate) < s.dateRange.start) return false;
             if (s.dateRange.end) {
                 const entry = new Date(t.entryDate);
-                // Set end date to end of day
                 const end = new Date(s.dateRange.end);
                 end.setHours(23, 59, 59, 999);
                 if (entry > end) return false;
@@ -105,9 +104,6 @@ export class FilterService {
             if (s.sides.length > 0 && !s.sides.includes(t.direction)) return false;
 
 
-            // Accounts
-            // NOTE: Trades without accountId are included (legacy trades or manually created trades)
-            // Only filter OUT trades that HAVE an accountId but don't match the selected accounts
             if (s.accountIds.length > 0) {
                 if (t.accountId && !s.accountIds.includes(t.accountId)) {
                     console.log(`[FilterService] Trade ${t.symbol} excluded: accountId mismatch`, {
@@ -116,8 +112,6 @@ export class FilterService {
                     });
                     return false;
                 }
-                // If trade has no accountId, include it (legacy data)
-                // If trade has accountId and it matches filter, include it
             }
 
             return true;

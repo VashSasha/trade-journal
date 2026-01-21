@@ -10,21 +10,16 @@ const STORAGE_KEY = 'trade_journal_goals';
 export class GoalService {
     private tradeService = inject(TradeService);
 
-    // Signals
     private goalsSignal = signal<Goal[]>(this.loadGoals());
     goals = this.goalsSignal.asReadonly();
 
     constructor() {
-        // Re-calculate goal progress whenever trades change
         effect(() => {
-            const trades = this.tradeService.trades(); // Dependency on trades
             this.updateGoalProgress();
         }, { allowSignalWrites: true });
     }
 
-    /**
-     * Create a new goal
-     */
+
     addGoal(type: GoalType, target: number, period: 'month' | 'year'): void {
         const now = new Date();
         let deadline: Date;
@@ -61,7 +56,7 @@ export class GoalService {
 
         const updated = [...this.goalsSignal(), newGoal];
         this.goalsSignal.set(updated);
-        this.updateGoalProgress(); // Calculate initial progress
+        this.updateGoalProgress();
         this.saveGoals(updated);
     }
 
@@ -121,15 +116,9 @@ export class GoalService {
                     break;
             }
 
-            // Check status (simple check, can be expanded)
-            // Note: For P&L, passing target is 'achieved'. 
-            // For now we just update 'current'. Status change logic could be more complex (e.g. at deadline).
-
             return { ...goal, current };
         });
 
-        // Only update if changes to avoid loops, though signal equality check helps
-        // JSON stringify comparison is explicit
         if (JSON.stringify(updatedGoals) !== JSON.stringify(goals)) {
             this.goalsSignal.set(updatedGoals);
             this.saveGoals(updatedGoals);
