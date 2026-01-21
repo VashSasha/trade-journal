@@ -116,8 +116,48 @@
         <app-stats-overview [stats]="stats()"></app-stats-overview>
 
         <!-- Charts Row -->
-        <app-performance-charts [equityData]="equityCurveData()" [winLossStats]="stats()">
-        </app-performance-charts>
+        <div class="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Performance Overview</h3>
+                <div class="flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
+                    <button (click)="setEquityView('trade')"
+                        [class.bg-white]="equityView() === 'trade'"
+                        [class.text-slate-900]="equityView() === 'trade'"
+                        [class.shadow-sm]="equityView() === 'trade'"
+                        [class.text-slate-500]="equityView() !== 'trade'"
+                        [class.dark:bg-slate-700]="equityView() === 'trade'"
+                        [class.dark:text-white]="equityView() === 'trade'"
+                        [class.dark:text-slate-400]="equityView() !== 'trade'"
+                        class="rounded-md px-3 py-1 text-sm font-medium transition-all">
+                        Trade
+                    </button>
+                    <button (click)="setEquityView('hour')"
+                        [class.bg-white]="equityView() === 'hour'"
+                        [class.text-slate-900]="equityView() === 'hour'"
+                        [class.shadow-sm]="equityView() === 'hour'"
+                        [class.text-slate-500]="equityView() !== 'hour'"
+                        [class.dark:bg-slate-700]="equityView() === 'hour'"
+                        [class.dark:text-white]="equityView() === 'hour'"
+                        [class.dark:text-slate-400]="equityView() !== 'hour'"
+                        class="rounded-md px-3 py-1 text-sm font-medium transition-all">
+                        Hour
+                    </button>
+                    <button (click)="setEquityView('day')"
+                        [class.bg-white]="equityView() === 'day'"
+                        [class.text-slate-900]="equityView() === 'day'"
+                        [class.shadow-sm]="equityView() === 'day'"
+                        [class.text-slate-500]="equityView() !== 'day'"
+                        [class.dark:bg-slate-700]="equityView() === 'day'"
+                        [class.dark:text-white]="equityView() === 'day'"
+                        [class.dark:text-slate-400]="equityView() !== 'day'"
+                        class="rounded-md px-3 py-1 text-sm font-medium transition-all">
+                        Day
+                    </button>
+                </div>
+            </div>
+            <app-performance-charts [equityData]="equityCurveData()" [winLossStats]="stats()">
+            </app-performance-charts>
+        </div>
 
         <!-- Calendar & Recent Trades Grid -->
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">

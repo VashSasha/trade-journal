@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { map, catchError } from 'rxjs/operators';
-import { Observable, throwError } from 'rxjs';
+import { Observable, throwError, of } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 
 export interface TradovateConfig {
     apiKey: string; // CID
@@ -36,6 +36,10 @@ export class TradovateService {
     private demoBaseUrl = 'https://demo.tradovateapi.com/v1';
     private demoAuthUrl = 'https://demo.tradovateapi.com/v1/auth'; // Different path for direct login
 
+    // Reporting API URLs
+    private liveRptUrl = 'https://rpt.tradovateapi.com/v1';
+    private demoRptUrl = 'https://rpt-demo.tradovateapi.com/v1';
+
     constructor(private http: HttpClient) { }
 
     private getConfig(): any | null {
@@ -46,6 +50,11 @@ export class TradovateService {
     private getBaseUrl(): string {
         const config = this.getConfig();
         return config?.environment === 'live' ? this.liveBaseUrl : this.demoBaseUrl;
+    }
+
+    private getRptUrl(): string {
+        const config = this.getConfig();
+        return config?.environment === 'live' ? this.liveRptUrl : this.demoRptUrl;
     }
 
     // Exchange OAuth code for an access token (Live/Funded)
@@ -148,41 +157,19 @@ export class TradovateService {
         );
     }
 
-    getFills(fromDate: Date): Observable<TradovateFill[]> {
+
+    getAccounts(): Observable<any[]> {
         const token = localStorage.getItem('tradovate_token');
-        if (!token) return throwError(() => new Error('Tradovate not connected'));
+        if (!token) return throwError(() => new Error('Tradovate not connected: Token missing from storage'));
 
         const headers = new HttpHeaders({
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
         });
 
-        // Note: Data endpoints use standard API domains (demo/live), not tv-demo/tv-live
-        return this.http.get<any[]>(`${this.getBaseUrl()}/fill/list`, { headers }).pipe(
-            map(fills => {
-                if (!fills || !Array.isArray(fills)) {
-                    console.warn('Unexpected fills response:', fills);
-                    return [];
-                }
-                return fills.map(f => ({
-                    id: f.id,
-                    orderId: f.orderId,
-                    contractId: f.contractId,
-                    accountId: f.accountId, // Include account ID
-                    symbol: f.contractId?.toString() || 'Unknown',
-                    action: f.action, // 'Buy' or 'Sell'
-                    qty: f.qty,
-                    price: f.price,
-                    timestamp: f.timestamp
-                }));
-            }),
-            catchError(err => {
-                console.error('Failed to fetch fills:', err);
-                const errorMsg = err.error?.errorText || err.message || 'Failed to fetch trade history';
-                return throwError(() => new Error(errorMsg));
-            })
-        );
+        return this.http.get<any[]>(`${this.getBaseUrl()}/account/list`, { headers });
     }
+
 
     getContract(contractId: number): Observable<any> {
         const token = localStorage.getItem('tradovate_token');
@@ -198,13 +185,18 @@ export class TradovateService {
             params: { id: contractId.toString() }
         }).pipe(
             catchError(err => {
-                console.error('Failed to fetch contract:', err);
-                return throwError(() => new Error('Failed to fetch contract details'));
+                console.error('Error fetching fills:', err);
+                return throwError(() => err);
             })
         );
     }
 
-    getAccounts(): Observable<any[]> {
+    /**
+     * Get fills (trades) from Tradovate
+     * Note: Standard API typically returns only current day fills.
+     * For historical data, use getHistoricalFillsReport() method.
+     */
+    getFills(fromDate: Date): Observable<TradovateFill[]> {
         const token = localStorage.getItem('tradovate_token');
         if (!token) return throwError(() => new Error('Tradovate not connected: Token missing from storage'));
 
@@ -213,7 +205,46 @@ export class TradovateService {
             'Accept': 'application/json'
         });
 
-        return this.http.get<any[]>(`${this.getBaseUrl()}/account/list`, { headers });
+        // Get all accounts first, then fetch fills for each
+        return this.getAccounts().pipe(
+            switchMap(accounts => {
+                const selectedAccountIds = this.getSelectedAccountIds();
+                const accountsToFetch = selectedAccountIds.length > 0
+                    ? accounts.filter(a => selectedAccountIds.includes(a.id))
+                    : accounts;
+
+                console.log(`[TradovateService] Fetching fills for ${accountsToFetch.length} accounts`);
+
+                // Fetch fills for each account
+                const fillRequests = accountsToFetch.map(account =>
+                    this.http.get<any[]>(`${this.getBaseUrl()}/fill/list`, {
+                        headers,
+                        params: { accountId: account.id.toString() }
+                    }).pipe(
+                        map(fills => fills.map(f => ({
+                            ...f,
+                            accountId: account.id // Ensure accountId is set
+                        }))),
+                        catchError(err => {
+                            console.warn(`Failed to fetch fills for account ${account.id}:`, err);
+                            return of([]); // Return empty array on error, don't fail entire request
+                        })
+                    )
+                );
+
+                // Combine all fills from all accounts
+                return fillRequests.length > 0
+                    ? fillRequests.reduce((acc$, curr$) =>
+                        acc$.pipe(switchMap(acc => curr$.pipe(map(curr => [...acc, ...curr])))),
+                        of([])
+                    )
+                    : of([]);
+            }),
+            catchError(err => {
+                console.error('Error fetching fills:', err);
+                return throwError(() => err);
+            })
+        );
     }
 
     getCashBalances(): Observable<any[]> {
@@ -358,6 +389,43 @@ export class TradovateService {
                 reject(new Error('WebSocket connection failed.'));
             };
         });
+    }
+
+    /**
+     * Get historical fills using the Reports API
+     * This can fetch fills from previous days (unlike the standard /fill/list which is often limited to current day)
+     * @param startDate - Start date for the report
+     * @param endDate - End date for the report (defaults to today)
+     * @param accountId - Optional specific account ID
+     */
+    getHistoricalFillsReport(startDate: Date, endDate?: Date, accountId?: number): Observable<any> {
+        const token = localStorage.getItem('tradovate_token');
+        if (!token) return throwError(() => new Error('Tradovate not connected'));
+
+        const headers = new HttpHeaders({
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+        });
+
+        const end = endDate || new Date();
+        const params: any = {
+            startDate: startDate.toISOString().split('T')[0], // YYYY-MM-DD format
+            endDate: end.toISOString().split('T')[0]
+        };
+
+        if (accountId) {
+            params.accountId = accountId.toString();
+        }
+
+        console.log(`[TradovateService] Fetching historical fills report from ${params.startDate} to ${params.endDate}`);
+
+        // Use the Reports API endpoint for fill reports
+        return this.http.get(`${this.getRptUrl()}/fillReport/item`, { headers, params }).pipe(
+            catchError(err => {
+                console.error('Error fetching historical fills report:', err);
+                return throwError(() => err);
+            })
+        );
     }
 
     private getChartDescription(timeframe: string, barsCount: number): any {

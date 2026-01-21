@@ -39,6 +39,9 @@ export class DashboardComponent implements OnInit {
     isBalancing = signal(false);
     showAccountDropdown = signal(false);
 
+    // Equity Curve View
+    equityView = signal<'trade' | 'hour' | 'day'>('trade');
+
     // Computed aggregated balance
     aggregatedBalance = computed(() => {
         const selected = this.selectedAccountIds();
@@ -65,7 +68,10 @@ export class DashboardComponent implements OnInit {
                 // Initialize selection from localStorage or select all
                 this.tradovateService.initializeAccountSelection(accounts);
                 const selected = this.tradovateService.getSelectedAccountIds();
+                console.log(`[Dashboard] Initial account selection:`, selected);
                 this.selectedAccountIds.set(selected);
+                // Sync with filter service so trades from these accounts are shown
+                this.updateFilterServiceAccounts(selected);
                 // Fetch balances for all accounts
                 this.syncBalance();
             },
@@ -100,24 +106,56 @@ export class DashboardComponent implements OnInit {
         const newSelection = current.includes(accountId)
             ? current.filter(id => id !== accountId)
             : [...current, accountId];
+        console.log(`[Dashboard] Account selection changed:`, { from: current, to: newSelection });
         this.selectedAccountIds.set(newSelection);
         this.tradovateService.setSelectedAccountIds(newSelection);
+
+        // Sync with FilterService
+        this.updateFilterServiceAccounts(newSelection);
+    }
+
+    private updateFilterServiceAccounts(ids: number[]) {
+        // We need to update the filter service with the selected accounts
+        // But FilterService expects string arrays. 
+        // Also FilterService logic is "if empty, show all?" No, "if empty, show all" is usually handled by not filtering.
+        // But here "Selected Account Ids" implies we ONLY show these.
+        // If "Selected Account Ids" is empty, we show NONE? Or All?
+        // Usually Dashboard header "Select Accounts" implies visibility.
+        // Let's assume FilterService "accountIds" property works as: "if present, must match these". 
+
+        // If all accounts are selected, maybe we clear the filter to mean "All"? 
+        // Or strictly pass selected IDs. Passing selected IDs is safer.
+
+        const stringIds = ids.map(id => id.toString());
+        console.log(`[Dashboard] Updating filter service with account IDs:`, stringIds);
+        this.filterService.updateAccounts(stringIds);
     }
 
     selectAllAccounts() {
         const allIds = this.accounts().map(a => a.id);
         this.selectedAccountIds.set(allIds);
         this.tradovateService.setSelectedAccountIds(allIds);
+        this.updateFilterServiceAccounts(allIds);
     }
 
     deselectAllAccounts() {
         this.selectedAccountIds.set([]);
         this.tradovateService.setSelectedAccountIds([]);
+        this.updateFilterServiceAccounts([]);
+    }
+
+    setEquityView(view: 'trade' | 'hour' | 'day') {
+        console.log(`[Dashboard] Equity view changing from ${this.equityView()} to ${view}`);
+        this.equityView.set(view);
+        console.log(`[Dashboard] Equity view updated to ${this.equityView()}`);
     }
 
     // Filtered Trades
     filteredTrades = computed(() => {
-        return this.filterService.filterTrades(this.tradeService.trades());
+        const allTrades = this.tradeService.trades();
+        const filtered = this.filterService.filterTrades(allTrades);
+        console.log(`[Dashboard] Filtered trades: ${filtered.length} out of ${allTrades.length} total trades`);
+        return filtered;
     });
 
     // Stats (re-calculated based on filtered trades)
@@ -132,29 +170,82 @@ export class DashboardComponent implements OnInit {
     // Recent trades (last 5)
     recentTrades = computed(() => {
         return [...this.filteredTrades()]
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime())
             .slice(0, 5);
     });
 
     // Equity curve data for charts
     equityCurveData = computed(() => {
         const trades = this.filteredTrades()
-            .filter(t => t.status === 'closed')
-            .sort((a, b) => a.entryDate.localeCompare(b.entryDate));
+            .filter(t => t.status === 'closed' && t.netPnl !== undefined)
+            .sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime());
 
-        let cumulative = 0;
-        const data = trades.map(t => {
-            cumulative += t.netPnl || 0;
-            return {
+        console.log(`[Dashboard] Equity Curve: Processing ${trades.length} closed trades`, trades);
+
+        const view = this.equityView();
+        console.log(`[Dashboard] Equity Curve View: ${view}`);
+
+        let data: { date: string, rawDate: Date, pnl: number, timestamp: number }[] = [];
+
+        // 1. Group Data based on View
+        if (view === 'trade') {
+            data = trades.map(t => ({
                 date: new Date(t.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                value: cumulative
-            };
+                rawDate: new Date(t.entryDate),
+                pnl: t.netPnl || 0,
+                timestamp: new Date(t.entryDate).getTime()
+            }));
+        } else if (view === 'day') {
+            const groups = new Map<string, number>();
+            trades.forEach(t => {
+                const day = new Date(t.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                groups.set(day, (groups.get(day) || 0) + (t.netPnl || 0));
+            });
+
+            data = Array.from(groups.entries()).map(([dateStr, pnl]) => {
+                const d = new Date(dateStr);
+                return {
+                    date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    rawDate: d,
+                    pnl: pnl,
+                    timestamp: d.getTime()
+                };
+            }).sort((a, b) => a.timestamp - b.timestamp);
+
+        } else if (view === 'hour') {
+            const groups = new Map<string, number>();
+            trades.forEach(t => {
+                const d = new Date(t.entryDate);
+                // Round down to hour
+                d.setMinutes(0, 0, 0);
+                const key = d.toISOString();
+                groups.set(key, (groups.get(key) || 0) + (t.netPnl || 0));
+            });
+
+            data = Array.from(groups.entries()).map(([iso, pnl]) => {
+                const d = new Date(iso);
+                return {
+                    date: d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' }),
+                    rawDate: d,
+                    pnl: pnl,
+                    timestamp: d.getTime()
+                };
+            }).sort((a, b) => a.timestamp - b.timestamp);
+        }
+
+        // 2. Calculate Cumulative
+        let cumulative = 0;
+        const labels: string[] = [];
+        const values: number[] = [];
+
+        data.forEach(d => {
+            cumulative += d.pnl;
+            labels.push(d.date);
+            values.push(cumulative);
         });
 
-        return {
-            labels: data.map(d => d.date),
-            values: data.map(d => d.value)
-        };
+        console.log(`[Dashboard] Generated Equity Data: ${values.length} points`, { labels, values });
+        return { labels, values };
     });
 
     private calculateStatsForTrades(trades: any[]): any {

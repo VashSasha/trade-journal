@@ -1,8 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { TradovateService, TradovateFill } from './tradovate.service';
+import { TradovateService, TradovateFill, TradovateAccount } from './tradovate.service';
 import { TradeService } from './trade.service';
 import { Trade, AssetType, TradeDirection } from '../models/trade.model';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Observable } from 'rxjs';
 
 import { AuthService } from './auth.service';
 
@@ -22,16 +22,16 @@ export class SyncService {
         this.isSyncing.set(true);
 
         try {
-            // 1. Fetch fills from the last month
+            // 1. Fetch fills from Tradovate (Standard API - likely recent only)
             const fromDate = new Date();
-            fromDate.setMonth(fromDate.getMonth() - 1);
+            fromDate.setMonth(fromDate.getMonth() - 12); // Try to ask for data, even if API limits it
 
             const fills = await firstValueFrom(this.tradovateService.getFills(fromDate));
 
             // 1.5 Fetch accounts for account name mapping
-            const accounts = await firstValueFrom(this.tradovateService.getAccounts());
+            const accounts = await firstValueFrom(this.tradovateService.getAccounts() as Observable<TradovateAccount[]>);
             const accountMap = new Map<number, string>();
-            accounts.forEach(acc => accountMap.set(acc.id, acc.name));
+            accounts.forEach((acc: TradovateAccount) => accountMap.set(acc.id, acc.name));
 
             // 2. Fetch contract details for better symbol names & multipliers
             const contractIds = new Set(fills.map(f => f.contractId).filter(id => !!id) as number[]);
@@ -153,6 +153,7 @@ export class SyncService {
                         pnl: parseFloat(pnl.toFixed(2)), // Round to 2 decimals
                         fees: 0,
                         multiplier: multiplier, // Persist multiplier
+                        pnlPercent: this.calculatePnlPercent(entryPrice, exitPrice, isLong),
                         source: 'tradovate',
                         externalId: `tradovate_paired_${openFill.id}_${fill.id}`,
                         accountId: openFill.accountId?.toString(),
@@ -203,5 +204,11 @@ export class SyncService {
         });
 
         return trades;
+    }
+
+    private calculatePnlPercent(entry: number, exit: number, isLong: boolean): number {
+        if (!entry) return 0;
+        const diff = isLong ? (exit - entry) : (entry - exit);
+        return (diff / entry) * 100;
     }
 }

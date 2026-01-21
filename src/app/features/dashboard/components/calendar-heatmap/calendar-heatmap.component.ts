@@ -9,6 +9,7 @@ import { Trade } from '../../../../core/models/trade.model';
     templateUrl: './calendar-heatmap.component.html'
 })
 export class CalendarHeatmapComponent {
+    protected readonly Math = Math;
     @Input({ required: true }) trades: Trade[] = [];
 
     currentDate = signal(new Date());
@@ -25,7 +26,7 @@ export class CalendarHeatmapComponent {
         const month = current.getMonth();
 
         // Group trades by date string (YYYY-MM-DD)
-        const dailyStats = new Map<string, { pnl: number, count: number }>();
+        const dailyStats = new Map<string, { pnl: number, count: number, pnlPercent: number }>();
 
         this.trades.forEach(trade => {
             // Use local date to avoid timezone issues (e.g. trading at 8pm should count for today, not tomorrow UTC)
@@ -35,10 +36,13 @@ export class CalendarHeatmapComponent {
             const day = String(d.getDate()).padStart(2, '0');
             const dateStr = `${year}-${month}-${day}`;
 
-            const currentStats = dailyStats.get(dateStr) || { pnl: 0, count: 0 };
+            const currentStats = dailyStats.get(dateStr) || { pnl: 0, count: 0, pnlPercent: 0 };
 
             if (trade.status === 'closed' && trade.netPnl !== undefined) {
                 currentStats.pnl += trade.netPnl;
+                if (trade.pnlPercent) {
+                    currentStats.pnlPercent += trade.pnlPercent;
+                }
             }
             currentStats.count++;
             dailyStats.set(dateStr, currentStats);
@@ -58,12 +62,13 @@ export class CalendarHeatmapComponent {
             const dStr = String(date.getDate()).padStart(2, '0');
             const dateStr = `${y}-${m}-${dStr}`;
 
-            const stats = dailyStats.get(dateStr) || { pnl: 0, count: 0 };
+            const stats = dailyStats.get(dateStr) || { pnl: 0, count: 0, pnlPercent: 0 };
             days.push({
                 date,
                 day: date.getDate(),
                 isCurrentMonth: false,
                 pnl: stats.pnl,
+                pnlPercent: stats.pnlPercent,
                 count: stats.count,
                 hasTrades: stats.count > 0,
                 isToday: false
@@ -74,12 +79,13 @@ export class CalendarHeatmapComponent {
         for (let i = 1; i <= lastDay.getDate(); i++) {
             const date = new Date(year, month, i);
             const dateStr = date.toISOString().split('T')[0];
-            const stats = dailyStats.get(dateStr) || { pnl: 0, count: 0 };
+            const stats = dailyStats.get(dateStr) || { pnl: 0, count: 0, pnlPercent: 0 };
             days.push({
                 date,
                 day: i,
                 isCurrentMonth: true,
                 pnl: stats.pnl,
+                pnlPercent: stats.pnlPercent,
                 count: stats.count,
                 hasTrades: stats.count > 0,
                 isToday: new Date().toDateString() === date.toDateString()
@@ -91,12 +97,13 @@ export class CalendarHeatmapComponent {
         for (let i = 1; i <= remainingCells; i++) {
             const date = new Date(year, month + 1, i);
             const dateStr = date.toISOString().split('T')[0];
-            const stats = dailyStats.get(dateStr) || { pnl: 0, count: 0 };
+            const stats = dailyStats.get(dateStr) || { pnl: 0, count: 0, pnlPercent: 0 };
             days.push({
                 date,
                 day: i,
                 isCurrentMonth: false,
                 pnl: stats.pnl,
+                pnlPercent: stats.pnlPercent,
                 count: stats.count,
                 hasTrades: stats.count > 0,
                 isToday: false

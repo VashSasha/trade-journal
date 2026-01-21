@@ -66,6 +66,10 @@ export class FilterService {
         });
     }
 
+    updateAccounts(accountIds: string[]) {
+        this.state.update(s => ({ ...s, accountIds }));
+    }
+
     reset() {
         this.state.set({
             dateRange: { start: null, end: null },
@@ -100,8 +104,21 @@ export class FilterService {
             // Sides
             if (s.sides.length > 0 && !s.sides.includes(t.direction)) return false;
 
+
             // Accounts
-            if (s.accountIds.length > 0 && (!t.accountId || !s.accountIds.includes(t.accountId))) return false;
+            // NOTE: Trades without accountId are included (legacy trades or manually created trades)
+            // Only filter OUT trades that HAVE an accountId but don't match the selected accounts
+            if (s.accountIds.length > 0) {
+                if (t.accountId && !s.accountIds.includes(t.accountId)) {
+                    console.log(`[FilterService] Trade ${t.symbol} excluded: accountId mismatch`, {
+                        tradeAccountId: t.accountId,
+                        filterAccounts: s.accountIds
+                    });
+                    return false;
+                }
+                // If trade has no accountId, include it (legacy data)
+                // If trade has accountId and it matches filter, include it
+            }
 
             return true;
         });

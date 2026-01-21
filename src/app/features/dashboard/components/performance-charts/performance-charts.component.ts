@@ -1,4 +1,4 @@
-import { Component, Input, ViewChild, ElementRef, AfterViewInit, effect, OnDestroy } from '@angular/core';
+import { Component, Input, ViewChild, ElementRef, AfterViewInit, OnDestroy, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { TradeStats } from '../../../../core/models/trade.model';
@@ -11,7 +11,7 @@ Chart.register(...registerables);
     imports: [CommonModule],
     templateUrl: './performance-charts.component.html'
 })
-export class PerformanceChartsComponent implements AfterViewInit, OnDestroy {
+export class PerformanceChartsComponent implements AfterViewInit, OnDestroy, OnChanges {
     @Input({ required: true }) equityData!: { labels: string[], values: number[] };
     @Input({ required: true }) winLossStats!: TradeStats;
 
@@ -21,16 +21,18 @@ export class PerformanceChartsComponent implements AfterViewInit, OnDestroy {
     private equityChart?: Chart;
     private winLossChart?: Chart;
 
-    constructor() {
-        // Re-render when inputs change
-        effect(() => {
-            if (this.equityChart && this.equityData) {
-                this.updateEquityChart();
-            }
-            if (this.winLossChart && this.winLossStats) {
-                this.updateWinLossChart();
-            }
-        });
+    constructor() { }
+
+    ngOnChanges(changes: SimpleChanges): void {
+        // Update charts when inputs change
+        if (changes['equityData'] && this.equityChart && !changes['equityData'].firstChange) {
+            console.log('[PerformanceCharts] equityData changed, updating chart');
+            this.updateEquityChart();
+        }
+        if (changes['winLossStats'] && this.winLossChart && !changes['winLossStats'].firstChange) {
+            console.log('[PerformanceCharts] winLossStats changed, updating chart');
+            this.updateWinLossChart();
+        }
     }
 
     ngAfterViewInit(): void {

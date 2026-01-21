@@ -37,36 +37,40 @@
     </div>
 
     <!-- Calendar Grid -->
-    <div class="grid grid-cols-7 gap-px border border-slate-200 bg-slate-200 dark:border-slate-700 dark:bg-slate-700">
+    <div class="grid grid-cols-7 gap-2 border-0 bg-transparent">
         @for (day of calendarData(); track $index) {
-        <div class="min-h-[80px] p-2 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+        <div class="min-h-[90px] p-2 rounded-lg border border-slate-100 dark:border-slate-800 transition-all hover:shadow-md dark:hover:bg-slate-800"
             [class.opacity-50]="!day.isCurrentMonth" [class.bg-white]="day.pnl === 0"
             [class.dark:bg-slate-900]="day.pnl === 0" [class.text-white]="day.pnl !== 0"
-            [class.bg-emerald-100]="day.pnl > 0" [class.dark:bg-emerald-900/40]="day.pnl > 0"
-            [class.bg-red-100]="day.pnl < 0" [class.dark:bg-red-900/40]="day.pnl < 0">
+            [class.bg-emerald-500]="day.pnl > 0" [class.dark:bg-emerald-600]="day.pnl > 0"
+            [class.bg-red-500]="day.pnl < 0" [class.dark:bg-red-600]="day.pnl < 0"
+            [style.background-color]="day.pnl === 0 ? '' : (day.pnl > 0 ? 'rgba(16, 185, 129, ' + (0.5 + Math.min(day.pnlPercent/5, 0.5)) + ')'   : 'rgba(239, 68, 68, ' + (0.5 + Math.min(Math.abs(day.pnlPercent)/5, 0.5)) + ')')">
+
             <div class="flex justify-between items-start">
-                <span class="text-xs font-medium" [class.text-slate-900]="day.isCurrentMonth"
-                    [class.dark:text-slate-200]="day.isCurrentMonth" [class.text-slate-400]="!day.isCurrentMonth"
-                    [class.bg-emerald-100]="day.isToday && day.pnl === 0"
-                    [class.text-emerald-700]="day.isToday && day.pnl === 0" [class.px-1.5]="day.isToday"
+                <span class="text-xs font-medium" [class.text-slate-900]="day.isCurrentMonth && day.pnl === 0"
+                    [class.dark:text-slate-200]="day.isCurrentMonth && day.pnl === 0"
+                    [class.text-slate-400]="!day.isCurrentMonth" [class.text-white]="day.pnl !== 0"
+                    [class.bg-slate-200]="day.isToday && day.pnl === 0"
+                    [class.dark:bg-slate-700]="day.isToday && day.pnl === 0"
+                    [class.bg-white/20]="day.isToday && day.pnl !== 0" [class.px-1.5]="day.isToday"
                     [class.rounded-full]="day.isToday">
                     {{ day.day }}
                 </span>
                 @if (day.hasTrades) {
-                <span class="text-[10px]" [class.text-emerald-700]="day.pnl > 0"
-                    [class.dark:text-emerald-400]="day.pnl > 0" [class.text-red-700]="day.pnl < 0"
-                    [class.dark:text-red-400]="day.pnl < 0" [class.text-slate-400]="day.pnl === 0">
-                    {{ day.count }} trade{{ day.count > 1 ? 's' : '' }}
+                <span class="text-[10px]" [class.text-slate-600]="day.pnl === 0" [class.text-white]="day.pnl !== 0"
+                    [class.opacity-80]="day.pnl !== 0">
+                    {{ day.count }}
                 </span>
                 }
             </div>
 
             @if (day.hasTrades && day.pnl !== 0) {
             <div class="mt-2 text-right">
-                <div class="text-xs font-bold" [class.text-emerald-700]="day.pnl > 0"
-                    [class.dark:text-emerald-400]="day.pnl > 0" [class.text-red-700]="day.pnl < 0"
-                    [class.dark:text-red-400]="day.pnl < 0">
+                <div class="text-xs font-bold text-white">
                     {{ formatCurrency(day.pnl) }}
+                </div>
+                <div class="text-[10px] font-medium text-white/90">
+                    {{ day.pnlPercent > 0 ? '+' : ''}}{{ day.pnlPercent.toFixed(1) }}%
                 </div>
             </div>
             }
