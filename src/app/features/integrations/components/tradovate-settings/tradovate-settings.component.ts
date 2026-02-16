@@ -1,8 +1,8 @@
-import { Component, signal, inject } from '@angular/core';
+import { Component, signal, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { TradovateService } from '../../../../core/services/tradovate.service';
+import { TradovateService, TradovateConnection } from '../../../../core/services/tradovate.service';
 
 @Component({
     selector: 'app-tradovate-settings',
@@ -14,122 +14,39 @@ import { TradovateService } from '../../../../core/services/tradovate.service';
 export class TradovateSettingsComponent {
     private fb = inject(FormBuilder);
     private router = inject(Router);
-    private tradovateService = inject(TradovateService);
+    tradovateService = inject(TradovateService);
 
     configForm: FormGroup;
     isSaved = signal(false);
     showSecret = signal(false);
-    isConnected = signal(!!localStorage.getItem('tradovate_token'));
-    authMode = signal<'oauth' | 'direct'>('oauth');
+    authMode = signal<'oauth' | 'direct'>('direct');
     isConnecting = signal(false);
-    account = signal<any>(null);
-    balance = signal<any>(null);
     showAdvanced = signal(false);
+    showAddConnection = signal(false);
+    connectionName = signal('');
 
-    get redirectUri(): string {
-        return window.location.origin + '/settings/tradovate/callback';
-    }
+    // Computed from service
+    connections = this.tradovateService.connections;
+    activeConnectionId = this.tradovateService.activeConnectionId;
+    activeConnection = this.tradovateService.activeConnection;
 
     constructor() {
-        const savedConfig = localStorage.getItem('tradovate_config');
-        const initialValues = savedConfig ? JSON.parse(savedConfig) : {
-            apiKey: '',
-            apiSecret: '',
-            authMode: 'oauth',
-            username: '',
-            password: '',
-            apiPassword: '',
-            environment: 'demo'
-        };
-
-        this.authMode.set(initialValues.authMode || 'oauth');
-
         this.configForm = this.fb.group({
-            authMode: [initialValues.authMode || 'oauth'],
-            environment: [initialValues.environment || 'demo'],
+            connectionName: ['', Validators.required],
+            authMode: ['direct'],
+            environment: ['demo'],
             // OAuth fields
-            apiKey: [initialValues.apiKey],
-            apiSecret: [initialValues.apiSecret],
+            apiKey: [''],
+            apiSecret: [''],
             // Direct Login fields
-            username: [initialValues.username],
-            password: [initialValues.password],
-            apiPassword: [initialValues.apiPassword]
-        });
-
-        // Set validators based on mode
-        this.updateValidators(initialValues.authMode || 'oauth');
-
-        if (this.isConnected()) {
-            this.loadAccountInfo();
-        }
-    }
-
-    private loadAccountInfo(): void {
-        this.tradovateService.getAccounts().subscribe({
-            next: (accounts) => {
-                if (accounts && accounts.length > 0) {
-                    this.account.set(accounts[0]);
-                    this.loadBalance();
-                }
-            },
-            error: (err) => {
-                console.error('Failed to load accounts', err);
-                if (err.status === 401) {
-                    this.disconnect();
-                }
-            }
-        });
-    }
-
-    private loadBalance(): void {
-        this.tradovateService.getCashBalances().subscribe({
-            next: (balances) => {
-                const acc = this.account();
-                if (acc && balances) {
-                    const bal = balances.find(b => b.accountId === acc.id);
-                    this.balance.set(bal);
-                }
-            },
-            error: (err) => console.error('Failed to load balance', err)
+            username: ['', Validators.required],
+            password: ['', Validators.required]
         });
     }
 
     setAuthMode(mode: 'oauth' | 'direct'): void {
         this.authMode.set(mode);
         this.configForm.patchValue({ authMode: mode });
-        this.updateValidators(mode);
-    }
-
-    updateValidators(mode: 'oauth' | 'direct'): void {
-        const apiKey = this.configForm.get('apiKey');
-        const apiSecret = this.configForm.get('apiSecret');
-        const username = this.configForm.get('username');
-        const password = this.configForm.get('password');
-        const apiPassword = this.configForm.get('apiPassword');
-
-        if (mode === 'oauth') {
-            apiKey?.setValidators([Validators.required]);
-            apiSecret?.setValidators([Validators.required]);
-            username?.clearValidators();
-            password?.clearValidators();
-            apiPassword?.clearValidators();
-        } else {
-            // Direct login (TradingView-style) only requires username/password
-            // No API credentials needed!
-            username?.setValidators([Validators.required]);
-            password?.setValidators([Validators.required]);
-
-            // API credentials are not required for simple login
-            apiKey?.clearValidators();
-            apiSecret?.clearValidators();
-            apiPassword?.clearValidators();
-        }
-
-        apiKey?.updateValueAndValidity();
-        apiSecret?.updateValueAndValidity();
-        username?.updateValueAndValidity();
-        password?.updateValueAndValidity();
-        apiPassword?.updateValueAndValidity();
     }
 
     toggleSecret(): void {
@@ -140,66 +57,109 @@ export class TradovateSettingsComponent {
         this.showAdvanced.update(v => !v);
     }
 
-    onSubmit(): void {
-        if (this.configForm.valid) {
-            localStorage.setItem('tradovate_config', JSON.stringify(this.configForm.value));
-            this.isSaved.set(true);
-            setTimeout(() => this.isSaved.set(false), 3000);
+    toggleAddConnection(): void {
+        this.showAddConnection.update(v => !v);
+        if (!this.showAddConnection()) {
+            this.configForm.reset({
+                connectionName: '',
+                authMode: 'direct',
+                environment: 'demo',
+                username: '',
+                password: ''
+            });
         }
     }
 
     connect(): void {
         if (!this.configForm.valid) return;
 
-        // Save config first
-        localStorage.setItem('tradovate_config', JSON.stringify(this.configForm.value));
+        this.isConnecting.set(true);
+        const values = this.configForm.value;
+        const connectionName = values.connectionName || 'Tradovate Account';
+        const environment = values.environment || 'demo';
 
         if (this.authMode() === 'oauth') {
-            this.initiateOAuth();
+            // TODO: Implement OAuth flow with connection name
+            alert('OAuth flow with multi-account will be implemented');
+            this.isConnecting.set(false);
         } else {
-            this.loginDirectly();
+            this.tradovateService.simpleLogin(
+                values.username,
+                values.password,
+                connectionName,
+                environment
+            ).subscribe({
+                next: ({ connectionId }) => {
+                    this.isConnecting.set(false);
+                    this.showAddConnection.set(false);
+                    this.isSaved.set(true);
+                    this.configForm.reset();
+
+                    // Load accounts for this connection
+                    this.loadAccountsForConnection(connectionId);
+
+                    setTimeout(() => this.isSaved.set(false), 3000);
+                },
+                error: (err) => {
+                    this.isConnecting.set(false);
+                    const msg = err.message || 'Login failed. Please check your Tradovate username and password.';
+                    alert(msg);
+                }
+            });
         }
     }
 
-    private initiateOAuth(): void {
-        const isDemo = this.configForm.value.environment === 'demo';
-        const clientId = this.configForm.value.apiKey;
-        const redirectUri = encodeURIComponent(this.redirectUri);
+    private loadAccountsForConnection(connectionId: string): void {
+        // Temporarily set as active to fetch accounts
+        const previousActive = this.activeConnectionId();
+        this.tradovateService.setActiveConnection(connectionId);
 
-        const host = isDemo ? 'demo.tradovateapi.com' : 'trader.tradovate.com';
-        const authUrl = `https://${host}/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code`;
-        window.location.href = authUrl;
-    }
+        this.tradovateService.getAccounts().subscribe({
+            next: (accounts) => {
+                this.tradovateService.updateConnectionAccounts(connectionId, accounts);
 
-    private loginDirectly(): void {
-        this.isConnecting.set(true);
-        const username = this.configForm.value.username;
-        const password = this.configForm.value.password;
-
-        this.tradovateService.simpleLogin(username, password).subscribe({
-            next: () => {
-                this.isConnecting.set(false);
-                this.isConnected.set(true);
-                this.isSaved.set(true);
-                this.loadAccountInfo();
-                setTimeout(() => this.isSaved.set(false), 3000);
+                // Restore previous active connection if needed
+                if (previousActive && previousActive !== connectionId) {
+                    this.tradovateService.setActiveConnection(previousActive);
+                } else {
+                    // Keep this one as active
+                    this.tradovateService.setActiveConnection(connectionId);
+                }
             },
             error: (err) => {
-                this.isConnecting.set(false);
-                const msg = err.message || 'Login failed. Please check your Tradovate username and password.';
-                alert(msg);
+                console.error('Failed to load accounts for connection:', err);
+                // Restore previous active
+                if (previousActive) {
+                    this.tradovateService.setActiveConnection(previousActive);
+                }
             }
         });
     }
 
-    disconnect(): void {
-        localStorage.removeItem('tradovate_token');
-        this.isConnected.set(false);
-        this.account.set(null);
-        this.balance.set(null);
+    setActiveConnection(connectionId: string): void {
+        this.tradovateService.setActiveConnection(connectionId);
+    }
+
+    disconnectConnection(connectionId: string): void {
+        if (confirm('Are you sure you want to remove this connection?')) {
+            this.tradovateService.removeConnection(connectionId);
+        }
     }
 
     back(): void {
         this.router.navigate(['/journal/trades']);
+    }
+
+    getConnectionStatus(conn: TradovateConnection): string {
+        return conn.id === this.activeConnectionId() ? 'Active' : 'Inactive';
+    }
+
+    getConnectionEnvironment(conn: TradovateConnection): string {
+        return conn.config.environment === 'live' ? 'Live' : 'Demo';
+    }
+
+    formatDate(dateString: string): string {
+        const date = new Date(dateString);
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
     }
 }

@@ -15,6 +15,7 @@ export class SyncService {
 
     isSyncing = signal(false);
     lastSyncTime = signal<Date | null>(null);
+    syncAllConnections = signal(false); // Toggle for syncing all connections vs just active
 
     async syncTrades(): Promise<number> {
         if (this.isSyncing()) return 0;
@@ -22,9 +23,13 @@ export class SyncService {
 
         try {
             const fromDate = new Date();
-            fromDate.setMonth(fromDate.getMonth() - 12);
+            // Fetch fill history from a long time ago (e.g. 2020) to get "all time"
+            fromDate.setFullYear(2020, 0, 1);
 
-            const fills = await firstValueFrom(this.tradovateService.getFills(fromDate));
+            // Use getAllFills to get historical data from Reports API
+            const fills = await firstValueFrom(this.tradovateService.getAllFills(fromDate));
+
+            console.log(`[Sync] Fetched ${fills.length} fills from Tradovate (Reports API)`);
 
             const accounts = await firstValueFrom(this.tradovateService.getAccounts() as Observable<TradovateAccount[]>);
             const accountMap = new Map<number, string>();

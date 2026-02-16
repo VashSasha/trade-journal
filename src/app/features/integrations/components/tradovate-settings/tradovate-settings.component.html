@@ -1,5 +1,5 @@
 <div class="min-h-full bg-slate-50 p-6 dark:bg-slate-950">
-    <div class="mx-auto max-w-2xl">
+    <div class="mx-auto max-w-4xl">
         <!-- Header -->
         <div class="mb-8 flex items-center gap-4">
             <button (click)="back()" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
@@ -9,243 +9,183 @@
                 </svg>
             </button>
             <div>
-                <h1 class="text-3xl font-bold text-slate-900 dark:text-white">Integration Settings</h1>
-                <p class="mt-1 text-slate-600 dark:text-slate-400">Configure your broker connections</p>
+                <h1 class="text-3xl font-bold text-slate-900 dark:text-white">Tradovate Connections</h1>
+                <p class="mt-1 text-slate-600 dark:text-slate-400">Manage multiple Tradovate accounts</p>
             </div>
         </div>
 
-        <!-- Tradovate Card -->
-        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div class="mb-6 flex items-center gap-4">
-                <div
-                    class="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xl">
-                    T
+        <!-- Connected Accounts List -->
+        @if (connections().length > 0) {
+        <div class="mb-6 space-y-4">
+            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">Your
+                Connections</h2>
+
+            @for (conn of connections(); track conn.id) {
+            <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800
+dark:bg-slate-900">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-center gap-4">
+                        <div
+                            class="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xl">
+                            {{ conn.name.charAt(0).toUpperCase() }}
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900 dark:text-white">{{ conn.name }}</h3>
+                            <div class="mt-1 flex items-center gap-2 text-sm">
+                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                                    [class.bg-emerald-100]="conn.config.environment === 'demo'"
+                                    [class.text-emerald-800]="conn.config.environment === 'demo'"
+                                    [class.dark:bg-emerald-900/30]="conn.config.environment === 'demo'"
+                                    [class.dark:text-emerald-400]="conn.config.environment === 'demo'"
+                                    [class.bg-orange-100]="conn.config.environment === 'live'"
+                                    [class.text-orange-800]="conn.config.environment === 'live'"
+                                    [class.dark:bg-orange-900/30]="conn.config.environment === 'live'"
+                                    [class.dark:text-orange-400]="conn.config.environment === 'live'">
+                                    {{ getConnectionEnvironment(conn) }}
+                                </span>
+                                @if (conn.id === activeConnectionId()) {
+                                <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800
+dark:bg-blue-900/30 dark:text-blue-400">
+                                    Active
+                                </span>
+                                }
+                            </div>
+                            @if (conn.accounts.length > 0) {
+                            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                {{ conn.accounts.length }} account{{ conn.accounts.length > 1 ? 's' : '' }} • Last
+                                synced: {{ conn.lastSyncedAt ?
+                                formatDate(conn.lastSyncedAt) : 'Never' }}
+                            </p>
+                            }
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        @if (conn.id !== activeConnectionId()) {
+                        <button (click)="setActiveConnection(conn.id)" class="rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-600 transition-colors
+hover:bg-blue-50 dark:border-blue-900 dark:bg-slate-900 dark:text-blue-400 dark:hover:bg-blue-900/30">
+                            Set Active
+                        </button>
+                        }
+                        <button (click)="disconnectConnection(conn.id)" class="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 transition-colors
+hover:bg-red-50 dark:border-red-900 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-red-900/30">
+                            Remove
+                        </button>
+                    </div>
                 </div>
+            </div>
+            }
+        </div>
+        }
+
+        <!-- Add Connection Button or Form -->
+        @if (!showAddConnection()) {
+        <button (click)="toggleAddConnection()" class="w-full rounded-xl border-2 border-dashed border-slate-300 bg-white p-8 text-center transition-colors
+hover:border-blue-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-600
+dark:hover:bg-slate-800">
+            <svg class="mx-auto h-12 w-12 text-slate-400 dark:text-slate-600" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">Add New Connection</p>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Connect another Tradovate account</p>
+        </button>
+        } @else {
+        <!-- Add Connection Form -->
+        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800
+dark:bg-slate-900">
+            <div class="mb-6 flex items-center justify-between">
+                <h2 class="text-xl font-bold text-slate-900 dark:text-white">Add Tradovate Connection</h2>
+                <button (click)="toggleAddConnection()"
+                    class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <form [formGroup]="configForm" (ngSubmit)="connect()" class="space-y-6">
+                <!-- Connection Name -->
                 <div>
-                    <h2 class="text-xl font-bold text-slate-900 dark:text-white">Tradovate</h2>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">Sync your fill history automatically</p>
+                    <label for="connectionName"
+                        class="block text-sm font-medium text-slate-700 dark:text-slate-300">Connection
+                        Name</label>
+                    <input type="text" id="connectionName" formControlName="connectionName" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-blue-500
+focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                        placeholder="e.g. Take Profit Trader, Apex Funded">
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Helps you identify this connection</p>
                 </div>
-                <div class="ml-auto">
-                    <span
-                        class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800 dark:bg-slate-800 dark:text-slate-300">
-                        REST API
-                    </span>
-                </div>
-            </div>
 
-            <!-- Mode Selection Tabs -->
-            <div class="mb-8 flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
-                <button (click)="setAuthMode('oauth')" [class.bg-white]="authMode() === 'oauth'"
-                    [class.shadow-sm]="authMode() === 'oauth'" [class.text-slate-900]="authMode() === 'oauth'"
-                    [class.dark:bg-slate-700]="authMode() === 'oauth'" [class.dark:text-white]="authMode() === 'oauth'"
-                    class="flex-1 rounded-md px-4 py-2 text-sm font-medium text-slate-500 transition-all">
-                    OAuth 2.0 (Funded)
-                </button>
-                <button (click)="setAuthMode('direct')" [class.bg-white]="authMode() === 'direct'"
-                    [class.shadow-sm]="authMode() === 'direct'" [class.text-slate-900]="authMode() === 'direct'"
-                    [class.dark:bg-slate-700]="authMode() === 'direct'"
-                    [class.dark:text-white]="authMode() === 'direct'"
-                    class="flex-1 rounded-md px-4 py-2 text-sm font-medium text-slate-500 transition-all">
-                    Direct Login (Demo)
-                </button>
-            </div>
-
-            <form [formGroup]="configForm" (ngSubmit)="onSubmit()" class="space-y-6">
-                <!-- Environment Selection (Universal) -->
+                <!-- Environment -->
                 <div>
                     <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Environment</label>
-                    <select formControlName="environment" (change)="updateValidators(authMode())"
-                        class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                    <select formControlName="environment" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-blue-500
+focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
                         <option value="demo">Simulation / Demo</option>
                         <option value="live">Live Trading</option>
                     </select>
                 </div>
 
-                @if (authMode() === 'oauth') {
-                <!-- API Info Alert -->
-                <div class="rounded-lg bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                    <p class="font-medium">Requirements:</p>
-                    <ul class="mt-1 list-disc pl-5">
-                        <li>Active Tradovate account with "API Access" subscription.</li>
-                        <li>Configured App in your Tradovate portal with the following Redirect URI:</li>
-                        <li class="mt-2 font-mono bg-blue-100 dark:bg-blue-900/50 p-2 rounded break-all select-all">
-                            {{ redirectUri }}
-                        </li>
-                    </ul>
+                <!-- Login Credentials -->
+                <div>
+                    <label for="username" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Tradovate
+                        Username</label>
+                    <input type="text" id="username" formControlName="username" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-blue-500
+focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" placeholder="Enter your username">
                 </div>
 
-                <!-- OAuth Fields -->
-                <div class="mb-6">
-                    <label for="apiKey" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Client
-                        ID</label>
-                    <input type="text" id="apiKey" formControlName="apiKey"
-                        class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                        placeholder="Enter your Tradovate Client ID">
-                </div>
-
-                <div class="mb-8">
-                    <label for="apiSecret" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Client
-                        Secret</label>
-                    <div class="relative mt-1">
-                        <input [type]="showSecret() ? 'text' : 'password'" id="apiSecret" formControlName="apiSecret"
-                            class="block w-full rounded-lg border border-slate-300 bg-white px-4 py-2 pr-10 text-slate-900 focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                            placeholder="Enter your Tradovate Client Secret">
-                        <button type="button" (click)="toggleSecret()"
-                            class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-                            @if (showSecret()) {
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                            </svg>
-                            } @else {
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            }
-                        </button>
-                    </div>
-                </div>
-                } @else {
-                <!-- Simplified Direct Login Fields (TradeZella Style) -->
-                <div class="mb-6">
-                    <label for="username" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Tradovate Username
-                    </label>
-                    <input type="text" id="username" formControlName="username"
-                        class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                        placeholder="Enter your username">
-                </div>
-
-                <div class="mb-6">
-                    <label for="password" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Password
-                    </label>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-slate-700
+dark:text-slate-300">Password</label>
                     <div class="relative mt-1">
                         <input [type]="showSecret() ? 'text' : 'password'" id="password" formControlName="password"
-                            class="block w-full rounded-lg border border-slate-300 bg-white px-4 py-2 pr-10 text-slate-900 focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                            placeholder="Enter your password">
-                        <button type="button" (click)="toggleSecret()"
-                            class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                            class="block w-full rounded-lg border border-slate-300 bg-white px-4 py-2 pr-10 text-slate-900 focus:border-blue-500
+focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" placeholder="Enter your password">
+                        <button type="button" (click)="toggleSecret()" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600
+dark:hover:text-slate-300">
                             @if (showSecret()) {
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243
+4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0
+8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                             </svg>
                             } @else {
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268-2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477
+0-8.268-2.943-9.542-7z" />
                             </svg>
                             }
                         </button>
                     </div>
                 </div>
-
-                <!-- Advanced Settings Toggle -->
-                <div class="mb-4">
-                    <button type="button" (click)="toggleAdvanced()"
-                        class="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1">
-                        <svg class="h-3 w-3 transition-transform" [class.rotate-90]="showAdvanced()" fill="none"
-                            viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                        </svg>
-                        Advanced API Settings
-                    </button>
-                </div>
-
-                @if (showAdvanced()) {
-                <div class="space-y-4 rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50 mb-6">
-                    <div>
-                        <label for="directApiKey" class="block text-xs font-medium text-slate-500 dark:text-slate-400">
-                            Custom Client ID (CID)
-                        </label>
-                        <input type="text" id="directApiKey" formControlName="apiKey"
-                            class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                            placeholder="Optional for Demo">
-                    </div>
-                    <div>
-                        <label for="directApiSecret"
-                            class="block text-xs font-medium text-slate-500 dark:text-slate-400">
-                            Custom Secret
-                        </label>
-                        <input type="password" id="directApiSecret" formControlName="apiSecret"
-                            class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                            placeholder="Optional for Demo">
-                    </div>
-                    <p class="text-[10px] text-slate-400">
-                        Leaving these blank will use the application's default integration keys.
-                    </p>
-                </div>
-                }
-                }
 
                 <!-- Actions -->
-                <div class="flex flex-col gap-4">
-                    <div class="flex gap-4">
-                        <button type="submit" [disabled]="!configForm.valid"
-                            class="flex-1 rounded-lg bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100">
-                            {{ isSaved() ? 'Saved!' : 'Save Credentials' }}
-                        </button>
-
-                        @if (isConnected()) {
-                        <button type="button" (click)="disconnect()"
-                            class="flex-1 rounded-lg border border-red-200 bg-white px-6 py-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 dark:border-red-900 dark:bg-slate-900 dark:text-red-400 font-medium">
-                            Disconnect
-                        </button>
+                <div class="flex gap-4 pt-4">
+                    <button type="button" (click)="toggleAddConnection()" class="flex-1 rounded-lg border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700
+transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300
+dark:hover:bg-slate-700">
+                        Cancel
+                    </button>
+                    <button type="submit" [disabled]="!configForm.valid || isConnecting()" class="flex-1 rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700
+disabled:opacity-50 flex items-center justify-center gap-2">
+                        @if (isConnecting()) {
+                        <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                            </circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3
+7.938l3-2.647z">
+                            </path>
+                        </svg>
+                        Connecting...
                         } @else {
-                        <button type="button" (click)="connect()" [disabled]="!configForm.valid || isConnecting()"
-                            class="flex-1 rounded-lg bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50 flex items-center justify-center gap-2">
-                            @if (isConnecting()) {
-                            <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                    stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                </path>
-                            </svg>
-                            Connecting...
-                            } @else {
-                            {{ authMode() === 'oauth' ? 'Connect via OAuth' : 'Login Directly' }}
-                            }
-                        </button>
+                        Add Connection
                         }
-                    </div>
-
-                    <div
-                        class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
-                        <div class="flex items-center justify-between">
-                            <h4 class="text-sm font-semibold text-slate-900 dark:text-white">Connection Status</h4>
-                            <div class="flex items-center gap-2">
-                                <div class="h-2.5 w-2.5 rounded-full" [class.bg-emerald-500]="isConnected()"
-                                    [class.bg-slate-300]="!isConnected()"></div>
-                                <span class="text-xs text-slate-600 dark:text-slate-400 font-medium">
-                                    {{ isConnected() ? 'Connected' : 'Not connected' }}
-                                </span>
-                            </div>
-                        </div>
-
-                        @if (isConnected() && account()) {
-                        <div class="mt-4 grid grid-cols-2 gap-4 border-t border-slate-200 pt-4 dark:border-slate-800">
-                            <div>
-                                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Account</p>
-                                <p class="text-sm font-semibold text-slate-900 dark:text-white">{{ account().name }}</p>
-                            </div>
-                            <div>
-                                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Balance</p>
-                                <p class="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                                    {{ balance() ? (balance().amount | currency) : 'Loading...' }}
-                                </p>
-                            </div>
-                        </div>
-                        }
-                    </div>
+                    </button>
                 </div>
             </form>
         </div>
+        }
     </div>
 </div>

@@ -1,7 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, throwError, of } from 'rxjs';
-import { catchError, map, switchMap } from 'rxjs/operators';
+import { catchError, map, switchMap, tap } from 'rxjs/operators';
 
 export interface TradovateConfig {
     apiKey: string;
@@ -28,6 +28,24 @@ export interface TradovateAccount {
     active: boolean;
 }
 
+export interface TradovateConnection {
+    id: string; // UUID
+    name: string; // User-friendly name (e.g., "Take Profit Trader", "Apex Funded")
+    token: string;
+    config: {
+        authMode: 'oauth' | 'direct';
+        environment: 'demo' | 'live';
+        username?: string;
+        apiKey?: string;
+        apiSecret?: string;
+    };
+    accounts: TradovateAccount[]; // Tradovate accounts under this connection
+    selectedAccountIds?: number[]; // Selected accounts for this connection
+    createdAt: string;
+    lastSyncedAt?: string;
+}
+
+
 @Injectable({
     providedIn: 'root'
 })
@@ -40,11 +58,209 @@ export class TradovateService {
     private liveRptUrl = 'https://rpt.tradovateapi.com/v1';
     private demoRptUrl = 'https://rpt-demo.tradovateapi.com/v1';
 
-    constructor(private http: HttpClient) { }
+    // Multi-account support
+    connections = signal<TradovateConnection[]>([]);
+    activeConnectionId = signal<string | null>(null);
 
+    // Computed values
+    activeConnection = computed(() => {
+        const connId = this.activeConnectionId();
+        if (!connId) return null;
+        return this.connections().find(c => c.id === connId) || null;
+    });
+
+    isConnected = computed(() => this.activeConnection() !== null);
+
+    constructor(private http: HttpClient) {
+        this.loadConnections();
+        this.migrateOldStorage();
+        this.cleanupOldKeys();
+    }
+
+    /**
+     * Clean up old/conflicting localStorage keys from previous versions
+     */
+    private cleanupOldKeys(): void {
+        // Remove old key with _id suffix that could conflict
+        if (localStorage.getItem('tradovate_active_connection_id')) {
+            localStorage.removeItem('tradovate_active_connection_id');
+            console.log('[TradovateService] Cleaned up old tradovate_active_connection_id key');
+        }
+    }
+
+    /**
+     * Load connections from localStorage
+     */
+    private loadConnections(): void {
+        const stored = localStorage.getItem('tradovate_connections');
+        const storedActiveId = localStorage.getItem('tradovate_active_connection');
+
+        if (stored) {
+            try {
+                const connections = JSON.parse(stored);
+                this.connections.set(connections);
+
+                // Load active connection ID from storage, or use first connection
+                if (storedActiveId && connections.find((c: TradovateConnection) => c.id === storedActiveId)) {
+                    this.activeConnectionId.set(storedActiveId);
+                } else if (connections.length > 0) {
+                    this.activeConnectionId.set(connections[0].id);
+                    localStorage.setItem('tradovate_active_connection', connections[0].id);
+                }
+            } catch (err) {
+                console.error('Failed to load connections:', err);
+            }
+        }
+    }
+
+    /**
+     * Save connections to localStorage
+     */
+    private saveConnections(): void {
+        localStorage.setItem('tradovate_connections', JSON.stringify(this.connections()));
+    }
+
+    /**
+     * Migrate old single-token storage to new multi-connection format
+     */
+    private migrateOldStorage(): void {
+        const oldToken = localStorage.getItem('tradovate_token');
+        const oldConfig = localStorage.getItem('tradovate_config');
+        const oldSelectedAccounts = localStorage.getItem('tradovate_selected_accounts');
+
+        if (oldToken && oldConfig && this.connections().length === 0) {
+            try {
+                const config = JSON.parse(oldConfig);
+                const selectedAccountIds = oldSelectedAccounts ? JSON.parse(oldSelectedAccounts) : [];
+
+                const migrationConnection: TradovateConnection = {
+                    id: this.generateId(),
+                    name: 'Migrated Account',
+                    token: oldToken,
+                    config: {
+                        authMode: config.authMode || 'oauth',
+                        environment: config.environment || 'demo',
+                        username: config.username,
+                        apiKey: config.apiKey,
+                        apiSecret: config.apiSecret
+                    },
+                    accounts: [],
+                    selectedAccountIds: selectedAccountIds, // Migrate old selection
+                    createdAt: new Date().toISOString()
+                };
+
+                this.connections.set([migrationConnection]);
+                this.activeConnectionId.set(migrationConnection.id);
+                this.saveConnections();
+
+                // Clean up old storage
+                localStorage.removeItem('tradovate_token');
+                localStorage.removeItem('tradovate_config');
+                localStorage.removeItem('tradovate_selected_accounts');
+
+                console.log('[TradovateService] Migrated old token and account selection to new multi-connection format');
+            } catch (err) {
+                console.error('Failed to migrate old storage:', err);
+            }
+        }
+    }
+
+    /**
+     * Generate a unique ID for connections
+     */
+    private generateId(): string {
+        return `conn_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    }
+
+    /**
+     * Add a new connection
+     */
+    addConnection(name: string, token: string, config: TradovateConnection['config']): string {
+        const newConnection: TradovateConnection = {
+            id: this.generateId(),
+            name,
+            token,
+            config,
+            accounts: [],
+            createdAt: new Date().toISOString()
+        };
+
+        this.connections.update(conns => [...conns, newConnection]);
+        this.saveConnections();
+
+        // Set as active if it's the first connection
+        if (this.connections().length === 1) {
+            this.activeConnectionId.set(newConnection.id);
+        }
+
+        return newConnection.id;
+    }
+
+    /**
+     * Update connection accounts (after fetching from API)
+     */
+    updateConnectionAccounts(connectionId: string, accounts: TradovateAccount[]): void {
+        this.connections.update(conns =>
+            conns.map(c => c.id === connectionId ? { ...c, accounts } : c)
+        );
+        this.saveConnections();
+    }
+
+    /**
+     * Update connection last synced time
+     */
+    updateConnectionSyncTime(connectionId: string): void {
+        this.connections.update(conns =>
+            conns.map(c => c.id === connectionId ? { ...c, lastSyncedAt: new Date().toISOString() } : c)
+        );
+        this.saveConnections();
+    }
+
+    /**
+     * Remove a connection
+     */
+    removeConnection(connectionId: string): void {
+        this.connections.update(conns => conns.filter(c => c.id !== connectionId));
+        this.saveConnections();
+
+        // If we removed the active connection, set another one as active
+        if (this.activeConnectionId() === connectionId) {
+            const remaining = this.connections();
+            const newActiveId = remaining.length > 0 ? remaining[0].id : null;
+            this.activeConnectionId.set(newActiveId);
+            if (newActiveId) {
+                localStorage.setItem('tradovate_active_connection', newActiveId);
+            } else {
+                localStorage.removeItem('tradovate_active_connection');
+            }
+        }
+    }
+
+    /**
+     * Set active connection
+     */
+    setActiveConnection(connectionId: string): void {
+        const exists = this.connections().find(c => c.id === connectionId);
+        if (exists) {
+            this.activeConnectionId.set(connectionId);
+            localStorage.setItem('tradovate_active_connection', connectionId);
+        }
+    }
+
+    /**
+     * Get config for active connection (for backward compatibility)
+     */
     private getConfig(): any | null {
-        const config = localStorage.getItem('tradovate_config');
-        return config ? JSON.parse(config) : null;
+        const conn = this.activeConnection();
+        return conn?.config || null;
+    }
+
+    /**
+     * Get token for active connection (for backward compatibility)
+     */
+    private getToken(): string | null {
+        const conn = this.activeConnection();
+        return conn?.token || null;
     }
 
     private getBaseUrl(): string {
@@ -90,17 +306,14 @@ export class TradovateService {
     }
 
     // Simple Login - Just username/password, no API credentials needed
-    simpleLogin(username: string, password: string): Observable<any> {
-        const config = this.getConfig();
-        if (!config) return throwError(() => new Error('Tradovate configuration not found'));
-
+    simpleLogin(username: string, password: string, connectionName: string, environment: 'demo' | 'live' = 'demo'): Observable<{ connectionId: string }> {
         const body = {
             locale: 'en',
             login: username,
             password: password
         };
 
-        const authUrl = config.environment === 'live'
+        const authUrl = environment === 'live'
             ? 'https://tv-live.tradovateapi.com/authorize'
             : 'https://tv-demo.tradovateapi.com/authorize';
 
@@ -114,8 +327,17 @@ export class TradovateService {
                 const accessToken = res.d?.access_token || res.access_token;
 
                 if (accessToken) {
-                    localStorage.setItem('tradovate_token', accessToken);
-                    return res;
+                    // Create new connection
+                    const connectionId = this.addConnection(
+                        connectionName,
+                        accessToken,
+                        {
+                            authMode: 'direct',
+                            environment,
+                            username
+                        }
+                    );
+                    return { connectionId };
                 } else if (res.errorText) {
                     throw new Error(res.errorText);
                 } else {
@@ -131,7 +353,7 @@ export class TradovateService {
 
 
     getAccounts(): Observable<any[]> {
-        const token = localStorage.getItem('tradovate_token');
+        const token = this.getToken();
         if (!token) return throwError(() => new Error('Tradovate not connected: Token missing from storage'));
 
         const headers = new HttpHeaders({
@@ -144,7 +366,7 @@ export class TradovateService {
 
 
     getContract(contractId: number): Observable<any> {
-        const token = localStorage.getItem('tradovate_token');
+        const token = this.getToken();
         if (!token) return throwError(() => new Error('Tradovate not connected'));
 
         const headers = new HttpHeaders({
@@ -165,7 +387,7 @@ export class TradovateService {
 
 
     getFills(fromDate: Date): Observable<TradovateFill[]> {
-        const token = localStorage.getItem('tradovate_token');
+        const token = this.getToken();
         if (!token) return throwError(() => new Error('Tradovate not connected: Token missing from storage'));
 
         const headers = new HttpHeaders({
@@ -216,7 +438,7 @@ export class TradovateService {
     }
 
     getCashBalances(): Observable<any[]> {
-        const token = localStorage.getItem('tradovate_token');
+        const token = this.getToken();
         if (!token) return throwError(() => new Error('Tradovate not connected'));
 
         const headers = new HttpHeaders({
@@ -229,7 +451,7 @@ export class TradovateService {
 
     // Get cash balance for a specific account
     getCashBalanceForAccount(accountId: number): Observable<any> {
-        const token = localStorage.getItem('tradovate_token');
+        const token = this.getToken();
         if (!token) return throwError(() => new Error('Tradovate not connected'));
 
         const headers = new HttpHeaders({
@@ -243,14 +465,24 @@ export class TradovateService {
         });
     }
 
-    // Account selection management (localStorage)
+    // Account selection management (per-connection)
     getSelectedAccountIds(): number[] {
-        const stored = localStorage.getItem('tradovate_selected_accounts');
-        return stored ? JSON.parse(stored) : [];
+        const activeConn = this.activeConnection();
+        if (!activeConn) return [];
+
+        // Return selected accounts for active connection, or empty array if none selected
+        return activeConn.selectedAccountIds || [];
     }
 
     setSelectedAccountIds(accountIds: number[]): void {
-        localStorage.setItem('tradovate_selected_accounts', JSON.stringify(accountIds));
+        const activeConnId = this.activeConnectionId();
+        if (!activeConnId) return;
+
+        // Update selected accounts for active connection
+        this.connections.update(conns =>
+            conns.map(c => c.id === activeConnId ? { ...c, selectedAccountIds: accountIds } : c)
+        );
+        this.saveConnections();
     }
 
     // Check if any accounts are selected, if not, select all by default
@@ -263,7 +495,7 @@ export class TradovateService {
     }
 
     getOrders(): Observable<any[]> {
-        const token = localStorage.getItem('tradovate_token');
+        const token = this.getToken();
         if (!token) return throwError(() => new Error('Tradovate not connected'));
 
         const headers = new HttpHeaders({
@@ -275,7 +507,7 @@ export class TradovateService {
     }
 
     getMarketData(symbol: string, timeframe: string = '15min', barsCount: number = 100): Promise<any> {
-        const token = localStorage.getItem('tradovate_token');
+        const token = this.getToken();
         const wsUrl = 'wss://md.tradovateapi.com/v1/websocket';
 
         console.log(`[TradovateWS] Connecting to ${wsUrl} (Raw) for ${symbol} (${timeframe}, ${barsCount} bars)...`);
@@ -363,7 +595,7 @@ export class TradovateService {
      * This can fetch fills from previous days (unlike the standard /fill/list which is often limited to current day)
      */
     getHistoricalFillsReport(startDate: Date, endDate?: Date, accountId?: number): Observable<any> {
-        const token = localStorage.getItem('tradovate_token');
+        const token = this.getToken();
         if (!token) return throwError(() => new Error('Tradovate not connected'));
 
         const headers = new HttpHeaders({
@@ -381,12 +613,83 @@ export class TradovateService {
             params.accountId = accountId.toString();
         }
 
-        console.log(`[TradovateService] Fetching historical fills report from ${params.startDate} to ${params.endDate}`);
+        console.log(`[TradovateService] 📊 Requesting historical fill report (GET Item):`, {
+            url: `${this.getRptUrl()}/fillReport/item`,
+            params
+        });
 
-        // Use the Reports API endpoint for fill reports
         return this.http.get(`${this.getRptUrl()}/fillReport/item`, { headers, params }).pipe(
+            tap(response => console.log(`[TradovateService] 📥 Report Response:`, response)),
             catchError(err => {
-                console.error('Error fetching historical fills report:', err);
+                console.error('❌ Error requesting fill report item:', err);
+                return throwError(() => err);
+            })
+        );
+    }
+
+    /**
+     * Polls for report status and retrieves data when complete
+     */
+
+    /**
+     * Get all fills (current + historical) for a date range
+     * Combines standard getFills with historical report data for comprehensive history
+     */
+    getAllFills(startDate: Date, endDate?: Date): Observable<TradovateFill[]> {
+        const token = this.getToken();
+        if (!token) return throwError(() => new Error('Tradovate not connected'));
+
+        const end = endDate || new Date();
+
+        console.log(`[TradovateService] Fetching all fills from ${startDate.toISOString()} to ${end.toISOString()}`);
+
+        // Get all accounts first
+        return this.getAccounts().pipe(
+            switchMap(accounts => {
+                const selectedAccountIds = this.getSelectedAccountIds();
+                const accountsToFetch = selectedAccountIds.length > 0
+                    ? accounts.filter(a => selectedAccountIds.includes(a.id))
+                    : accounts;
+
+                // For each account, fetch fills using Reports API
+                const fillRequests = accountsToFetch.map(account =>
+                    this.getHistoricalFillsReport(startDate, end, account.id).pipe(
+                        map((report: any[]) => {
+                            // The /fillReport/item endpoint likely returns an array of fill objects directly
+                            if (!Array.isArray(report)) {
+                                console.warn('[TradovateService] Unexpected report format:', report);
+                                return [];
+                            }
+
+                            return report.map((f: any) => ({
+                                id: f.id || f.fillId || `fill-${Math.random()}`,
+                                symbol: f.contract || f.symbol,
+                                action: ((f.action || f.side || '').toLowerCase().includes('buy') ? 'Buy' : 'Sell') as 'Buy' | 'Sell',
+                                qty: f.qty || f.quantity,
+                                price: f.price,
+                                timestamp: f.timestamp || f.time, // ISO string likely
+                                orderId: f.orderId,
+                                contractId: f.contractId,
+                                accountId: account.id
+                            }));
+                        }),
+                        catchError(err => {
+                            console.warn(`Failed to fetch historical fills for account ${account.id}:`, err);
+                            return of([]);
+                        })
+                    )
+                );
+
+                // Combine all fills from all accounts
+                return fillRequests.length > 0
+                    ? fillRequests.reduce((acc$, curr$) =>
+                        acc$.pipe(switchMap(acc => curr$.pipe(map(curr => [...acc, ...curr])))),
+                        of([])
+                    )
+                    : of([]);
+            }),
+            catchError(err => {
+                console.error('Error fetching all fills:', err);
                 return throwError(() => err);
             })
         );

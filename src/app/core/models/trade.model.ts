@@ -40,6 +40,7 @@ export interface Trade {
     // Integration Fields
     source?: 'manual' | 'tradovate';
     externalId?: string;
+    connectionId?: string; // Tradovate connection ID (for multi-account support)
     accountId?: string; // Tradovate account ID
     accountName?: string; // Display name for the account
 
