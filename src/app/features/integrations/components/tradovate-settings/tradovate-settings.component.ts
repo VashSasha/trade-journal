@@ -1,5 +1,5 @@
 import { Component, signal, inject, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TradovateService, TradovateConnection } from '../../../../core/services/tradovate.service';
@@ -7,9 +7,8 @@ import { TradovateService, TradovateConnection } from '../../../../core/services
 @Component({
     selector: 'app-tradovate-settings',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule],
-    templateUrl: './tradovate-settings.component.html',
-    styles: []
+    imports: [ReactiveFormsModule],
+    templateUrl: './tradovate-settings.component.html'
 })
 export class TradovateSettingsComponent {
     private fb = inject(FormBuilder);

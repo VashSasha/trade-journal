@@ -1,12 +1,12 @@
 import { Component, computed, input, effect, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Chart, ChartConfiguration } from 'chart.js/auto';
 import { Trade } from '../../../../core/models/trade.model';
 
 @Component({
     selector: 'app-hourly-performance',
     standalone: true,
-    imports: [CommonModule],
+    imports: [],
     template: `
         <div class="relative h-64 w-full">
             <canvas #chartCanvas></canvas>

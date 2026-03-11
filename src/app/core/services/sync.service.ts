@@ -15,21 +15,33 @@ export class SyncService {
 
     isSyncing = signal(false);
     lastSyncTime = signal<Date | null>(null);
-    syncAllConnections = signal(false); // Toggle for syncing all connections vs just active
+
+    /**
+     * Full sync - fetches all historical data from each account's creation date
+     * Use sparingly as it makes many API calls
+     */
+    async fullSync(): Promise<number> {
+        this.lastSyncTime.set(null); // Clear last sync to force full fetch
+        return this.syncTradesFromDate(null); // null = use account creation dates
+    }
 
     async syncTrades(): Promise<number> {
+        // Use last sync time if available, otherwise default to 1 year ago
+        // This prevents excessive API calls on each page load
+        const fromDate = this.lastSyncTime()
+            ? new Date(this.lastSyncTime()!.getTime() - 24 * 60 * 60 * 1000) // 1 day before last sync
+            : new Date(Date.now() - 365 * 24 * 60 * 60 * 1000); // 1 year ago
+
+        return this.syncTradesFromDate(fromDate);
+    }
+
+    private async syncTradesFromDate(fromDate: Date | null): Promise<number> {
         if (this.isSyncing()) return 0;
         this.isSyncing.set(true);
 
         try {
-            const fromDate = new Date();
-            // Fetch fill history from a long time ago (e.g. 2020) to get "all time"
-            fromDate.setFullYear(2020, 0, 1);
-
             // Use getAllFills to get historical data from Reports API
             const fills = await firstValueFrom(this.tradovateService.getAllFills(fromDate));
-
-            console.log(`[Sync] Fetched ${fills.length} fills from Tradovate (Reports API)`);
 
             const accounts = await firstValueFrom(this.tradovateService.getAccounts() as Observable<TradovateAccount[]>);
             const accountMap = new Map<number, string>();

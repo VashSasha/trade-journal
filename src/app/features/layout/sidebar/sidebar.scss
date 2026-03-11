@@ -1,0 +1,11 @@
+.nav-link {
+    @apply flex items-center rounded-lg px-4 py-3 font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white;
+
+    &.active {
+        @apply bg-slate-800 text-white;
+    }
+}
+
+.user-avatar {
+    @apply flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 font-bold text-emerald-500;
+}

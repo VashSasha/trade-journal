@@ -1,5 +1,5 @@
-import { Component, signal, inject, effect, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, signal, inject, OnInit } from '@angular/core';
+import { TitleCasePipe } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { TradeService } from '../../../core/services/trade.service';
@@ -9,7 +9,7 @@ import { AssetType, TradeDirection } from '../../../core/models/trade.model';
 @Component({
     selector: 'app-trade-entry',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule],
+    imports: [TitleCasePipe, ReactiveFormsModule],
     templateUrl: './trade-entry.html',
     styleUrl: './trade-entry.scss'
 })

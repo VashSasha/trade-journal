@@ -1,12 +1,12 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ActivatedRoute, Router } from '@angular/router';
 import { TradovateService } from '../../../../core/services/tradovate.service';
 
 @Component({
     selector: 'app-tradovate-callback',
     standalone: true,
-    imports: [CommonModule],
+    imports: [],
     template: `
     <div class="flex min-h-screen flex-col items-center justify-center bg-slate-50 p-6 dark:bg-slate-950">
         <div class="w-full max-w-md rounded-xl bg-white p-8 shadow-sm dark:bg-slate-900">

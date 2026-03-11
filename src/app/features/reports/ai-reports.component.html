@@ -1,11 +1,9 @@
-<div class="min-h-full bg-slate-50 p-6 dark:bg-slate-950">
-    <div class="mx-auto max-w-4xl">
+<div class="page-shell">
+    <div class="page-container-md">
         <!-- Header -->
         <div class="mb-6">
-            <h1 class="text-3xl font-bold text-slate-900 dark:text-white">AI Market Analyzer</h1>
-            <p class="mt-2 text-slate-600 dark:text-slate-400">
-                Get AI-powered market analysis from chart screenshots or live data
-            </p>
+            <h1 class="page-title">AI Market Analyzer</h1>
+            <p class="page-subtitle">Get AI-powered market analysis from chart screenshots or live data</p>
         </div>
 
         <!-- Mode Toggle -->
@@ -25,22 +23,19 @@
         </div>
 
         <!-- Configuration Card -->
-        <div
-            class="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="card mb-6">
             @if (analysisMode() === 'screenshot') {
             <!-- Screenshot Upload Mode -->
-            <h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Upload Chart Screenshot</h2>
+            <h2 class="section-title">Upload Chart Screenshot</h2>
 
             <div class="mb-4">
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Symbol (Optional)
-                </label>
+                <label class="form-label">Symbol (Optional)</label>
                 <input type="text" [(ngModel)]="symbol" placeholder="e.g., MNQH6"
                     class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
             </div>
 
             @if (imagePreview()) {
-            <div class="mb-4 relative">
+            <div class="relative mb-4">
                 <img [src]="imagePreview()" alt="Chart preview"
                     class="w-full rounded-lg border border-slate-200 dark:border-slate-700" />
                 <button (click)="clearImage()"
@@ -72,23 +67,17 @@
             }
             } @else {
             <!-- Live Data Mode -->
-            <h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Live Data Configuration</h2>
+            <h2 class="section-title">Live Data Configuration</h2>
 
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <!-- Symbol Input -->
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                        Symbol
-                    </label>
+                    <label class="form-label">Symbol</label>
                     <input type="text" [(ngModel)]="symbol" placeholder="e.g., MNQH6"
                         class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
                 </div>
 
-                <!-- Timeframe Selector -->
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                        Timeframe
-                    </label>
+                    <label class="form-label">Timeframe</label>
                     <select [(ngModel)]="timeframe"
                         class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
                         <option value="1min">1 Minute</option>
@@ -101,11 +90,8 @@
                     </select>
                 </div>
 
-                <!-- Lookback Bars -->
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                        Lookback Bars
-                    </label>
+                    <label class="form-label">Lookback Bars</label>
                     <input type="number" [(ngModel)]="lookbackBars" min="10" max="500"
                         class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
                 </div>
@@ -114,8 +100,7 @@
 
             <!-- OpenAI API Key -->
             @if (!openAiService.hasApiKey()) {
-            <div
-                class="mt-4 p-4 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-900">
+            <div class="mt-4 p-4 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-900">
                 <p class="text-sm text-amber-800 dark:text-amber-200 mb-2">
                     OpenAI API key required for analysis
                 </p>
@@ -157,7 +142,7 @@
 
         <!-- Error Display -->
         @if (error()) {
-        <div class="mb-6 rounded-lg bg-amber-50 p-6 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-900">
+        <div class="card mb-6 border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-900">
             <div class="prose prose-sm prose-amber dark:prose-invert max-w-none">
                 <markdown [data]="error()"></markdown>
             </div>
@@ -166,7 +151,7 @@
 
         <!-- Analysis Result -->
         @if (prediction()) {
-        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="card">
             <div class="mb-4 flex items-center justify-between border-b border-slate-200 pb-4 dark:border-slate-700">
                 <div>
                     <h2 class="text-xl font-bold text-slate-900 dark:text-white">AI Analysis</h2>
@@ -189,9 +174,8 @@
             </div>
         </div>
         } @else if (!isAnalyzing()) {
-        <div
-            class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800 p-12 text-center">
-            <div class="h-16 w-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+        <div class="empty-state flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800">
+            <div class="empty-state-icon">
                 @if (analysisMode() === 'screenshot') {
                 <svg class="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

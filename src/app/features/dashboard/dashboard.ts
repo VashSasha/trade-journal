@@ -1,5 +1,5 @@
 import { Component, inject, computed, signal, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CurrencyPipe } from '@angular/common';
 import { TradeService } from '../../core/services/trade.service';
 import { TradovateService, TradovateAccount } from '../../core/services/tradovate.service';
 import { SyncService } from '../../core/services/sync.service';
@@ -15,7 +15,7 @@ import { FilterToolbarComponent } from './components/filter-toolbar/filter-toolb
     selector: 'app-dashboard',
     standalone: true,
     imports: [
-        CommonModule,
+        CurrencyPipe,
         GoalsWidgetComponent,
         StatsOverviewComponent,
         PerformanceChartsComponent,
@@ -68,7 +68,6 @@ export class DashboardComponent implements OnInit {
                 // Initialize selection from localStorage or select all
                 this.tradovateService.initializeAccountSelection(accounts);
                 const selected = this.tradovateService.getSelectedAccountIds();
-                console.log(`[Dashboard] Initial account selection:`, selected);
                 this.selectedAccountIds.set(selected);
                 // Sync with filter service so trades from these accounts are shown
                 this.updateFilterServiceAccounts(selected);
@@ -106,7 +105,6 @@ export class DashboardComponent implements OnInit {
         const newSelection = current.includes(accountId)
             ? current.filter(id => id !== accountId)
             : [...current, accountId];
-        console.log(`[Dashboard] Account selection changed:`, { from: current, to: newSelection });
         this.selectedAccountIds.set(newSelection);
         this.tradovateService.setSelectedAccountIds(newSelection);
 
@@ -127,7 +125,6 @@ export class DashboardComponent implements OnInit {
         // Or strictly pass selected IDs. Passing selected IDs is safer.
 
         const stringIds = ids.map(id => id.toString());
-        console.log(`[Dashboard] Updating filter service with account IDs:`, stringIds);
         this.filterService.updateAccounts(stringIds);
     }
 
@@ -145,25 +142,16 @@ export class DashboardComponent implements OnInit {
     }
 
     setEquityView(view: 'trade' | 'hour' | 'day') {
-        console.log(`[Dashboard] Equity view changing from ${this.equityView()} to ${view}`);
         this.equityView.set(view);
-        console.log(`[Dashboard] Equity view updated to ${this.equityView()}`);
     }
 
     // Filtered Trades
-    filteredTrades = computed(() => {
-        const allTrades = this.tradeService.trades();
-        const filtered = this.filterService.filterTrades(allTrades);
-        console.log(`[Dashboard] Filtered trades: ${filtered.length} out of ${allTrades.length} total trades`);
-        return filtered;
-    });
+    filteredTrades = computed(() =>
+        this.filterService.filterTrades(this.tradeService.trades())
+    );
 
     // Stats (re-calculated based on filtered trades)
-    stats = computed(() => {
-        // We need to calculate stats manually or expose a helper in TradeService that accepts a list
-        // For now, let's reuse the logic from TradeService but applied to filtered list
-        return this.calculateStatsForTrades(this.filteredTrades());
-    });
+    stats = computed(() => this.tradeService.calculateStats(this.filteredTrades()));
 
     trades = this.filteredTrades;
 
@@ -180,10 +168,7 @@ export class DashboardComponent implements OnInit {
             .filter(t => t.status === 'closed' && t.netPnl !== undefined)
             .sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime());
 
-        console.log(`[Dashboard] Equity Curve: Processing ${trades.length} closed trades`, trades);
-
         const view = this.equityView();
-        console.log(`[Dashboard] Equity Curve View: ${view}`);
 
         let data: { date: string, rawDate: Date, pnl: number, timestamp: number }[] = [];
 
@@ -244,49 +229,8 @@ export class DashboardComponent implements OnInit {
             values.push(cumulative);
         });
 
-        console.log(`[Dashboard] Generated Equity Data: ${values.length} points`, { labels, values });
         return { labels, values };
     });
 
-    private calculateStatsForTrades(trades: any[]): any {
-        // Exclude missed trades from active P&L stats
-        const activeTrades = trades.filter(t => t.status !== 'missed');
-        const closed = activeTrades.filter(t => t.status === 'closed');
-
-        const winning = closed.filter(t => (t.netPnl || 0) > 0);
-        const losing = closed.filter(t => (t.netPnl || 0) < 0);
-
-        const totalPnl = closed.reduce((sum, t) => sum + (t.netPnl || 0), 0);
-        const winningPnls = winning.map(t => t.netPnl || 0);
-        const losingPnls = losing.map(t => t.netPnl || 0);
-
-        // Calculate total points
-        const totalPoints = closed.reduce((sum, t) => {
-            if (!t.entryPrice || !t.exitPrice) return sum;
-            const points = t.direction === 'long'
-                ? t.exitPrice - t.entryPrice
-                : t.entryPrice - t.exitPrice;
-            return sum + points;
-        }, 0);
-
-        return {
-            totalTrades: activeTrades.length,
-            openTrades: activeTrades.filter(t => t.status === 'open').length,
-            closedTrades: closed.length,
-            totalPnl,
-            totalPoints,
-            winningTrades: winning.length,
-            losingTrades: losing.length,
-            winRate: closed.length > 0 ? (winning.length / closed.length) * 100 : 0,
-            averageWin: winningPnls.length > 0
-                ? winningPnls.reduce((a, b) => a + b, 0) / winningPnls.length
-                : 0,
-            averageLoss: losingPnls.length > 0
-                ? losingPnls.reduce((a, b) => a + b, 0) / losingPnls.length
-                : 0,
-            largestWin: winningPnls.length > 0 ? Math.max(...winningPnls) : 0,
-            largestLoss: losingPnls.length > 0 ? Math.min(...losingPnls) : 0
-        };
-    }
 }
 

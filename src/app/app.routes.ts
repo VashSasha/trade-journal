@@ -36,7 +36,7 @@ export const routes: Routes = [
                 children: [
                     {
                         path: '',
-                        redirectTo: 'trades',
+                        redirectTo: 'daily',
                         pathMatch: 'full'
                     },
                     {

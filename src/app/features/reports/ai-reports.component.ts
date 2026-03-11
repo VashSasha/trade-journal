@@ -1,5 +1,5 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { provideMarkdown } from 'ngx-markdown';
 import { TradovateService } from '../../core/services/tradovate.service';
@@ -10,7 +10,7 @@ import { MarkdownComponent } from 'ngx-markdown';
     selector: 'app-ai-reports',
     standalone: true,
     imports: [
-        CommonModule,
+        
         FormsModule,
         MarkdownComponent
     ],

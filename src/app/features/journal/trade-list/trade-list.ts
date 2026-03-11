@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
+import { CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { TradeService } from '../../../core/services/trade.service';
 import { SyncService } from '../../../core/services/sync.service';
 import { Trade, TradeStatus } from '../../../core/models/trade.model';
@@ -11,14 +11,13 @@ type SortDirection = 'asc' | 'desc';
 @Component({
     selector: 'app-trade-list',
     standalone: true,
-    imports: [CommonModule, RouterLink],
+    imports: [CurrencyPipe, DatePipe, TitleCasePipe, RouterLink],
     templateUrl: './trade-list.html',
-    styles: []
+    styleUrl: './trade-list.scss'
 })
 export class TradeListComponent {
     private tradeService = inject(TradeService);
     private syncService = inject(SyncService);
-    private router = inject(Router);
 
     // Signals for filtering and sorting
     searchQuery = signal('');
@@ -116,29 +115,9 @@ export class TradeListComponent {
         this.searchQuery.set(input.value);
     }
 
-    formatDate(dateString: string): string {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        });
-    }
-
-    formatCurrency(value: number): string {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD'
-        }).format(value);
-    }
-
     deleteTrade(trade: Trade, event: Event): void {
         event.stopPropagation(); // Prevent row click if we add that later
         this.tradeService.deleteTrade(trade.id);
-    }
-
-    viewTrade(trade: Trade): void {
-        this.router.navigate(['/journal/trade', trade.id]);
     }
 
     toggleSelection(id: string, event: Event): void {

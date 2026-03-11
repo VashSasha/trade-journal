@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal, effect } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DailyJournalService } from '../../../core/services/daily-journal.service';
 import { QuillModule } from 'ngx-quill'
@@ -21,7 +21,7 @@ interface MonthGroup {
 @Component({
     selector: 'app-daily-journal',
     standalone: true,
-    imports: [CommonModule, FormsModule, QuillModule],
+    imports: [DatePipe, FormsModule, QuillModule],
     templateUrl: './daily-journal.component.html'
 })
 export class DailyJournalComponent {

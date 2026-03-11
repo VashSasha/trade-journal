@@ -1,27 +1,16 @@
-<div class="min-h-full bg-slate-50 p-6 dark:bg-slate-950">
-    <div class="mx-auto max-w-7xl">
-        <!-- Header -->
-        <!-- <div class="mb-6">
-            <h1 class="text-3xl font-bold text-slate-900 dark:text-white">Trade Journal</h1>
-            <p class="mt-1 text-slate-600 dark:text-slate-400">Review your past trades and daily performance</p>
-        </div> -->
+<div class="journal-layout">
+    <div class="journal-container">
+        <nav class="journal-tabs" aria-label="Tabs">
+            <a routerLink="daily" routerLinkActive="active" class="journal-tab">
+                Daily Journal
+            </a>
+            <a routerLink="trades" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="journal-tab">
+                Trade Notes
+            </a>
+        </nav>
 
-        <!-- Navigation Tabs -->
-        <div class="mb-6 border-b border-slate-200 dark:border-slate-800">
-            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-                <a routerLink="trades" routerLinkActive="border-emerald-500 text-emerald-600 dark:text-emerald-500"
-                    [routerLinkActiveOptions]="{ exact: true }"
-                    class="whitespace-nowrap border-b-2 border-transparent py-4 px-1 text-sm font-medium text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:text-slate-300">
-                    Trade Notes
-                </a>
-                <a routerLink="daily" routerLinkActive="border-emerald-500 text-emerald-600 dark:text-emerald-500"
-                    class="whitespace-nowrap border-b-2 border-transparent py-4 px-1 text-sm font-medium text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:text-slate-300">
-                    Daily Journal
-                </a>
-            </nav>
+        <div class="journal-content">
+            <router-outlet></router-outlet>
         </div>
-
-        <!-- Content -->
-        <router-outlet></router-outlet>
     </div>
 </div>

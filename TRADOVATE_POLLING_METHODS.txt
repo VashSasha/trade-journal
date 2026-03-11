@@ -1,0 +1,61 @@
+// Add these methods after getHistoricalFillsReport and before getAllFills
+
+/**
+ * Poll report status until complete
+ */
+private pollReportStatus(reportId: number): Observable<string> {
+    const token = this.getToken();
+    if (!token) return throwError(() => new Error('Tradovate not connected'));
+
+    const headers = new HttpHeaders({
+        'Authorization': `Bearer ${token}`
+    });
+
+    console.log(`[TradovateService] 🔄 Polling report status for ID: ${reportId}`);
+
+    return timer(1000, 2000).pipe(  // Start after 1s, then every 2s
+        mergeMap(() => 
+            this.http.get<any>(`${this.getRptUrl()}/reports/pollreportstatus?reportId=${reportId}`, { headers })
+        ),
+        tap(status => console.log(`[TradovateService] Report ${reportId} status:`, status)),
+        takeWhile(status => status.status !== 'Complete', true),  // Continue until Complete, include final
+        switchMap(status => {
+            if (status.status === 'Complete') {
+                console.log(`[TradovateService] ✅ Report ${reportId} complete, downloading...`);
+                return this.downloadReport(reportId);
+            } else if (status.status === 'Failed') {
+                return throwError(() => new Error(`Report ${reportId} failed`));
+            }
+            return of(null);  // Still processing
+        }),
+        catchError(err => {
+            console.error(`❌ Error polling report ${reportId}:`, err);
+            return throwError(() => err);
+        })
+    );
+}
+
+/**
+ * Download completed report data
+ */
+private downloadReport(reportId: number): Observable<string> {
+    const token = this.getToken();
+    if (!token) return throwError(() => new Error('Tradovate not connected'));
+
+    const headers = new HttpHeaders({
+        'Authorization': `Bearer ${token}`
+    });
+
+    console.log(`[TradovateService] 📥 Downloading report ${reportId}`);
+
+    return this.http.get(`${this.getRptUrl()}/reports/downloadreport?reportId=${reportId}`, {
+        headers,
+        responseType: 'text'
+    }).pipe(
+        tap(data => console.log(`[TradovateService] Downloaded report ${reportId}, size: ${data.length} bytes`)),
+        catchError(err => {
+            console.error(`❌ Error downloading report ${reportId}:`, err);
+            return throwError(() => err);
+        })
+    );
+}

@@ -6,33 +6,20 @@
 
     <!-- Navigation -->
     <nav class="flex-1 space-y-2 px-4 py-6">
-        <a routerLink="/dashboard" routerLinkActive="bg-slate-800 text-white" [routerLinkActiveOptions]="{exact: true}"
-            class="flex items-center rounded-lg px-4 py-3 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
-            <span class="font-medium">Dashboard</span>
+        <a routerLink="/dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" class="nav-link">
+            <span>Dashboard</span>
         </a>
-        <a routerLink="/journal" routerLinkActive="bg-slate-800 text-white"
-            class="flex items-center rounded-lg px-4 py-3 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
-            <span class="font-medium">Journal</span>
+        <a routerLink="/journal" routerLinkActive="active" class="nav-link">
+            <span>Journal</span>
         </a>
-        <a routerLink="/analytics" routerLinkActive="bg-slate-800 text-white"
-            class="flex items-center rounded-lg px-4 py-3 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
-            <span class="font-medium">Analytics</span>
+        <a routerLink="/analytics" routerLinkActive="active" class="nav-link">
+            <span>Analytics</span>
         </a>
-        <a routerLink="/reports" routerLinkActive="bg-slate-800 text-white"
-            class="flex items-center rounded-lg px-4 py-3 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
-            <span class="font-medium">AI Analyzer</span>
+        <a routerLink="/reports" routerLinkActive="active" class="nav-link">
+            <span>AI Analyzer</span>
         </a>
-        <a routerLink="/settings"
-            routerLinkActive="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
-            class="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white">
-            <svg class="h-5 w-5 text-slate-400 group-hover:text-slate-500 dark:text-slate-500 dark:group-hover:text-slate-300"
-                fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Settings
+        <a routerLink="/settings" routerLinkActive="active" class="nav-link">
+            <span>Settings</span>
         </a>
     </nav>
 
@@ -40,17 +27,12 @@
     @if (authService.currentUser(); as user) {
     <div class="border-t border-slate-800 p-4">
         <div class="flex items-center gap-3">
-            <div
-                class="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 font-bold">
-                {{ user.initials }}
-            </div>
+            <div class="user-avatar">{{ user.initials }}</div>
             <div class="flex flex-1 flex-col">
                 <span class="text-sm font-medium text-white">{{ user.name }}</span>
                 <span class="text-xs text-slate-400">{{ user.plan }}</span>
             </div>
-            <button (click)="logout()"
-                class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-                title="Logout">
+            <button (click)="logout()" class="btn-icon hover:text-white" title="Logout">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
                     stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

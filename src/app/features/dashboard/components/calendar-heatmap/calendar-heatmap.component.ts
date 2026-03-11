@@ -1,11 +1,11 @@
 import { Component, Input, signal, computed, effect } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CurrencyPipe } from '@angular/common';
 import { Trade } from '../../../../core/models/trade.model';
 
 @Component({
     selector: 'app-calendar-heatmap',
     standalone: true,
-    imports: [CommonModule],
+    imports: [CurrencyPipe],
     templateUrl: './calendar-heatmap.component.html'
 })
 export class CalendarHeatmapComponent {
@@ -131,7 +131,4 @@ export class CalendarHeatmapComponent {
         this.currentDate.set(new Date());
     }
 
-    formatCurrency(value: number): string {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-    }
 }

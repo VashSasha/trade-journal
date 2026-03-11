@@ -106,10 +106,6 @@ export class FilterService {
 
             if (s.accountIds.length > 0) {
                 if (t.accountId && !s.accountIds.includes(t.accountId)) {
-                    console.log(`[FilterService] Trade ${t.symbol} excluded: accountId mismatch`, {
-                        tradeAccountId: t.accountId,
-                        filterAccounts: s.accountIds
-                    });
                     return false;
                 }
             }

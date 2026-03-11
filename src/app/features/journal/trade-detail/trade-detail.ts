@@ -1,5 +1,5 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TradeService } from '../../../core/services/trade.service';
 import { Trade } from '../../../core/models/trade.model';
@@ -7,7 +7,7 @@ import { Trade } from '../../../core/models/trade.model';
 @Component({
   selector: 'app-trade-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CurrencyPipe, DatePipe, TitleCasePipe, RouterLink],
   templateUrl: './trade-detail.html',
   styleUrl: './trade-detail.scss'
 })
@@ -40,22 +40,6 @@ export class TradeDetailComponent implements OnInit {
     // Use confirm dialog for now (unless we want to implement custom modal later)
     this.tradeService.deleteTrade(t.id);
     this.router.navigate(['/journal']);
-  }
-
-  formatCurrency(value: number): string {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(value);
-  }
-
-  formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
   }
 
   calculatePoints(trade: Trade): string {

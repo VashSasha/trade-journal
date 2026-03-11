@@ -1,411 +1,369 @@
-<div class="min-h-full bg-slate-50 p-6 dark:bg-slate-950">
-    <div class="mx-auto max-w-7xl">
-        <!-- Header -->
-        <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <h1 class="text-3xl font-bold text-slate-900 dark:text-white">Trade Journal</h1>
-                <p class="mt-1 text-slate-600 dark:text-slate-400">All your trades in one place</p>
-            </div>
-            <div class="flex items-center gap-3">
-                <button (click)="importTrades()" [disabled]="isImporting()"
-                    class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
-                    <svg class="h-5 w-5 text-slate-400" [class.animate-spin]="isImporting()" fill="none"
-                        stroke="currentColor" viewBox="0 0 24 24">
-                        @if (isImporting()) {
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        } @else {
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        }
-                    </svg>
-                    {{ isImporting() ? 'Syncing...' : 'Import' }}
-                </button>
-                <a routerLink="/journal/trade/new"
-                    class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    New Trade
-                </a>
-            </div>
-        </div>
-
-        <!-- Stats Cards -->
-        <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                <div class="text-sm font-medium text-slate-600 dark:text-slate-400">Total Trades</div>
-                <div class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{{ stats().totalTrades }}</div>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                <div class="text-sm font-medium text-slate-600 dark:text-slate-400">Win Rate</div>
-                <div class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{{ stats().winRate.toFixed(1) }}%
-                </div>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                <div class="text-sm font-medium text-slate-600 dark:text-slate-400">Total P&L</div>
-                <div class="mt-1 text-2xl font-bold" [class.text-emerald-600]="stats().totalPnl > 0"
-                    [class.dark:text-emerald-400]="stats().totalPnl > 0" [class.text-red-600]="stats().totalPnl < 0"
-                    [class.dark:text-red-400]="stats().totalPnl < 0" [class.text-slate-900]="stats().totalPnl === 0"
-                    [class.dark:text-white]="stats().totalPnl === 0">
-                    {{ formatCurrency(stats().totalPnl) }}
-                </div>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                <div class="text-sm font-medium text-slate-600 dark:text-slate-400">Open Trades</div>
-                <div class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{{ stats().openTrades }}</div>
-            </div>
-        </div>
-
-        <!-- Filters & Search -->
-        <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <!-- Status Filter -->
-            <div class="flex gap-2">
-                <button (click)="setStatusFilter('all')" [class.bg-emerald-500]="statusFilter() === 'all'"
-                    [class.text-white]="statusFilter() === 'all'" [class.bg-slate-100]="statusFilter() !== 'all'"
-                    [class.text-slate-700]="statusFilter() !== 'all'"
-                    [class.dark:bg-slate-800]="statusFilter() !== 'all'"
-                    [class.dark:text-slate-300]="statusFilter() !== 'all'"
-                    class="rounded-lg px-4 py-2 text-sm font-medium transition-colors">
-                    All ({{ allTrades().length }})
-                </button>
-                <button (click)="setStatusFilter('open')" [class.bg-emerald-500]="statusFilter() === 'open'"
-                    [class.text-white]="statusFilter() === 'open'" [class.bg-slate-100]="statusFilter() !== 'open'"
-                    [class.text-slate-700]="statusFilter() !== 'open'"
-                    [class.dark:bg-slate-800]="statusFilter() !== 'open'"
-                    [class.dark:text-slate-300]="statusFilter() !== 'open'"
-                    class="rounded-lg px-4 py-2 text-sm font-medium transition-colors">
-                    Open ({{ stats().openTrades }})
-                </button>
-                <button (click)="setStatusFilter('closed')" [class.bg-emerald-500]="statusFilter() === 'closed'"
-                    [class.text-white]="statusFilter() === 'closed'" [class.bg-slate-100]="statusFilter() !== 'closed'"
-                    [class.text-slate-700]="statusFilter() !== 'closed'"
-                    [class.dark:bg-slate-800]="statusFilter() !== 'closed'"
-                    [class.dark:text-slate-300]="statusFilter() !== 'closed'"
-                    class="rounded-lg px-4 py-2 text-sm font-medium transition-colors">
-                    Closed ({{ stats().closedTrades }})
-                </button>
-                <button (click)="setStatusFilter('missed')" [class.bg-emerald-500]="statusFilter() === 'missed'"
-                    [class.text-white]="statusFilter() === 'missed'" [class.bg-slate-100]="statusFilter() !== 'missed'"
-                    [class.text-slate-700]="statusFilter() !== 'missed'"
-                    [class.dark:bg-slate-800]="statusFilter() !== 'missed'"
-                    [class.dark:text-slate-300]="statusFilter() !== 'missed'"
-                    class="rounded-lg px-4 py-2 text-sm font-medium transition-colors">
-                    Missed ({{ missedTradesCount() }})
-                </button>
-            </div>
-
-            <!-- Search -->
-            <div class="relative">
-                <input type="text" placeholder="Search by symbol or setup..." (input)="onSearchInput($event)"
-                    class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 pl-10 text-slate-900 placeholder-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500 md:w-64" />
-                <svg class="absolute left-3 top-2.5 h-5 w-5 text-slate-400" fill="none" stroke="currentColor"
-                    viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-            </div>
-        </div>
-
-        <!-- Trade Table -->
-        <div
-            class="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-            @if (filteredTrades().length === 0) {
-            <div class="p-12 text-center">
-                <div
-                    class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
-                    <svg class="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                </div>
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-white">No trades found</h3>
-                <p class="mt-1 text-slate-600 dark:text-slate-400">
-                    @if (searchQuery() || statusFilter() !== 'all') {
-                    Try adjusting your filters or search query
-                    } @else {
-                    Get started by logging your first trade
-                    }
-                </p>
-                @if (!searchQuery() && statusFilter() === 'all') {
-                <a routerLink="/journal/trade/new"
-                    class="mt-4 inline-block rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600">
-                    + New Trade
-                </a>
-                }
-            </div>
+<div class="page-shell">
+  <div class="page-container-xl">
+    <!-- Header -->
+    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h1 class="page-title">Trade Journal</h1>
+        <p class="page-subtitle">All your trades in one place</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <button (click)="importTrades()" [disabled]="isImporting()"
+                class="btn-secondary inline-flex items-center gap-2 px-4 py-2.5 shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+          <svg class="h-5 w-5 text-slate-400" [class.animate-spin]="isImporting()" fill="none"
+               stroke="currentColor" viewBox="0 0 24 24">
+            @if (isImporting()) {
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             } @else {
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50">
-                        <tr>
-                            <th class="w-4 px-6 py-3">
-                                <input type="checkbox" [checked]="isAllSelected()" (change)="toggleAll($event)"
-                                    class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:checked:bg-emerald-500" />
-                            </th>
-                            <th class="px-6 py-3 text-left">
-                                <button (click)="setSort('symbol')"
-                                    class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
-                                    Symbol
-                                    @if (sortField() === 'symbol') {
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if (sortDirection() === 'asc') {
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M5 15l7-7 7 7" />
-                                        } @else {
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 9l-7 7-7-7" />
-                                        }
-                                    </svg>
-                                    }
-                                </button>
-                            </th>
-                            <th class="px-6 py-3 text-left">
-                                <button (click)="setSort('assetType')"
-                                    class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
-                                    Asset Type
-                                    @if (sortField() === 'assetType') {
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if (sortDirection() === 'asc') {
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M5 15l7-7 7 7" />
-                                        } @else {
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 9l-7 7-7-7" />
-                                        }
-                                    </svg>
-                                    }
-                                </button>
-                            </th>
-                            <th class="px-6 py-3 text-left">
-                                <span
-                                    class="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                                    Account
-                                </span>
-                            </th>
-                            <th class="px-6 py-3 text-left">
-                                <button (click)="setSort('entryDate')"
-                                    class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
-                                    Date
-                                    @if (sortField() === 'entryDate') {
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if (sortDirection() === 'asc') {
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M5 15l7-7 7 7" />
-                                        } @else {
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 9l-7 7-7-7" />
-                                        }
-                                    </svg>
-                                    }
-                                </button>
-                            </th>
-                            <th
-                                class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                                Entry
-                            </th>
-                            <th
-                                class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                                Exit
-                            </th>
-                            <th
-                                class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                                Qty
-                            </th>
-                            <th class="px-6 py-3 text-right">
-                                <button (click)="setSort('pnl')"
-                                    class="flex items-center justify-end gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
-                                    P&L
-                                    @if (sortField() === 'pnl') {
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if (sortDirection() === 'asc') {
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M5 15l7-7 7 7" />
-                                        } @else {
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 9l-7 7-7-7" />
-                                        }
-                                    </svg>
-                                    }
-                                </button>
-                            </th>
-                            <th class="px-6 py-3 text-center">
-                                <button (click)="setSort('status')"
-                                    class="flex items-center justify-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
-                                    Status
-                                    @if (sortField() === 'status') {
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if (sortDirection() === 'asc') {
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M5 15l7-7 7 7" />
-                                        } @else {
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 9l-7 7-7-7" />
-                                        }
-                                    </svg>
-                                    }
-                                </button>
-                            </th>
-                            <th
-                                class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
-                        @for (trade of filteredTrades(); track trade.id) {
-                        <tr class="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                            [class.bg-emerald-50]="selectedTradeIds().has(trade.id)"
-                            [class.dark:bg-emerald-900/10]="selectedTradeIds().has(trade.id)"
-                            [class.opacity-60]="trade.status === 'missed'">
-                            <td class="w-4 px-6 py-4">
-                                <input type="checkbox" [checked]="selectedTradeIds().has(trade.id)"
-                                    (click)="toggleSelection(trade.id, $event)"
-                                    class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:checked:bg-emerald-500" />
-                            </td>
-                            <td class="px-6 py-4">
-                                <div class="flex items-center gap-2">
-                                    <a [routerLink]="['/journal/trade', trade.id]"
-                                        class="font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:underline">
-                                        {{ trade.symbol }}
-                                    </a>
-                                    <span class="rounded px-2 py-0.5 text-xs font-medium"
-                                        [class.bg-emerald-100]="trade.direction === 'long'"
-                                        [class.text-emerald-700]="trade.direction === 'long'"
-                                        [class.dark:bg-emerald-900/30]="trade.direction === 'long'"
-                                        [class.dark:text-emerald-400]="trade.direction === 'long'"
-                                        [class.bg-red-100]="trade.direction === 'short'"
-                                        [class.text-red-700]="trade.direction === 'short'"
-                                        [class.dark:bg-red-900/30]="trade.direction === 'short'"
-                                        [class.dark:text-red-400]="trade.direction === 'short'">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            }
+          </svg>
+          {{ isImporting() ? 'Syncing...' : 'Import' }}
+        </button>
+        <a routerLink="/journal/trade/new"
+           class="btn-primary inline-flex items-center gap-2 px-4 py-2.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          New Trade
+        </a>
+      </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div class="card-sm">
+        <div class="text-sm font-medium text-slate-600 dark:text-slate-400">Total Trades</div>
+        <div class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{{ stats().totalTrades }}</div>
+      </div>
+      <div class="card-sm">
+        <div class="text-sm font-medium text-slate-600 dark:text-slate-400">Win Rate</div>
+        <div class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{{ stats().winRate.toFixed(1) }}%</div>
+      </div>
+      <div class="card-sm">
+        <div class="text-sm font-medium text-slate-600 dark:text-slate-400">Total P&L</div>
+        <div class="mt-1 text-2xl font-bold"
+             [class.pnl-positive]="stats().totalPnl > 0"
+             [class.pnl-negative]="stats().totalPnl < 0"
+             [class.text-slate-900]="stats().totalPnl === 0"
+             [class.dark:text-white]="stats().totalPnl === 0">
+          {{ stats().totalPnl | currency }}
+        </div>
+      </div>
+      <div class="card-sm">
+        <div class="text-sm font-medium text-slate-600 dark:text-slate-400">Open Trades</div>
+        <div class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{{ stats().openTrades }}</div>
+      </div>
+    </div>
+
+    <!-- Filters & Search -->
+    <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <!-- Status Filter -->
+      <div class="flex gap-2">
+        <button (click)="setStatusFilter('all')" [class.bg-emerald-500]="statusFilter() === 'all'"
+                [class.text-white]="statusFilter() === 'all'" [class.bg-slate-100]="statusFilter() !== 'all'"
+                [class.text-slate-700]="statusFilter() !== 'all'"
+                [class.dark:bg-slate-800]="statusFilter() !== 'all'"
+                [class.dark:text-slate-300]="statusFilter() !== 'all'"
+                class="rounded-lg px-4 py-2 text-sm font-medium transition-colors">
+          All ({{ allTrades().length }})
+        </button>
+        <button (click)="setStatusFilter('open')" [class.bg-emerald-500]="statusFilter() === 'open'"
+                [class.text-white]="statusFilter() === 'open'" [class.bg-slate-100]="statusFilter() !== 'open'"
+                [class.text-slate-700]="statusFilter() !== 'open'"
+                [class.dark:bg-slate-800]="statusFilter() !== 'open'"
+                [class.dark:text-slate-300]="statusFilter() !== 'open'"
+                class="rounded-lg px-4 py-2 text-sm font-medium transition-colors">
+          Open ({{ stats().openTrades }})
+        </button>
+        <button (click)="setStatusFilter('closed')" [class.bg-emerald-500]="statusFilter() === 'closed'"
+                [class.text-white]="statusFilter() === 'closed'" [class.bg-slate-100]="statusFilter() !== 'closed'"
+                [class.text-slate-700]="statusFilter() !== 'closed'"
+                [class.dark:bg-slate-800]="statusFilter() !== 'closed'"
+                [class.dark:text-slate-300]="statusFilter() !== 'closed'"
+                class="rounded-lg px-4 py-2 text-sm font-medium transition-colors">
+          Closed ({{ stats().closedTrades }})
+        </button>
+        <button (click)="setStatusFilter('missed')" [class.bg-emerald-500]="statusFilter() === 'missed'"
+                [class.text-white]="statusFilter() === 'missed'" [class.bg-slate-100]="statusFilter() !== 'missed'"
+                [class.text-slate-700]="statusFilter() !== 'missed'"
+                [class.dark:bg-slate-800]="statusFilter() !== 'missed'"
+                [class.dark:text-slate-300]="statusFilter() !== 'missed'"
+                class="rounded-lg px-4 py-2 text-sm font-medium transition-colors">
+          Missed ({{ missedTradesCount() }})
+        </button>
+      </div>
+
+      <!-- Search -->
+      <div class="relative">
+        <input type="text" placeholder="Search by symbol or setup..." (input)="onSearchInput($event)"
+               class="form-input pl-10 md:w-64 py-2"/>
+        <svg class="absolute left-3 top-2.5 h-5 w-5 text-slate-400" fill="none" stroke="currentColor"
+             viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Trade Table -->
+    <div class="trade-table">
+      @if (filteredTrades().length === 0) {
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg class="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-900 dark:text-white">No trades found</h3>
+          <p class="mt-1 text-slate-600 dark:text-slate-400">
+            @if (searchQuery() || statusFilter() !== 'all') {
+              Try adjusting your filters or search query
+            } @else {
+              Get started by logging your first trade
+            }
+          </p>
+          @if (!searchQuery() && statusFilter() === 'all') {
+            <a routerLink="/journal/trade/new" class="btn-primary mt-4 inline-block">
+              + New Trade
+            </a>
+          }
+        </div>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50">
+            <tr>
+              <th class="w-4 px-6 py-3">
+                <input type="checkbox" [checked]="isAllSelected()" (change)="toggleAll($event)"
+                       class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:checked:bg-emerald-500"/>
+              </th>
+              <th class="px-6 py-3 text-left">
+                <button (click)="setSort('symbol')"
+                        class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
+                  Symbol
+                  @if (sortField() === 'symbol') {
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      @if (sortDirection() === 'asc') {
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M5 15l7-7 7 7"/>
+                      } @else {
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 9l-7 7-7-7"/>
+                      }
+                    </svg>
+                  }
+                </button>
+              </th>
+              <th class="px-6 py-3 text-left">
+                <button (click)="setSort('assetType')"
+                        class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
+                  Asset Type
+                  @if (sortField() === 'assetType') {
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      @if (sortDirection() === 'asc') {
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M5 15l7-7 7 7"/>
+                      } @else {
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 9l-7 7-7-7"/>
+                      }
+                    </svg>
+                  }
+                </button>
+              </th>
+              <th class="px-6 py-3 text-left">
+                <span class="th-cell">Account</span>
+              </th>
+              <th class="px-6 py-3 text-left">
+                <button (click)="setSort('entryDate')"
+                        class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
+                  Date
+                  @if (sortField() === 'entryDate') {
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      @if (sortDirection() === 'asc') {
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M5 15l7-7 7 7"/>
+                      } @else {
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 9l-7 7-7-7"/>
+                      }
+                    </svg>
+                  }
+                </button>
+              </th>
+              <th class="px-6 py-3 text-right th-cell">Entry</th>
+              <th class="px-6 py-3 text-right th-cell">Exit</th>
+              <th class="px-6 py-3 text-right th-cell">Qty</th>
+              <th class="px-6 py-3 text-right">
+                <button (click)="setSort('pnl')"
+                        class="flex items-center justify-end gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
+                  P&L
+                  @if (sortField() === 'pnl') {
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      @if (sortDirection() === 'asc') {
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M5 15l7-7 7 7"/>
+                      } @else {
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 9l-7 7-7-7"/>
+                      }
+                    </svg>
+                  }
+                </button>
+              </th>
+              <th class="px-6 py-3 text-center">
+                <button (click)="setSort('status')"
+                        class="flex items-center justify-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
+                  Status
+                  @if (sortField() === 'status') {
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      @if (sortDirection() === 'asc') {
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M5 15l7-7 7 7"/>
+                      } @else {
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 9l-7 7-7-7"/>
+                      }
+                    </svg>
+                  }
+                </button>
+              </th>
+              <th class="px-6 py-3 text-center th-cell">Actions</th>
+            </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+              @for (trade of filteredTrades(); track trade.id) {
+                <tr class="trade-row"
+                    [class.bg-emerald-50]="selectedTradeIds().has(trade.id)"
+                    [class.dark:bg-emerald-900]="selectedTradeIds().has(trade.id)"
+                    [class.opacity-60]="trade.status === 'missed'">
+                  <td class="w-4 px-6 py-4">
+                    <input type="checkbox" [checked]="selectedTradeIds().has(trade.id)"
+                           (click)="toggleSelection(trade.id, $event)"
+                           class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:checked:bg-emerald-500"/>
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="flex items-center gap-2">
+                      <a [routerLink]="['/journal/trade', trade.id]"
+                         class="font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:underline">
+                        {{ trade.symbol }}
+                      </a>
+                      <span class="trade-badge"
+                            [class.badge-long]="trade.direction === 'long'"
+                            [class.badge-short]="trade.direction === 'short'">
                                         {{ trade.direction | titlecase }}
                                     </span>
-                                </div>
-                            </td>
-                            <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
-                                {{ trade.assetType | titlecase }}
-                            </td>
-                            <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
-                                @if (trade.accountName) {
-                                <span
-                                    class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
+                    {{ trade.assetType | titlecase }}
+                  </td>
+                  <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
+                    @if (trade.accountName) {
+                      <span
+                        class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
                                     {{ trade.accountName }}
                                 </span>
-                                } @else {
-                                <span class="text-slate-400">-</span>
-                                }
-                            </td>
-                            <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
-                                {{ formatDate(trade.entryDate) }}
-                            </td>
-                            <td class="px-6 py-4 text-right text-sm text-slate-900 dark:text-white">
-                                {{ trade.entryPrice || '-' }}
-                            </td>
-                            <td class="px-6 py-4 text-right text-sm text-slate-900 dark:text-white">
-                                {{ trade.exitPrice || '-' }}
-                            </td>
-                            <td class="px-6 py-4 text-right text-sm text-slate-600 dark:text-slate-400">
-                                {{ trade.quantity }}
-                            </td>
-                            <td class="px-6 py-4 text-right">
-                                @if (trade.netPnl !== null && trade.netPnl !== undefined) {
-                                <div class="flex flex-col items-end">
+                    } @else {
+                      <span class="text-slate-400">-</span>
+                    }
+                  </td>
+                  <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
+                    {{ trade.entryDate | date:'MMM d, y' }}
+                  </td>
+                  <td class="px-6 py-4 text-right text-sm text-slate-900 dark:text-white">
+                    {{ trade.entryPrice || '-' }}
+                  </td>
+                  <td class="px-6 py-4 text-right text-sm text-slate-900 dark:text-white">
+                    {{ trade.exitPrice || '-' }}
+                  </td>
+                  <td class="px-6 py-4 text-right text-sm text-slate-600 dark:text-slate-400">
+                    {{ trade.quantity }}
+                  </td>
+                  <td class="px-6 py-4 text-right">
+                    @if (trade.netPnl !== null && trade.netPnl !== undefined) {
+                      <div class="flex flex-col items-end">
                                     <span class="font-semibold"
-                                        [class.text-emerald-600]="trade.netPnl > 0 && trade.status !== 'missed'"
-                                        [class.dark:text-emerald-400]="trade.netPnl > 0 && trade.status !== 'missed'"
-                                        [class.text-red-600]="trade.netPnl < 0 && trade.status !== 'missed'"
-                                        [class.dark:text-red-400]="trade.netPnl < 0 && trade.status !== 'missed'"
-                                        [class.text-slate-500]="trade.status === 'missed'"
-                                        [class.dark:text-slate-500]="trade.status === 'missed'">
-                                        {{ trade.netPnl >= 0 ? '+' : '' }}{{ formatCurrency(trade.netPnl) }}
+                                          [class.pnl-positive]="trade.netPnl > 0 && trade.status !== 'missed'"
+                                          [class.pnl-negative]="trade.netPnl < 0 && trade.status !== 'missed'"
+                                          [class.text-slate-500]="trade.status === 'missed'"
+                                          [class.dark:text-slate-500]="trade.status === 'missed'">
+                                        {{ trade.netPnl >= 0 ? '+' : '' }}{{ trade.netPnl | currency }}
                                     </span>
-                                </div>
-                                } @else {
-                                <span class="text-slate-400">-</span>
-                                }
-                            </td>
-                            <td class="px-6 py-4 text-center">
-                                <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
-                                    [class.bg-blue-100]="trade.status === 'open'"
-                                    [class.text-blue-700]="trade.status === 'open'"
-                                    [class.dark:bg-blue-900/30]="trade.status === 'open'"
-                                    [class.dark:text-blue-400]="trade.status === 'open'"
-                                    [class.bg-slate-100]="trade.status === 'closed'"
-                                    [class.text-slate-700]="trade.status === 'closed'"
-                                    [class.dark:bg-slate-800]="trade.status === 'closed'"
-                                    [class.dark:text-slate-300]="trade.status === 'closed'"
-                                    [class.bg-yellow-100]="trade.status === 'missed'"
-                                    [class.text-yellow-800]="trade.status === 'missed'"
-                                    [class.dark:bg-yellow-900/30]="trade.status === 'missed'"
-                                    [class.dark:text-yellow-400]="trade.status === 'missed'">
+                      </div>
+                    } @else {
+                      <span class="text-slate-400">-</span>
+                    }
+                  </td>
+                  <td class="px-6 py-4 text-center">
+                                <span class="trade-badge rounded-full px-2.5"
+                                      [class.badge-open]="trade.status === 'open'"
+                                      [class.badge-closed]="trade.status === 'closed'"
+                                      [class.badge-missed]="trade.status === 'missed'">
                                     {{ trade.status | titlecase }}
                                 </span>
-                            </td>
-                            <td class="px-6 py-4 text-center">
-                                <div class="flex items-center justify-center gap-2">
-                                    <a [routerLink]="['/journal/trade', trade.id]"
-                                        class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
-                                        title="View Details">
-                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                    </a>
-                                    <button (click)="deleteTrade(trade, $event)"
-                                        class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-                                        title="Delete trade">
-                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-            }
+                  </td>
+                  <td class="px-6 py-4 text-center">
+                    <div class="flex items-center justify-center gap-2">
+                      <a [routerLink]="['/journal/trade', trade.id]" class="btn-icon" title="View Details">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                      </a>
+                      <button (click)="deleteTrade(trade, $event)"
+                              class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                              title="Delete trade">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
+      }
     </div>
+  </div>
 
-    <!-- Floating Bulk Actions Toolbar -->
-    @if (selectedTradeIds().size > 0) {
-    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 transform">
-        <div
-            class="flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-6 py-3 shadow-xl dark:border-slate-700 dark:bg-slate-800">
-            <div
-                class="flex items-center gap-2 border-r border-slate-200 pr-4 text-sm font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300">
-                <span
-                    class="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                    {{ selectedTradeIds().size }}
-                </span>
-                Selected
-            </div>
-
-            <div class="flex items-center gap-2">
-                <button (click)="exportSelected()"
-                    class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    Export
-                </button>
-
-                <button (click)="deleteSelected()"
-                    class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Delete
-                </button>
-            </div>
+  <!-- Floating Bulk Actions Toolbar -->
+  @if (selectedTradeIds().size > 0) {
+    <div class="bulk-action-bar">
+      <div class="bulk-action-bar__inner">
+        <div class="bulk-action-bar__count">
+          <span class="bulk-action-bar__badge">{{ selectedTradeIds().size }}</span>
+          Selected
         </div>
+
+        <div class="flex items-center gap-2">
+          <button (click)="exportSelected()"
+                  class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Export
+          </button>
+
+          <button (click)="deleteSelected()"
+                  class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            Delete
+          </button>
+        </div>
+      </div>
     </div>
-    }
+  }
 </div>

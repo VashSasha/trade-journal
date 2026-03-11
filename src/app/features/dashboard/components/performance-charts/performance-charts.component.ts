@@ -1,5 +1,5 @@
 import { Component, Input, ViewChild, ElementRef, AfterViewInit, OnDestroy, OnChanges, SimpleChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { TradeStats } from '../../../../core/models/trade.model';
 
@@ -8,7 +8,7 @@ Chart.register(...registerables);
 @Component({
     selector: 'app-performance-charts',
     standalone: true,
-    imports: [CommonModule],
+    imports: [],
     templateUrl: './performance-charts.component.html'
 })
 export class PerformanceChartsComponent implements AfterViewInit, OnDestroy, OnChanges {

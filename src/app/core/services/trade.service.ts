@@ -19,16 +19,9 @@ export class TradeService {
         this.tradesSignal().filter(t => t.status === 'closed')
     );
 
-    stats = computed(() => this.calculateStats());
+    stats = computed(() => this.calculateStats(this.tradesSignal()));
 
     constructor() { }
-
-    /**
-     * Get all trades for current user
-     */
-    getAllTrades(): Trade[] {
-        return this.tradesSignal();
-    }
 
     /**
      * Get trade by ID
@@ -147,8 +140,7 @@ export class TradeService {
     /**
      * Calculate overall statistics
      */
-    private calculateStats(): TradeStats {
-        const allTrades = this.tradesSignal();
+    calculateStats(allTrades: Trade[]): TradeStats {
 
         const activeTrades = allTrades.filter(t => t.status !== 'missed');
         const closed = activeTrades.filter(t => t.status === 'closed');
@@ -212,52 +204,4 @@ export class TradeService {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(trades));
     }
 
-    /**
-     * Add some mock trades for development
-     */
-    seedMockTrades(userId: string): void {
-        const mockTrades: TradeFormData[] = [
-            {
-                symbol: 'AAPL',
-                assetType: 'stock',
-                direction: 'long',
-                entryDate: '2024-01-15',
-                entryPrice: 150.00,
-                quantity: 10,
-                exitDate: '2024-01-16',
-                exitPrice: 155.00,
-                fees: 2.00,
-                setup: 'Breakout',
-                tags: ['tech', 'swing'],
-                notes: 'Clean breakout above resistance'
-            },
-            {
-                symbol: 'TSLA',
-                assetType: 'stock',
-                direction: 'short',
-                entryDate: '2024-01-20',
-                entryPrice: 200.00,
-                quantity: 5,
-                exitDate: '2024-01-21',
-                exitPrice: 195.00,
-                fees: 1.50,
-                setup: 'Reversal',
-                tags: ['tech', 'day-trade']
-            },
-            {
-                symbol: 'SPY',
-                assetType: 'stock',
-                direction: 'long',
-                entryDate: '2024-01-25',
-                entryPrice: 480.00,
-                quantity: 20,
-                fees: 3.00,
-                setup: 'Trend Following',
-                tags: ['index'],
-                notes: 'Still holding'
-            }
-        ];
-
-        mockTrades.forEach(trade => this.createTrade(trade, userId));
-    }
 }

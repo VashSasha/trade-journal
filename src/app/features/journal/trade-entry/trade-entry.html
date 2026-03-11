@@ -1,32 +1,30 @@
-<div class="min-h-full bg-slate-50 p-6 dark:bg-slate-950">
-    <div class="mx-auto max-w-4xl">
+<div class="page-shell">
+    <div class="page-container-md">
         <!-- Header -->
         <div class="mb-8">
-            <h1 class="text-3xl font-bold text-slate-900 dark:text-white">
+            <h1 class="page-title">
                 {{ isEditMode() ? 'Edit Trade' : 'Log New Trade' }}
             </h1>
-            <p class="mt-2 text-slate-600 dark:text-slate-400">
+            <p class="page-subtitle">
                 {{ isEditMode() ? 'Update trade details below.' : 'Enter your trade details below.' }}
             </p>
         </div>
 
         <!-- Form Card -->
-        <form [formGroup]="tradeForm" (ngSubmit)="onSubmit()"
-            class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <form [formGroup]="tradeForm" (ngSubmit)="onSubmit()" class="card">
 
             <!-- Basic Info Section -->
             <div class="mb-8">
-                <h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Basic Information</h2>
+                <h2 class="section-title">Basic Information</h2>
 
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <!-- Symbol -->
                     <div>
-                        <label for="symbol" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        <label for="symbol" class="form-label">
                             Symbol <span class="text-red-500">*</span>
                         </label>
                         <input id="symbol" type="text" formControlName="symbol" (input)="onSymbolInput($event)"
-                            placeholder="AAPL"
-                            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-900 placeholder-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500"
+                            placeholder="AAPL" class="form-input"
                             [class.border-red-500]="tradeForm.get('symbol')?.invalid && tradeForm.get('symbol')?.touched" />
                         @if (tradeForm.get('symbol')?.invalid && tradeForm.get('symbol')?.touched) {
                         <p class="mt-1 text-sm text-red-500">Valid symbol required (1-5 letters)</p>
@@ -35,12 +33,10 @@
 
                     <!-- Asset Type -->
                     <div>
-                        <label for="assetType"
-                            class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        <label for="assetType" class="form-label">
                             Asset Type <span class="text-red-500">*</span>
                         </label>
-                        <select id="assetType" formControlName="assetType"
-                            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-900 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                        <select id="assetType" formControlName="assetType" class="form-input">
                             @for (type of assetTypes; track type) {
                             <option [value]="type">{{ type | titlecase }}</option>
                             }
@@ -49,28 +45,18 @@
 
                     <!-- Direction -->
                     <div>
-                        <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        <label class="form-label">
                             Direction <span class="text-red-500">*</span>
                         </label>
                         <div class="flex gap-2">
                             <button type="button" (click)="tradeForm.patchValue({ direction: 'long' })"
-                                [class.bg-emerald-500]="tradeForm.get('direction')?.value === 'long'"
-                                [class.text-white]="tradeForm.get('direction')?.value === 'long'"
-                                [class.bg-slate-100]="tradeForm.get('direction')?.value !== 'long'"
-                                [class.text-slate-700]="tradeForm.get('direction')?.value !== 'long'"
-                                [class.dark:bg-slate-800]="tradeForm.get('direction')?.value !== 'long'"
-                                [class.dark:text-slate-300]="tradeForm.get('direction')?.value !== 'long'"
-                                class="flex-1 rounded-lg px-4 py-2.5 font-medium transition-colors">
+                                [class.active-long]="tradeForm.get('direction')?.value === 'long'"
+                                class="direction-btn">
                                 Long
                             </button>
                             <button type="button" (click)="tradeForm.patchValue({ direction: 'short' })"
-                                [class.bg-red-500]="tradeForm.get('direction')?.value === 'short'"
-                                [class.text-white]="tradeForm.get('direction')?.value === 'short'"
-                                [class.bg-slate-100]="tradeForm.get('direction')?.value !== 'short'"
-                                [class.text-slate-700]="tradeForm.get('direction')?.value !== 'short'"
-                                [class.dark:bg-slate-800]="tradeForm.get('direction')?.value !== 'short'"
-                                [class.dark:text-slate-300]="tradeForm.get('direction')?.value !== 'short'"
-                                class="flex-1 rounded-lg px-4 py-2.5 font-medium transition-colors">
+                                [class.active-short]="tradeForm.get('direction')?.value === 'short'"
+                                class="direction-btn">
                                 Short
                             </button>
                         </div>
@@ -80,43 +66,36 @@
 
             <!-- Entry Details -->
             <div class="mb-8">
-                <h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Entry Details</h2>
+                <h2 class="section-title">Entry Details</h2>
 
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <div>
-                        <label for="entryDate"
-                            class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        <label for="entryDate" class="form-label">
                             Entry Date <span class="text-red-500">*</span>
                         </label>
-                        <input id="entryDate" type="date" formControlName="entryDate"
-                            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-900 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                        <input id="entryDate" type="date" formControlName="entryDate" class="form-input" />
                     </div>
 
                     <div>
-                        <label for="entryTime"
-                            class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                            Entry Time
-                        </label>
-                        <input id="entryTime" type="time" step="1" formControlName="entryTime"
-                            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-900 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                        <label for="entryTime" class="form-label">Entry Time</label>
+                        <input id="entryTime" type="time" step="1" formControlName="entryTime" class="form-input" />
                     </div>
 
                     <div>
-                        <label for="entryPrice"
-                            class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        <label for="entryPrice" class="form-label">
                             Entry Price <span class="text-red-500">*</span>
                         </label>
                         <input id="entryPrice" type="number" step="0.01" formControlName="entryPrice" placeholder="0.00"
-                            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-900 placeholder-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500"
+                            class="form-input"
                             [class.border-red-500]="tradeForm.get('entryPrice')?.invalid && tradeForm.get('entryPrice')?.touched" />
                     </div>
 
                     <div>
-                        <label for="quantity" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        <label for="quantity" class="form-label">
                             Quantity <span class="text-red-500">*</span>
                         </label>
                         <input id="quantity" type="number" formControlName="quantity" placeholder="0"
-                            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-900 placeholder-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500"
+                            class="form-input"
                             [class.border-red-500]="tradeForm.get('quantity')?.invalid && tradeForm.get('quantity')?.touched" />
                     </div>
                 </div>
@@ -124,81 +103,47 @@
 
             <!-- Exit Details (Optional) -->
             <div class="mb-8">
-                <h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">
+                <h2 class="section-title">
                     Exit Details <span class="text-sm font-normal text-slate-500">(Optional - leave empty for open
                         trades)</span>
                 </h2>
 
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <div>
-                        <label for="exitDate" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                            Exit Date
-                        </label>
-                        <input id="exitDate" type="date" formControlName="exitDate"
-                            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-900 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                        <label for="exitDate" class="form-label">Exit Date</label>
+                        <input id="exitDate" type="date" formControlName="exitDate" class="form-input" />
                     </div>
 
                     <div>
-                        <label for="exitTime" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                            Exit Time
-                        </label>
-                        <input id="exitTime" type="time" step="1" formControlName="exitTime"
-                            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-900 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                        <label for="exitTime" class="form-label">Exit Time</label>
+                        <input id="exitTime" type="time" step="1" formControlName="exitTime" class="form-input" />
                     </div>
 
                     <div>
-                        <label for="exitPrice"
-                            class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                            Exit Price
-                        </label>
+                        <label for="exitPrice" class="form-label">Exit Price</label>
                         <input id="exitPrice" type="number" step="0.01" formControlName="exitPrice" placeholder="0.00"
-                            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-900 placeholder-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500" />
+                            class="form-input" />
                     </div>
 
                     <div>
-                        <label for="fees" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                            Fees
-                        </label>
+                        <label for="fees" class="form-label">Fees</label>
                         <input id="fees" type="number" step="0.01" formControlName="fees" placeholder="0.00"
-                            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-900 placeholder-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500" />
+                            class="form-input" />
                     </div>
                 </div>
 
                 <!-- P&L Preview -->
                 @if (estimatedPnL()) {
-                <div class="mt-4 rounded-lg border p-4" [class.border-emerald-200]="estimatedPnL()!.net > 0"
-                    [class.bg-emerald-50]="estimatedPnL()!.net > 0"
-                    [class.dark:border-emerald-900]="estimatedPnL()!.net > 0"
-                    [class.dark:bg-emerald-950/30]="estimatedPnL()!.net > 0"
-                    [class.border-red-200]="estimatedPnL()!.net < 0" [class.bg-red-50]="estimatedPnL()!.net < 0"
-                    [class.dark:border-red-900]="estimatedPnL()!.net < 0"
-                    [class.dark:bg-red-950/30]="estimatedPnL()!.net < 0"
-                    [class.border-slate-200]="estimatedPnL()!.net === 0" [class.bg-slate-50]="estimatedPnL()!.net === 0"
-                    [class.dark:border-slate-700]="estimatedPnL()!.net === 0"
-                    [class.dark:bg-slate-800]="estimatedPnL()!.net === 0">
+                <div class="pnl-preview"
+                    [class.positive]="estimatedPnL()!.net > 0"
+                    [class.negative]="estimatedPnL()!.net < 0">
                     <div class="flex items-center justify-between">
-                        <span class="text-sm font-medium" [class.text-emerald-700]="estimatedPnL()!.net > 0"
-                            [class.dark:text-emerald-400]="estimatedPnL()!.net > 0"
-                            [class.text-red-700]="estimatedPnL()!.net < 0"
-                            [class.dark:text-red-400]="estimatedPnL()!.net < 0"
-                            [class.text-slate-700]="estimatedPnL()!.net === 0"
-                            [class.dark:text-slate-300]="estimatedPnL()!.net === 0">
-                            Estimated P&L:
-                        </span>
+                        <span class="pnl-preview-label">Estimated P&L:</span>
                         <div class="text-right">
-                            <div class="text-lg font-bold" [class.text-emerald-600]="estimatedPnL()!.net > 0"
-                                [class.dark:text-emerald-400]="estimatedPnL()!.net > 0"
-                                [class.text-red-600]="estimatedPnL()!.net < 0"
-                                [class.dark:text-red-400]="estimatedPnL()!.net < 0"
-                                [class.text-slate-600]="estimatedPnL()!.net === 0"
-                                [class.dark:text-slate-400]="estimatedPnL()!.net === 0">
+                            <div class="pnl-preview-value">
                                 {{ estimatedPnL()!.net >= 0 ? '+' : '' }}${{ estimatedPnL()!.net.toFixed(2) }}
                             </div>
-                            <div class="text-sm" [class.text-emerald-600]="estimatedPnL()!.net > 0"
-                                [class.dark:text-emerald-500]="estimatedPnL()!.net > 0"
-                                [class.text-red-600]="estimatedPnL()!.net < 0"
-                                [class.dark:text-red-500]="estimatedPnL()!.net < 0"
-                                [class.text-slate-500]="estimatedPnL()!.net === 0">
+                            <div class="pnl-preview-percent">
                                 {{ estimatedPnL()!.percent >= 0 ? '+' : '' }}{{ estimatedPnL()!.percent.toFixed(2) }}%
                             </div>
                         </div>
@@ -209,7 +154,7 @@
 
             <!-- Strategy & Notes -->
             <div class="mb-8">
-                <h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Strategy & Psychology</h2>
+                <h2 class="section-title">Strategy & Psychology</h2>
 
                 <div class="space-y-6">
                     <!-- Missed Trade Toggle -->
@@ -233,11 +178,8 @@
                     </div>
 
                     <div>
-                        <label for="setup" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                            Setup/Strategy
-                        </label>
-                        <select id="setup" formControlName="setup"
-                            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-900 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                        <label for="setup" class="form-label">Setup/Strategy</label>
+                        <select id="setup" formControlName="setup" class="form-input">
                             <option value="">Select a setup...</option>
                             @for (setup of commonSetups; track setup) {
                             <option [value]="setup">{{ setup }}</option>
@@ -246,25 +188,12 @@
                     </div>
 
                     <div>
-                        <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                            Emotions
-                        </label>
+                        <label class="form-label">Emotions</label>
                         <div class="flex flex-wrap gap-2">
                             @for (emotion of commonEmotions; track emotion) {
                             <button type="button" (click)="toggleEmotion(emotion)"
-                                [class.bg-indigo-100]="isEmotionSelected(emotion)"
-                                [class.text-indigo-700]="isEmotionSelected(emotion)"
-                                [class.border-indigo-200]="isEmotionSelected(emotion)"
-                                [class.dark:bg-indigo-900/30]="isEmotionSelected(emotion)"
-                                [class.dark:text-indigo-400]="isEmotionSelected(emotion)"
-                                [class.dark:border-indigo-800]="isEmotionSelected(emotion)"
-                                [class.bg-white]="!isEmotionSelected(emotion)"
-                                [class.text-slate-600]="!isEmotionSelected(emotion)"
-                                [class.border-slate-200]="!isEmotionSelected(emotion)"
-                                [class.dark:bg-slate-800]="!isEmotionSelected(emotion)"
-                                [class.dark:text-slate-400]="!isEmotionSelected(emotion)"
-                                [class.dark:border-slate-700]="!isEmotionSelected(emotion)"
-                                class="rounded-full border px-3 py-1 text-sm font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-700">
+                                [class.selected]="isEmotionSelected(emotion)"
+                                class="emotion-chip">
                                 {{ emotion }}
                             </button>
                             }
@@ -272,24 +201,21 @@
                     </div>
 
                     <div>
-                        <label for="notes" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                            Notes
-                        </label>
+                        <label for="notes" class="form-label">Notes</label>
                         <textarea id="notes" formControlName="notes" rows="4"
                             placeholder="Add any notes about this trade..."
-                            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-900 placeholder-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500"></textarea>
+                            class="form-input"></textarea>
                     </div>
                 </div>
             </div>
 
             <!-- Form Actions -->
             <div class="flex items-center justify-end gap-3 border-t border-slate-200 pt-6 dark:border-slate-800">
-                <button type="button" (click)="cancel()"
-                    class="rounded-lg border border-slate-300 bg-white px-6 py-2.5 font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
+                <button type="button" (click)="cancel()" class="btn-secondary px-6 py-2.5">
                     Cancel
                 </button>
                 <button type="submit" [disabled]="tradeForm.invalid || isSubmitting()"
-                    class="rounded-lg bg-emerald-500 px-6 py-2.5 font-medium text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
+                    class="btn-primary px-6 py-2.5 disabled:cursor-not-allowed disabled:opacity-50">
                     @if (isSubmitting()) {
                     <span class="flex items-center gap-2">
                         <svg class="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none"
