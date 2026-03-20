@@ -7,7 +7,6 @@ const STORAGE_KEY = 'daily_journal_notes';
     providedIn: 'root'
 })
 export class DailyJournalService {
-    // Signals
     private notesSignal = signal<DailyNote[]>(this.loadNotes());
     notes = this.notesSignal.asReadonly();
 
@@ -17,7 +16,7 @@ export class DailyJournalService {
         return this.notesSignal().find(n => n.date === date);
     }
 
-    saveNote(date: string, content: string): void {
+    saveNote(date: string, data: Partial<Omit<DailyNote, 'id' | 'date' | 'createdAt' | 'updatedAt'>>): void {
         const currentNotes = this.notesSignal();
         const existingIndex = currentNotes.findIndex(n => n.date === date);
         const now = new Date().toISOString();
@@ -25,20 +24,19 @@ export class DailyJournalService {
         let updatedNotes: DailyNote[];
 
         if (existingIndex >= 0) {
-            // Update
-            const updatedNote = {
+            const updatedNote: DailyNote = {
                 ...currentNotes[existingIndex],
-                content,
+                ...data,
                 updatedAt: now
             };
             updatedNotes = [...currentNotes];
             updatedNotes[existingIndex] = updatedNote;
         } else {
-            // Create
             const newNote: DailyNote = {
                 id: Date.now().toString(),
                 date,
-                content,
+                content: '',
+                ...data,
                 createdAt: now,
                 updatedAt: now
             };

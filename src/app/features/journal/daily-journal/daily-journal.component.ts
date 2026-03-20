@@ -1,8 +1,11 @@
 import { Component, computed, inject, signal, effect } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { DailyJournalService } from '../../../core/services/daily-journal.service';
-import { QuillModule } from 'ngx-quill'
+import { TradeService } from '../../../core/services/trade.service';
+import { DEFAULT_TRADING_RULES } from '../../../core/models/daily-journal.model';
+import { QuillModule } from 'ngx-quill';
 
 
 interface TimelineEntry {
@@ -11,6 +14,8 @@ interface TimelineEntry {
     preview: string;
     hasContent: boolean;
     isToday: boolean;
+    mood?: number;
+    pnl?: number;
 }
 
 interface MonthGroup {
@@ -21,19 +26,30 @@ interface MonthGroup {
 @Component({
     selector: 'app-daily-journal',
     standalone: true,
-    imports: [DatePipe, FormsModule, QuillModule],
-    templateUrl: './daily-journal.component.html'
+    imports: [DatePipe, CurrencyPipe, FormsModule, RouterLink, QuillModule],
+    templateUrl: './daily-journal.component.html',
+    styleUrl: './daily-journal.component.scss'
 })
 export class DailyJournalComponent {
     private journalService = inject(DailyJournalService);
+    private tradeService = inject(TradeService);
+
+    readonly defaultRules = DEFAULT_TRADING_RULES;
+
+    readonly TRADES_PAGE_SIZE = 5;
 
     selectedDate = signal(new Date().toISOString().split('T')[0]);
+    lastSaved = signal<Date | null>(null);
+    showAllTrades = signal(false);
+
+    // Structured fields
+    preMarketPlan = signal('');
+    postMarketReview = signal('');
+    mood = signal(0);
+    discipline = signal(0);
+    checkedRules = signal<Set<string>>(new Set());
     noteContent = signal('');
 
-    // Status feedback
-    lastSaved = signal<Date | null>(null);
-
-    // Quill editor configuration
     quillModules = {
         toolbar: [
             ['bold', 'italic', 'underline', 'strike'],
@@ -46,104 +62,133 @@ export class DailyJournalComponent {
     };
 
     constructor() {
-        // Load note when date changes
         effect(() => {
             const date = this.selectedDate();
+            this.showAllTrades.set(false);
             const note = this.journalService.getNoteForDate(date);
-            this.noteContent.set(note ? note.content : '');
+            this.preMarketPlan.set(note?.preMarketPlan ?? '');
+            this.postMarketReview.set(note?.postMarketReview ?? '');
+            this.mood.set(note?.mood ?? 0);
+            this.discipline.set(note?.discipline ?? 0);
+            this.checkedRules.set(new Set(note?.rulesFollowed ?? []));
+            this.noteContent.set(note?.content ?? '');
             this.lastSaved.set(note ? new Date(note.updatedAt) : null);
-        }, { allowSignalWrites: true });
+        });
     }
 
-    // Timeline entries for the last 60 days
+    // Trades for the selected date
+    dayTrades = computed(() => {
+        const date = this.selectedDate();
+        return this.tradeService.trades().filter(t => t.entryDate?.startsWith(date));
+    });
+
+    dayPnl = computed(() =>
+        this.dayTrades().reduce((sum, t) => sum + (t.netPnl ?? t.pnl ?? 0), 0)
+    );
+
+    // Timeline
     timelineEntries = computed(() => {
         const entries: TimelineEntry[] = [];
         const today = new Date();
         const todayStr = today.toISOString().split('T')[0];
+      const trades = this.tradeService.trades();
 
-        // Generate last 60 days
         for (let i = 0; i < 60; i++) {
             const date = new Date(today);
             date.setDate(date.getDate() - i);
             const dateStr = date.toISOString().split('T')[0];
 
             const note = this.journalService.getNoteForDate(dateStr);
-            // Strip HTML tags for preview
-            const plainText = note?.content
-                ? note.content.replace(/<[^>]*>/g, '').trim()
-                : '';
+            const dayTrades = trades.filter(t => t.entryDate?.startsWith(dateStr));
+            const pnl = dayTrades.reduce((sum, t) => sum + (t.netPnl ?? t.pnl ?? 0), 0);
+
+            const rawText = note?.preMarketPlan || note?.content || '';
+            const plainText = rawText.replace(/<[^>]*>/g, '').trim();
             const preview = plainText
-                ? plainText.substring(0, 80) + (plainText.length > 80 ? '...' : '')
+                ? plainText.substring(0, 70) + (plainText.length > 70 ? '...' : '')
                 : '';
 
             entries.push({
                 date: dateStr,
-                displayDate: date.toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric'
-                }),
+                displayDate: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                 preview,
-                hasContent: !!note,
-                isToday: dateStr === todayStr
+                hasContent: !!(note || dayTrades.length),
+                isToday: dateStr === todayStr,
+                mood: note?.mood,
+                pnl: dayTrades.length ? pnl : undefined
             });
         }
 
         return entries;
     });
 
-    // Group timeline entries by month
     groupedTimeline = computed(() => {
         const entries = this.timelineEntries();
         const groups = new Map<string, TimelineEntry[]>();
 
         entries.forEach(entry => {
-            const date = new Date(entry.date);
-            const monthYear = date.toLocaleDateString('en-US', {
-                month: 'long',
-                year: 'numeric'
-            });
-
-            if (!groups.has(monthYear)) {
-                groups.set(monthYear, []);
-            }
+            const date = new Date(entry.date + 'T12:00:00');
+            const monthYear = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            if (!groups.has(monthYear)) groups.set(monthYear, []);
             groups.get(monthYear)!.push(entry);
         });
 
         const result: MonthGroup[] = [];
-        groups.forEach((entries, monthYear) => {
-            result.push({ monthYear, entries });
-        });
-
+        groups.forEach((entries, monthYear) => result.push({ monthYear, entries }));
         return result;
     });
 
+    displayDate = computed(() =>
+        new Date(this.selectedDate() + 'T12:00:00').toLocaleDateString('en-US', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        })
+    );
+
     onDateChange(event: Event): void {
-        const input = event.target as HTMLInputElement;
-        this.selectedDate.set(input.value);
+        this.selectedDate.set((event.target as HTMLInputElement).value);
     }
 
     changeDate(days: number): void {
-        const current = new Date(this.selectedDate());
-        current.setDate(current.getDate() + days);
-        this.selectedDate.set(current.toISOString().split('T')[0]);
+        const d = new Date(this.selectedDate() + 'T12:00:00');
+        d.setDate(d.getDate() + days);
+        this.selectedDate.set(d.toISOString().split('T')[0]);
     }
 
     selectDate(dateStr: string): void {
         this.selectedDate.set(dateStr);
     }
 
+    setMood(value: number): void {
+        this.mood.set(this.mood() === value ? 0 : value);
+    }
+
+    setDiscipline(value: number): void {
+        this.discipline.set(this.discipline() === value ? 0 : value);
+    }
+
+    toggleRule(rule: string): void {
+        const current = new Set(this.checkedRules());
+        if (current.has(rule)) {
+            current.delete(rule);
+        } else {
+            current.add(rule);
+        }
+        this.checkedRules.set(current);
+    }
+
     saveNote(): void {
-        this.journalService.saveNote(this.selectedDate(), this.noteContent());
+        this.journalService.saveNote(this.selectedDate(), {
+            content: this.noteContent(),
+            preMarketPlan: this.preMarketPlan(),
+            postMarketReview: this.postMarketReview(),
+            mood: this.mood() || undefined,
+            discipline: this.discipline() || undefined,
+            rulesFollowed: Array.from(this.checkedRules()),
+        });
         this.lastSaved.set(new Date());
     }
 
-    // Helper for display
-    displayDate = computed(() => {
-        return new Date(this.selectedDate()).toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
-    });
+    moodLabel(value: number): string {
+        return ['', 'Terrible', 'Bad', 'Neutral', 'Good', 'Great'][value] ?? '';
+    }
 }

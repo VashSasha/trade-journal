@@ -1,81 +1,107 @@
-<div class="rounded-lg border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 lg:col-span-2">
-  <div class="mb-6 flex items-center justify-between">
-    <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Performance Calendar</h3>
+<div class="cal-wrap">
 
-    <div class="flex items-center gap-2">
-      <button (click)="prevMonth()" class="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
-        <svg class="h-5 w-5 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor"
-             viewBox="0 0 24 24">
+  <!-- Header -->
+  <div class="cal-header">
+    <h3 class="cal-title">Performance Calendar</h3>
+    <div class="cal-nav">
+      <button (click)="prevMonth()" class="cal-nav-btn">
+        <svg class="cal-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
       </button>
-      <span class="min-w-[140px] text-center font-medium text-slate-900 dark:text-white">
-                {{ currentMonthYear() }}
-            </span>
-      <button (click)="nextMonth()" class="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
-        <svg class="h-5 w-5 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor"
-             viewBox="0 0 24 24">
+      <span class="cal-month-label">{{ currentMonthYear() }}</span>
+      <button (click)="nextMonth()" class="cal-nav-btn">
+        <svg class="cal-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
         </svg>
       </button>
-      <button (click)="today()"
-              class="ml-2 text-sm text-emerald-600 hover:text-emerald-700 dark:text-emerald-400">
-        Today
-      </button>
+      <button (click)="today()" class="cal-today-btn">Today</button>
     </div>
   </div>
 
-  <!-- Days Header -->
-  <div class="mb-2 grid grid-cols-7 text-center">
-    <div class="text-xs font-medium text-slate-400">Sun</div>
-    <div class="text-xs font-medium text-slate-400">Mon</div>
-    <div class="text-xs font-medium text-slate-400">Tue</div>
-    <div class="text-xs font-medium text-slate-400">Wed</div>
-    <div class="text-xs font-medium text-slate-400">Thu</div>
-    <div class="text-xs font-medium text-slate-400">Fri</div>
-    <div class="text-xs font-medium text-slate-400">Sat</div>
+  <!-- Weekday labels -->
+  <div class="cal-weekdays">
+    <span>Sun</span>
+    <span>Mon</span>
+    <span>Tue</span>
+    <span>Wed</span>
+    <span>Thu</span>
+    <span>Fri</span>
+    <span>Sat</span>
   </div>
 
-  <!-- Calendar Grid -->
-  <div class="grid grid-cols-7 gap-2 border-0 bg-transparent">
+  <!-- Calendar grid -->
+  <div class="cal-grid">
     @for (day of calendarData(); track $index) {
-      <div
-        class="min-h-[90px] p-2 rounded-lg border border-slate-100 dark:border-slate-800 transition-all hover:shadow-md dark:hover:bg-slate-800"
-        [class.opacity-50]="!day.isCurrentMonth" [class.bg-white]="day.pnl === 0"
-        [class.dark:bg-slate-900]="day.pnl === 0" [class.text-white]="day.pnl !== 0"
-        [class.bg-emerald-500]="day.pnl > 0" [class.dark:bg-emerald-600]="day.pnl > 0"
-        [class.bg-red-500]="day.pnl < 0" [class.dark:bg-red-600]="day.pnl < 0"
-        [style.background-color]="day.pnl === 0 ? '' : (day.pnl > 0 ? 'rgba(16, 185, 129, ' + (0.5 + Math.min(day.pnlPercent/5, 0.5)) + ')'   : 'rgba(239, 68, 68, ' + (0.5 + Math.min(Math.abs(day.pnlPercent)/5, 0.5)) + ')')">
+      @let hasPnl = day.hasTrades && day.pnl !== 0;
+      <div class="cal-day"
+           [class.cal-day--other-month]="!day.isCurrentMonth"
+           [class.cal-day--closed]="day.isMarketClosed && !day.hasTrades"
+           [class.cal-day--open]="!day.isMarketClosed && !day.hasTrades"
+           [style.background-color]="getDayBg(day)">
 
-        <div class="flex justify-between items-start">
-                <span class="text-xs font-medium" [class.text-slate-900]="day.isCurrentMonth && day.pnl === 0"
-                      [class.dark:text-slate-200]="day.isCurrentMonth && day.pnl === 0"
-                      [class.text-slate-400]="!day.isCurrentMonth" [class.text-white]="day.pnl !== 0"
-                      [class.bg-slate-200]="day.isToday && day.pnl === 0"
-                      [class.dark:bg-slate-700]="day.isToday && day.pnl === 0"
-                      [class.bg-white]="day.isToday && day.pnl !== 0" [class.px-1.5]="day.isToday"
-                      [class.rounded-full]="day.isToday">
-                    {{ day.day }}
-                </span>
+        <div class="cal-day-top">
+          <span class="cal-day-num"
+                [class.cal-day-num--today]="day.isToday"
+                [class.cal-day-num--on-pnl]="hasPnl">
+            {{ day.day }}
+          </span>
           @if (day.hasTrades) {
-            <span class="text-[10px]" [class.text-slate-600]="day.pnl === 0" [class.text-white]="day.pnl !== 0"
-                  [class.opacity-80]="day.pnl !== 0">
-                    {{ day.count }}
-                </span>
+            <span class="cal-trade-count" [class.cal-trade-count--on-pnl]="hasPnl">
+              {{ day.count }}
+            </span>
           }
         </div>
 
-        @if (day.hasTrades && day.pnl !== 0) {
-          <div class="mt-2 text-right">
-            <div class="text-xs font-bold text-white">
-              {{ day.pnl | currency }}
-            </div>
-            <div class="text-[10px] font-medium text-white/90">
-              {{ day.pnlPercent > 0 ? '+' : '' }}{{ day.pnlPercent.toFixed(1) }}%
-            </div>
+        @if (hasPnl) {
+          <div class="cal-pnl">
+            <div class="cal-pnl-amount">{{ day.pnl | currency }}</div>
+            <div class="cal-pnl-pct">{{ day.pnlPercent > 0 ? '+' : '' }}{{ day.pnlPercent.toFixed(1) }}%</div>
           </div>
         }
+
+        @if (day.events.length > 0) {
+          <div class="cal-events">
+            @for (ev of day.events; track $index) {
+              <div class="cal-event-wrap">
+                <a class="cal-event-tag"
+                   [class.cal-event-tag--on-pnl]="hasPnl"
+                   [attr.data-abbr]="ev.abbr"
+                   [href]="ev.link"
+                   target="_blank" rel="noopener">
+                  {{ ev.abbr }}
+                </a>
+                <div class="cal-event-tooltip" [class.cal-event-tooltip--on-pnl]="hasPnl">
+                  <div class="cal-event-tooltip-name">{{ ev.event }}</div>
+                  <div class="cal-event-tooltip-meta">
+                    <span>{{ ev.time }} ET</span>
+                    @if (ev.estimated) { <span class="cal-event-tooltip-est">~estimated</span> }
+                  </div>
+                  <a class="cal-event-tooltip-link" [href]="ev.link" target="_blank" rel="noopener">
+                    View official source →
+                  </a>
+                </div>
+              </div>
+            }
+          </div>
+        }
+
       </div>
     }
   </div>
+
+  <!-- Event legend -->
+  <div class="cal-legend">
+    <span class="cal-legend-item">
+      <span class="cal-legend-dot cal-legend-dot--fomc"></span> FOMC
+    </span>
+    <span class="cal-legend-item">
+      <span class="cal-legend-dot cal-legend-dot--cpi"></span> CPI
+    </span>
+    <span class="cal-legend-item">
+      <span class="cal-legend-dot cal-legend-dot--nfp"></span> NFP
+    </span>
+    <span class="cal-legend-note">Hover event tag for time (ET). NFP &amp; 2026 dates are estimated.</span>
+  </div>
+
 </div>

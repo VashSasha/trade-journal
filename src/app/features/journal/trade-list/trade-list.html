@@ -231,6 +231,7 @@
                   }
                 </button>
               </th>
+              <th class="px-6 py-3 text-center th-cell">Grade</th>
               <th class="px-6 py-3 text-center th-cell">Actions</th>
             </tr>
             </thead>
@@ -305,6 +306,13 @@
                                       [class.badge-missed]="trade.status === 'missed'">
                                     {{ trade.status | titlecase }}
                                 </span>
+                  </td>
+                  <td class="px-6 py-4 text-center">
+                    @if (trade.grade) {
+                    <span class="trade-grade-badge" [attr.data-grade]="trade.grade">{{ trade.grade }}</span>
+                    } @else {
+                    <span class="text-slate-400">-</span>
+                    }
                   </td>
                   <td class="px-6 py-4 text-center">
                     <div class="flex items-center justify-center gap-2">

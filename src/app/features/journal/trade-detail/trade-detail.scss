@@ -1,0 +1,17 @@
+.grade-badge {
+    @apply inline-flex items-center justify-center rounded-lg w-9 h-9 text-sm font-bold text-white;
+
+    &[data-grade="A"] { background-color: #10b981; }
+    &[data-grade="B"] { background-color: #3b82f6; }
+    &[data-grade="C"] { background-color: #f59e0b; }
+    &[data-grade="D"] { background-color: #ef4444; }
+}
+
+.detail-label {
+    @apply text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400;
+}
+
+.mistake-tag {
+    @apply rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700;
+    @apply dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400;
+}

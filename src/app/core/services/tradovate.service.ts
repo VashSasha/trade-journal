@@ -625,7 +625,17 @@ export class TradovateService {
 
         const headers = this.getAuthHeaders().set('Content-Type', 'application/json');
 
-        return this.http.post<any>(url, body, { headers }).pipe(
+        // Use responseType: 'text' because Tradovate sometimes returns raw CSV
+        // instead of a JSON-wrapped response, which would cause a JSON parse error.
+        return this.http.post(url, body, { headers, responseType: 'text' }).pipe(
+            map((raw: string) => {
+                try {
+                    return JSON.parse(raw);
+                } catch {
+                    // Raw CSV response — wrap it so handleReportResponse can process it
+                    return { data: raw };
+                }
+            }),
             switchMap((res: any) => this.handleReportResponse(res, url, body, accountId || 0)),
             catchError(err => this.handleReportError(err, accountId))
         );

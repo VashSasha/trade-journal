@@ -1,126 +1,250 @@
-<div class="flex gap-6 h-full">
+<div class="dj-wrapper">
+
     <!-- Timeline Sidebar -->
-    <div class="w-80 flex-shrink-0 hidden lg:block">
-        <div
-            class="sticky top-4 rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
-            <div class="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-                <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Journal Timeline</h3>
+    <div class="dj-sidebar">
+        <div class="dj-sidebar__card">
+            <div class="dj-sidebar__header">
+                <h3>Journal Timeline</h3>
             </div>
 
-            <div class="max-h-[calc(100vh-12rem)] overflow-y-auto p-4">
+            <div class="dj-sidebar__scroll">
                 @for (group of groupedTimeline(); track group.monthYear) {
-                <div class="mb-6">
-                    <h4 class="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
-                        {{ group.monthYear }}
-                    </h4>
+                <div class="timeline-month">
+                    <span class="timeline-month__label">{{ group.monthYear }}</span>
 
-                    <div class="space-y-2">
-                        @for (entry of group.entries; track entry.date) {
-                        <button (click)="selectDate(entry.date)" [class.bg-emerald-50]="entry.date === selectedDate()"
-                            [class.dark:bg-emerald-900/20]="entry.date === selectedDate()"
-                            [class.border-emerald-500]="entry.date === selectedDate()"
-                            class="group relative w-full rounded-lg border border-slate-200 p-3 text-left transition-all hover:border-emerald-400 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
-                            <div class="flex items-start gap-3">
-                                <!-- Timeline dot -->
-                                <div class="mt-1 flex-shrink-0">
-                                    @if (entry.hasContent) {
-                                    <div [class.bg-emerald-500]="entry.date === selectedDate()"
-                                        [class.bg-blue-500]="entry.isToday && entry.date !== selectedDate()"
-                                        [class.bg-slate-400]="!entry.isToday && entry.date !== selectedDate()"
-                                        class="h-2.5 w-2.5 rounded-full"></div>
-                                    } @else {
-                                    <div
-                                        class="h-2.5 w-2.5 rounded-full border-2 border-slate-300 dark:border-slate-600">
-                                    </div>
-                                    }
-                                </div>
+                    @for (entry of group.entries; track entry.date) {
+                    <button (click)="selectDate(entry.date)" class="timeline-entry"
+                        [class.is-selected]="entry.date === selectedDate()">
+                        <div class="timeline-entry__body">
+                            <!-- Dot -->
+                            <div class="timeline-entry__dot"
+                                [class.has-content]="entry.hasContent"
+                                [class.is-today]="entry.isToday && entry.date !== selectedDate()"
+                                [class.is-selected]="entry.date === selectedDate()">
+                            </div>
 
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex items-center gap-2">
-                                        <span [class.font-semibold]="entry.date === selectedDate()"
-                                            [class.text-emerald-700]="entry.date === selectedDate()"
-                                            [class.dark:text-emerald-400]="entry.date === selectedDate()"
-                                            class="text-sm text-slate-900 dark:text-white">
-                                            {{ entry.displayDate }}
-                                        </span>
+                            <div class="timeline-entry__info">
+                                <div class="timeline-entry__top">
+                                    <span class="timeline-entry__date">{{ entry.displayDate }}</span>
+
+                                    <div class="timeline-entry__badges">
                                         @if (entry.isToday) {
-                                        <span
-                                            class="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                                            Today
+                                        <span class="timeline-today-badge">Today</span>
+                                        }
+                                        @if (entry.mood) {
+                                        <span class="timeline-mood-dot" [attr.data-mood]="entry.mood"></span>
+                                        }
+                                        @if (entry.pnl !== undefined) {
+                                        <span class="timeline-entry__pnl"
+                                            [class.positive]="entry.pnl > 0"
+                                            [class.negative]="entry.pnl < 0">
+                                            {{ entry.pnl > 0 ? '+' : '' }}{{ entry.pnl | currency:'USD':'symbol':'1.0-0' }}
                                         </span>
                                         }
                                     </div>
-
-                                    @if (entry.preview) {
-                                    <p class="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
-                                        {{ entry.preview }}
-                                    </p>
-                                    } @else {
-                                    <p class="mt-1 text-xs italic text-slate-400 dark:text-slate-500">
-                                        No entry
-                                    </p>
-                                    }
                                 </div>
+
+                                @if (entry.preview) {
+                                <p class="timeline-entry__preview">{{ entry.preview }}</p>
+                                }
                             </div>
-                        </button>
-                        }
-                    </div>
+                        </div>
+                    </button>
+                    }
                 </div>
                 }
             </div>
         </div>
     </div>
 
-    <!-- Main Editor -->
-    <div class="flex-1 min-w-0">
-        <div class="rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <!-- Toolbar -->
-            <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
-                <div class="flex items-center gap-4">
-                    <button (click)="changeDate(-1)" class="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
-                        <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                        </svg>
-                    </button>
+    <!-- Main Content -->
+    <div class="dj-main">
 
-                    <div class="relative">
-                        <input type="date" [ngModel]="selectedDate()" (change)="onDateChange($event)"
-                            class="rounded border border-slate-300 px-3 py-1 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
-                    </div>
+        <!-- Header Bar -->
+        <div class="dj-header">
+            <div class="dj-header__nav">
+                <button (click)="changeDate(-1)" class="dj-header__nav-btn">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
 
-                    <button (click)="changeDate(1)" class="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
-                        <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                        </svg>
-                    </button>
+                <input type="date" [ngModel]="selectedDate()" (change)="onDateChange($event)"
+                    class="dj-header__date-input" />
 
-                    <span class="ml-2 text-sm font-medium text-slate-700 dark:text-slate-300 hidden sm:block">
-                        {{ displayDate() }}
-                    </span>
-                </div>
+                <button (click)="changeDate(1)" class="dj-header__nav-btn">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
 
-                <div class="flex items-center gap-3">
-                    @if (lastSaved()) {
-                    <span class="text-xs text-slate-500">
-                        Saved {{ lastSaved() | date:'shortTime' }}
-                    </span>
-                    }
-                    <button (click)="saveNote()"
-                        class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600">
-                        Save Note
-                    </button>
-                </div>
+                <span class="dj-header__date-label">{{ displayDate() }}</span>
             </div>
 
-            <!-- Editor Area -->
-            <div class="p-6">
-                <quill-editor [ngModel]="noteContent()" (ngModelChange)="noteContent.set($event)"
-                    [modules]="quillModules" placeholder="How was the market today? What did you learn?..."
-                    class="quill-editor-custom" [styles]="{
-                        'min-height': '500px',
-                        'border-radius': '0.5rem'
-                    }"></quill-editor>
+            <div class="dj-header__actions">
+                @if (lastSaved()) {
+                <span class="dj-header__saved">Saved {{ lastSaved() | date:'shortTime' }}</span>
+                }
+                <button (click)="saveNote()" class="btn-primary">Save</button>
             </div>
         </div>
+
+        <!-- Mood, Discipline & Day Summary -->
+        <div class="dj-ratings">
+
+            <!-- Mood -->
+            <div>
+                <label class="rating-group__label">Mood</label>
+                <div class="rating-group__buttons">
+                    @for (i of [1,2,3,4,5]; track i) {
+                    <button (click)="setMood(i)"
+                        class="rating-btn mood-btn"
+                        [class.is-active]="i <= mood()"
+                        [attr.data-value]="i">
+                        {{ i }}
+                    </button>
+                    }
+                </div>
+                <p class="rating-group__hint">{{ moodLabel(mood()) }}</p>
+            </div>
+
+            <!-- Discipline -->
+            <div>
+                <label class="rating-group__label">Discipline</label>
+                <div class="rating-group__buttons">
+                    @for (i of [1,2,3,4,5]; track i) {
+                    <button (click)="setDiscipline(i)"
+                        class="rating-btn discipline-btn"
+                        [class.is-active]="i <= discipline()"
+                        [attr.data-value]="i">
+                        {{ i }}
+                    </button>
+                    }
+                </div>
+                <p class="rating-group__hint">{{ moodLabel(discipline()) }}</p>
+            </div>
+
+            <!-- Day Stats -->
+            <div>
+                <label class="rating-group__label">Day Summary</label>
+                <div class="day-stats__pnl"
+                    [class.positive]="dayPnl() > 0"
+                    [class.negative]="dayPnl() < 0">
+                    {{ dayPnl() > 0 ? '+' : '' }}{{ dayPnl() | currency }}
+                </div>
+                <div class="day-stats__count">
+                    {{ dayTrades().length }} trade{{ dayTrades().length !== 1 ? 's' : '' }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Pre-Market Plan + Post-Market Review -->
+        <div class="dj-plan-grid">
+
+            <div class="dj-plan-card">
+                <div class="dj-plan-card__header">
+                    <span class="dj-plan-card__dot dj-plan-card__dot--pre"></span>
+                    <h3>Pre-Market Plan</h3>
+                </div>
+                <textarea [ngModel]="preMarketPlan()" (ngModelChange)="preMarketPlan.set($event)" rows="6"
+                    placeholder="What's the plan for today? Key levels, target symbols, max risk..."
+                    class="dj-plan-textarea dj-plan-textarea--pre"></textarea>
+            </div>
+
+            <div class="dj-plan-card">
+                <div class="dj-plan-card__header">
+                    <span class="dj-plan-card__dot dj-plan-card__dot--post"></span>
+                    <h3>Post-Market Review</h3>
+                </div>
+                <textarea [ngModel]="postMarketReview()" (ngModelChange)="postMarketReview.set($event)" rows="6"
+                    placeholder="How did the session go? What went well? What would you do differently?"
+                    class="dj-plan-textarea dj-plan-textarea--post"></textarea>
+            </div>
+        </div>
+
+        <!-- Rules Checklist -->
+        <div class="dj-rules">
+            <div class="dj-rules__header">
+                <h3>Rules Checklist</h3>
+                <span class="dj-rules__count">{{ checkedRules().size }} / {{ defaultRules.length }} followed</span>
+            </div>
+            <div class="dj-rules__grid">
+                @for (rule of defaultRules; track rule) {
+                <label class="rule-item" [class.is-checked]="checkedRules().has(rule)">
+                    <input type="checkbox" [checked]="checkedRules().has(rule)" (change)="toggleRule(rule)"
+                        class="rule-item__checkbox" />
+                    <span class="rule-item__label">{{ rule }}</span>
+                </label>
+                }
+            </div>
+        </div>
+
+        <!-- Today's Trades -->
+        @if (dayTrades().length > 0) {
+        @let visibleTrades = showAllTrades() ? dayTrades() : dayTrades().slice(0, TRADES_PAGE_SIZE);
+        @let hiddenCount = dayTrades().length - TRADES_PAGE_SIZE;
+        <div class="dj-trades">
+            <div class="dj-trades__header">
+                <h3 class="dj-trades__title">Today's Trades</h3>
+                <span class="dj-trades__count">{{ dayTrades().length }} trade{{ dayTrades().length !== 1 ? 's' : '' }}</span>
+            </div>
+            <div class="dj-trades__list">
+                @for (trade of visibleTrades; track trade.id) {
+                <a [routerLink]="['/journal/trade', trade.id]" class="trade-row-link">
+                    <div class="trade-row__info">
+                        <span class="trade-row__symbol">{{ trade.symbol }}</span>
+                        <span class="trade-badge"
+                            [class.badge-long]="trade.direction === 'long'"
+                            [class.badge-short]="trade.direction === 'short'">
+                            {{ trade.direction }}
+                        </span>
+                        <span class="trade-row__qty">{{ trade.quantity }} @ {{ trade.entryPrice }}</span>
+                    </div>
+                    <div class="trade-row__right">
+                        @if (trade.status === 'open') {
+                        <span class="trade-badge badge-open">Open</span>
+                        }
+                        @if (trade.netPnl !== undefined || trade.pnl !== undefined) {
+                        <span class="trade-row__pnl"
+                            [class.positive]="(trade.netPnl ?? trade.pnl ?? 0) > 0"
+                            [class.negative]="(trade.netPnl ?? trade.pnl ?? 0) < 0">
+                            {{ (trade.netPnl ?? trade.pnl ?? 0) > 0 ? '+' : '' }}{{ (trade.netPnl ?? trade.pnl ?? 0) | currency }}
+                        </span>
+                        }
+                        <svg class="trade-row__chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </div>
+                </a>
+                }
+            </div>
+
+            @if (dayTrades().length > TRADES_PAGE_SIZE) {
+            <button class="dj-trades__toggle" (click)="showAllTrades.set(!showAllTrades())">
+                @if (showAllTrades()) {
+                    Show less
+                } @else {
+                    Show {{ hiddenCount }} more trade{{ hiddenCount !== 1 ? 's' : '' }}
+                }
+            </button>
+            }
+        </div>
+        }
+
+        <!-- Additional Notes (Quill) -->
+        <div class="dj-notes">
+            <div class="dj-notes__header">
+                <h3>Additional Notes</h3>
+            </div>
+            <div class="dj-notes__body">
+                <quill-editor [ngModel]="noteContent()" (ngModelChange)="noteContent.set($event)"
+                    [modules]="quillModules"
+                    placeholder="Any additional thoughts, charts to review, lessons learned..."
+                    class="quill-editor-custom"
+                    [styles]="{'min-height': '250px', 'border-radius': '0.5rem'}">
+                </quill-editor>
+            </div>
+        </div>
+
     </div>
 </div>

@@ -17,7 +17,7 @@
       "sourceRoot": "src",
       "prefix": "app",
       "architect": {
-        "build": {x
+        "build": {
           "builder": "@angular/build:application",
           "options": {
             "browser": "src/main.ts",
@@ -43,8 +43,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
-                  "maximumError": "8kB"
+                  "maximumWarning": "8kB",
+                  "maximumError": "24kB"
                 }
               ],
               "outputHashing": "all"

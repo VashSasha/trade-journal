@@ -4,7 +4,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Router, ActivatedRoute } from '@angular/router';
 import { TradeService } from '../../../core/services/trade.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { AssetType, TradeDirection } from '../../../core/models/trade.model';
+import { AssetType, TradeDirection, TradeGrade } from '../../../core/models/trade.model';
 
 @Component({
     selector: 'app-trade-entry',
@@ -47,6 +47,23 @@ export class TradeEntryComponent implements OnInit {
         'Custom'
     ];
 
+    grades: TradeGrade[] = ['A', 'B', 'C', 'D'];
+
+    commonMistakes = [
+        'Entered too early',
+        'Entered too late',
+        'Chased entry',
+        'Sized too big',
+        'Didn\'t honor stop loss',
+        'Moved stop loss',
+        'Took profits too early',
+        'Held too long',
+        'Overtraded',
+        'Broke my rules',
+        'Revenge traded',
+        'FOMO entry',
+    ];
+
     // Emotions
     commonEmotions = [
         'Confident',
@@ -79,7 +96,11 @@ export class TradeEntryComponent implements OnInit {
             setup: [''],
             tags: [[]],
             emotions: [[]],
-            notes: ['']
+            notes: [''],
+            grade: [null],
+            mistakes: [[]],
+            wentWell: [''],
+            toImprove: ['']
         });
 
         // Subscribe to form value changes to update P&L
@@ -118,7 +139,11 @@ export class TradeEntryComponent implements OnInit {
                 setup: trade.setup,
                 notes: trade.notes,
                 tags: trade.tags,
-                emotions: trade.emotions || []
+                emotions: trade.emotions || [],
+                grade: trade.grade || null,
+                mistakes: trade.mistakes || [],
+                wentWell: trade.wentWell || '',
+                toImprove: trade.toImprove || ''
             });
 
             // Set multiplier for PnL calculation
@@ -223,6 +248,28 @@ export class TradeEntryComponent implements OnInit {
         const input = event.target as HTMLInputElement;
         input.value = input.value.toUpperCase();
         this.tradeForm.patchValue({ symbol: input.value });
+    }
+
+    setGrade(grade: TradeGrade): void {
+        const current = this.tradeForm.get('grade')?.value;
+        this.tradeForm.patchValue({ grade: current === grade ? null : grade });
+    }
+
+    isGradeSelected(grade: TradeGrade): boolean {
+        return this.tradeForm.get('grade')?.value === grade;
+    }
+
+    toggleMistake(mistake: string): void {
+        const current = this.tradeForm.get('mistakes')?.value as string[];
+        this.tradeForm.patchValue({
+            mistakes: current.includes(mistake)
+                ? current.filter(m => m !== mistake)
+                : [...current, mistake]
+        });
+    }
+
+    isMistakeSelected(mistake: string): boolean {
+        return (this.tradeForm.get('mistakes')?.value as string[] || []).includes(mistake);
     }
 
     toggleEmotion(emotion: string): void {

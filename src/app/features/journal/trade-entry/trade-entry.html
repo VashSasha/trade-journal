@@ -200,6 +200,52 @@
                         </div>
                     </div>
 
+                    <!-- Trade Grade -->
+                    <div>
+                        <label class="form-label">Trade Grade</label>
+                        <div class="flex gap-2">
+                            @for (grade of grades; track grade) {
+                            <button type="button" (click)="setGrade(grade)"
+                                class="grade-btn"
+                                [class.is-active]="isGradeSelected(grade)"
+                                [attr.data-grade]="grade">
+                                {{ grade }}
+                            </button>
+                            }
+                        </div>
+                        <p class="mt-1.5 text-xs text-slate-500">How well did you execute this trade?</p>
+                    </div>
+
+                    <!-- Mistakes -->
+                    <div>
+                        <label class="form-label">Mistakes Made</label>
+                        <div class="flex flex-wrap gap-2">
+                            @for (mistake of commonMistakes; track mistake) {
+                            <button type="button" (click)="toggleMistake(mistake)"
+                                [class.selected]="isMistakeSelected(mistake)"
+                                class="emotion-chip">
+                                {{ mistake }}
+                            </button>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- What went well / to improve -->
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div>
+                            <label for="wentWell" class="form-label">What Went Well</label>
+                            <textarea id="wentWell" formControlName="wentWell" rows="3"
+                                placeholder="What did you execute correctly?"
+                                class="form-input"></textarea>
+                        </div>
+                        <div>
+                            <label for="toImprove" class="form-label">What to Improve</label>
+                            <textarea id="toImprove" formControlName="toImprove" rows="3"
+                                placeholder="What would you do differently?"
+                                class="form-input"></textarea>
+                        </div>
+                    </div>
+
                     <div>
                         <label for="notes" class="form-label">Notes</label>
                         <textarea id="notes" formControlName="notes" rows="4"

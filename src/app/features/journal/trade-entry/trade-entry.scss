@@ -1,3 +1,19 @@
+.grade-btn {
+    @apply w-14 rounded-lg py-2 text-sm font-bold transition-all border;
+    @apply bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700;
+    cursor: pointer;
+
+    &.is-active {
+        color: white;
+        border-color: transparent;
+    }
+
+    &[data-grade="A"].is-active { background-color: #10b981; }
+    &[data-grade="B"].is-active { background-color: #3b82f6; }
+    &[data-grade="C"].is-active { background-color: #f59e0b; }
+    &[data-grade="D"].is-active { background-color: #ef4444; }
+}
+
 .direction-btn {
     @apply flex-1 rounded-lg px-4 py-2.5 font-medium transition-colors bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300;
 

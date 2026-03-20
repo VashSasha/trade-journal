@@ -1,6 +1,7 @@
 export type AssetType = 'stock' | 'option' | 'forex' | 'futures' | 'crypto';
 export type TradeDirection = 'long' | 'short';
 export type TradeStatus = 'open' | 'closed' | 'missed';
+export type TradeGrade = 'A' | 'B' | 'C' | 'D';
 
 export interface Trade {
     id: string;
@@ -36,6 +37,12 @@ export interface Trade {
 
     // Psychology
     emotions?: string[];
+
+    // Grading
+    grade?: TradeGrade;
+    mistakes?: string[];
+    wentWell?: string;
+    toImprove?: string;
 
     // Integration Fields
     source?: 'manual' | 'tradovate';
@@ -84,6 +91,12 @@ export interface TradeFormData {
     tags?: string[];
     emotions?: string[];
     notes?: string;
+
+    // Grading
+    grade?: TradeGrade;
+    mistakes?: string[];
+    wentWell?: string;
+    toImprove?: string;
 }
 
 export interface TradeStats {
