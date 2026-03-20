@@ -108,239 +108,26 @@
     </div>
 
     <!-- Trade Table -->
-    <div class="trade-table">
-      @if (filteredTrades().length === 0) {
-        <div class="empty-state">
-          <div class="empty-state-icon">
-            <svg class="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
-          </div>
-          <h3 class="text-lg font-semibold text-slate-900 dark:text-white">No trades found</h3>
-          <p class="mt-1 text-slate-600 dark:text-slate-400">
-            @if (searchQuery() || statusFilter() !== 'all') {
-              Try adjusting your filters or search query
-            } @else {
-              Get started by logging your first trade
-            }
-          </p>
-          @if (!searchQuery() && statusFilter() === 'all') {
-            <a routerLink="/journal/trade/new" class="btn-primary mt-4 inline-block">
-              + New Trade
-            </a>
-          }
+    @if (filteredTrades().length === 0 && !searchQuery() && statusFilter() === 'all') {
+      <div class="empty-state">
+        <div class="empty-state-icon">
+          <svg class="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
         </div>
-      } @else {
-        <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead class="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50">
-            <tr>
-              <th class="w-4 px-6 py-3">
-                <input type="checkbox" [checked]="isAllSelected()" (change)="toggleAll($event)"
-                       class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:checked:bg-emerald-500"/>
-              </th>
-              <th class="px-6 py-3 text-left">
-                <button (click)="setSort('symbol')"
-                        class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
-                  Symbol
-                  @if (sortField() === 'symbol') {
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      @if (sortDirection() === 'asc') {
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M5 15l7-7 7 7"/>
-                      } @else {
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M19 9l-7 7-7-7"/>
-                      }
-                    </svg>
-                  }
-                </button>
-              </th>
-              <th class="px-6 py-3 text-left">
-                <button (click)="setSort('assetType')"
-                        class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
-                  Asset Type
-                  @if (sortField() === 'assetType') {
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      @if (sortDirection() === 'asc') {
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M5 15l7-7 7 7"/>
-                      } @else {
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M19 9l-7 7-7-7"/>
-                      }
-                    </svg>
-                  }
-                </button>
-              </th>
-              <th class="px-6 py-3 text-left">
-                <span class="th-cell">Account</span>
-              </th>
-              <th class="px-6 py-3 text-left">
-                <button (click)="setSort('entryDate')"
-                        class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
-                  Date
-                  @if (sortField() === 'entryDate') {
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      @if (sortDirection() === 'asc') {
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M5 15l7-7 7 7"/>
-                      } @else {
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M19 9l-7 7-7-7"/>
-                      }
-                    </svg>
-                  }
-                </button>
-              </th>
-              <th class="px-6 py-3 text-right th-cell">Entry</th>
-              <th class="px-6 py-3 text-right th-cell">Exit</th>
-              <th class="px-6 py-3 text-right th-cell">Qty</th>
-              <th class="px-6 py-3 text-right">
-                <button (click)="setSort('pnl')"
-                        class="flex items-center justify-end gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
-                  P&L
-                  @if (sortField() === 'pnl') {
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      @if (sortDirection() === 'asc') {
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M5 15l7-7 7 7"/>
-                      } @else {
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M19 9l-7 7-7-7"/>
-                      }
-                    </svg>
-                  }
-                </button>
-              </th>
-              <th class="px-6 py-3 text-center">
-                <button (click)="setSort('status')"
-                        class="flex items-center justify-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
-                  Status
-                  @if (sortField() === 'status') {
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      @if (sortDirection() === 'asc') {
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M5 15l7-7 7 7"/>
-                      } @else {
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M19 9l-7 7-7-7"/>
-                      }
-                    </svg>
-                  }
-                </button>
-              </th>
-              <th class="px-6 py-3 text-center th-cell">Grade</th>
-              <th class="px-6 py-3 text-center th-cell">Actions</th>
-            </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
-              @for (trade of filteredTrades(); track trade.id) {
-                <tr class="trade-row"
-                    [class.bg-emerald-50]="selectedTradeIds().has(trade.id)"
-                    [class.dark:bg-emerald-900]="selectedTradeIds().has(trade.id)"
-                    [class.opacity-60]="trade.status === 'missed'">
-                  <td class="w-4 px-6 py-4">
-                    <input type="checkbox" [checked]="selectedTradeIds().has(trade.id)"
-                           (click)="toggleSelection(trade.id, $event)"
-                           class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:checked:bg-emerald-500"/>
-                  </td>
-                  <td class="px-6 py-4">
-                    <div class="flex items-center gap-2">
-                      <a [routerLink]="['/journal/trade', trade.id]"
-                         class="font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:underline">
-                        {{ trade.symbol }}
-                      </a>
-                      <span class="trade-badge"
-                            [class.badge-long]="trade.direction === 'long'"
-                            [class.badge-short]="trade.direction === 'short'">
-                                        {{ trade.direction | titlecase }}
-                                    </span>
-                    </div>
-                  </td>
-                  <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
-                    {{ trade.assetType | titlecase }}
-                  </td>
-                  <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
-                    @if (trade.accountName) {
-                      <span
-                        class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
-                                    {{ trade.accountName }}
-                                </span>
-                    } @else {
-                      <span class="text-slate-400">-</span>
-                    }
-                  </td>
-                  <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
-                    {{ trade.entryDate | date:'MMM d, y' }}
-                  </td>
-                  <td class="px-6 py-4 text-right text-sm text-slate-900 dark:text-white">
-                    {{ trade.entryPrice || '-' }}
-                  </td>
-                  <td class="px-6 py-4 text-right text-sm text-slate-900 dark:text-white">
-                    {{ trade.exitPrice || '-' }}
-                  </td>
-                  <td class="px-6 py-4 text-right text-sm text-slate-600 dark:text-slate-400">
-                    {{ trade.quantity }}
-                  </td>
-                  <td class="px-6 py-4 text-right">
-                    @if (trade.netPnl !== null && trade.netPnl !== undefined) {
-                      <div class="flex flex-col items-end">
-                                    <span class="font-semibold"
-                                          [class.pnl-positive]="trade.netPnl > 0 && trade.status !== 'missed'"
-                                          [class.pnl-negative]="trade.netPnl < 0 && trade.status !== 'missed'"
-                                          [class.text-slate-500]="trade.status === 'missed'"
-                                          [class.dark:text-slate-500]="trade.status === 'missed'">
-                                        {{ trade.netPnl >= 0 ? '+' : '' }}{{ trade.netPnl | currency }}
-                                    </span>
-                      </div>
-                    } @else {
-                      <span class="text-slate-400">-</span>
-                    }
-                  </td>
-                  <td class="px-6 py-4 text-center">
-                                <span class="trade-badge rounded-full px-2.5"
-                                      [class.badge-open]="trade.status === 'open'"
-                                      [class.badge-closed]="trade.status === 'closed'"
-                                      [class.badge-missed]="trade.status === 'missed'">
-                                    {{ trade.status | titlecase }}
-                                </span>
-                  </td>
-                  <td class="px-6 py-4 text-center">
-                    @if (trade.grade) {
-                    <span class="trade-grade-badge" [attr.data-grade]="trade.grade">{{ trade.grade }}</span>
-                    } @else {
-                    <span class="text-slate-400">-</span>
-                    }
-                  </td>
-                  <td class="px-6 py-4 text-center">
-                    <div class="flex items-center justify-center gap-2">
-                      <a [routerLink]="['/journal/trade', trade.id]" class="btn-icon" title="View Details">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                        </svg>
-                      </a>
-                      <button (click)="deleteTrade(trade, $event)"
-                              class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-                              title="Delete trade">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
-    </div>
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-white">No trades yet</h3>
+        <p class="mt-1 text-slate-600 dark:text-slate-400">Get started by logging your first trade</p>
+        <a routerLink="/journal/trade/new" class="btn-primary mt-4 inline-block">+ New Trade</a>
+      </div>
+    } @else {
+      <app-trade-table
+        [trades]="filteredTrades()"
+        [selectable]="true"
+        [selectedIds]="selectedTradeIds()"
+        (selectedIdsChange)="selectedTradeIds.set($event)">
+      </app-trade-table>
+    }
   </div>
 
   <!-- Floating Bulk Actions Toolbar -->

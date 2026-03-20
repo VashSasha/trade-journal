@@ -1,0 +1,147 @@
+<!-- Backdrop to dismiss grade picker on outside click -->
+@if (activeGradePicker()) {
+  <div class="tt-backdrop" (click)="closePicker()"></div>
+}
+
+<div class="tt-wrap">
+  @if (trades.length === 0) {
+    <div class="tt-empty">
+      <svg class="tt-empty__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+      <p>No trades to display</p>
+    </div>
+  } @else {
+    <div class="tt-scroll">
+      <table class="tt-table">
+        <thead>
+          <tr>
+            @if (selectable) {
+              <th class="tt-th tt-th--check">
+                <input type="checkbox" [checked]="isAllSelected()" (change)="toggleAll($event)"
+                       class="tt-checkbox"/>
+              </th>
+            }
+            <th class="tt-th">Symbol</th>
+            @if (showDate) { <th class="tt-th">Date</th> }
+            <th class="tt-th tt-th--right">Entry</th>
+            <th class="tt-th tt-th--right">Exit</th>
+            <th class="tt-th tt-th--right">Qty</th>
+            <th class="tt-th tt-th--right">P&amp;L</th>
+            <th class="tt-th tt-th--center">Status</th>
+            <th class="tt-th tt-th--center">Grade</th>
+            <th class="tt-th tt-th--center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (trade of trades; track trade.id) {
+            <tr class="tt-row" [class.tt-row--selected]="selectedIds.has(trade.id)"
+                [class.tt-row--missed]="trade.status === 'missed'">
+
+              @if (selectable) {
+                <td class="tt-td tt-td--check">
+                  <input type="checkbox" [checked]="selectedIds.has(trade.id)"
+                         (click)="toggleRow(trade.id, $event)" class="tt-checkbox"/>
+                </td>
+              }
+
+              <!-- Symbol + direction -->
+              <td class="tt-td">
+                <div class="tt-symbol-cell">
+                  <a [routerLink]="['/journal/trade', trade.id]" class="tt-symbol-link">
+                    {{ trade.symbol }}
+                  </a>
+                  <span class="trade-badge"
+                        [class.badge-long]="trade.direction === 'long'"
+                        [class.badge-short]="trade.direction === 'short'">
+                    {{ trade.direction | titlecase }}
+                  </span>
+                </div>
+              </td>
+
+              @if (showDate) {
+                <td class="tt-td tt-td--muted">{{ trade.entryDate | date:'MMM d, y' }}</td>
+              }
+
+              <td class="tt-td tt-td--right tt-td--num">{{ trade.entryPrice || '-' }}</td>
+              <td class="tt-td tt-td--right tt-td--num">{{ trade.exitPrice || '-' }}</td>
+              <td class="tt-td tt-td--right tt-td--muted">{{ trade.quantity }}</td>
+
+              <!-- P&L -->
+              <td class="tt-td tt-td--right">
+                @if (trade.netPnl !== null && trade.netPnl !== undefined) {
+                  <span class="tt-pnl"
+                        [class.tt-pnl--pos]="trade.netPnl > 0 && trade.status !== 'missed'"
+                        [class.tt-pnl--neg]="trade.netPnl < 0 && trade.status !== 'missed'"
+                        [class.tt-pnl--neutral]="trade.status === 'missed'">
+                    {{ trade.netPnl >= 0 ? '+' : '' }}{{ trade.netPnl | currency }}
+                  </span>
+                } @else { <span class="tt-td--muted">-</span> }
+              </td>
+
+              <!-- Status -->
+              <td class="tt-td tt-td--center">
+                <span class="trade-badge rounded-full px-2.5"
+                      [class.badge-open]="trade.status === 'open'"
+                      [class.badge-closed]="trade.status === 'closed'"
+                      [class.badge-missed]="trade.status === 'missed'">
+                  {{ trade.status | titlecase }}
+                </span>
+              </td>
+
+              <!-- Grade — clickable -->
+              <td class="tt-td tt-td--center">
+                <div class="tt-grade-wrap">
+                  <button type="button" class="tt-grade-btn"
+                          [attr.data-grade]="trade.grade ?? null"
+                          (click)="openGradePicker(trade.id, $event)"
+                          title="Click to set grade">
+                    {{ trade.grade ?? '—' }}
+                  </button>
+
+                  @if (activeGradePicker() === trade.id) {
+                    <div class="tt-grade-popover">
+                      @for (g of GRADES; track g) {
+                        <button type="button" class="tt-grade-opt"
+                                [attr.data-grade]="g"
+                                [class.is-active]="trade.grade === g"
+                                (click)="setGrade(trade.id, g, $event)">
+                          {{ g }}
+                        </button>
+                      }
+                      @if (trade.grade) {
+                        <button type="button" class="tt-grade-clear"
+                                (click)="setGrade(trade.id, null, $event)">✕</button>
+                      }
+                    </div>
+                  }
+                </div>
+              </td>
+
+              <!-- Actions -->
+              <td class="tt-td tt-td--center">
+                <div class="tt-actions">
+                  <a [routerLink]="['/journal/trade', trade.id]" class="btn-icon" title="View details">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                  </a>
+                  <button (click)="deleteTrade(trade, $event)" class="tt-delete-btn" title="Delete">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { TradeService } from '../../../core/services/trade.service';
 import { SyncService } from '../../../core/services/sync.service';
 import { Trade, TradeStatus } from '../../../core/models/trade.model';
+import { TradeTableComponent } from '../../../shared/components/trade-table/trade-table.component';
 
 type SortField = 'symbol' | 'assetType' | 'entryDate' | 'pnl' | 'status';
 type SortDirection = 'asc' | 'desc';
@@ -11,7 +12,7 @@ type SortDirection = 'asc' | 'desc';
 @Component({
     selector: 'app-trade-list',
     standalone: true,
-    imports: [CurrencyPipe, DatePipe, TitleCasePipe, RouterLink],
+    imports: [CurrencyPipe, RouterLink, TradeTableComponent],
     templateUrl: './trade-list.html',
     styleUrl: './trade-list.scss'
 })

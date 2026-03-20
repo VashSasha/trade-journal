@@ -7,6 +7,8 @@ export interface DailyNote {
     mood?: number;        // 1-5
     discipline?: number;  // 1-5
     rulesFollowed?: string[]; // checked rule texts
+    avoidedNewsEvents?: string[]; // abbrs of auto-detected events the user marked as avoided
+    customNewsEvents?: Array<{ name: string; time: string; avoided: boolean }>;
     createdAt: string;
     updatedAt: string;
 }

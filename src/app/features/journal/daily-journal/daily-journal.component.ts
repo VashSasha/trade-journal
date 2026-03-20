@@ -1,10 +1,11 @@
 import { Component, computed, inject, signal, effect } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { DailyJournalService } from '../../../core/services/daily-journal.service';
 import { TradeService } from '../../../core/services/trade.service';
+import { EconomicCalendarService } from '../../../core/services/economic-calendar.service';
 import { DEFAULT_TRADING_RULES } from '../../../core/models/daily-journal.model';
+import { TradeTableComponent } from '../../../shared/components/trade-table/trade-table.component';
 import { QuillModule } from 'ngx-quill';
 
 
@@ -26,13 +27,14 @@ interface MonthGroup {
 @Component({
     selector: 'app-daily-journal',
     standalone: true,
-    imports: [DatePipe, CurrencyPipe, FormsModule, RouterLink, QuillModule],
+    imports: [DatePipe, CurrencyPipe, FormsModule, QuillModule, TradeTableComponent],
     templateUrl: './daily-journal.component.html',
     styleUrl: './daily-journal.component.scss'
 })
 export class DailyJournalComponent {
     private journalService = inject(DailyJournalService);
-    private tradeService = inject(TradeService);
+    tradeService = inject(TradeService);
+    private economicCalendarService = inject(EconomicCalendarService);
 
     readonly defaultRules = DEFAULT_TRADING_RULES;
 
@@ -49,6 +51,11 @@ export class DailyJournalComponent {
     discipline = signal(0);
     checkedRules = signal<Set<string>>(new Set());
     noteContent = signal('');
+    avoidedNewsEvents = signal<Set<string>>(new Set());
+    customNewsEvents = signal<Array<{ name: string; time: string; avoided: boolean }>>([]);
+    showAddEvent = signal(false);
+    newEventName = signal('');
+    newEventTime = signal('');
 
     quillModules = {
         toolbar: [
@@ -73,13 +80,36 @@ export class DailyJournalComponent {
             this.checkedRules.set(new Set(note?.rulesFollowed ?? []));
             this.noteContent.set(note?.content ?? '');
             this.lastSaved.set(note ? new Date(note.updatedAt) : null);
+
+            // Pre-select all news events for the day if no saved preference exists
+            if (note?.avoidedNewsEvents) {
+                this.avoidedNewsEvents.set(new Set(note.avoidedNewsEvents));
+            } else {
+                const d = new Date(date + 'T12:00:00');
+                const events = this.economicCalendarService.getEventsForMonth(d.getFullYear(), d.getMonth())
+                    .filter(e => e.date === date);
+                this.avoidedNewsEvents.set(new Set(events.map(e => e.abbr)));
+            }
+            this.customNewsEvents.set(note?.customNewsEvents ?? []);
+            this.showAddEvent.set(false);
+            this.newEventName.set('');
+            this.newEventTime.set('');
         });
     }
 
-    // Trades for the selected date
+    // News events for the selected date
+    dayEvents = computed(() => {
+        const date = new Date(this.selectedDate() + 'T12:00:00');
+        return this.economicCalendarService.getEventsForMonth(date.getFullYear(), date.getMonth())
+            .filter(e => e.date === this.selectedDate());
+    });
+
+    // Trades for the selected date, sorted newest first (same default as Trade Notes page)
     dayTrades = computed(() => {
         const date = this.selectedDate();
-        return this.tradeService.trades().filter(t => t.entryDate?.startsWith(date));
+        return this.tradeService.trades()
+            .filter(t => t.entryDate?.startsWith(date))
+            .sort((a, b) => (b.entryDate ?? '').localeCompare(a.entryDate ?? ''));
     });
 
     dayPnl = computed(() =>
@@ -168,12 +198,36 @@ export class DailyJournalComponent {
 
     toggleRule(rule: string): void {
         const current = new Set(this.checkedRules());
-        if (current.has(rule)) {
-            current.delete(rule);
-        } else {
-            current.add(rule);
-        }
+        if (current.has(rule)) current.delete(rule); else current.add(rule);
         this.checkedRules.set(current);
+    }
+
+    toggleNewsEvent(abbr: string): void {
+        const current = new Set(this.avoidedNewsEvents());
+        if (current.has(abbr)) current.delete(abbr); else current.add(abbr);
+        this.avoidedNewsEvents.set(current);
+    }
+
+    addCustomEvent(): void {
+        const name = this.newEventName().trim();
+        if (!name) return;
+        this.customNewsEvents.update(list => [
+            ...list,
+            { name, time: this.newEventTime(), avoided: true }
+        ]);
+        this.newEventName.set('');
+        this.newEventTime.set('');
+        this.showAddEvent.set(false);
+    }
+
+    toggleCustomEvent(index: number): void {
+        this.customNewsEvents.update(list =>
+            list.map((e, i) => i === index ? { ...e, avoided: !e.avoided } : e)
+        );
+    }
+
+    removeCustomEvent(index: number): void {
+        this.customNewsEvents.update(list => list.filter((_, i) => i !== index));
     }
 
     saveNote(): void {
@@ -184,6 +238,8 @@ export class DailyJournalComponent {
             mood: this.mood() || undefined,
             discipline: this.discipline() || undefined,
             rulesFollowed: Array.from(this.checkedRules()),
+            avoidedNewsEvents: Array.from(this.avoidedNewsEvents()),
+            customNewsEvents: this.customNewsEvents(),
         });
         this.lastSaved.set(new Date());
     }
@@ -191,4 +247,5 @@ export class DailyJournalComponent {
     moodLabel(value: number): string {
         return ['', 'Terrible', 'Bad', 'Neutral', 'Good', 'Great'][value] ?? '';
     }
+
 }

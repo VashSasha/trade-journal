@@ -1,0 +1,160 @@
+.tt-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9;
+}
+
+.tt-wrap {
+    @apply overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900;
+}
+
+.tt-scroll {
+    @apply overflow-x-auto;
+}
+
+.tt-empty {
+    @apply flex flex-col items-center gap-2 py-12 text-sm text-slate-400;
+
+    &__icon { @apply h-8 w-8; }
+}
+
+// ── Table structure ───────────────────────────────────────────────────────────
+
+.tt-table {
+    @apply w-full;
+}
+
+.tt-th {
+    @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider
+           text-slate-500 dark:text-slate-400
+           border-b border-slate-200 bg-slate-50
+           dark:border-slate-800 dark:bg-slate-800/50;
+
+    &--right  { @apply text-right; }
+    &--center { @apply text-center; }
+    &--check  { @apply w-8; }
+}
+
+.tt-row {
+    @apply border-b border-slate-100 transition-colors
+           hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40;
+
+    &:last-child { @apply border-b-0; }
+    &--selected  { @apply bg-emerald-50 dark:bg-emerald-900/10; }
+    &--missed    { @apply opacity-60; }
+}
+
+.tt-td {
+    @apply px-4 py-3 text-sm text-slate-900 dark:text-white;
+
+    &--right   { @apply text-right; }
+    &--center  { @apply text-center; }
+    &--muted   { @apply text-slate-500 dark:text-slate-400; }
+    &--num     { @apply font-mono; }
+    &--check   { @apply w-8; }
+}
+
+.tt-checkbox {
+    @apply h-4 w-4 rounded border-slate-300 text-emerald-600 accent-emerald-500
+           focus:ring-emerald-500 dark:border-slate-700;
+}
+
+// ── Symbol cell ───────────────────────────────────────────────────────────────
+
+.tt-symbol-cell {
+    @apply flex items-center gap-2;
+}
+
+.tt-symbol-link {
+    @apply font-semibold text-emerald-600 hover:text-emerald-700 hover:underline
+           dark:text-emerald-400 dark:hover:text-emerald-300;
+}
+
+// ── P&L ───────────────────────────────────────────────────────────────────────
+
+.tt-pnl {
+    @apply font-semibold;
+    &--pos     { @apply text-emerald-600 dark:text-emerald-400; }
+    &--neg     { @apply text-red-600 dark:text-red-400; }
+    &--neutral { @apply text-slate-400; }
+}
+
+// ── Grade picker ──────────────────────────────────────────────────────────────
+
+.tt-grade-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.tt-grade-btn {
+    @apply inline-flex items-center justify-center rounded-md border text-xs font-bold
+           cursor-pointer transition-colors;
+    width: 2rem;
+    height: 1.75rem;
+    border-color: #e2e8f0;
+    background: #f8fafc;
+    color: #94a3b8;
+
+    &[data-grade="A"] { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+    &[data-grade="B"] { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+    &[data-grade="C"] { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+    &[data-grade="D"] { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+
+    &:hover { filter: brightness(0.93); }
+}
+
+.tt-grade-popover {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    z-index: 10;
+    white-space: nowrap;
+
+    @apply dark:bg-slate-800 dark:border-slate-700;
+}
+
+.tt-grade-opt {
+    @apply inline-flex items-center justify-center rounded-md text-xs font-bold
+           cursor-pointer transition-all;
+    width: 2rem;
+    height: 2rem;
+    background: #f1f5f9;
+    color: #64748b;
+
+    &[data-grade="A"] { background: #d1fae5; color: #065f46; }
+    &[data-grade="B"] { background: #dbeafe; color: #1e40af; }
+    &[data-grade="C"] { background: #fef3c7; color: #92400e; }
+    &[data-grade="D"] { background: #fee2e2; color: #991b1b; }
+
+    &.is-active { outline: 2px solid currentColor; outline-offset: 1px; }
+    &:hover { filter: brightness(0.9); transform: scale(1.1); }
+}
+
+.tt-grade-clear {
+    @apply inline-flex items-center justify-center rounded text-[10px] text-slate-400
+           hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer;
+    width: 1.5rem;
+    height: 2rem;
+    margin-left: 2px;
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+
+.tt-actions {
+    @apply flex items-center justify-center gap-1;
+}
+
+.tt-delete-btn {
+    @apply rounded-lg p-1.5 text-slate-400 transition-colors
+           hover:bg-red-50 hover:text-red-600
+           dark:hover:bg-red-950/30 dark:hover:text-red-400;
+}

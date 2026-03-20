@@ -162,6 +162,114 @@
             </div>
         </div>
 
+        <!-- News Events -->
+        @if (dayEvents().length > 0 || customNewsEvents().length > 0 || showAddEvent()) {
+        <div class="dj-news">
+            <div class="dj-news__header">
+                <div class="dj-news__title-row">
+                    <svg class="dj-news__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                    </svg>
+                    <h3>News Events</h3>
+                </div>
+                <span class="dj-news__hint">Check the ones you avoided trading around</span>
+            </div>
+
+            <div class="dj-news__list">
+                <!-- Auto-detected events -->
+                @for (ev of dayEvents(); track ev.abbr) {
+                <label class="dj-news__item" [class.is-avoided]="avoidedNewsEvents().has(ev.abbr)">
+                    <input type="checkbox"
+                        [checked]="avoidedNewsEvents().has(ev.abbr)"
+                        (change)="toggleNewsEvent(ev.abbr)"
+                        class="dj-news__checkbox" />
+                    <span class="dj-news__tag" [attr.data-abbr]="ev.abbr">{{ ev.abbr }}</span>
+                    <span class="dj-news__name">{{ ev.event }}</span>
+                    <span class="dj-news__time">{{ ev.time }} ET</span>
+                    @if (ev.estimated) {
+                        <span class="dj-news__est">~est.</span>
+                    }
+                    <a class="dj-news__link" [href]="ev.link" target="_blank" rel="noopener"
+                       (click)="$event.stopPropagation()">↗</a>
+                </label>
+                }
+
+                <!-- Custom events -->
+                @for (ev of customNewsEvents(); track $index) {
+                <label class="dj-news__item dj-news__item--custom" [class.is-avoided]="ev.avoided">
+                    <input type="checkbox"
+                        [checked]="ev.avoided"
+                        (change)="toggleCustomEvent($index)"
+                        class="dj-news__checkbox" />
+                    <span class="dj-news__tag dj-news__tag--custom">custom</span>
+                    <span class="dj-news__name">{{ ev.name }}</span>
+                    @if (ev.time) {
+                        <span class="dj-news__time">{{ ev.time }} ET</span>
+                    }
+                    <button type="button" class="dj-news__remove"
+                            (click)="removeCustomEvent($index); $event.preventDefault()">
+                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </label>
+                }
+            </div>
+
+            <!-- Add event form -->
+            @if (showAddEvent()) {
+            <div class="dj-news__add-form">
+                <input type="text" class="dj-news__add-name"
+                       placeholder="Event name (e.g. Fed Chair Speech)"
+                       [ngModel]="newEventName()" (ngModelChange)="newEventName.set($event)"
+                       (keydown.enter)="addCustomEvent()" />
+                <input type="time" class="dj-news__add-time"
+                       [ngModel]="newEventTime()" (ngModelChange)="newEventTime.set($event)" />
+                <button type="button" class="dj-news__add-confirm"
+                        [disabled]="!newEventName().trim()"
+                        (click)="addCustomEvent()">Add</button>
+                <button type="button" class="dj-news__add-cancel"
+                        (click)="showAddEvent.set(false)">Cancel</button>
+            </div>
+            }
+
+            <div class="dj-news__footer">
+                <p class="dj-news__rule-note">Prop firm rule: no trading 1 min before &amp; after news</p>
+                @if (!showAddEvent()) {
+                <button type="button" class="dj-news__add-btn" (click)="showAddEvent.set(true)">
+                    + Add event
+                </button>
+                }
+            </div>
+        </div>
+        } @else {
+        <!-- No auto-detected events — still allow manual entry -->
+        <div class="dj-news dj-news--empty">
+            <div class="dj-news__empty-row">
+                <span class="dj-news__empty-label">No scheduled news events today</span>
+                <button type="button" class="dj-news__add-btn" (click)="showAddEvent.set(true)">
+                    + Add manual event
+                </button>
+            </div>
+            @if (showAddEvent()) {
+            <div class="dj-news__add-form">
+                <input type="text" class="dj-news__add-name"
+                       placeholder="Event name (e.g. Fed Chair Speech)"
+                       [ngModel]="newEventName()" (ngModelChange)="newEventName.set($event)"
+                       (keydown.enter)="addCustomEvent()" />
+                <input type="time" class="dj-news__add-time"
+                       [ngModel]="newEventTime()" (ngModelChange)="newEventTime.set($event)" />
+                <button type="button" class="dj-news__add-confirm"
+                        [disabled]="!newEventName().trim()"
+                        (click)="addCustomEvent()">Add</button>
+                <button type="button" class="dj-news__add-cancel"
+                        (click)="showAddEvent.set(false)">Cancel</button>
+            </div>
+            }
+        </div>
+        }
+
         <!-- Rules Checklist -->
         <div class="dj-rules">
             <div class="dj-rules__header">
@@ -188,36 +296,8 @@
                 <h3 class="dj-trades__title">Today's Trades</h3>
                 <span class="dj-trades__count">{{ dayTrades().length }} trade{{ dayTrades().length !== 1 ? 's' : '' }}</span>
             </div>
-            <div class="dj-trades__list">
-                @for (trade of visibleTrades; track trade.id) {
-                <a [routerLink]="['/journal/trade', trade.id]" class="trade-row-link">
-                    <div class="trade-row__info">
-                        <span class="trade-row__symbol">{{ trade.symbol }}</span>
-                        <span class="trade-badge"
-                            [class.badge-long]="trade.direction === 'long'"
-                            [class.badge-short]="trade.direction === 'short'">
-                            {{ trade.direction }}
-                        </span>
-                        <span class="trade-row__qty">{{ trade.quantity }} @ {{ trade.entryPrice }}</span>
-                    </div>
-                    <div class="trade-row__right">
-                        @if (trade.status === 'open') {
-                        <span class="trade-badge badge-open">Open</span>
-                        }
-                        @if (trade.netPnl !== undefined || trade.pnl !== undefined) {
-                        <span class="trade-row__pnl"
-                            [class.positive]="(trade.netPnl ?? trade.pnl ?? 0) > 0"
-                            [class.negative]="(trade.netPnl ?? trade.pnl ?? 0) < 0">
-                            {{ (trade.netPnl ?? trade.pnl ?? 0) > 0 ? '+' : '' }}{{ (trade.netPnl ?? trade.pnl ?? 0) | currency }}
-                        </span>
-                        }
-                        <svg class="trade-row__chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                        </svg>
-                    </div>
-                </a>
-                }
-            </div>
+
+            <app-trade-table [trades]="visibleTrades" [showDate]="false"></app-trade-table>
 
             @if (dayTrades().length > TRADES_PAGE_SIZE) {
             <button class="dj-trades__toggle" (click)="showAllTrades.set(!showAllTrades())">
