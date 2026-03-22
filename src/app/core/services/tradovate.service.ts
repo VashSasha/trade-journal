@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, throwError, of, timer, from } from 'rxjs';
 import { catchError, map, switchMap, tap, takeWhile, mergeMap, filter, concatMap, reduce } from 'rxjs/operators';
@@ -54,6 +54,8 @@ export class TradovateService {
     private liveRptUrl = 'https://rpt.tradovateapi.com/v1';
     private demoRptUrl = 'https://rpt-demo.tradovateapi.com/v1';
 
+    private http = inject(HttpClient);
+
     // Multi-account support
     connections = signal<TradovateConnection[]>([]);
     activeConnectionId = signal<string | null>(null);
@@ -70,7 +72,9 @@ export class TradovateService {
 
     isConnected = computed(() => this.activeConnection() !== null);
 
-    constructor(private http: HttpClient) {
+    private _init = this.init();
+
+    private init(): void {
         this.loadConnections();
         this.migrateOldStorage();
         this.cleanupOldKeys();

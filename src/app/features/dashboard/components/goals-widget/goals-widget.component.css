@@ -1,0 +1,190 @@
+.goals-widget {
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  padding: 1.5rem;
+}
+.goals-widget__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.goals-widget__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.goals-widget__add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: background 0.12s, color 0.12s;
+}
+.goals-widget__add-btn:hover {
+  background: var(--color-bg-surface-2);
+  color: var(--color-accent);
+}
+.goals-widget__add-btn svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.goals-widget__empty {
+  padding: 2rem 0;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+.goals-widget__empty-cta {
+  display: block;
+  margin-top: 0.5rem;
+  font-weight: 500;
+  color: var(--color-accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: inherit;
+}
+.goals-widget__list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.goal-add-form {
+  margin-bottom: 1.5rem;
+  border-radius: 0.5rem;
+  background: var(--color-bg-surface-2);
+  padding: 1rem;
+}
+.goal-add-form__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.goal-add-form__label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.25rem;
+}
+.goal-add-form__input, .goal-add-form__select {
+  width: 100%;
+  border-radius: 0.25rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  padding: 0.375rem 0.5rem;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+}
+.goal-add-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+}
+.goal-add-form__cancel {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.goal-add-form__cancel:hover {
+  color: var(--color-text-primary);
+}
+.goal-add-form__submit {
+  border-radius: 0.25rem;
+  background: var(--color-accent);
+  border: none;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.goal-add-form__submit:hover {
+  background: var(--color-accent-hover);
+}
+.goal-add-form__submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.goal-item {
+  position: relative;
+}
+.goal-item:hover .goal-item__delete {
+  display: block;
+}
+.goal-item__delete {
+  display: none;
+  position: absolute;
+  right: -0.5rem;
+  top: -0.5rem;
+  border-radius: 9999px;
+  background: var(--color-bg-surface-2);
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: background 0.12s, color 0.12s;
+}
+.goal-item__delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+.goal-item__delete svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  display: block;
+}
+.goal-item__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  font-size: 0.875rem;
+}
+.goal-item__label {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+.goal-item__progress-text {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+.goal-item__bar {
+  margin-top: 0.5rem;
+  height: 0.5rem;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--color-bg-surface-2);
+}
+.goal-item__bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.5s ease;
+}
+.goal-item__bar-fill--complete {
+  background: var(--color-accent);
+}
+.goal-item__bar-fill--in-progress {
+  background: #3b82f6;
+}
+.goal-item__bar-fill--empty {
+  background: var(--color-border);
+}
+
+/*# sourceMappingURL=goals-widget.component.css.map */

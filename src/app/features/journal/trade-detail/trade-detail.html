@@ -12,50 +12,43 @@
     </a>
 
     <!-- Header -->
-    <div class="mb-6 flex items-start justify-between">
+    <div class="trade-detail__header">
       <div>
-        <div class="flex items-center gap-3">
+        <div class="trade-detail__header-badges">
           <h1 class="page-title">{{ t.symbol }}</h1>
           <span class="trade-badge rounded-lg px-3 py-1 text-sm"
             [class.badge-long]="t.direction === 'long'"
             [class.badge-short]="t.direction === 'short'">
             {{ t.direction | titlecase }}
           </span>
-          <span class="rounded-lg bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-            {{ t.assetType | titlecase }}
-          </span>
+          <span class="trade-detail__asset-badge">{{ t.assetType | titlecase }}</span>
           @if (t.grade) {
           <span class="grade-badge" [attr.data-grade]="t.grade">{{ t.grade }}</span>
           }
         </div>
         <p class="page-subtitle">Opened on {{ t.entryDate | date:'EEEE, MMMM d, y' }}</p>
       </div>
-
-      <div class="flex gap-3">
+      <div class="trade-detail__header-actions">
         <button (click)="deleteTrade()" class="btn-danger">Delete</button>
         <a [routerLink]="['/journal/trade', t.id, 'edit']" class="btn-primary">Edit Trade</a>
       </div>
     </div>
 
     <!-- Main Overview Card -->
-    <div class="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <div class="trade-detail__overview">
       <!-- P&L Card -->
-      <div class="card lg:col-span-1">
+      <div class="card trade-detail__pnl-card">
         <h3 class="mb-4 text-sm font-medium text-slate-500 dark:text-slate-400">Total P&L</h3>
 
         @if (t.netPnl !== undefined) {
-        <div class="text-4xl font-bold"
+        <div class="trade-detail__pnl-value"
           [class.pnl-positive]="t.netPnl > 0"
-          [class.pnl-negative]="t.netPnl < 0"
-          [class.text-slate-900]="t.netPnl === 0"
-          [class.dark:text-white]="t.netPnl === 0">
+          [class.pnl-negative]="t.netPnl < 0">
           {{ t.netPnl >= 0 ? '+' : '' }}{{ t.netPnl | currency }}
         </div>
-        <div class="mt-2 text-lg font-medium"
+        <div class="trade-detail__pnl-percent"
           [class.pnl-positive]="t.netPnl > 0"
-          [class.pnl-negative]="t.netPnl < 0"
-          [class.text-slate-600]="t.netPnl === 0"
-          [class.dark:text-slate-400]="t.netPnl === 0">
+          [class.pnl-negative]="t.netPnl < 0">
           @if (t.pnlPercent !== undefined && t.pnlPercent !== null) {
           {{ t.pnlPercent >= 0 ? '+' : '' }}{{ t.pnlPercent.toFixed(2) }}%
           } @else {
@@ -63,52 +56,47 @@
           }
         </div>
         @if (t.entryPrice && t.exitPrice) {
-        <div class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          {{ calculatePoints(t) }} points
-        </div>
+        <div class="trade-detail__pnl-points">{{ calculatePoints(t) }} points</div>
         }
         } @else {
-        <div class="text-4xl font-bold text-slate-400">Open</div>
-        <div class="mt-2 text-sm text-slate-500">Position is still active</div>
+        <div class="trade-detail__pnl-open">Open</div>
+        <div class="trade-detail__pnl-open-sub">Position is still active</div>
         }
       </div>
 
       <!-- Trade Details Grid -->
-      <div class="card lg:col-span-2">
+      <div class="card trade-detail__details-card">
         <h3 class="mb-4 text-sm font-medium text-slate-500 dark:text-slate-400">Trade Details</h3>
-        <div class="grid grid-cols-2 gap-y-6 gap-x-8 md:grid-cols-4">
+        <div class="trade-detail__details-grid">
           <div>
-            <div class="text-xs text-slate-500">Entry Price</div>
-            <div class="mt-1 font-semibold text-slate-900 dark:text-white">{{ t.entryPrice || '-' }}</div>
+            <div class="detail-label">Entry Price</div>
+            <div class="trade-detail__detail-value">{{ t.entryPrice || '-' }}</div>
           </div>
           <div>
-            <div class="text-xs text-slate-500">Exit Price</div>
-            <div class="mt-1 font-semibold text-slate-900 dark:text-white">{{ t.exitPrice || '-' }}</div>
+            <div class="detail-label">Exit Price</div>
+            <div class="trade-detail__detail-value">{{ t.exitPrice || '-' }}</div>
           </div>
           <div>
-            <div class="text-xs text-slate-500">Quantity</div>
-            <div class="mt-1 font-semibold text-slate-900 dark:text-white">{{ t.quantity }}</div>
+            <div class="detail-label">Quantity</div>
+            <div class="trade-detail__detail-value">{{ t.quantity }}</div>
           </div>
           <div>
-            <div class="text-xs text-slate-500">Fees</div>
-            <div class="mt-1 font-semibold text-slate-900 dark:text-white">{{ (t.fees || 0) | currency }}</div>
+            <div class="detail-label">Fees</div>
+            <div class="trade-detail__detail-value">{{ (t.fees || 0) | currency }}</div>
           </div>
           <div>
-            <div class="text-xs text-slate-500">Setup</div>
-            <div class="mt-1 font-semibold text-slate-900 dark:text-white">{{ t.setup || '-' }}</div>
+            <div class="detail-label">Setup</div>
+            <div class="trade-detail__detail-value">{{ t.setup || '-' }}</div>
           </div>
           <div>
-            <div class="text-xs text-slate-500">Emotions</div>
-            <div class="mt-1 flex flex-wrap gap-1">
+            <div class="detail-label">Emotions</div>
+            <div class="trade-detail__emotions">
               @if (t.emotions?.length) {
               @for (emotion of t.emotions; track emotion) {
-              <span
-                class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10 dark:bg-indigo-400/10 dark:text-indigo-400 dark:ring-indigo-400/30">
-                {{ emotion }}
-              </span>
+              <span class="trade-detail__emotion-tag">{{ emotion }}</span>
               }
               } @else {
-              <span class="font-semibold text-slate-900 dark:text-white">-</span>
+              <span class="trade-detail__detail-value">-</span>
               }
             </div>
           </div>
@@ -118,7 +106,7 @@
 
     <!-- Grading Section -->
     @if (t.grade || t.mistakes?.length || t.wentWell || t.toImprove) {
-    <div class="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+    <div class="trade-detail__grading">
 
       <!-- What Went Well / To Improve -->
       @if (t.wentWell || t.toImprove) {
@@ -142,7 +130,7 @@
       @if (t.mistakes?.length) {
       <div class="card">
         <h4 class="detail-label mb-3">Mistakes Made</h4>
-        <div class="flex flex-wrap gap-2">
+        <div class="trade-detail__mistakes">
           @for (mistake of t.mistakes; track mistake) {
           <span class="mistake-tag">{{ mistake }}</span>
           }

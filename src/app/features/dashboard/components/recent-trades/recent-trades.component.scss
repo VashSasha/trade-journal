@@ -1,0 +1,178 @@
+.recent-trades {
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-surface);
+
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    &__title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+    }
+
+    &__view-all {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--color-accent);
+        text-decoration: none;
+
+        &:hover { color: var(--color-accent-hover); }
+    }
+
+    &__empty {
+        padding: 3rem;
+        text-align: center;
+    }
+
+    &__empty-icon {
+        display: flex;
+        width: 4rem;
+        height: 4rem;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9999px;
+        background: var(--color-bg-surface-2);
+        margin: 0 auto 1rem;
+
+        svg {
+            width: 2rem;
+            height: 2rem;
+            color: var(--color-text-muted);
+        }
+    }
+
+    &__empty-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+    }
+
+    &__empty-text {
+        margin-top: 0.25rem;
+        color: var(--color-text-secondary);
+    }
+
+    &__empty-cta {
+        display: inline-block;
+        margin-top: 1rem;
+        border-radius: 0.5rem;
+        background: var(--color-accent);
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #fff;
+        text-decoration: none;
+        transition: background 0.12s;
+
+        &:hover { background: var(--color-accent-hover); }
+    }
+
+    &__list {
+        // items use border-top on .recent-trade + .recent-trade
+    }
+}
+
+.recent-trade {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.5rem;
+    transition: background 0.12s;
+
+    &:hover { background: var(--color-bg-surface-2); }
+
+    & + & { border-top: 1px solid var(--color-border); }
+
+    &__info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    &__avatar {
+        display: flex;
+        width: 3rem;
+        height: 3rem;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9999px;
+        flex-shrink: 0;
+
+        &--long { background: rgba(16, 185, 129, 0.1); }
+        &--short { background: rgba(239, 68, 68, 0.1); }
+    }
+
+    &__avatar-text {
+        font-size: 0.875rem;
+        font-weight: 700;
+
+        &--long { color: #10b981; }
+        &--short { color: #ef4444; }
+    }
+
+    &__symbol {
+        font-weight: 600;
+        color: var(--color-text-primary);
+    }
+
+    &__direction-badge {
+        display: inline;
+        margin-left: 0.5rem;
+        border-radius: 0.25rem;
+        padding: 0.125rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+
+        &--long {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+        }
+
+        &--short {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+    }
+
+    &__date {
+        font-size: 0.875rem;
+        color: var(--color-text-secondary);
+    }
+
+    &__pnl-block {
+        text-align: right;
+    }
+
+    &__pnl {
+        font-weight: 600;
+
+        &--positive { color: #10b981; }
+        &--negative { color: #ef4444; }
+        &--neutral { color: var(--color-text-secondary); }
+    }
+
+    &__pnl-percent {
+        font-size: 0.875rem;
+
+        &--positive { color: #10b981; }
+        &--negative { color: #ef4444; }
+        &--neutral { color: var(--color-text-muted); }
+    }
+
+    &__open-badge {
+        display: inline-flex;
+        border-radius: 9999px;
+        background: rgba(59, 130, 246, 0.1);
+        padding: 0.125rem 0.625rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: #3b82f6;
+    }
+}

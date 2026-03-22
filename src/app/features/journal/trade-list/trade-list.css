@@ -1,0 +1,210 @@
+.trade-list__header {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+@media (min-width: 640px) {
+  .trade-list__header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+.trade-list__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.trade-list__stats-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+@media (min-width: 768px) {
+  .trade-list__stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 1024px) {
+  .trade-list__stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+.trade-list__stat-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+.trade-list__stat-value {
+  margin-top: 0.25rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.trade-list__filters {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+@media (min-width: 768px) {
+  .trade-list__filters {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+.trade-list__status-filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.trade-list__status-btn {
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: var(--color-bg-surface-2);
+  color: var(--color-text-secondary);
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.trade-list__status-btn--active {
+  background: var(--color-accent);
+  color: #fff;
+}
+.trade-list__search {
+  position: relative;
+}
+.trade-list__search-input {
+  padding-left: 2.5rem;
+}
+@media (min-width: 768px) {
+  .trade-list__search-input {
+    width: 16rem;
+  }
+}
+.trade-list__search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.trade-grade-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+}
+.trade-grade-badge[data-grade=A] {
+  background-color: #10b981;
+}
+.trade-grade-badge[data-grade=B] {
+  background-color: #3b82f6;
+}
+.trade-grade-badge[data-grade=C] {
+  background-color: #f59e0b;
+}
+.trade-grade-badge[data-grade=D] {
+  background-color: #ef4444;
+}
+
+.trade-table {
+  overflow: hidden;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+}
+
+.trade-row {
+  transition: background 0.12s;
+}
+.trade-row:hover {
+  background: var(--color-bg-surface-2);
+}
+
+.bulk-action-bar {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.bulk-action-bar__inner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  padding: 0.75rem 1.5rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+.bulk-action-bar__count {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-right: 1px solid var(--color-border);
+  padding-right: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+.bulk-action-bar__badge {
+  display: flex;
+  height: 1.5rem;
+  width: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.15);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #10b981;
+}
+.bulk-action-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.bulk-action-bar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.bulk-action-bar__btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+.bulk-action-bar__btn:hover {
+  background: var(--color-bg-surface-2);
+}
+.bulk-action-bar__btn--danger {
+  color: #ef4444;
+}
+.bulk-action-bar__btn--danger:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/*# sourceMappingURL=trade-list.css.map */

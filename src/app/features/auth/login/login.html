@@ -1,99 +1,75 @@
-<div
-    class="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4">
-    <div class="w-full max-w-md">
-        <!-- Logo/Branding -->
-        <div class="mb-8 text-center">
-            <h1 class="text-4xl font-bold tracking-wider text-emerald-500">TRADEJOURNAL</h1>
-            <p class="mt-2 text-slate-400">Track, Analyze, Improve</p>
+<div class="login-page">
+    <div class="login-wrapper">
+        <!-- Branding -->
+        <div class="login-brand">
+            <h1 class="login-brand__name">TRADEJOURNAL</h1>
+            <p class="login-brand__tagline">Track, Analyze, Improve</p>
         </div>
 
         <!-- Login Card -->
-        <div class="rounded-2xl border border-slate-700 bg-slate-800/50 p-8 shadow-2xl backdrop-blur-sm">
-            <h2 class="mb-6 text-2xl font-semibold text-white">Welcome Back</h2>
+        <div class="login-card">
+            <h2 class="login-card__title">Welcome Back</h2>
 
             <!-- Error Message -->
             @if (errorMessage()) {
-            <div class="mb-4 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-400">
-                {{ errorMessage() }}
-            </div>
+            <div class="login-error">{{ errorMessage() }}</div>
             }
 
             <!-- Login Form -->
-            <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-5">
-                <!-- Email Field -->
-                <div>
-                    <label for="email" class="mb-2 block text-sm font-medium text-slate-300">
-                        Email Address
-                    </label>
-                    <input id="email" type="email" formControlName="email" placeholder="demo@tradezella.com"
-                        class="w-full rounded-lg border border-slate-600 bg-slate-900/50 px-4 py-3 text-white placeholder-slate-500 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                        [class.border-red-500]="email?.invalid && email?.touched" />
-                    @if (email?.invalid && email?.touched) {
-                    <p class="mt-1 text-sm text-red-400">
-                        @if (email?.errors?.['required']) {
-                        Email is required
-                        }
-                        @if (email?.errors?.['email']) {
-                        Please enter a valid email
-                        }
+            <form class="login-form" [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+                <!-- Email -->
+                <div class="login-field">
+                    <label class="login-field__label" for="email">Email Address</label>
+                    <input class="login-field__input" id="email" type="email" formControlName="email"
+                        placeholder="demo@tradezella.com"
+                        [class.login-field__input--error]="email?.invalid && emailTouched()" />
+                    @if (email?.invalid && emailTouched()) {
+                    <p class="login-field__error">
+                        @if (email?.errors?.['required']) { Email is required }
+                        @if (email?.errors?.['email']) { Please enter a valid email }
                     </p>
                     }
                 </div>
 
-                <!-- Password Field -->
-                <div>
-                    <label for="password" class="mb-2 block text-sm font-medium text-slate-300">
-                        Password
-                    </label>
-                    <input id="password" type="password" formControlName="password" placeholder="••••••••"
-                        class="w-full rounded-lg border border-slate-600 bg-slate-900/50 px-4 py-3 text-white placeholder-slate-500 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                        [class.border-red-500]="password?.invalid && password?.touched" />
-                    @if (password?.invalid && password?.touched) {
-                    <p class="mt-1 text-sm text-red-400">
-                        @if (password?.errors?.['required']) {
-                        Password is required
-                        }
-                        @if (password?.errors?.['minlength']) {
-                        Password must be at least 3 characters
-                        }
+                <!-- Password -->
+                <div class="login-field">
+                    <label class="login-field__label" for="password">Password</label>
+                    <input class="login-field__input" id="password" type="password" formControlName="password"
+                        placeholder="••••••••"
+                        [class.login-field__input--error]="password?.invalid && passwordTouched()" />
+                    @if (password?.invalid && passwordTouched()) {
+                    <p class="login-field__error">
+                        @if (password?.errors?.['required']) { Password is required }
+                        @if (password?.errors?.['minlength']) { Password must be at least 3 characters }
                     </p>
                     }
                 </div>
 
-                <!-- Submit Button -->
-                <button type="submit" [disabled]="isLoading()"
-                    class="w-full rounded-lg bg-emerald-500 px-4 py-3 font-medium text-white transition-all hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:cursor-not-allowed disabled:opacity-50">
+                <!-- Submit -->
+                <button class="login-submit" type="submit" [disabled]="isLoading()">
                     @if (isLoading()) {
-                    <span class="flex items-center justify-center">
-                        <svg class="mr-2 h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none"
-                            viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
-                            </circle>
+                        <svg class="login-submit__spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor"
                                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
                             </path>
                         </svg>
                         Signing in...
-                    </span>
                     } @else {
-                    Sign In
+                        Sign In
                     }
                 </button>
             </form>
 
             <!-- Demo Credentials -->
-            <div class="mt-6 rounded-lg border border-slate-700 bg-slate-900/30 p-4">
-                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Demo Credentials</p>
-                <div class="space-y-1 text-sm text-slate-300">
-                    <p><span class="text-slate-500">Email:</span> sasha@tradejournal.com</p>
-                    <p><span class="text-slate-500">Password:</span> demo123</p>
-                </div>
+            <div class="login-demo">
+                <p class="login-demo__heading">Demo Credentials</p>
+                <p class="login-demo__row"><span class="login-demo__key">Email:</span> sasha&#64;tradejournal.com</p>
+                <p class="login-demo__row"><span class="login-demo__key">Password:</span> demo123</p>
             </div>
         </div>
 
         <!-- Footer -->
-        <p class="mt-6 text-center text-sm text-slate-500">
-            Mock authentication for development purposes
-        </p>
+        <p class="login-footer">Mock authentication for development purposes</p>
     </div>
 </div>

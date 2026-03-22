@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
@@ -8,8 +8,7 @@ import { map, catchError } from 'rxjs/operators';
 })
 export class OpenAiService {
     private apiUrl = 'https://api.openai.com/v1/chat/completions';
-
-    constructor(private http: HttpClient) { }
+    private http = inject(HttpClient);
 
     private getApiKey(): string | null {
         return localStorage.getItem('openai_api_key');

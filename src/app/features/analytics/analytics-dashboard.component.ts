@@ -9,7 +9,8 @@ import { HourlyPerformanceComponent } from './components/hourly-performance/hour
     selector: 'app-analytics-dashboard',
     standalone: true,
     imports: [CurrencyPipe, DatePipe, FilterToolbarComponent, HourlyPerformanceComponent],
-    templateUrl: './analytics-dashboard.component.html'
+    templateUrl: './analytics-dashboard.component.html',
+    styleUrl: './analytics-dashboard.component.scss'
 })
 export class AnalyticsDashboardComponent {
     private filterService = inject(FilterService);

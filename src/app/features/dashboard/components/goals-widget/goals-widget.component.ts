@@ -8,7 +8,8 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
     selector: 'app-goals-widget',
     standalone: true,
     imports: [ReactiveFormsModule],
-    templateUrl: './goals-widget.component.html'
+    templateUrl: './goals-widget.component.html',
+    styleUrl: './goals-widget.component.scss'
 })
 export class GoalsWidgetComponent {
     private goalService = inject(GoalService);

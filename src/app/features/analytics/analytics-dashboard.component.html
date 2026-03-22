@@ -10,58 +10,53 @@
         <app-filter-toolbar></app-filter-toolbar>
 
         <!-- Analytics Content -->
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div class="analytics__grid">
 
             <!-- Hourly Performance Chart -->
-            <div class="card">
-                <h3 class="font-bold text-slate-900 dark:text-white">Performance by Hour</h3>
-                <p class="text-sm text-slate-500 mb-4">Win Rate vs PnL</p>
+            <div class="card analytics-card">
+                <h3 class="section-title">Performance by Hour</h3>
+                <p class="page-subtitle">Win Rate vs PnL</p>
                 <app-hourly-performance [trades]="filteredTrades()"></app-hourly-performance>
             </div>
 
             <!-- Setup Performance (Placeholder) -->
-            <div class="card">
-                <h3 class="font-bold text-slate-900 dark:text-white">Performance by Setup</h3>
-                <p class="text-sm text-slate-500">Coming soon...</p>
-                <div class="mt-4 h-64 bg-slate-50 dark:bg-slate-800/50 rounded flex items-center justify-center text-slate-400">
-                    Chart Placeholder
-                </div>
+            <div class="card analytics-card">
+                <h3 class="section-title">Performance by Setup</h3>
+                <p class="page-subtitle">Coming soon...</p>
+                <div class="analytics__placeholder">Chart Placeholder</div>
             </div>
 
         </div>
 
-        <!-- Stats Summary Table -->
-        <div class="mt-6 card overflow-hidden p-0">
-            <div class="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
-                <h3 class="font-bold text-slate-900 dark:text-white">Trade Log</h3>
+        <!-- Trade Log Table -->
+        <div class="card analytics-table">
+            <div class="analytics-table__header">
+                <h3 class="analytics-table__title">Trade Log</h3>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead class="bg-slate-50 text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
+            <div class="analytics-table__wrapper">
+                <table class="analytics-table__table">
+                    <thead class="analytics-table__head">
                         <tr>
-                            <th class="px-6 py-3 font-medium">Date</th>
-                            <th class="px-6 py-3 font-medium">Symbol</th>
-                            <th class="px-6 py-3 font-medium">Side</th>
-                            <th class="px-6 py-3 font-medium text-right">PnL</th>
+                            <th>Date</th>
+                            <th>Symbol</th>
+                            <th>Side</th>
+                            <th>PnL</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+                    <tbody class="analytics-table__body">
                         @for (trade of filteredTrades(); track trade.id) {
                         <tr>
-                            <td class="px-6 py-4 text-slate-900 dark:text-slate-200">{{ trade.entryDate | date:'shortDate' }}</td>
-                            <td class="px-6 py-4 font-medium text-slate-900 dark:text-white">{{ trade.symbol }}</td>
-                            <td class="px-6 py-4">
-                                <span [class.bg-emerald-100]="trade.direction === 'long'"
-                                    [class.text-emerald-700]="trade.direction === 'long'"
-                                    [class.bg-red-100]="trade.direction === 'short'"
-                                    [class.text-red-700]="trade.direction === 'short'"
-                                    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize">
+                            <td>{{ trade.entryDate | date:'shortDate' }}</td>
+                            <td>{{ trade.symbol }}</td>
+                            <td>
+                                <span class="analytics-table__direction-badge"
+                                    [class.analytics-table__direction-badge--long]="trade.direction === 'long'"
+                                    [class.analytics-table__direction-badge--short]="trade.direction === 'short'">
                                     {{ trade.direction }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 text-right font-medium"
-                                [class.text-emerald-600]="(trade.netPnl || 0) >= 0"
-                                [class.text-red-600]="(trade.netPnl || 0) < 0">
+                            <td [class.analytics-table__pnl--positive]="(trade.netPnl || 0) >= 0"
+                                [class.analytics-table__pnl--negative]="(trade.netPnl || 0) < 0">
                                 {{ trade.netPnl || 0 | currency }}
                             </td>
                         </tr>

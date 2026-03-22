@@ -7,7 +7,8 @@ import { Trade } from '../../../../core/models/trade.model';
     selector: 'app-recent-trades',
     standalone: true,
     imports: [CurrencyPipe, DatePipe, TitleCasePipe, RouterLink],
-    templateUrl: './recent-trades.component.html'
+    templateUrl: './recent-trades.component.html',
+    styleUrl: './recent-trades.component.scss'
 })
 export class RecentTradesComponent {
     @Input({ required: true }) trades: Trade[] = [];

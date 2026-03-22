@@ -2,14 +2,14 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { FilterService } from '../../../../core/services/filter.service';
-import { TradeService } from '../../../../core/services/trade.service';
 import { TradovateService, TradovateAccount } from '../../../../core/services/tradovate.service';
 
 @Component({
     selector: 'app-filter-toolbar',
     standalone: true,
     imports: [FormsModule],
-    templateUrl: './filter-toolbar.component.html'
+    templateUrl: './filter-toolbar.component.html',
+    styleUrl: './filter-toolbar.component.scss'
 })
 export class FilterToolbarComponent implements OnInit {
     filterService = inject(FilterService);

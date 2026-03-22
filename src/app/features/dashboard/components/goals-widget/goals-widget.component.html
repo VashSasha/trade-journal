@@ -1,21 +1,19 @@
-<div class="rounded-lg border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-    <div class="mb-4 flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Goals</h3>
-        <button (click)="toggleAdd()"
-            class="rounded-full !p-1 text-slate-400 hover:bg-slate-100 hover:text-emerald-600 dark:hover:bg-slate-800 dark:hover:text-emerald-400">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<div class="goals-widget">
+    <div class="goals-widget__header">
+        <h3 class="goals-widget__title">Goals</h3>
+        <button class="goals-widget__add-btn" (click)="toggleAdd()" type="button">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
         </button>
     </div>
 
     @if (isAdding()) {
-    <form [formGroup]="goalForm" (ngSubmit)="onSubmit()" class="mb-6 rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
-        <div class="space-y-3">
+    <form class="goal-add-form" [formGroup]="goalForm" (ngSubmit)="onSubmit()">
+        <div class="goal-add-form__fields">
             <div>
-                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Goal Type</label>
-                <select formControlName="type"
-                    class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                <label class="goal-add-form__label">Goal Type</label>
+                <select class="goal-add-form__select" formControlName="type">
                     <option value="monthly_pnl">Monthly P&L</option>
                     <option value="monthly_trades">Monthly Trades</option>
                     <option value="win_rate">Win Rate</option>
@@ -23,49 +21,43 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Target Value</label>
-                <input type="number" formControlName="target"
-                    class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                <label class="goal-add-form__label">Target Value</label>
+                <input class="goal-add-form__input" type="number" formControlName="target" />
             </div>
-            <div class="flex justify-end gap-2 pt-2">
-                <button type="button" (click)="toggleAdd()" class="text-xs text-slate-500 hover:text-slate-700">
-                    Cancel
-                </button>
-                <button type="submit" [disabled]="goalForm.invalid"
-                    class="rounded bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-50">
-                    Add Goal
-                </button>
+            <div class="goal-add-form__actions">
+                <button class="goal-add-form__cancel" type="button" (click)="toggleAdd()">Cancel</button>
+                <button class="goal-add-form__submit" type="submit" [disabled]="goalForm.invalid">Add Goal</button>
             </div>
         </div>
     </form>
     }
 
     @if (goals().length === 0 && !isAdding()) {
-    <div class="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
-        No active goals. <br />
-        <button (click)="toggleAdd()" class="mt-2 font-medium text-emerald-600 hover:underline">Set a target</button>
+    <div class="goals-widget__empty">
+        No active goals.<br />
+        <button class="goals-widget__empty-cta" (click)="toggleAdd()" type="button">Set a target</button>
     </div>
     } @else {
-    <div class="space-y-5">
+    <div class="goals-widget__list">
         @for (goal of goals(); track goal.id) {
-        <div class="relative group">
-            <button (click)="deleteGoal(goal.id)"
-                class="absolute -right-2 -top-2 hidden rounded-full bg-slate-100 p-1 text-slate-400 hover:bg-red-100 hover:text-red-500 group-hover:block dark:bg-slate-800 dark:hover:bg-red-900/30">
-                <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="goal-item">
+            <button class="goal-item__delete" type="button" (click)="deleteGoal(goal.id)">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
-            <div class="flex items-end justify-between text-sm">
-                <span class="font-medium text-slate-700 dark:text-slate-300">{{ goal.label }}</span>
-                <span class="text-xs text-slate-500">
+            <div class="goal-item__header">
+                <span class="goal-item__label">{{ goal.label }}</span>
+                <span class="goal-item__progress-text">
                     {{ formatValue(goal.current, goal.type) }} / {{ formatValue(goal.target, goal.type) }}
                 </span>
             </div>
-            <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                <div class="h-full rounded-full transition-all duration-500" [style.width.%]="calculateProgress(goal)"
-                    [class.bg-emerald-500]="goal.current >= goal.target"
-                    [class.bg-blue-500]="goal.current < goal.target && goal.current > 0"
-                    [class.bg-slate-300]="goal.current <= 0">
+            <div class="goal-item__bar">
+                <div class="goal-item__bar-fill"
+                    [style.width.%]="calculateProgress(goal)"
+                    [class.goal-item__bar-fill--complete]="goal.current >= goal.target"
+                    [class.goal-item__bar-fill--in-progress]="goal.current < goal.target && goal.current > 0"
+                    [class.goal-item__bar-fill--empty]="goal.current <= 0">
                 </div>
             </div>
         </div>

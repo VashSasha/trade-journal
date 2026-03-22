@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, inject } from '@angular/core';
 
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -12,21 +12,18 @@ import { AuthService } from '../../../core/services/auth.service';
     styleUrl: './login.scss'
 })
 export class LoginComponent {
-    loginForm: FormGroup;
+    private fb = inject(FormBuilder);
+    private authService = inject(AuthService);
+    private router = inject(Router);
+    private route = inject(ActivatedRoute);
+
+    loginForm: FormGroup = this.fb.group({
+        email: ['', [Validators.required, Validators.email]],
+        password: ['', [Validators.required, Validators.minLength(3)]]
+    });
+
     errorMessage = signal<string | null>(null);
     isLoading = signal(false);
-
-    constructor(
-        private fb: FormBuilder,
-        private authService: AuthService,
-        private router: Router,
-        private route: ActivatedRoute
-    ) {
-        this.loginForm = this.fb.group({
-            email: ['', [Validators.required, Validators.email]],
-            password: ['', [Validators.required, Validators.minLength(3)]]
-        });
-    }
 
     onSubmit(): void {
         if (this.loginForm.invalid) {
@@ -58,4 +55,7 @@ export class LoginComponent {
     get password() {
         return this.loginForm.get('password');
     }
+
+    emailTouched(): boolean { return !!this.loginForm.get('email')?.touched; }
+    passwordTouched(): boolean { return !!this.loginForm.get('password')?.touched; }
 }

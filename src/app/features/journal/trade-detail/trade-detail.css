@@ -1,0 +1,155 @@
+.trade-detail__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+.trade-detail__header-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.trade-detail__asset-badge {
+  border-radius: 0.5rem;
+  background: var(--color-bg-surface-2);
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+.trade-detail__header-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+.trade-detail__overview {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+@media (min-width: 1024px) {
+  .trade-detail__overview {
+    grid-template-columns: 1fr 2fr;
+  }
+}
+.trade-detail__pnl-value {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.trade-detail__pnl-percent {
+  margin-top: 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+.trade-detail__pnl-points {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+.trade-detail__pnl-open {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+.trade-detail__pnl-open-sub {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+.trade-detail__details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  row-gap: 1.5rem;
+  column-gap: 2rem;
+}
+@media (min-width: 768px) {
+  .trade-detail__details-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+.trade-detail__detail-value {
+  margin-top: 0.25rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.trade-detail__emotions {
+  margin-top: 0.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.trade-detail__emotion-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  background: rgba(99, 102, 241, 0.08);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6366f1;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+.trade-detail__grading {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+@media (min-width: 768px) {
+  .trade-detail__grading {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.trade-detail__mistakes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.grade-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #fff;
+}
+.grade-badge[data-grade=A] {
+  background-color: #10b981;
+}
+.grade-badge[data-grade=B] {
+  background-color: #3b82f6;
+}
+.grade-badge[data-grade=C] {
+  background-color: #f59e0b;
+}
+.grade-badge[data-grade=D] {
+  background-color: #ef4444;
+}
+
+.detail-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.mistake-tag {
+  border-radius: 9999px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.08);
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #ef4444;
+}
+
+/*# sourceMappingURL=trade-detail.css.map */

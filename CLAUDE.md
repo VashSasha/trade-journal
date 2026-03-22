@@ -118,11 +118,22 @@ Available CSS variables:
 - Scoped state classes: `@Injectable()` without `providedIn`, listed in component `providers`
 - `providedIn: 'root'` only for truly global services
 
-### Component architecture
-- Each page section must be a **self-contained standalone component** — own inputs, state, styles
-- No hard coupling between sibling components
-- Design every section as a potential widget (future: user-configurable page layout)
-- Reuse shared utilities and components before creating new ones
+### Component architecture — modular widget system
+Every page section must be built as a **self-contained standalone component** that could be shown, hidden, or reordered independently. This is a hard architectural requirement — not a nice-to-have — because the roadmap includes letting users configure their own page layouts (add/remove/reorder sections).
+
+Rules:
+- Each section has its own inputs, internal state, and styles — no reliance on sibling or parent components
+- Do not embed logic that only makes sense in one fixed position on a page
+- State that a section needs must come in via `@Input()` or injected services — never read from a parent's template variables
+- A section component must be independently renderable (drop it anywhere and it works)
+- When adding a new section to any page, treat it as a future widget: could a user choose to hide this? If yes, it must be self-contained
+
+What this does NOT mean yet:
+- No drag-and-drop required now
+- No settings UI for layout configuration yet
+- No widget registry yet
+
+Just keep the architecture clean so adding that layer later is straightforward.
 
 ### Do not
 - Use `@apply` in SCSS
