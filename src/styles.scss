@@ -5,6 +5,41 @@
 /* Quill Editor Styles */
 @import 'quill/dist/quill.snow.css';
 
+/* ============================================================
+   CSS Custom Properties — Theme Variables
+   New components should use these instead of Tailwind classes
+   ============================================================ */
+
+:root {
+    --color-bg-base:      #f8fafc;
+    --color-bg-surface:   #ffffff;
+    --color-bg-surface-2: #f1f5f9;
+    --color-bg-surface-3: #e2e8f0;
+    --color-border:       #e2e8f0;
+    --color-border-subtle:#f1f5f9;
+    --color-text-primary: #0f172a;
+    --color-text-secondary:#64748b;
+    --color-text-muted:   #94a3b8;
+    --color-accent:       #10b981;
+    --color-accent-hover: #059669;
+    --color-accent-subtle:rgba(16, 185, 129, 0.12);
+}
+
+:root.dark {
+    --color-bg-base:      #020617;
+    --color-bg-surface:   #0f172a;
+    --color-bg-surface-2: #1e293b;
+    --color-bg-surface-3: #334155;
+    --color-border:       #1e293b;
+    --color-border-subtle:#0f172a;
+    --color-text-primary: #f1f5f9;
+    --color-text-secondary:#94a3b8;
+    --color-text-muted:   #64748b;
+    --color-accent:       #10b981;
+    --color-accent-hover: #34d399;
+    --color-accent-subtle:rgba(16, 185, 129, 0.15);
+}
+
 /* Custom Global Styles */
 html, body {
     height: 100%;

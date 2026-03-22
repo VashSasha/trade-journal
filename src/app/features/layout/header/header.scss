@@ -1,4 +1,34 @@
-.header-icon-btn {
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 4rem;
+    padding: 0 1.5rem;
+    flex-shrink: 0;
+    background: var(--color-bg-surface);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.app-header__left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.app-header__title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.app-header__right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.app-header__icon-btn {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -8,7 +38,28 @@
     background: none;
     border: none;
     cursor: pointer;
-    @apply text-slate-500 hover:bg-slate-100 hover:text-slate-700
-           dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200
-           transition-colors;
+    color: var(--color-text-secondary);
+    transition: background 0.15s, color 0.15s;
+
+    &:hover {
+        background: var(--color-bg-surface-2);
+        color: var(--color-text-primary);
+    }
+}
+
+.app-header__new-trade-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    background: var(--color-accent);
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.15s;
+
+    &:hover {
+        background: var(--color-accent-hover);
+    }
 }

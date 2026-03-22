@@ -1,11 +1,6 @@
 .journal-layout {
     min-height: 100%;
-    padding: 1.5rem;
-    background-color: var(--color-slate-50, #f8fafc);
-
-    @media (prefers-color-scheme: dark) {
-        background-color: var(--color-slate-950, #020617);
-    }
+    background: var(--color-bg-base);
 }
 
 .journal-container {
@@ -17,12 +12,7 @@
     display: flex;
     gap: 2rem;
     margin-bottom: -1px;
-    padding-bottom: 0;
-    border-bottom: 1px solid #e2e8f0;
-
-    :host-context(.dark) & {
-        border-bottom-color: #1e293b;
-    }
+    border-bottom: 1px solid var(--color-border);
 }
 
 .journal-tab {
@@ -31,31 +21,18 @@
     padding: 1rem 0.25rem;
     font-size: 0.875rem;
     font-weight: 500;
-    color: #64748b;
+    color: var(--color-text-secondary);
     text-decoration: none;
     transition: color 0.15s, border-color 0.15s;
 
     &:hover {
-        border-bottom-color: #cbd5e1;
-        color: #334155;
+        border-bottom-color: var(--color-bg-surface-3);
+        color: var(--color-text-primary);
     }
 
     &.active {
-        border-bottom-color: #10b981;
-        color: #059669;
-    }
-
-    :host-context(.dark) & {
-        color: #94a3b8;
-
-        &:hover {
-            border-bottom-color: #334155;
-            color: #cbd5e1;
-        }
-
-        &.active {
-            color: #10b981;
-        }
+        border-bottom-color: var(--color-accent);
+        color: var(--color-accent);
     }
 }
 
