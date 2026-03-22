@@ -5,26 +5,20 @@
     height: 100%;
 }
 
-.dj-sidebar {
-    width: 17rem;
-    flex-shrink: 0;
-    display: none;
-    @media (min-width: 1024px) { display: block; }
-}
-
 .dj-sidebar__card {
-    position: sticky;
-    top: 1rem;
     @apply rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden;
 }
 
 .dj-sidebar__header {
     @apply border-b border-slate-200 dark:border-slate-800 px-4 py-3;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     h3 { @apply text-sm font-semibold text-slate-900 dark:text-white; }
 }
 
 .dj-sidebar__scroll {
-    max-height: calc(100vh - 12rem);
+    max-height: 40vh;
     overflow-y: auto;
     padding: 0.75rem;
 }
@@ -108,6 +102,104 @@
     -webkit-box-orient: vertical;
 }
 
+// ── Sidebar Tags Panel ───────────────────────────────────────
+.dj-sidebar {
+    display: none;
+    @media (min-width: 1024px) {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        width: 17rem;
+        flex-shrink: 0;
+        max-height: calc(100vh - 4rem);
+        overflow-y: auto;
+    }
+}
+
+.dj-sidebar-tags {
+    flex-shrink: 0;
+}
+
+.dj-sidebar-tags__header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.625rem 1rem;
+    @apply text-xs font-semibold text-slate-600 dark:text-slate-400
+           hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors;
+    cursor: pointer;
+    background: none;
+    border: none;
+}
+
+.dj-sidebar-tags__count {
+    @apply rounded-full bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:text-slate-400;
+}
+
+.dj-sidebar-tags__chevron {
+    transition: transform 0.15s ease;
+    &.is-open { transform: rotate(180deg); }
+}
+
+.dj-sidebar-tags__body {
+    padding: 0.375rem 0.5rem 0.625rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.dj-sidebar-tags__empty {
+    @apply text-[11px] text-slate-400 dark:text-slate-600 px-2 py-2 text-center;
+}
+
+.dj-sidebar-tag {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    @apply rounded-md px-2 py-1.5 text-xs text-slate-600 dark:text-slate-400
+           hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer;
+
+    &.is-active {
+        @apply bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-medium;
+    }
+}
+
+.dj-sidebar-tag__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.dj-sidebar-tag__name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dj-timeline-filter-badge {
+    @apply rounded-full bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 text-[10px] font-medium
+           text-indigo-700 dark:text-indigo-400 hover:bg-indigo-200 dark:hover:bg-indigo-900/50
+           transition-colors ml-auto flex-shrink-0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    max-width: 8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dj-timeline-empty {
+    @apply text-xs text-slate-400 dark:text-slate-600 text-center py-6 px-3;
+}
+
 // ── Main ────────────────────────────────────────────────────
 .dj-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1rem; }
 
@@ -134,7 +226,49 @@
 }
 
 .dj-header__actions { display: flex; align-items: center; gap: 0.75rem; }
-.dj-header__saved { @apply text-xs text-slate-500; }
+
+.dj-header__saved {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    @apply text-xs text-emerald-600 dark:text-emerald-400 font-medium;
+}
+
+.dj-header__unsaved {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    @apply text-xs text-amber-600 dark:text-amber-400 font-medium;
+}
+
+.dj-header__unsaved-dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: currentColor;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+// Save button with dirty/clean states
+.dj-save-btn {
+    @apply rounded-lg px-4 py-1.5 text-sm font-semibold transition-all;
+    @apply bg-slate-200 text-slate-600 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600;
+
+    &.is-dirty {
+        @apply bg-amber-500 text-white hover:bg-amber-600 shadow-sm;
+        animation: save-pulse 2s ease-in-out infinite;
+    }
+}
+
+@keyframes save-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2); }
+}
 
 // ── Ratings Row ─────────────────────────────────────────────
 .dj-ratings {
@@ -143,6 +277,13 @@
     gap: 1.25rem;
     grid-template-columns: 1fr;
     @media (min-width: 640px) { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+.dj-ratings__tags-row {
+    @media (min-width: 640px) { grid-column: 1 / -1; }
+    padding-top: 0.75rem;
+    border-top: 1px solid;
+    @apply border-slate-100 dark:border-slate-800;
 }
 
 .rating-group__label { @apply block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2; }
@@ -950,4 +1091,86 @@
             }
         }
     }
+}
+
+// ── Tags ──────────────────────────────────────────────────────
+.dj-tags__pills {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.dj-tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem 0.25rem 0.625rem;
+    border-radius: 9999px;
+    border: 1px solid;
+    @apply text-xs font-medium;
+    white-space: nowrap;
+}
+
+.dj-tag-pill__remove {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    line-height: 1;
+    opacity: 0.6;
+    padding: 0;
+    margin-left: 0.125rem;
+    color: inherit;
+    &:hover { opacity: 1; }
+}
+
+.dj-tag-input-wrap {
+    position: relative;
+}
+
+.dj-tag-input {
+    @apply rounded-full border border-dashed border-slate-300 dark:border-slate-600
+           bg-transparent px-3 py-1 text-xs text-slate-600 dark:text-slate-400
+           placeholder-slate-400 dark:placeholder-slate-600 outline-none
+           focus:border-indigo-400 focus:ring-0;
+    width: 90px;
+    transition: width 0.15s ease;
+    &:focus { width: 140px; }
+}
+
+.dj-tag-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 60;
+    min-width: 160px;
+    @apply rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1;
+    animation: dropdownIn 0.12s ease;
+}
+
+.dj-tag-dropdown__item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+    @apply px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300
+           hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors;
+
+    &--new {
+        @apply text-indigo-600 dark:text-indigo-400 font-medium
+               hover:bg-indigo-50 dark:hover:bg-indigo-900/10 border-t border-slate-100 dark:border-slate-700;
+        margin-top: 0.125rem;
+    }
+}
+
+.dj-tag-dropdown__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    flex-shrink: 0;
 }

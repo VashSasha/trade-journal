@@ -9,6 +9,7 @@ export interface DailyNote {
     rulesFollowed?: string[]; // checked rule texts
     avoidedNewsEvents?: string[]; // abbrs of auto-detected events the user marked as avoided
     customNewsEvents?: Array<{ name: string; time: string; avoided: boolean }>;
+    tags?: string[];
     createdAt: string;
     updatedAt: string;
 }
