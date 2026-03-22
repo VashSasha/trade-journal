@@ -2,6 +2,12 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const url = require('url');
 
+// Performance flags
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('disable-software-rasterizer');
+app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder');
+
 let mainWindow;
 
 function createWindow() {
@@ -28,8 +34,10 @@ function createWindow() {
         // Development: Load from Angular dev server
         mainWindow.loadURL('http://localhost:4200');
 
-        // Open DevTools in development
-        mainWindow.webContents.openDevTools();
+        // Open DevTools only when explicitly requested via DEVTOOLS=true
+        if (process.env.DEVTOOLS === 'true') {
+            mainWindow.webContents.openDevTools();
+        }
     } else {
         // Production: Load from built files
         mainWindow.loadURL(

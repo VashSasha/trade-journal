@@ -9,11 +9,12 @@ import { JournalRulesState } from './state/journal-rules.state';
 import { JournalTemplatesState } from './state/journal-templates.state';
 import { JournalTagsState } from './state/journal-tags.state';
 import { QUILL_FULL_MODULES, QUILL_COMPACT_MODULES } from './utils/quill-modules';
+import { DaySummaryComponent } from './components/day-summary/day-summary.component';
 
 @Component({
     selector: 'app-daily-journal',
     standalone: true,
-    imports: [DatePipe, CurrencyPipe, FormsModule, QuillModule, TradeTableComponent],
+    imports: [DatePipe, CurrencyPipe, FormsModule, QuillModule, TradeTableComponent, DaySummaryComponent],
     providers: [JournalFormState, JournalNewsState, JournalRulesState, JournalTemplatesState, JournalTagsState],
     templateUrl: './daily-journal.component.html',
     styleUrl: './daily-journal.component.scss'

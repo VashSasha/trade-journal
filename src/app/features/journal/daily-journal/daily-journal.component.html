@@ -139,6 +139,9 @@
             </div>
         </div>
 
+        <!-- Day Summary Card -->
+        <app-day-summary [trades]="form.dayTrades()"></app-day-summary>
+
         <!-- Mood, Discipline & Day Summary -->
         <div class="dj-ratings" (click)="tagsState.showTagDropdown.set(false)">
             <div>

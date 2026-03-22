@@ -1,100 +1,85 @@
-<div class="page-shell">
-    <div class="page-container-xl">
+<div class="dash">
+    <div class="dash__container">
+
         <!-- Header -->
-        <div class="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-                <h1 class="page-title">Dashboard</h1>
-                <p class="page-subtitle">Your trading performance at a glance</p>
+        <div class="dash__header">
+            <div class="dash__header-text">
+                <h1 class="dash__title">Dashboard</h1>
+                <p class="dash__subtitle">Your trading performance at a glance</p>
             </div>
 
-            <!-- Multi-Account Balance Widget -->
+            <!-- Account Balance Widget -->
             <div class="account-widget">
-                <div class="flex flex-col px-1">
-                    <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                <div class="account-widget__balance">
+                    <span class="account-widget__label">
                         @if (selectedAccountIds().length > 1) {
-                        Total Balance ({{selectedAccountIds().length}} accounts)
+                            Total Balance ({{ selectedAccountIds().length }} accounts)
                         } @else if (selectedAccountIds().length === 1) {
-                        Account Balance
+                            Account Balance
                         } @else {
-                        No Accounts Selected
+                            No Accounts Selected
                         }
                     </span>
-                    <span class="text-xl font-bold text-slate-900 dark:text-white font-mono">
+                    <span class="account-widget__value">
                         @if (aggregatedBalance() === 0 && selectedAccountIds().length === 0) {
-                        <span class="text-slate-300">Select accounts</span>
+                            <span class="account-widget__value--empty">Select accounts</span>
                         } @else {
-                        {{ aggregatedBalance() | currency }}
+                            {{ aggregatedBalance() | currency }}
                         }
                     </span>
                 </div>
-                <div class="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
+
+                <div class="account-widget__divider"></div>
 
                 <!-- Sync Button -->
-                <button (click)="syncBalance()" [disabled]="isBalancing()"
-                    class="rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-emerald-600 dark:hover:bg-slate-800 dark:hover:text-emerald-400 transition-colors"
-                    title="Sync Balance">
-                    <svg [class.animate-spin]="isBalancing()" class="h-5 w-5" fill="none" stroke="currentColor"
-                        viewBox="0 0 24 24">
+                <button class="account-widget__icon-btn" (click)="syncBalance()" [disabled]="isBalancing()" title="Sync Balance">
+                    <svg [class.is-spinning]="isBalancing()" class="account-widget__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                     </svg>
                 </button>
 
-                <!-- Account Selector Dropdown -->
-                <div class="relative">
-                    <button (click)="showAccountDropdown.set(!showAccountDropdown())"
-                        class="rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-400 transition-colors"
-                        title="Select Accounts">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                <!-- Account Selector -->
+                <div class="account-widget__selector">
+                    <button class="account-widget__icon-btn" (click)="showAccountDropdown.set(!showAccountDropdown())" title="Select Accounts">
+                        <svg class="account-widget__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                         </svg>
                     </button>
 
                     @if (showAccountDropdown()) {
-                    <div
-                        class="absolute right-0 top-full mt-2 w-72 rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800 z-50">
-                        <div class="p-3 border-b border-slate-200 dark:border-slate-700">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-sm font-semibold text-slate-900 dark:text-white">Select Accounts</span>
-                                <button (click)="showAccountDropdown.set(false)"
-                                    class="text-slate-400 hover:text-slate-600">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div class="flex gap-2">
-                                <button (click)="selectAllAccounts()"
-                                    class="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
-                                    Select All
-                                </button>
-                                <span class="text-slate-300">|</span>
-                                <button (click)="deselectAllAccounts()"
-                                    class="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400">
-                                    Deselect All
-                                </button>
-                            </div>
+                    <div class="account-dropdown">
+                        <div class="account-dropdown__header">
+                            <span class="account-dropdown__title">Select Accounts</span>
+                            <button class="account-dropdown__close" (click)="showAccountDropdown.set(false)">
+                                <svg class="account-widget__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
                         </div>
-                        <div class="max-h-64 overflow-y-auto p-2">
+                        <div class="account-dropdown__actions">
+                            <button class="account-dropdown__action account-dropdown__action--select" (click)="selectAllAccounts()">Select All</button>
+                            <span class="account-dropdown__sep">|</span>
+                            <button class="account-dropdown__action" (click)="deselectAllAccounts()">Deselect All</button>
+                        </div>
+                        <div class="account-dropdown__list">
                             @for (account of accounts(); track account.id) {
-                            <label
-                                class="flex items-center justify-between p-2 rounded hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer">
-                                <div class="flex items-center gap-3">
-                                    <input type="checkbox" [checked]="selectedAccountIds().includes(account.id)"
-                                        (change)="toggleAccountSelection(account.id)"
-                                        class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                            <label class="account-dropdown__item">
+                                <div class="account-dropdown__item-left">
+                                    <input type="checkbox" class="account-dropdown__checkbox"
+                                        [checked]="selectedAccountIds().includes(account.id)"
+                                        (change)="toggleAccountSelection(account.id)"/>
                                     <div>
-                                        <div class="text-sm font-medium text-slate-900 dark:text-white">{{account.name}}</div>
-                                        <div class="text-xs text-slate-500">ID: {{account.id}}</div>
+                                        <div class="account-dropdown__item-name">{{ account.name }}</div>
+                                        <div class="account-dropdown__item-id">ID: {{ account.id }}</div>
                                     </div>
                                 </div>
-                                <div class="text-sm font-mono text-slate-600 dark:text-slate-400">
+                                <div class="account-dropdown__item-balance">
                                     {{ accountBalances().get(account.id) || 0 | currency }}
                                 </div>
                             </label>
                             } @empty {
-                            <div class="p-4 text-center text-sm text-slate-500">No accounts found</div>
+                            <div class="account-dropdown__empty">No accounts found</div>
                             }
                         </div>
                     </div>
@@ -109,33 +94,26 @@
         <!-- Stats Overview -->
         <app-stats-overview [stats]="stats()"></app-stats-overview>
 
-        <!-- Charts Row -->
-        <div class="card mb-6">
-            <div class="mb-4 flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Performance Overview</h3>
-                <div class="equity-tab-group">
-                    <button (click)="setEquityView('trade')" [class.active]="equityView() === 'trade'" class="equity-tab">
-                        Trade
-                    </button>
-                    <button (click)="setEquityView('hour')" [class.active]="equityView() === 'hour'" class="equity-tab">
-                        Hour
-                    </button>
-                    <button (click)="setEquityView('day')" [class.active]="equityView() === 'day'" class="equity-tab">
-                        Day
-                    </button>
+        <!-- Performance Chart Card -->
+        <div class="dash-card dash__chart-card">
+            <div class="dash-card__header">
+                <h3 class="dash-card__title">Performance Overview</h3>
+                <div class="equity-tabs">
+                    <button class="equity-tab" [class.is-active]="equityView() === 'trade'" (click)="setEquityView('trade')">Trade</button>
+                    <button class="equity-tab" [class.is-active]="equityView() === 'hour'"  (click)="setEquityView('hour')">Hour</button>
+                    <button class="equity-tab" [class.is-active]="equityView() === 'day'"   (click)="setEquityView('day')">Day</button>
                 </div>
             </div>
             <app-performance-charts [equityData]="equityCurveData()" [winLossStats]="stats()">
             </app-performance-charts>
         </div>
 
-        <!-- Calendar & Recent Trades Grid -->
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <app-calendar-heatmap class="lg:col-span-2" [trades]="trades()"></app-calendar-heatmap>
-            <app-recent-trades [trades]="recentTrades()"></app-recent-trades>
-            <div class="lg:col-span-1">
-                <app-goals-widget></app-goals-widget>
-            </div>
+        <!-- Bottom Grid: Calendar + Recent Trades + Goals -->
+        <div class="dash__bottom-grid">
+            <app-calendar-heatmap class="dash__calendar" [trades]="trades()"></app-calendar-heatmap>
+            <app-recent-trades    class="dash__recent"   [trades]="recentTrades()"></app-recent-trades>
+            <app-goals-widget     class="dash__goals"></app-goals-widget>
         </div>
+
     </div>
 </div>

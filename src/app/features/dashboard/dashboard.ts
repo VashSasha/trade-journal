@@ -4,6 +4,7 @@ import { TradeService } from '../../core/services/trade.service';
 import { TradovateService, TradovateAccount } from '../../core/services/tradovate.service';
 import { SyncService } from '../../core/services/sync.service';
 import { FilterService } from '../../core/services/filter.service';
+import { AccountSettingsService } from '../../core/services/account-settings.service';
 import { GoalsWidgetComponent } from './components/goals-widget/goals-widget.component';
 import { StatsOverviewComponent } from './components/stats-overview/stats-overview.component';
 import { PerformanceChartsComponent } from './components/performance-charts/performance-charts.component';
@@ -31,6 +32,7 @@ export class DashboardComponent implements OnInit {
     private tradovateService = inject(TradovateService);
     private syncService = inject(SyncService);
     private filterService = inject(FilterService);
+    readonly accountSettings = inject(AccountSettingsService);
 
     // Multi-Account Support
     accounts = signal<TradovateAccount[]>([]);
@@ -114,14 +116,14 @@ export class DashboardComponent implements OnInit {
 
     private updateFilterServiceAccounts(ids: number[]) {
         // We need to update the filter service with the selected accounts
-        // But FilterService expects string arrays. 
+        // But FilterService expects string arrays.
         // Also FilterService logic is "if empty, show all?" No, "if empty, show all" is usually handled by not filtering.
         // But here "Selected Account Ids" implies we ONLY show these.
         // If "Selected Account Ids" is empty, we show NONE? Or All?
         // Usually Dashboard header "Select Accounts" implies visibility.
-        // Let's assume FilterService "accountIds" property works as: "if present, must match these". 
+        // Let's assume FilterService "accountIds" property works as: "if present, must match these".
 
-        // If all accounts are selected, maybe we clear the filter to mean "All"? 
+        // If all accounts are selected, maybe we clear the filter to mean "All"?
         // Or strictly pass selected IDs. Passing selected IDs is safer.
 
         const stringIds = ids.map(id => id.toString());
@@ -218,15 +220,16 @@ export class DashboardComponent implements OnInit {
             }).sort((a, b) => a.timestamp - b.timestamp);
         }
 
-        // 2. Calculate Cumulative
-        let cumulative = 0;
-        const labels: string[] = [];
-        const values: number[] = [];
+        // 2. Calculate Cumulative (offset from starting balance)
+        const startingBalance = this.accountSettings.startingBalance();
+        let cumulative = startingBalance;
+        const labels: string[] = ['Start'];
+        const values: number[] = [startingBalance];
 
         data.forEach(d => {
             cumulative += d.pnl;
             labels.push(d.date);
-            values.push(cumulative);
+            values.push(Math.round(cumulative * 100) / 100);
         });
 
         return { labels, values };
