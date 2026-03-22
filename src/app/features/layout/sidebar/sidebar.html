@@ -1,45 +1,95 @@
-<aside class="flex h-full w-64 flex-col border-r border-slate-800 bg-slate-900 text-white transition-all duration-300">
-    <!-- Logo Area -->
-    <div class="flex h-16 items-center justify-center border-b border-slate-800">
-        <span class="text-xl font-bold tracking-wider text-emerald-500">NVZN JOURNAL</span>
+<aside class="sidebar border-r border-slate-200 bg-white text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+    [class.is-collapsed]="layout.collapsed()">
+
+    <!-- Logo / Toggle -->
+    <div class="sidebar__logo border-b border-slate-200 dark:border-slate-800">
+        @if (!layout.collapsed()) {
+        <span class="sidebar__brand text-emerald-500">NVZN JOURNAL</span>
+        }
+        <button class="sidebar__toggle rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700
+                        dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-white transition-colors"
+            (click)="layout.toggle()"
+            [title]="layout.collapsed() ? 'Expand sidebar' : 'Collapse sidebar'">
+            <svg class="h-4 w-4 transition-transform duration-300" [class.rotate-180]="layout.collapsed()"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
+            </svg>
+        </button>
     </div>
 
     <!-- Navigation -->
-    <nav class="flex-1 space-y-2 px-4 py-6">
-        <a routerLink="/dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" class="nav-link">
-            <span>Dashboard</span>
+    <nav class="sidebar__nav">
+
+        <a routerLink="/dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}"
+            class="nav-link text-slate-500 hover:bg-slate-100 hover:text-slate-900
+                   dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white">
+            <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+            </svg>
+            @if (!layout.collapsed()) { <span>Dashboard</span> }
         </a>
-        <a routerLink="/journal" routerLinkActive="active" class="nav-link">
-            <span>Journal</span>
+
+        <a routerLink="/journal" routerLinkActive="active"
+            class="nav-link text-slate-500 hover:bg-slate-100 hover:text-slate-900
+                   dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white">
+            <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.753 0-3.332.477-4.5 1.253z"/>
+            </svg>
+            @if (!layout.collapsed()) { <span>Journal</span> }
         </a>
-        <a routerLink="/analytics" routerLinkActive="active" class="nav-link">
-            <span>Analytics</span>
+
+        <a routerLink="/analytics" routerLinkActive="active"
+            class="nav-link text-slate-500 hover:bg-slate-100 hover:text-slate-900
+                   dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white">
+            <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            @if (!layout.collapsed()) { <span>Analytics</span> }
         </a>
-        <a routerLink="/reports" routerLinkActive="active" class="nav-link">
-            <span>AI Analyzer</span>
+
+        <a routerLink="/reports" routerLinkActive="active"
+            class="nav-link text-slate-500 hover:bg-slate-100 hover:text-slate-900
+                   dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white">
+            <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+            </svg>
+            @if (!layout.collapsed()) { <span>AI Analyzer</span> }
         </a>
-        <a routerLink="/settings" routerLinkActive="active" class="nav-link">
-            <span>Settings</span>
+
+        <a routerLink="/settings" routerLinkActive="active"
+            class="nav-link text-slate-500 hover:bg-slate-100 hover:text-slate-900
+                   dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white">
+            <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            @if (!layout.collapsed()) { <span>Settings</span> }
         </a>
+
     </nav>
 
-    <!-- Footer/User Profile -->
+    <!-- Footer / User -->
     @if (authService.currentUser(); as user) {
-    <div class="border-t border-slate-800 p-4">
-        <div class="flex items-center gap-3">
-            <div class="user-avatar">{{ user.initials }}</div>
-            <div class="flex flex-1 flex-col">
-                <span class="text-sm font-medium text-white">{{ user.name }}</span>
-                <span class="text-xs text-slate-400">{{ user.plan }}</span>
-            </div>
-            <button (click)="logout()" class="btn-icon hover:text-white" title="Logout">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-            </button>
+    <div class="sidebar__footer border-t border-slate-200 dark:border-slate-800">
+        <div class="user-avatar" [title]="user.name">{{ user.initials }}</div>
+        @if (!layout.collapsed()) {
+        <div class="sidebar__user-info">
+            <span class="text-sm font-medium text-slate-800 dark:text-white">{{ user.name }}</span>
+            <span class="text-xs text-slate-500 dark:text-slate-400">{{ user.plan }}</span>
         </div>
+        <button (click)="logout()" title="Logout"
+            class="btn-icon ml-auto text-slate-400 transition-colors hover:text-slate-700 dark:hover:text-white">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+        </button>
+        }
     </div>
     }
+
 </aside>
