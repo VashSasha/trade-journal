@@ -193,14 +193,6 @@
     @apply rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 p-5;
 }
 
-.dj-plan-card__header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-    h3 { @apply text-sm font-semibold text-slate-900 dark:text-white; }
-}
-
 .dj-plan-card__dot {
     width: 0.5rem;
     height: 0.5rem;
@@ -210,13 +202,34 @@
     &--post { background: #10b981; }
 }
 
-.dj-plan-textarea {
-    @apply w-full resize-none rounded-lg border border-slate-200 dark:border-slate-700;
-    @apply bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white;
-    @apply px-3 py-2.5 text-sm placeholder-slate-400 dark:placeholder-slate-500;
-    @apply focus:outline-none focus:ring-1;
-    &--pre { @apply focus:border-indigo-400 focus:ring-indigo-400; }
-    &--post { @apply focus:border-emerald-400 focus:ring-emerald-400; }
+.dj-plan-quill {
+    display: block;
+
+    ::ng-deep .ql-toolbar {
+        @apply rounded-t-lg border border-slate-200 dark:border-slate-700
+               bg-slate-50 dark:bg-slate-800/80;
+        border-bottom: none;
+    }
+
+    ::ng-deep .ql-container {
+        @apply rounded-b-lg border border-slate-200 dark:border-slate-700
+               text-sm text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-800;
+        font-family: inherit;
+        border-top: none;
+    }
+
+    ::ng-deep .ql-editor {
+        min-height: 150px;
+        @apply text-slate-900 dark:text-slate-100;
+        &.ql-blank::before {
+            @apply text-slate-400 dark:text-slate-500 not-italic;
+        }
+    }
+
+    &--pre ::ng-deep .ql-toolbar .ql-stroke { stroke: #6366f1; }
+    &--pre ::ng-deep .ql-container { @apply focus-within:border-indigo-400 dark:focus-within:border-indigo-500; }
+    &--post ::ng-deep .ql-toolbar .ql-stroke { stroke: #10b981; }
+    &--post ::ng-deep .ql-container { @apply focus-within:border-emerald-400 dark:focus-within:border-emerald-500; }
 }
 
 // ── News Events ───────────────────────────────────────────────
@@ -421,14 +434,520 @@
            dark:border-slate-700 dark:text-slate-400 dark:hover:border-blue-700 dark:hover:bg-blue-900/20 dark:hover:text-blue-400;
 }
 
+// ── Rules management ──────────────────────────────────────────
+.dj-rules__header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.dj-rules__manage-btn {
+    @apply text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors;
+}
+
+.dj-rules__add-section {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid;
+    @apply border-slate-100 dark:border-slate-800;
+}
+
+.dj-rules__add-btn {
+    @apply text-xs font-medium text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors;
+}
+
+.rule-manage-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    @apply rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5;
+}
+
+.rule-manage-item__label {
+    @apply flex-1 text-sm text-slate-700 dark:text-slate-300;
+}
+
+.rule-manage-item__actions {
+    display: flex;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.rule-manage-item__edit {
+    @apply rounded p-1 text-slate-400 hover:bg-blue-50 hover:text-blue-500
+           dark:hover:bg-blue-900/20 dark:hover:text-blue-400 transition-colors;
+}
+
+.rule-manage-item__delete {
+    @apply rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500
+           dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors;
+}
+
+.rule-edit-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    @apply rounded-lg border border-blue-300 dark:border-blue-700 px-3 py-2;
+}
+
+.rule-edit-input {
+    @apply flex-1 min-w-0 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800
+           text-sm text-slate-800 dark:text-slate-200 px-2 py-1 outline-none
+           focus:border-blue-400 focus:ring-1 focus:ring-blue-400;
+}
+
+.rule-edit-save {
+    @apply rounded px-2.5 py-1 text-xs font-semibold bg-blue-500 text-white hover:bg-blue-600 transition-colors;
+}
+
+.rule-edit-cancel {
+    @apply rounded px-2.5 py-1 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors;
+}
+
+.rule-add-form {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.rule-add-form__input {
+    @apply flex-1 min-w-0 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800
+           text-sm text-slate-800 dark:text-slate-200 px-3 py-2 outline-none
+           focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400;
+    min-width: 200px;
+}
+
+.rule-add-form__confirm {
+    @apply rounded-lg px-3 py-2 text-xs font-semibold bg-emerald-500 text-white hover:bg-emerald-600
+           disabled:opacity-40 transition-colors;
+}
+
+.rule-add-form__cancel {
+    @apply rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-700
+           dark:text-slate-400 dark:hover:text-slate-200 transition-colors;
+}
+
+// ── Plan card header ──────────────────────────────────────────
+.dj-plan-card__header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    h3 { @apply text-sm font-semibold text-slate-900 dark:text-white; }
+}
+
+// Template trigger wrapper + click dropdown
+.tpl-trigger-wrap {
+    position: relative;
+    margin-left: auto;
+}
+
+.tpl-trigger-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    @apply rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800
+           px-2.5 py-1 text-xs font-medium text-slate-500 dark:text-slate-400
+           hover:border-indigo-300 hover:text-indigo-600 dark:hover:border-indigo-600 dark:hover:text-indigo-400
+           transition-colors;
+}
+
+.tpl-trigger-chevron {
+    transition: transform 0.15s ease;
+    &.is-open { transform: rotate(180deg); }
+}
+
+.tpl-hover-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 60;
+    min-width: 200px;
+    animation: dropdownIn 0.12s ease;
+
+    &--left { left: auto; right: 0; }
+}
+
+@keyframes dropdownIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.tpl-hover-dropdown__card {
+    @apply rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1;
+}
+
+.tpl-hover-dropdown__item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    text-align: left;
+    @apply px-3 py-2 text-xs text-slate-700 dark:text-slate-300
+           hover:bg-indigo-50 dark:hover:bg-indigo-900/10 hover:text-indigo-700 dark:hover:text-indigo-300
+           transition-colors;
+}
+
+.tpl-hover-dropdown__divider {
+    @apply border-t border-slate-100 dark:border-slate-700 my-1;
+}
+
+.tpl-hover-dropdown__manage {
+    width: 100%;
+    text-align: left;
+    @apply px-3 py-2 text-xs font-medium text-slate-500 dark:text-slate-400
+           hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-slate-700 dark:hover:text-slate-200
+           transition-colors;
+}
+
+// ── Template slide-over panel ─────────────────────────────────
+.tpl-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(2px);
+    animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.tpl-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 700px;
+    z-index: 50;
+    @apply bg-white dark:bg-slate-900 shadow-2xl;
+    display: flex;
+    flex-direction: column;
+    animation: slideIn 0.2s ease;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); }
+    to   { transform: translateX(0); }
+}
+
+.tpl-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    @apply border-b border-slate-200 dark:border-slate-800;
+    flex-shrink: 0;
+}
+
+.tpl-panel__title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    h2 { @apply text-sm font-semibold text-slate-900 dark:text-white; }
+}
+
+.tpl-panel__context-badge {
+    @apply rounded-full bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 text-[11px] font-medium text-indigo-700 dark:text-indigo-400;
+}
+
+.tpl-panel__close {
+    @apply rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600
+           dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors;
+}
+
+.tpl-panel__body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+// Left sidebar
+.tpl-panel__sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    @apply border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 0.75rem;
+    gap: 0.25rem;
+}
+
+.tpl-panel__create-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    text-align: left;
+    @apply rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700/50
+           bg-white dark:bg-slate-900 px-3 py-2.5 text-xs font-medium
+           text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/10
+           transition-colors mb-2;
+}
+
+.tpl-panel__section-label {
+    @apply text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 mt-1 mb-1;
+}
+
+.tpl-panel__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.tpl-panel__list-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    text-align: left;
+    @apply rounded-lg px-2.5 py-2 text-xs text-slate-600 dark:text-slate-400
+           hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white
+           transition-colors;
+
+    &.is-selected {
+        @apply bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium
+               shadow-sm;
+    }
+
+    svg { @apply text-slate-400; }
+    &.is-selected svg { @apply text-indigo-500; }
+}
+
+.tpl-panel__list-item-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tpl-panel__empty {
+    @apply text-xs text-slate-400 dark:text-slate-600 text-center px-2 py-6;
+    p { margin-bottom: 0.25rem; }
+}
+
+.tpl-panel__placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    height: 100%;
+    @apply text-sm text-slate-400 dark:text-slate-600 text-center;
+}
+
+// Right content area
+.tpl-panel__content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+// Preview
+.tpl-preview {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.tpl-preview__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    @apply border-b border-slate-200 dark:border-slate-800;
+    flex-shrink: 0;
+}
+
+.tpl-preview__name {
+    @apply text-sm font-semibold text-slate-900 dark:text-white flex-1;
+}
+
+.tpl-preview__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tpl-preview__edit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    @apply rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800
+           px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400
+           hover:border-slate-300 hover:text-slate-800 dark:hover:text-white transition-colors;
+}
+
+.tpl-preview__delete-btn {
+    @apply rounded-lg border border-slate-200 dark:border-slate-700 p-1.5
+           text-slate-400 hover:border-red-200 hover:bg-red-50 hover:text-red-500
+           dark:hover:border-red-800/40 dark:hover:bg-red-900/10 dark:hover:text-red-400
+           transition-colors;
+}
+
+.tpl-preview__use-btn {
+    @apply rounded-lg bg-indigo-600 hover:bg-indigo-700 px-3.5 py-1.5
+           text-xs font-semibold text-white transition-colors;
+}
+
+.tpl-preview__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem;
+}
+
+.tpl-preview__html {
+    @apply text-sm text-slate-700 dark:text-slate-300 leading-relaxed;
+    // Reset quill editor padding so it flows naturally in the preview
+    padding: 0 !important;
+    border: none !important;
+
+    h1, h2, h3 { @apply font-semibold text-slate-900 dark:text-white mt-3 mb-1; }
+    p { margin-bottom: 0.5rem; }
+    ul, ol { padding-left: 1.5rem; margin-bottom: 0.5rem; }
+    li { margin-bottom: 0.125rem; }
+    strong { @apply font-semibold; }
+    a { @apply text-indigo-600 underline; }
+    blockquote { @apply border-l-4 border-slate-300 dark:border-slate-600 pl-3 italic text-slate-500; }
+}
+
+// Editor (create / edit)
+.tpl-editor {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 1.25rem;
+    gap: 0.75rem;
+}
+
+.tpl-editor__header {
+    flex-shrink: 0;
+}
+
+.tpl-editor__name-input {
+    @apply w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800
+           px-3 py-2 text-sm font-semibold text-slate-900 dark:text-white
+           placeholder-slate-400 dark:placeholder-slate-600 outline-none
+           focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400;
+}
+
+.tpl-editor__quill-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    @apply rounded-lg border border-slate-200 dark:border-slate-700;
+}
+
+.tpl-quill {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+
+    ::ng-deep .ql-toolbar {
+        @apply border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800;
+        border-top: none;
+        border-left: none;
+        border-right: none;
+        border-radius: 0.5rem 0.5rem 0 0;
+    }
+
+    ::ng-deep .ql-container {
+        flex: 1;
+        overflow-y: auto;
+        border: none !important;
+        @apply text-sm text-slate-800 dark:text-slate-200;
+    }
+
+    ::ng-deep .ql-editor {
+        min-height: 200px;
+        @apply bg-white dark:bg-slate-800/50;
+    }
+}
+
+.tpl-editor__footer {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+}
+
+.tpl-editor__save-btn {
+    @apply rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-2
+           text-xs font-semibold text-white transition-colors disabled:opacity-40;
+}
+
+.tpl-editor__cancel-btn {
+    @apply text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors;
+}
+
 // ── Notes ────────────────────────────────────────────────────
 .dj-notes {
     @apply rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900;
+    transition: box-shadow 0.2s;
+
+    &.is-expanded {
+        @apply shadow-xl border-blue-300 dark:border-blue-700/50;
+    }
 }
 
 .dj-notes__header {
     @apply border-b border-slate-200 dark:border-slate-800 px-5 py-3;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
     h3 { @apply text-sm font-semibold text-slate-900 dark:text-white; }
 }
 
-.dj-notes__body { padding: 1.25rem; }
+.dj-notes__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+.dj-notes__expand-btn {
+    @apply rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600
+           dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors;
+}
+
+.dj-notes__body {
+    padding: 1.25rem;
+
+    .quill-editor-custom {
+        display: block;
+        width: 100%;
+
+        ::ng-deep .ql-toolbar {
+            @apply rounded-t-lg border border-slate-200 dark:border-slate-700
+                   bg-slate-50 dark:bg-slate-800/80;
+        }
+
+        ::ng-deep .ql-container {
+            @apply rounded-b-lg border border-slate-200 dark:border-slate-700
+                   text-sm text-slate-900 dark:text-white bg-white dark:bg-slate-800;
+            font-family: inherit;
+        }
+
+        ::ng-deep .ql-editor {
+            @apply text-slate-900 dark:text-slate-100;
+            &.ql-blank::before {
+                @apply text-slate-400 dark:text-slate-500 not-italic;
+            }
+        }
+    }
+}

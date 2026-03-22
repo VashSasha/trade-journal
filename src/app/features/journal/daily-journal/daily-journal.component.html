@@ -1,4 +1,4 @@
-<div class="dj-wrapper">
+<div class="dj-wrapper" (click)="openDropdown.set(null)">
 
     <!-- Timeline Sidebar -->
     <div class="dj-sidebar">
@@ -6,27 +6,22 @@
             <div class="dj-sidebar__header">
                 <h3>Journal Timeline</h3>
             </div>
-
             <div class="dj-sidebar__scroll">
                 @for (group of groupedTimeline(); track group.monthYear) {
                 <div class="timeline-month">
                     <span class="timeline-month__label">{{ group.monthYear }}</span>
-
                     @for (entry of group.entries; track entry.date) {
                     <button (click)="selectDate(entry.date)" class="timeline-entry"
                         [class.is-selected]="entry.date === selectedDate()">
                         <div class="timeline-entry__body">
-                            <!-- Dot -->
                             <div class="timeline-entry__dot"
                                 [class.has-content]="entry.hasContent"
                                 [class.is-today]="entry.isToday && entry.date !== selectedDate()"
                                 [class.is-selected]="entry.date === selectedDate()">
                             </div>
-
                             <div class="timeline-entry__info">
                                 <div class="timeline-entry__top">
                                     <span class="timeline-entry__date">{{ entry.displayDate }}</span>
-
                                     <div class="timeline-entry__badges">
                                         @if (entry.isToday) {
                                         <span class="timeline-today-badge">Today</span>
@@ -43,7 +38,6 @@
                                         }
                                     </div>
                                 </div>
-
                                 @if (entry.preview) {
                                 <p class="timeline-entry__preview">{{ entry.preview }}</p>
                                 }
@@ -68,19 +62,15 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
-
                 <input type="date" [ngModel]="selectedDate()" (change)="onDateChange($event)"
                     class="dj-header__date-input" />
-
                 <button (click)="changeDate(1)" class="dj-header__nav-btn">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                     </svg>
                 </button>
-
                 <span class="dj-header__date-label">{{ displayDate() }}</span>
             </div>
-
             <div class="dj-header__actions">
                 @if (lastSaved()) {
                 <span class="dj-header__saved">Saved {{ lastSaved() | date:'shortTime' }}</span>
@@ -91,45 +81,29 @@
 
         <!-- Mood, Discipline & Day Summary -->
         <div class="dj-ratings">
-
-            <!-- Mood -->
             <div>
                 <label class="rating-group__label">Mood</label>
                 <div class="rating-group__buttons">
                     @for (i of [1,2,3,4,5]; track i) {
-                    <button (click)="setMood(i)"
-                        class="rating-btn mood-btn"
-                        [class.is-active]="i <= mood()"
-                        [attr.data-value]="i">
-                        {{ i }}
-                    </button>
+                    <button (click)="setMood(i)" class="rating-btn mood-btn"
+                        [class.is-active]="i <= mood()" [attr.data-value]="i">{{ i }}</button>
                     }
                 </div>
                 <p class="rating-group__hint">{{ moodLabel(mood()) }}</p>
             </div>
-
-            <!-- Discipline -->
             <div>
                 <label class="rating-group__label">Discipline</label>
                 <div class="rating-group__buttons">
                     @for (i of [1,2,3,4,5]; track i) {
-                    <button (click)="setDiscipline(i)"
-                        class="rating-btn discipline-btn"
-                        [class.is-active]="i <= discipline()"
-                        [attr.data-value]="i">
-                        {{ i }}
-                    </button>
+                    <button (click)="setDiscipline(i)" class="rating-btn discipline-btn"
+                        [class.is-active]="i <= discipline()" [attr.data-value]="i">{{ i }}</button>
                     }
                 </div>
                 <p class="rating-group__hint">{{ moodLabel(discipline()) }}</p>
             </div>
-
-            <!-- Day Stats -->
             <div>
                 <label class="rating-group__label">Day Summary</label>
-                <div class="day-stats__pnl"
-                    [class.positive]="dayPnl() > 0"
-                    [class.negative]="dayPnl() < 0">
+                <div class="day-stats__pnl" [class.positive]="dayPnl() > 0" [class.negative]="dayPnl() < 0">
                     {{ dayPnl() > 0 ? '+' : '' }}{{ dayPnl() | currency }}
                 </div>
                 <div class="day-stats__count">
@@ -145,20 +119,92 @@
                 <div class="dj-plan-card__header">
                     <span class="dj-plan-card__dot dj-plan-card__dot--pre"></span>
                     <h3>Pre-Market Plan</h3>
+                    <div class="tpl-trigger-wrap">
+                        <button class="tpl-trigger-btn" (click)="toggleDropdown('pre-market'); $event.stopPropagation()">
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            Templates
+                            <svg class="h-3 w-3 tpl-trigger-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                [class.is-open]="openDropdown() === 'pre-market'">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        @if (openDropdown() === 'pre-market') {
+                        <div class="tpl-hover-dropdown" (click)="$event.stopPropagation()">
+                            <div class="tpl-hover-dropdown__card">
+                                @if (recentTemplates('pre-market').length > 0) {
+                                    @for (tpl of recentTemplates('pre-market'); track tpl.id) {
+                                    <button class="tpl-hover-dropdown__item" (click)="loadTemplate(tpl, 'pre-market')">
+                                        <svg class="h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
+                                        {{ tpl.name }}
+                                    </button>
+                                    }
+                                    <div class="tpl-hover-dropdown__divider"></div>
+                                }
+                                <button class="tpl-hover-dropdown__manage" (click)="openTemplatePanel('pre-market'); openDropdown.set(null)">
+                                    Manage templates
+                                </button>
+                            </div>
+                        </div>
+                        }
+                    </div>
                 </div>
-                <textarea [ngModel]="preMarketPlan()" (ngModelChange)="preMarketPlan.set($event)" rows="6"
+                <quill-editor [ngModel]="preMarketPlan()" (ngModelChange)="preMarketPlan.set($event)"
+                    [modules]="quillCompactModules"
                     placeholder="What's the plan for today? Key levels, target symbols, max risk..."
-                    class="dj-plan-textarea dj-plan-textarea--pre"></textarea>
+                    class="dj-plan-quill dj-plan-quill--pre">
+                </quill-editor>
             </div>
 
             <div class="dj-plan-card">
                 <div class="dj-plan-card__header">
                     <span class="dj-plan-card__dot dj-plan-card__dot--post"></span>
                     <h3>Post-Market Review</h3>
+                    <div class="tpl-trigger-wrap">
+                        <button class="tpl-trigger-btn" (click)="toggleDropdown('post-market'); $event.stopPropagation()">
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            Templates
+                            <svg class="h-3 w-3 tpl-trigger-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                [class.is-open]="openDropdown() === 'post-market'">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        @if (openDropdown() === 'post-market') {
+                        <div class="tpl-hover-dropdown" (click)="$event.stopPropagation()">
+                            <div class="tpl-hover-dropdown__card">
+                                @if (recentTemplates('post-market').length > 0) {
+                                    @for (tpl of recentTemplates('post-market'); track tpl.id) {
+                                    <button class="tpl-hover-dropdown__item" (click)="loadTemplate(tpl, 'post-market')">
+                                        <svg class="h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
+                                        {{ tpl.name }}
+                                    </button>
+                                    }
+                                    <div class="tpl-hover-dropdown__divider"></div>
+                                }
+                                <button class="tpl-hover-dropdown__manage" (click)="openTemplatePanel('post-market'); openDropdown.set(null)">
+                                    Manage templates
+                                </button>
+                            </div>
+                        </div>
+                        }
+                    </div>
                 </div>
-                <textarea [ngModel]="postMarketReview()" (ngModelChange)="postMarketReview.set($event)" rows="6"
+                <quill-editor [ngModel]="postMarketReview()" (ngModelChange)="postMarketReview.set($event)"
+                    [modules]="quillCompactModules"
                     placeholder="How did the session go? What went well? What would you do differently?"
-                    class="dj-plan-textarea dj-plan-textarea--post"></textarea>
+                    class="dj-plan-quill dj-plan-quill--post">
+                </quill-editor>
             </div>
         </div>
 
@@ -175,38 +221,26 @@
                 </div>
                 <span class="dj-news__hint">Check the ones you avoided trading around</span>
             </div>
-
             <div class="dj-news__list">
-                <!-- Auto-detected events -->
                 @for (ev of dayEvents(); track ev.abbr) {
                 <label class="dj-news__item" [class.is-avoided]="avoidedNewsEvents().has(ev.abbr)">
-                    <input type="checkbox"
-                        [checked]="avoidedNewsEvents().has(ev.abbr)"
-                        (change)="toggleNewsEvent(ev.abbr)"
-                        class="dj-news__checkbox" />
+                    <input type="checkbox" [checked]="avoidedNewsEvents().has(ev.abbr)"
+                        (change)="toggleNewsEvent(ev.abbr)" class="dj-news__checkbox" />
                     <span class="dj-news__tag" [attr.data-abbr]="ev.abbr">{{ ev.abbr }}</span>
                     <span class="dj-news__name">{{ ev.event }}</span>
                     <span class="dj-news__time">{{ ev.time }} ET</span>
-                    @if (ev.estimated) {
-                        <span class="dj-news__est">~est.</span>
-                    }
+                    @if (ev.estimated) { <span class="dj-news__est">~est.</span> }
                     <a class="dj-news__link" [href]="ev.link" target="_blank" rel="noopener"
                        (click)="$event.stopPropagation()">↗</a>
                 </label>
                 }
-
-                <!-- Custom events -->
                 @for (ev of customNewsEvents(); track $index) {
                 <label class="dj-news__item dj-news__item--custom" [class.is-avoided]="ev.avoided">
-                    <input type="checkbox"
-                        [checked]="ev.avoided"
-                        (change)="toggleCustomEvent($index)"
-                        class="dj-news__checkbox" />
+                    <input type="checkbox" [checked]="ev.avoided"
+                        (change)="toggleCustomEvent($index)" class="dj-news__checkbox" />
                     <span class="dj-news__tag dj-news__tag--custom">custom</span>
                     <span class="dj-news__name">{{ ev.name }}</span>
-                    @if (ev.time) {
-                        <span class="dj-news__time">{{ ev.time }} ET</span>
-                    }
+                    @if (ev.time) { <span class="dj-news__time">{{ ev.time }} ET</span> }
                     <button type="button" class="dj-news__remove"
                             (click)="removeCustomEvent($index); $event.preventDefault()">
                         <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -216,55 +250,41 @@
                 </label>
                 }
             </div>
-
-            <!-- Add event form -->
             @if (showAddEvent()) {
             <div class="dj-news__add-form">
-                <input type="text" class="dj-news__add-name"
-                       placeholder="Event name (e.g. Fed Chair Speech)"
+                <input type="text" class="dj-news__add-name" placeholder="Event name (e.g. Fed Chair Speech)"
                        [ngModel]="newEventName()" (ngModelChange)="newEventName.set($event)"
                        (keydown.enter)="addCustomEvent()" />
                 <input type="time" class="dj-news__add-time"
                        [ngModel]="newEventTime()" (ngModelChange)="newEventTime.set($event)" />
-                <button type="button" class="dj-news__add-confirm"
-                        [disabled]="!newEventName().trim()"
+                <button type="button" class="dj-news__add-confirm" [disabled]="!newEventName().trim()"
                         (click)="addCustomEvent()">Add</button>
-                <button type="button" class="dj-news__add-cancel"
-                        (click)="showAddEvent.set(false)">Cancel</button>
+                <button type="button" class="dj-news__add-cancel" (click)="showAddEvent.set(false)">Cancel</button>
             </div>
             }
-
             <div class="dj-news__footer">
                 <p class="dj-news__rule-note">Prop firm rule: no trading 1 min before &amp; after news</p>
                 @if (!showAddEvent()) {
-                <button type="button" class="dj-news__add-btn" (click)="showAddEvent.set(true)">
-                    + Add event
-                </button>
+                <button type="button" class="dj-news__add-btn" (click)="showAddEvent.set(true)">+ Add event</button>
                 }
             </div>
         </div>
         } @else {
-        <!-- No auto-detected events — still allow manual entry -->
         <div class="dj-news dj-news--empty">
             <div class="dj-news__empty-row">
                 <span class="dj-news__empty-label">No scheduled news events today</span>
-                <button type="button" class="dj-news__add-btn" (click)="showAddEvent.set(true)">
-                    + Add manual event
-                </button>
+                <button type="button" class="dj-news__add-btn" (click)="showAddEvent.set(true)">+ Add manual event</button>
             </div>
             @if (showAddEvent()) {
             <div class="dj-news__add-form">
-                <input type="text" class="dj-news__add-name"
-                       placeholder="Event name (e.g. Fed Chair Speech)"
+                <input type="text" class="dj-news__add-name" placeholder="Event name (e.g. Fed Chair Speech)"
                        [ngModel]="newEventName()" (ngModelChange)="newEventName.set($event)"
                        (keydown.enter)="addCustomEvent()" />
                 <input type="time" class="dj-news__add-time"
                        [ngModel]="newEventTime()" (ngModelChange)="newEventTime.set($event)" />
-                <button type="button" class="dj-news__add-confirm"
-                        [disabled]="!newEventName().trim()"
+                <button type="button" class="dj-news__add-confirm" [disabled]="!newEventName().trim()"
                         (click)="addCustomEvent()">Add</button>
-                <button type="button" class="dj-news__add-cancel"
-                        (click)="showAddEvent.set(false)">Cancel</button>
+                <button type="button" class="dj-news__add-cancel" (click)="showAddEvent.set(false)">Cancel</button>
             </div>
             }
         </div>
@@ -274,17 +294,73 @@
         <div class="dj-rules">
             <div class="dj-rules__header">
                 <h3>Rules Checklist</h3>
-                <span class="dj-rules__count">{{ checkedRules().size }} / {{ defaultRules.length }} followed</span>
+                <div class="dj-rules__header-right">
+                    <span class="dj-rules__count">{{ checkedRules().size }} / {{ customRules().length }} followed</span>
+                    <button class="dj-rules__manage-btn"
+                        (click)="showManageRules.set(!showManageRules()); editingRuleIndex.set(null); showAddRule.set(false)">
+                        {{ showManageRules() ? 'Done' : 'Edit rules' }}
+                    </button>
+                </div>
             </div>
+
             <div class="dj-rules__grid">
-                @for (rule of defaultRules; track rule) {
+                @for (rule of customRules(); track $index) {
+
+                @if (showManageRules() && editingRuleIndex() === $index) {
+                <div class="rule-edit-row">
+                    <input type="text" class="rule-edit-input"
+                        [ngModel]="editingRuleText()" (ngModelChange)="editingRuleText.set($event)"
+                        (keydown.enter)="saveEditRule()" (keydown.escape)="cancelEditRule()" />
+                    <button class="rule-edit-save" (click)="saveEditRule()">Save</button>
+                    <button class="rule-edit-cancel" (click)="cancelEditRule()">Cancel</button>
+                </div>
+
+                } @else if (showManageRules()) {
+                <div class="rule-manage-item">
+                    <span class="rule-manage-item__label">{{ rule }}</span>
+                    <div class="rule-manage-item__actions">
+                        <button class="rule-manage-item__edit" (click)="startEditRule($index)" title="Edit">
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                        </button>
+                        <button class="rule-manage-item__delete" (click)="deleteRule($index)" title="Delete">
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                } @else {
                 <label class="rule-item" [class.is-checked]="checkedRules().has(rule)">
                     <input type="checkbox" [checked]="checkedRules().has(rule)" (change)="toggleRule(rule)"
                         class="rule-item__checkbox" />
                     <span class="rule-item__label">{{ rule }}</span>
                 </label>
                 }
+
+                }
             </div>
+
+            @if (showManageRules()) {
+            <div class="dj-rules__add-section">
+                @if (showAddRule()) {
+                <div class="rule-add-form">
+                    <input type="text" class="rule-add-form__input" placeholder="New rule text..."
+                        [ngModel]="newRuleText()" (ngModelChange)="newRuleText.set($event)"
+                        (keydown.enter)="addRule()"
+                        (keydown.escape)="showAddRule.set(false); newRuleText.set('')" />
+                    <button class="rule-add-form__confirm" [disabled]="!newRuleText().trim()" (click)="addRule()">Add</button>
+                    <button class="rule-add-form__cancel" (click)="showAddRule.set(false); newRuleText.set('')">Cancel</button>
+                </div>
+                } @else {
+                <button class="dj-rules__add-btn" (click)="showAddRule.set(true)">+ Add rule</button>
+                }
+            </div>
+            }
         </div>
 
         <!-- Today's Trades -->
@@ -296,35 +372,236 @@
                 <h3 class="dj-trades__title">Today's Trades</h3>
                 <span class="dj-trades__count">{{ dayTrades().length }} trade{{ dayTrades().length !== 1 ? 's' : '' }}</span>
             </div>
-
             <app-trade-table [trades]="visibleTrades" [showDate]="false"></app-trade-table>
-
             @if (dayTrades().length > TRADES_PAGE_SIZE) {
             <button class="dj-trades__toggle" (click)="showAllTrades.set(!showAllTrades())">
-                @if (showAllTrades()) {
-                    Show less
-                } @else {
-                    Show {{ hiddenCount }} more trade{{ hiddenCount !== 1 ? 's' : '' }}
-                }
+                @if (showAllTrades()) { Show less
+                } @else { Show {{ hiddenCount }} more trade{{ hiddenCount !== 1 ? 's' : '' }} }
             </button>
             }
         </div>
         }
 
-        <!-- Additional Notes (Quill) -->
-        <div class="dj-notes">
+        <!-- Additional Notes -->
+        <div class="dj-notes" [class.is-expanded]="notesExpanded()">
             <div class="dj-notes__header">
                 <h3>Additional Notes</h3>
+                <div class="dj-notes__header-actions">
+                    <div class="tpl-trigger-wrap">
+                        <button class="tpl-trigger-btn" (click)="toggleDropdown('notes'); $event.stopPropagation()">
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            Templates
+                            <svg class="h-3 w-3 tpl-trigger-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                [class.is-open]="openDropdown() === 'notes'">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        @if (openDropdown() === 'notes') {
+                        <div class="tpl-hover-dropdown tpl-hover-dropdown--left" (click)="$event.stopPropagation()">
+                            <div class="tpl-hover-dropdown__card">
+                                @if (recentTemplates('notes').length > 0) {
+                                    @for (tpl of recentTemplates('notes'); track tpl.id) {
+                                    <button class="tpl-hover-dropdown__item" (click)="loadTemplate(tpl, 'notes')">
+                                        <svg class="h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
+                                        {{ tpl.name }}
+                                    </button>
+                                    }
+                                    <div class="tpl-hover-dropdown__divider"></div>
+                                }
+                                <button class="tpl-hover-dropdown__manage" (click)="openTemplatePanel('notes'); openDropdown.set(null)">
+                                    Manage templates
+                                </button>
+                            </div>
+                        </div>
+                        }
+                    </div>
+                    <button class="dj-notes__expand-btn" (click)="notesExpanded.set(!notesExpanded())"
+                        [title]="notesExpanded() ? 'Collapse' : 'Expand'">
+                        @if (notesExpanded()) {
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M15 9h4.5M15 9V4.5M15 9l5.25-5.25M9 15H4.5M9 15v4.5M9 15l-5.25 5.25M15 15h4.5M15 15v4.5M15 15l5.25 5.25"/>
+                        </svg>
+                        } @else {
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/>
+                        </svg>
+                        }
+                    </button>
+                </div>
             </div>
             <div class="dj-notes__body">
                 <quill-editor [ngModel]="noteContent()" (ngModelChange)="noteContent.set($event)"
                     [modules]="quillModules"
                     placeholder="Any additional thoughts, charts to review, lessons learned..."
                     class="quill-editor-custom"
-                    [styles]="{'min-height': '250px', 'border-radius': '0.5rem'}">
+                    [styles]="{'min-height': notesExpanded() ? '600px' : '300px', 'border-radius': '0.5rem'}">
                 </quill-editor>
             </div>
         </div>
 
+    </div><!-- /dj-main -->
+
+</div><!-- /dj-wrapper -->
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- Template Panel Overlay                                     -->
+<!-- ══════════════════════════════════════════════════════════ -->
+@if (templatePanelOpen()) {
+
+<!-- Backdrop -->
+<div class="tpl-backdrop" (click)="closeTemplatePanel()"></div>
+
+<!-- Panel -->
+<div class="tpl-panel">
+
+    <!-- Panel Header -->
+    <div class="tpl-panel__header">
+        <div class="tpl-panel__title-row">
+            <svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <h2>Templates</h2>
+            <span class="tpl-panel__context-badge">{{ templateTypeLabel(templatePanelContext()!) }}</span>
+        </div>
+        <button class="tpl-panel__close" (click)="closeTemplatePanel()">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Panel Body -->
+    <div class="tpl-panel__body">
+
+        <!-- Left: Template List -->
+        <div class="tpl-panel__sidebar">
+            <button class="tpl-panel__create-btn" (click)="startCreateTemplate()">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Create new template
+            </button>
+
+            @if (panelTemplates().length > 0) {
+            <div class="tpl-panel__section-label">My Templates</div>
+            <div class="tpl-panel__list">
+                @for (tpl of panelTemplates(); track tpl.id) {
+                <button class="tpl-panel__list-item"
+                    [class.is-selected]="selectedTemplate()?.id === tpl.id"
+                    (click)="selectTemplate(tpl)">
+                    <svg class="h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <span class="tpl-panel__list-item-name">{{ tpl.name }}</span>
+                </button>
+                }
+            </div>
+            } @else {
+            <div class="tpl-panel__empty">
+                <p>No templates yet.</p>
+                <p>Create one to get started.</p>
+            </div>
+            }
+        </div>
+
+        <!-- Right: Preview / Edit / Create -->
+        <div class="tpl-panel__content">
+
+            <!-- Create mode -->
+            @if (isCreatingTemplate()) {
+            <div class="tpl-editor">
+                <div class="tpl-editor__header">
+                    <input type="text" class="tpl-editor__name-input"
+                        placeholder="Template name..."
+                        [ngModel]="editTemplateName()" (ngModelChange)="editTemplateName.set($event)" />
+                </div>
+                <div class="tpl-editor__quill-wrap">
+                    <quill-editor class="tpl-quill"
+                        [ngModel]="editTemplateContent()" (ngModelChange)="editTemplateContent.set($event)"
+                        [modules]="quillCompactModules"
+                        placeholder="Write your template content here...">
+                    </quill-editor>
+                </div>
+                <div class="tpl-editor__footer">
+                    <button class="tpl-editor__save-btn" [disabled]="!editTemplateName().trim()"
+                        (click)="confirmCreateTemplate()">Save template</button>
+                    <button class="tpl-editor__cancel-btn" (click)="cancelTemplateEdit()">Cancel</button>
+                </div>
+            </div>
+
+            <!-- Edit mode -->
+            } @else if (isEditingTemplate()) {
+            <div class="tpl-editor">
+                <div class="tpl-editor__header">
+                    <input type="text" class="tpl-editor__name-input"
+                        [ngModel]="editTemplateName()" (ngModelChange)="editTemplateName.set($event)" />
+                </div>
+                <div class="tpl-editor__quill-wrap">
+                    <quill-editor class="tpl-quill"
+                        [ngModel]="editTemplateContent()" (ngModelChange)="editTemplateContent.set($event)"
+                        [modules]="quillCompactModules"
+                        placeholder="Write your template content here...">
+                    </quill-editor>
+                </div>
+                <div class="tpl-editor__footer">
+                    <button class="tpl-editor__save-btn" [disabled]="!editTemplateName().trim()"
+                        (click)="saveTemplateEdit()">Save changes</button>
+                    <button class="tpl-editor__cancel-btn" (click)="cancelTemplateEdit()">Cancel</button>
+                </div>
+            </div>
+
+            <!-- Preview mode -->
+            } @else if (selectedTemplate()) {
+            <div class="tpl-preview">
+                <div class="tpl-preview__header">
+                    <h3 class="tpl-preview__name">{{ selectedTemplate()!.name }}</h3>
+                    <div class="tpl-preview__actions">
+                        <button class="tpl-preview__edit-btn" (click)="startEditSelectedTemplate()">
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                            Edit
+                        </button>
+                        <button class="tpl-preview__delete-btn" (click)="deleteSelectedTemplate()" title="Delete template">
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                        <button class="tpl-preview__use-btn" (click)="useSelectedTemplate()">
+                            Use template
+                        </button>
+                    </div>
+                </div>
+                <div class="tpl-preview__body">
+                    <div class="tpl-preview__html ql-editor" [innerHTML]="selectedTemplate()!.content"></div>
+                </div>
+            </div>
+
+            <!-- Empty state -->
+            } @else {
+            <div class="tpl-panel__placeholder">
+                <svg class="h-10 w-10 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <p>Select a template to preview it,<br>or create a new one.</p>
+            </div>
+            }
+
+        </div>
     </div>
 </div>
+
+}

@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { DailyJournalService } from '../../../core/services/daily-journal.service';
 import { TradeService } from '../../../core/services/trade.service';
 import { EconomicCalendarService } from '../../../core/services/economic-calendar.service';
-import { DEFAULT_TRADING_RULES } from '../../../core/models/daily-journal.model';
+import { JournalTemplate } from '../../../core/models/daily-journal.model';
 import { TradeTableComponent } from '../../../shared/components/trade-table/trade-table.component';
 import { QuillModule } from 'ngx-quill';
 
@@ -36,8 +36,6 @@ export class DailyJournalComponent {
     tradeService = inject(TradeService);
     private economicCalendarService = inject(EconomicCalendarService);
 
-    readonly defaultRules = DEFAULT_TRADING_RULES;
-
     readonly TRADES_PAGE_SIZE = 5;
 
     selectedDate = signal(new Date().toISOString().split('T')[0]);
@@ -57,10 +55,51 @@ export class DailyJournalComponent {
     newEventName = signal('');
     newEventTime = signal('');
 
+    // ── Rules management ─────────────────────────────────────
+    customRules = this.journalService.customRules;
+    showManageRules = signal(false);
+    editingRuleIndex = signal<number | null>(null);
+    editingRuleText = signal('');
+    showAddRule = signal(false);
+    newRuleText = signal('');
+
+    // ── Templates panel ──────────────────────────────────────
+    templates = this.journalService.templates;
+    openDropdown = signal<'pre-market' | 'post-market' | 'notes' | null>(null);
+    templatePanelOpen = signal(false);
+    templatePanelContext = signal<'pre-market' | 'post-market' | 'notes' | null>(null);
+    selectedTemplate = signal<JournalTemplate | null>(null);
+    isEditingTemplate = signal(false);
+    isCreatingTemplate = signal(false);
+    editTemplateName = signal('');
+    editTemplateContent = signal('');
+
+    // Pre-market and post-market share 'plan' templates; notes have their own
+    panelTemplates = computed(() => {
+        const ctx = this.templatePanelContext();
+        if (!ctx) return this.templates();
+        const type = ctx === 'notes' ? 'notes' : 'plan';
+        return this.templates().filter(t => t.type === type);
+    });
+
+    // ── Notes expand ─────────────────────────────────────────
+    notesExpanded = signal(false);
+
     quillModules = {
         toolbar: [
             ['bold', 'italic', 'underline', 'strike'],
             ['blockquote', 'code-block'],
+            [{ 'header': 1 }, { 'header': 2 }],
+            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+            ['link', 'image'],
+            ['clean']
+        ]
+    };
+
+    // Compact toolbar shared by plan cards and template editor
+    quillCompactModules = {
+        toolbar: [
+            ['bold', 'italic', 'underline'],
             [{ 'header': 1 }, { 'header': 2 }],
             [{ 'list': 'ordered' }, { 'list': 'bullet' }],
             ['link'],
@@ -81,7 +120,6 @@ export class DailyJournalComponent {
             this.noteContent.set(note?.content ?? '');
             this.lastSaved.set(note ? new Date(note.updatedAt) : null);
 
-            // Pre-select all news events for the day if no saved preference exists
             if (note?.avoidedNewsEvents) {
                 this.avoidedNewsEvents.set(new Set(note.avoidedNewsEvents));
             } else {
@@ -104,7 +142,6 @@ export class DailyJournalComponent {
             .filter(e => e.date === this.selectedDate());
     });
 
-    // Trades for the selected date, sorted newest first (same default as Trade Notes page)
     dayTrades = computed(() => {
         const date = this.selectedDate();
         return this.tradeService.trades()
@@ -116,12 +153,11 @@ export class DailyJournalComponent {
         this.dayTrades().reduce((sum, t) => sum + (t.netPnl ?? t.pnl ?? 0), 0)
     );
 
-    // Timeline
     timelineEntries = computed(() => {
         const entries: TimelineEntry[] = [];
         const today = new Date();
         const todayStr = today.toISOString().split('T')[0];
-      const trades = this.tradeService.trades();
+        const trades = this.tradeService.trades();
 
         for (let i = 0; i < 60; i++) {
             const date = new Date(today);
@@ -248,4 +284,165 @@ export class DailyJournalComponent {
         return ['', 'Terrible', 'Bad', 'Neutral', 'Good', 'Great'][value] ?? '';
     }
 
+    // ── Rules management ─────────────────────────────────────
+
+    startEditRule(index: number): void {
+        this.editingRuleIndex.set(index);
+        this.editingRuleText.set(this.customRules()[index]);
+    }
+
+    saveEditRule(): void {
+        const index = this.editingRuleIndex();
+        const text = this.editingRuleText().trim();
+        if (index !== null && text) {
+            this.journalService.updateRule(index, text);
+        }
+        this.editingRuleIndex.set(null);
+        this.editingRuleText.set('');
+    }
+
+    cancelEditRule(): void {
+        this.editingRuleIndex.set(null);
+        this.editingRuleText.set('');
+    }
+
+    deleteRule(index: number): void {
+        const rule = this.customRules()[index];
+        const checked = new Set(this.checkedRules());
+        checked.delete(rule);
+        this.checkedRules.set(checked);
+        this.journalService.deleteRule(index);
+    }
+
+    addRule(): void {
+        const text = this.newRuleText().trim();
+        if (!text) return;
+        this.journalService.addRule(text);
+        this.newRuleText.set('');
+        this.showAddRule.set(false);
+    }
+
+    // ── Template panel ────────────────────────────────────────
+
+    openTemplatePanel(context: 'pre-market' | 'post-market' | 'notes'): void {
+        this.templatePanelContext.set(context);
+        this.templatePanelOpen.set(true);
+        this.isEditingTemplate.set(false);
+        this.isCreatingTemplate.set(false);
+        // Auto-select first template if any
+        const first = this.panelTemplates()[0] ?? null;
+        this.selectedTemplate.set(first);
+    }
+
+    closeTemplatePanel(): void {
+        this.templatePanelOpen.set(false);
+        this.isEditingTemplate.set(false);
+        this.isCreatingTemplate.set(false);
+        this.selectedTemplate.set(null);
+    }
+
+    selectTemplate(template: JournalTemplate): void {
+        this.selectedTemplate.set(template);
+        this.isEditingTemplate.set(false);
+        this.isCreatingTemplate.set(false);
+    }
+
+    toggleDropdown(context: 'pre-market' | 'post-market' | 'notes'): void {
+        this.openDropdown.set(this.openDropdown() === context ? null : context);
+    }
+
+    // Called from quick dropdown — loads directly without opening panel
+    loadTemplate(template: JournalTemplate, context: 'pre-market' | 'post-market' | 'notes'): void {
+        if (context === 'pre-market') this.preMarketPlan.set(template.content);
+        else if (context === 'post-market') this.postMarketReview.set(template.content);
+        else this.noteContent.set(template.content);
+        this.openDropdown.set(null);
+    }
+
+    useSelectedTemplate(): void {
+        const tpl = this.selectedTemplate();
+        const ctx = this.templatePanelContext();
+        if (!tpl || !ctx) return;
+
+        if (ctx === 'pre-market') this.preMarketPlan.set(tpl.content);
+        else if (ctx === 'post-market') this.postMarketReview.set(tpl.content);
+        else this.noteContent.set(tpl.content);
+
+        this.closeTemplatePanel();
+    }
+
+    startEditSelectedTemplate(): void {
+        const tpl = this.selectedTemplate();
+        if (!tpl) return;
+        this.editTemplateName.set(tpl.name);
+        this.editTemplateContent.set(tpl.content);
+        this.isEditingTemplate.set(true);
+        this.isCreatingTemplate.set(false);
+    }
+
+    saveTemplateEdit(): void {
+        const tpl = this.selectedTemplate();
+        const name = this.editTemplateName().trim();
+        const content = this.editTemplateContent();
+        if (!tpl || !name) return;
+        this.journalService.updateTemplate(tpl.id, name, content);
+        // Refresh selected template reference
+        const updated = this.templates().find(t => t.id === tpl.id);
+        this.selectedTemplate.set(updated ?? null);
+        this.isEditingTemplate.set(false);
+    }
+
+    cancelTemplateEdit(): void {
+        this.isEditingTemplate.set(false);
+        this.isCreatingTemplate.set(false);
+    }
+
+    startCreateTemplate(): void {
+        const ctx = this.templatePanelContext();
+        // Pre-fill content from the current section
+        let content = '';
+        if (ctx === 'pre-market') content = this.preMarketPlan();
+        else if (ctx === 'post-market') content = this.postMarketReview();
+        else content = this.noteContent();
+
+        this.editTemplateName.set('');
+        this.editTemplateContent.set(content);
+        this.isCreatingTemplate.set(true);
+        this.isEditingTemplate.set(false);
+        this.selectedTemplate.set(null);
+    }
+
+    confirmCreateTemplate(): void {
+        const name = this.editTemplateName().trim();
+        const content = this.editTemplateContent();
+        const ctx = this.templatePanelContext();
+        if (!name || !ctx) return;
+        const type: 'plan' | 'notes' = ctx === 'notes' ? 'notes' : 'plan';
+        const created = this.journalService.saveTemplate(name, type, content);
+        this.selectedTemplate.set(created);
+        this.isCreatingTemplate.set(false);
+    }
+
+    deleteSelectedTemplate(): void {
+        const tpl = this.selectedTemplate();
+        if (!tpl) return;
+        this.journalService.deleteTemplate(tpl.id);
+        const remaining = this.panelTemplates()[0] ?? null;
+        this.selectedTemplate.set(remaining);
+        this.isEditingTemplate.set(false);
+    }
+
+    recentTemplates(context: 'pre-market' | 'post-market' | 'notes'): JournalTemplate[] {
+        const type = context === 'notes' ? 'notes' : 'plan';
+        return this.templates()
+            .filter(t => t.type === type)
+            .slice(-4)   // last 4 created
+            .reverse();  // newest first
+    }
+
+    templateTypeLabel(context: string): string {
+        if (context === 'pre-market') return 'Pre-Market Plan';
+        if (context === 'post-market') return 'Post-Market Review';
+        return 'Notes';
+    }
 }

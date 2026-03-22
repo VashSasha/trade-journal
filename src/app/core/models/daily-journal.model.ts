@@ -22,3 +22,12 @@ export const DEFAULT_TRADING_RULES = [
     'Took profits at planned target',
     'Kept emotions in check',
 ];
+
+export interface JournalTemplate {
+    id: string;
+    name: string;
+    type: 'plan' | 'notes'; // 'plan' is shared between pre-market and post-market
+    content: string;        // HTML (from Quill)
+    createdAt: string;
+    updatedAt: string;
+}
