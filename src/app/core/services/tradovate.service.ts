@@ -1,6 +1,6 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, throwError, of, timer, from } from 'rxjs';
+import { Observable, throwError, of, timer, from, forkJoin } from 'rxjs';
 import { catchError, map, switchMap, tap, takeWhile, mergeMap, filter, concatMap, reduce } from 'rxjs/operators';
 
 export interface TradovateFill {
@@ -797,20 +797,11 @@ export class TradovateService {
     }
 
     /**
-     * Get all fills enriched with accountId.
-     * /fill/list returns fills without accountId; we join via /order/list
-     * (fill.orderId → order.accountId) so trades can be filtered per account.
+     * Tier 1: fetch today's fills via /fill/list + /order/list join.
+     * /fill/list only returns current-session fills but has real fill IDs.
+     * /order/list provides the accountId per order (joined via fill.orderId).
      */
-    getAllFills(startDate: Date | null, endDate?: Date): Observable<TradovateFill[]> {
-        try {
-            this.requireToken();
-        } catch (e) {
-            return throwError(() => e);
-        }
-
-        const end = endDate || new Date();
-        console.log(`[TradovateService] getAllFills: ${startDate?.toISOString() ?? 'account start'} → ${end.toISOString()}`);
-
+    private buildTodayFills(end: Date): Observable<TradovateFill[]> {
         const fills$ = this.authGet<any[]>('/fill/list');
         const orders$ = this.authGet<any[]>('/order/list').pipe(catchError(() => of([])));
 
@@ -824,7 +815,6 @@ export class TradovateService {
 
                 return orders$.pipe(
                     map(orders => {
-                        // Build orderId → accountId lookup
                         const orderAccountMap = new Map<number, number>();
                         if (Array.isArray(orders)) {
                             orders.forEach(o => {
@@ -836,10 +826,7 @@ export class TradovateService {
                             .filter(f => {
                                 const ts = f.timestamp || f.time;
                                 if (!ts) return false;
-                                const d = new Date(ts);
-                                if (d > end) return false;
-                                if (startDate && d < startDate) return false;
-                                return true;
+                                return new Date(ts) <= end;
                             })
                             .map(f => {
                                 const accountId = orderAccountMap.get(f.orderId) || 0;
@@ -849,22 +836,67 @@ export class TradovateService {
                 );
             }),
             catchError(err => {
-                console.warn('[TradovateService] fill fetch failed, falling back to Reports API:', err);
-                return this.getAccounts().pipe(
-                    switchMap(accounts => {
-                        const selectedIds = this.getSelectedAccountIds();
-                        const accountsToFetch = selectedIds.length > 0
-                            ? accounts.filter((a: any) => selectedIds.includes(a.id))
-                            : accounts;
-                        const requests = accountsToFetch.map((account: any) =>
-                            this.getFillsViaReportsApi(account, startDate, end)
-                        );
-                        return from(requests).pipe(
-                            concatMap(req$ => req$),
-                            reduce((all, chunk) => [...all, ...chunk], [] as TradovateFill[])
-                        );
-                    })
+                console.warn('[TradovateService] /fill/list failed:', err);
+                return of([] as TradovateFill[]);
+            })
+        );
+    }
+
+    /**
+     * Get all fills enriched with accountId using a two-tier approach:
+     *   Tier 1 — /fill/list + /order/list: today's fills (fast, reliable accountId join)
+     *   Tier 2 — Reports API per account:  historical fills before today
+     * Results are merged and deduplicated by fill ID (Tier 1 takes precedence).
+     */
+    getAllFills(startDate: Date | null, endDate?: Date): Observable<TradovateFill[]> {
+        try {
+            this.requireToken();
+        } catch (e) {
+            return throwError(() => e);
+        }
+
+        const end = endDate || new Date();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // midnight local — start of today
+
+        console.log(`[TradovateService] getAllFills: ${startDate?.toISOString() ?? 'account start'} → ${end.toISOString()}`);
+
+        const tier1$ = this.buildTodayFills(end);
+
+        // Tier 2 only needed when startDate is before today (or full sync with no startDate)
+        const needsHistory = !startDate || startDate < today;
+        const yesterday = new Date(today.getTime() - 1); // 1ms before midnight = end of yesterday
+
+        const tier2$: Observable<TradovateFill[]> = needsHistory
+            ? this.getAccounts().pipe(
+                switchMap(accounts => {
+                    if (accounts.length === 0) return of([] as TradovateFill[]);
+                    console.log(`[TradovateService] Tier 2: fetching historical fills for ${accounts.length} account(s) via Reports API`);
+                    const requests = accounts.map((account: any) =>
+                        this.getFillsViaReportsApi(account, startDate, yesterday)
+                    );
+                    return from(requests).pipe(
+                        concatMap(req$ => req$),
+                        reduce((all, chunk) => [...all, ...chunk], [] as TradovateFill[])
+                    );
+                }),
+                catchError(err => {
+                    console.warn('[TradovateService] Tier 2 (Reports API) failed — proceeding with today-only fills:', err);
+                    return of([] as TradovateFill[]);
+                })
+            )
+            : of([] as TradovateFill[]);
+
+        return forkJoin([tier1$, tier2$]).pipe(
+            map(([tier1Fills, tier2Fills]) => {
+                // Tier 1 wins on duplicates (has accurate accountId from order join)
+                const tier1Ids = new Set(tier1Fills.map(f => String(f.id)));
+                const uniqueTier2 = tier2Fills.filter(f => !tier1Ids.has(String(f.id)));
+                const merged = [...tier1Fills, ...uniqueTier2];
+                console.log(
+                    `[TradovateService] Merged: ${tier1Fills.length} today + ${uniqueTier2.length} historical = ${merged.length} total fills`
                 );
+                return merged;
             })
         );
     }
