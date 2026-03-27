@@ -1,0 +1,30 @@
+<div class="stats-bar">
+    <div class="stats-bar__card">
+        <span class="stats-bar__label">Profit Factor</span>
+        <span class="stats-bar__value"
+            [class.stats-bar__value--positive]="stats().pfInfinite || stats().profitFactor >= 1"
+            [class.stats-bar__value--negative]="!stats().pfInfinite && stats().profitFactor > 0 && stats().profitFactor < 1">
+            {{ stats().pfInfinite ? '∞' : (stats().profitFactor | number:'1.2-2') }}
+        </span>
+    </div>
+    <div class="stats-bar__card">
+        <span class="stats-bar__label">Max Drawdown</span>
+        <span class="stats-bar__value stats-bar__value--negative">{{ stats().maxDrawdown | currency }}</span>
+    </div>
+    <div class="stats-bar__card">
+        <span class="stats-bar__label">Avg Win</span>
+        <span class="stats-bar__value stats-bar__value--positive">{{ stats().avgWin | currency }}</span>
+    </div>
+    <div class="stats-bar__card">
+        <span class="stats-bar__label">Avg Loss</span>
+        <span class="stats-bar__value stats-bar__value--negative">{{ stats().avgLoss | currency }}</span>
+    </div>
+    <div class="stats-bar__card">
+        <span class="stats-bar__label">Best Streak</span>
+        <span class="stats-bar__value stats-bar__value--positive">{{ stats().bestStreak }}W</span>
+    </div>
+    <div class="stats-bar__card">
+        <span class="stats-bar__label">Worst Streak</span>
+        <span class="stats-bar__value stats-bar__value--negative">{{ stats().worstStreak }}L</span>
+    </div>
+</div>

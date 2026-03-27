@@ -1,0 +1,71 @@
+<div class="lsb">
+    <div class="lsb__panel lsb__panel--long">
+        <div class="lsb__header">
+            <span class="lsb__badge lsb__badge--long">Long</span>
+            <span class="lsb__trade-count">{{ breakdown().long.count }} trades</span>
+        </div>
+        <div class="lsb__rows">
+            <div class="lsb__row">
+                <span class="lsb__row-label">Total P&L</span>
+                <span class="lsb__row-value"
+                    [class.lsb__row-value--pos]="breakdown().long.totalPnl >= 0"
+                    [class.lsb__row-value--neg]="breakdown().long.totalPnl < 0">
+                    {{ breakdown().long.totalPnl | currency }}
+                </span>
+            </div>
+            <div class="lsb__row">
+                <span class="lsb__row-label">Win Rate</span>
+                <span class="lsb__row-value">{{ breakdown().long.winRate }}%</span>
+            </div>
+            <div class="lsb__row">
+                <span class="lsb__row-label">Avg P&L</span>
+                <span class="lsb__row-value"
+                    [class.lsb__row-value--pos]="breakdown().long.avgPnl >= 0"
+                    [class.lsb__row-value--neg]="breakdown().long.avgPnl < 0">
+                    {{ breakdown().long.avgPnl | currency }}
+                </span>
+            </div>
+            <div class="lsb__row">
+                <span class="lsb__row-label">Wins / Losses</span>
+                <span class="lsb__row-value">
+                    {{ breakdown().long.wins }} / {{ breakdown().long.count - breakdown().long.wins }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="lsb__panel lsb__panel--short">
+        <div class="lsb__header">
+            <span class="lsb__badge lsb__badge--short">Short</span>
+            <span class="lsb__trade-count">{{ breakdown().short.count }} trades</span>
+        </div>
+        <div class="lsb__rows">
+            <div class="lsb__row">
+                <span class="lsb__row-label">Total P&L</span>
+                <span class="lsb__row-value"
+                    [class.lsb__row-value--pos]="breakdown().short.totalPnl >= 0"
+                    [class.lsb__row-value--neg]="breakdown().short.totalPnl < 0">
+                    {{ breakdown().short.totalPnl | currency }}
+                </span>
+            </div>
+            <div class="lsb__row">
+                <span class="lsb__row-label">Win Rate</span>
+                <span class="lsb__row-value">{{ breakdown().short.winRate }}%</span>
+            </div>
+            <div class="lsb__row">
+                <span class="lsb__row-label">Avg P&L</span>
+                <span class="lsb__row-value"
+                    [class.lsb__row-value--pos]="breakdown().short.avgPnl >= 0"
+                    [class.lsb__row-value--neg]="breakdown().short.avgPnl < 0">
+                    {{ breakdown().short.avgPnl | currency }}
+                </span>
+            </div>
+            <div class="lsb__row">
+                <span class="lsb__row-label">Wins / Losses</span>
+                <span class="lsb__row-value">
+                    {{ breakdown().short.wins }} / {{ breakdown().short.count - breakdown().short.wins }}
+                </span>
+            </div>
+        </div>
+    </div>
+</div>

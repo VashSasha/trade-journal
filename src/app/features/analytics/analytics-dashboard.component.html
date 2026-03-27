@@ -1,69 +1,58 @@
 <div class="page-shell">
     <div class="page-container-xl">
-        <!-- Header -->
-        <div class="mb-6">
+
+        <div class="analytics__header">
             <h1 class="page-title">Analytics</h1>
-            <p class="page-subtitle">Deep dive into your trading data</p>
+            <p class="page-subtitle">Deep dive into your trading performance</p>
         </div>
 
-        <!-- Shared Filter Toolbar -->
         <app-filter-toolbar></app-filter-toolbar>
 
-        <!-- Analytics Content -->
-        <div class="analytics__grid">
+        <!-- Advanced Stats Bar -->
+        <div class="analytics__stats-bar">
+            <app-advanced-stats-bar [trades]="filteredTrades()"></app-advanced-stats-bar>
+        </div>
 
-            <!-- Hourly Performance Chart -->
-            <div class="card analytics-card">
-                <h3 class="section-title">Performance by Hour</h3>
-                <p class="page-subtitle">Win Rate vs PnL</p>
+        <!-- Row 1: Equity Curve + Long vs Short -->
+        <div class="analytics__row analytics__row--6040">
+            <div class="card analytics__card">
+                <h3 class="analytics__card-title">Equity Curve</h3>
+                <div class="analytics__chart-tall">
+                    <app-equity-curve-chart
+                        [equityData]="equityCurveData()"
+                        [baseline]="equityBaseline()">
+                    </app-equity-curve-chart>
+                </div>
+            </div>
+            <div class="card analytics__card">
+                <h3 class="analytics__card-title">Long vs Short</h3>
+                <app-long-short-breakdown [trades]="filteredTrades()"></app-long-short-breakdown>
+            </div>
+        </div>
+
+        <!-- Row 2: Symbol + Weekday -->
+        <div class="analytics__row analytics__row--5050">
+            <div class="card analytics__card">
+                <h3 class="analytics__card-title">Performance by Symbol</h3>
+                <app-performance-by-symbol [trades]="filteredTrades()"></app-performance-by-symbol>
+            </div>
+            <div class="card analytics__card">
+                <h3 class="analytics__card-title">Performance by Day of Week</h3>
+                <app-performance-by-weekday [trades]="filteredTrades()"></app-performance-by-weekday>
+            </div>
+        </div>
+
+        <!-- Row 3: Hourly + Setup -->
+        <div class="analytics__row analytics__row--5050">
+            <div class="card analytics__card">
+                <h3 class="analytics__card-title">Performance by Hour</h3>
                 <app-hourly-performance [trades]="filteredTrades()"></app-hourly-performance>
             </div>
-
-            <!-- Setup Performance (Placeholder) -->
-            <div class="card analytics-card">
-                <h3 class="section-title">Performance by Setup</h3>
-                <p class="page-subtitle">Coming soon...</p>
-                <div class="analytics__placeholder">Chart Placeholder</div>
-            </div>
-
-        </div>
-
-        <!-- Trade Log Table -->
-        <div class="card analytics-table">
-            <div class="analytics-table__header">
-                <h3 class="analytics-table__title">Trade Log</h3>
-            </div>
-            <div class="analytics-table__wrapper">
-                <table class="analytics-table__table">
-                    <thead class="analytics-table__head">
-                        <tr>
-                            <th>Date</th>
-                            <th>Symbol</th>
-                            <th>Side</th>
-                            <th>PnL</th>
-                        </tr>
-                    </thead>
-                    <tbody class="analytics-table__body">
-                        @for (trade of filteredTrades(); track trade.id) {
-                        <tr>
-                            <td>{{ trade.entryDate | date:'shortDate' }}</td>
-                            <td>{{ trade.symbol }}</td>
-                            <td>
-                                <span class="analytics-table__direction-badge"
-                                    [class.analytics-table__direction-badge--long]="trade.direction === 'long'"
-                                    [class.analytics-table__direction-badge--short]="trade.direction === 'short'">
-                                    {{ trade.direction }}
-                                </span>
-                            </td>
-                            <td [class.analytics-table__pnl--positive]="(trade.netPnl || 0) >= 0"
-                                [class.analytics-table__pnl--negative]="(trade.netPnl || 0) < 0">
-                                {{ trade.netPnl || 0 | currency }}
-                            </td>
-                        </tr>
-                        }
-                    </tbody>
-                </table>
+            <div class="card analytics__card">
+                <h3 class="analytics__card-title">Performance by Setup</h3>
+                <app-performance-by-setup [trades]="filteredTrades()"></app-performance-by-setup>
             </div>
         </div>
+
     </div>
 </div>
