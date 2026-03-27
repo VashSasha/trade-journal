@@ -1,4 +1,4 @@
-import { Component, Input, signal, computed, inject } from '@angular/core';
+import { Component, input, signal, computed, inject } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { Trade } from '../../../../core/models/trade.model';
 import { EconomicCalendarService, EconomicEvent } from '../../../../core/services/economic-calendar.service';
@@ -33,7 +33,7 @@ function localDateStr(date: Date): string {
 })
 export class CalendarHeatmapComponent {
     protected readonly Math = Math;
-    @Input({ required: true }) trades: Trade[] = [];
+    trades = input.required<Trade[]>();
 
     private economicCalendarService = inject(EconomicCalendarService);
 
@@ -46,7 +46,7 @@ export class CalendarHeatmapComponent {
 
         // Group trades by local date string
         const dailyStats = new Map<string, { pnl: number; count: number; pnlPercent: number }>();
-        this.trades.forEach(trade => {
+        this.trades().forEach(trade => {
             const dateStr = localDateStr(new Date(trade.entryDate));
             const s = dailyStats.get(dateStr) || { pnl: 0, count: 0, pnlPercent: 0 };
             if (trade.status === 'closed' && trade.netPnl !== undefined) {
