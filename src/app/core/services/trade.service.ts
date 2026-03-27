@@ -151,7 +151,10 @@ export class TradeService {
         const totalPnl = closed.reduce((sum, t) => sum + (t.netPnl || 0), 0);
         const totalPoints = closed.reduce((sum, t) => {
             if (t.exitPrice && t.entryPrice) {
-                return sum + Math.abs(t.exitPrice - t.entryPrice);
+                const diff = t.direction === 'long'
+                    ? t.exitPrice - t.entryPrice
+                    : t.entryPrice - t.exitPrice;
+                return sum + diff * (t.quantity || 1);
             }
             return sum;
         }, 0);
