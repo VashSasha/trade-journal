@@ -755,19 +755,27 @@ export class TradovateService {
     }
 
     /**
-     * Normalize raw fill data to TradovateFill interface
+     * Normalize raw fill data to TradovateFill interface.
+     * Tradovate /fill/list returns: id, orderId, contractId, timestamp, tradeDate, action, qty, price, active, finallyPaired
      */
     private normalizeFill(f: any, accountId: number): TradovateFill {
+        // Resolve timestamp: prefer ISO string, fall back to tradeDate object
+        let timestamp = f.timestamp || f.time;
+        if (!timestamp && f.tradeDate) {
+            const td = f.tradeDate;
+            timestamp = `${td.year}-${String(td.month).padStart(2, '0')}-${String(td.day).padStart(2, '0')}T00:00:00.000Z`;
+        }
+
         return {
             id: f.id || f.fillId || `fill-${Math.random()}`,
-            symbol: f.contract || f.symbol,
+            symbol: f.contract || f.symbol || '',
             action: ((f.action || f.side || '').toLowerCase().includes('buy') ? 'Buy' : 'Sell') as 'Buy' | 'Sell',
-            qty: f.qty || f.quantity,
-            price: f.price,
-            timestamp: f.timestamp || f.time,
+            qty: f.qty || f.quantity || 0,
+            price: f.price || 0,
+            timestamp,
             orderId: f.orderId,
             contractId: f.contractId,
-            accountId
+            accountId: f.accountId || accountId
         };
     }
 
@@ -789,10 +797,9 @@ export class TradovateService {
     }
 
     /**
-     * Get all fills (current + historical) for a date range.
-     * Uses each account's timestamp from /account/list as the dynamic start date.
-     * Splits into 3-month chunks to avoid Tradovate's "Too long range" limit.
-     * @param startDate - Start date, or null to use each account's creation date
+     * Get all fills enriched with accountId.
+     * /fill/list returns fills without accountId; we join via /order/list
+     * (fill.orderId → order.accountId) so trades can be filtered per account.
      */
     getAllFills(startDate: Date | null, endDate?: Date): Observable<TradovateFill[]> {
         try {
@@ -804,59 +811,89 @@ export class TradovateService {
         const end = endDate || new Date();
         console.log(`[TradovateService] getAllFills: ${startDate?.toISOString() ?? 'account start'} → ${end.toISOString()}`);
 
-        return this.getAccounts().pipe(
-            switchMap(accounts => {
-                const selectedIds = this.getSelectedAccountIds();
-                const accountsToFetch = selectedIds.length > 0
-                    ? accounts.filter((a: any) => selectedIds.includes(a.id))
-                    : accounts;
+        const fills$ = this.authGet<any[]>('/fill/list');
+        const orders$ = this.authGet<any[]>('/order/list').pipe(catchError(() => of([])));
 
-                if (accountsToFetch.length === 0) return of([]);
+        return fills$.pipe(
+            switchMap(fills => {
+                if (!Array.isArray(fills)) {
+                    console.warn('[TradovateService] /fill/list did not return an array:', fills);
+                    return of([]);
+                }
+                console.log(`[TradovateService] /fill/list returned ${fills.length} fill(s)`);
 
-                const allRequests = this.buildFillRequests(accountsToFetch, startDate, end);
-                console.log(`[TradovateService] Total requests: ${allRequests.length}`);
+                return orders$.pipe(
+                    map(orders => {
+                        // Build orderId → accountId lookup
+                        const orderAccountMap = new Map<number, number>();
+                        if (Array.isArray(orders)) {
+                            orders.forEach(o => {
+                                if (o.id && o.accountId) orderAccountMap.set(o.id, o.accountId);
+                            });
+                        }
 
-                return from(allRequests).pipe(
-                    concatMap(req$ => req$),
-                    reduce((all, chunk) => [...all, ...chunk], [] as TradovateFill[])
+                        return fills
+                            .filter(f => {
+                                const ts = f.timestamp || f.time;
+                                if (!ts) return false;
+                                const d = new Date(ts);
+                                if (d > end) return false;
+                                if (startDate && d < startDate) return false;
+                                return true;
+                            })
+                            .map(f => {
+                                const accountId = orderAccountMap.get(f.orderId) || 0;
+                                return this.normalizeFill(f, accountId);
+                            });
+                    })
                 );
             }),
             catchError(err => {
-                console.error('Error fetching all fills:', err);
-                return throwError(() => err);
+                console.warn('[TradovateService] fill fetch failed, falling back to Reports API:', err);
+                return this.getAccounts().pipe(
+                    switchMap(accounts => {
+                        const selectedIds = this.getSelectedAccountIds();
+                        const accountsToFetch = selectedIds.length > 0
+                            ? accounts.filter((a: any) => selectedIds.includes(a.id))
+                            : accounts;
+                        const requests = accountsToFetch.map((account: any) =>
+                            this.getFillsViaReportsApi(account, startDate, end)
+                        );
+                        return from(requests).pipe(
+                            concatMap(req$ => req$),
+                            reduce((all, chunk) => [...all, ...chunk], [] as TradovateFill[])
+                        );
+                    })
+                );
             })
         );
     }
 
     /**
-     * Build fill requests for all accounts, chunked by date range
+     * Fallback: fetch fills via Reports API, chunked into 3-month windows.
      */
-    private buildFillRequests(accounts: any[], startDate: Date | null, endDate: Date): Observable<TradovateFill[]>[] {
-        const requests: Observable<TradovateFill[]>[] = [];
+    private getFillsViaReportsApi(account: any, startDate: Date | null, endDate: Date): Observable<TradovateFill[]> {
+        const effectiveStart = this.getEffectiveStartDate(account, startDate);
+        const chunks = this.chunkDateRange(effectiveStart, endDate, 3);
+        console.log(`[TradovateService] Reports API fallback for account ${account.id}: ${chunks.length} chunk(s)`);
 
-        for (const account of accounts) {
-            const effectiveStart = this.getEffectiveStartDate(account, startDate);
-            const chunks = this.chunkDateRange(effectiveStart, endDate, 3);
+        const requests = chunks.map(chunk =>
+            this.getHistoricalReportsAPI(chunk.start, chunk.end, account.id).pipe(
+                map(report => {
+                    if (!Array.isArray(report)) return [];
+                    return report.map(f => this.normalizeFill(f, account.id));
+                }),
+                catchError(chunkErr => {
+                    console.warn(`[TradovateService] Reports API chunk failed for account ${account.id}:`, chunkErr);
+                    return of([]);
+                })
+            )
+        );
 
-            console.log(`[TradovateService] Account ${account.name} (${account.id}): ${chunks.length} chunk(s)`);
-
-            for (const chunk of chunks) {
-                requests.push(
-                    this.getHistoricalReportsAPI(chunk.start, chunk.end, account.id).pipe(
-                        map(report => {
-                            if (!Array.isArray(report)) return [];
-                            return report.map(f => this.normalizeFill(f, account.id));
-                        }),
-                        catchError(err => {
-                            console.warn(`[TradovateService] Failed chunk for account ${account.id}:`, err);
-                            return of([]);
-                        })
-                    )
-                );
-            }
-        }
-
-        return requests;
+        return from(requests).pipe(
+            concatMap(req$ => req$),
+            reduce((all, chunk) => [...all, ...chunk], [] as TradovateFill[])
+        );
     }
 
     private getChartDescription(timeframe: string, barsCount: number): any {

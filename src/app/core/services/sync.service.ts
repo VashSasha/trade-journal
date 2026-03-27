@@ -119,13 +119,25 @@ export class SyncService {
             const matchedTrades = this.matchTrades(fills, contractMap, accountMap, activeConn.id);
             this.log(`Matched ${matchedTrades.length} trade(s)`);
 
-            // Deduplicate
-            const existingExternalIds = new Set(
+            // Deduplicate — also patch accountId on existing trades that were stored as "0"
+            const existingByExternalId = new Map(
                 this.tradeService.trades()
-                    .filter(t => t.source === 'tradovate')
-                    .map(t => t.externalId)
+                    .filter(t => t.source === 'tradovate' && t.externalId)
+                    .map(t => [t.externalId, t])
             );
-            const tradesToImport = matchedTrades.filter(t => !existingExternalIds.has(t.externalId));
+
+            let patched = 0;
+            for (const matched of matchedTrades) {
+                const existing = existingByExternalId.get(matched.externalId);
+                if (existing && matched.accountId && matched.accountId !== '0' &&
+                    (!existing.accountId || existing.accountId === '0')) {
+                    this.tradeService.updateTrade(existing.id, { accountId: matched.accountId });
+                    patched++;
+                }
+            }
+            if (patched > 0) this.log(`Patched accountId on ${patched} existing trade(s)`, 'info');
+
+            const tradesToImport = matchedTrades.filter(t => !existingByExternalId.has(t.externalId));
             this.log(
                 `${tradesToImport.length} new trade(s) to import (${matchedTrades.length - tradesToImport.length} already exist)`,
                 tradesToImport.length > 0 ? 'info' : 'warn'

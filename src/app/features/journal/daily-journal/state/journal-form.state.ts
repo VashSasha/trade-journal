@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal, effect } from '@angular/core';
 import { DailyJournalService } from '../../../../core/services/daily-journal.service';
 import { TradeService } from '../../../../core/services/trade.service';
 import { EconomicCalendarService } from '../../../../core/services/economic-calendar.service';
+import { AccountService } from '../../../../core/services/account.service';
 import { buildTimelineEntry, groupEntriesByMonth, MonthGroup, TimelineEntry } from '../utils/timeline.utils';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class JournalFormState {
     private journalService = inject(DailyJournalService);
     tradeService = inject(TradeService);
     private economicCalendarService = inject(EconomicCalendarService);
+    private accountService = inject(AccountService);
 
     selectedDate = signal(new Date().toISOString().split('T')[0]);
     lastSaved = signal<Date | null>(null);
@@ -30,8 +32,16 @@ export class JournalFormState {
 
     dayTrades = computed(() => {
         const date = this.selectedDate();
+        const selectedIds = this.accountService.selectedIds();
+        const total = this.accountService.accounts().length;
         return this.tradeService.trades()
-            .filter(t => t.entryDate?.startsWith(date))
+            .filter(t => {
+                if (!t.entryDate?.startsWith(date)) return false;
+                if (selectedIds.length > 0 && selectedIds.length < total && t.accountId && t.accountId !== '0') {
+                    return selectedIds.includes(+t.accountId);
+                }
+                return true;
+            })
             .sort((a, b) => (b.entryDate ?? '').localeCompare(a.entryDate ?? ''));
     });
 
@@ -49,6 +59,8 @@ export class JournalFormState {
         const today = new Date();
         const todayStr = today.toISOString().split('T')[0];
         const trades = this.tradeService.trades();
+        const selectedIds = this.accountService.selectedIds();
+        const total = this.accountService.accounts().length;
         const entries: TimelineEntry[] = [];
 
         for (let i = 0; i < 60; i++) {
@@ -57,7 +69,13 @@ export class JournalFormState {
             const dateStr = date.toISOString().split('T')[0];
 
             const note = this.journalService.getNoteForDate(dateStr);
-            const dayTrades = trades.filter(t => t.entryDate?.startsWith(dateStr));
+            const dayTrades = trades.filter(t => {
+                if (!t.entryDate?.startsWith(dateStr)) return false;
+                if (selectedIds.length > 0 && selectedIds.length < total && t.accountId && t.accountId !== '0') {
+                    return selectedIds.includes(+t.accountId);
+                }
+                return true;
+            });
             const pnl = dayTrades.reduce((sum, t) => sum + (t.netPnl ?? t.pnl ?? 0), 0);
 
             entries.push(buildTimelineEntry(date, dateStr, todayStr, note, pnl, dayTrades.length > 0));

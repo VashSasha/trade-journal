@@ -1,8 +1,9 @@
 <header class="app-header">
     <div class="app-header__left">
-        <h1 class="app-header__title">Overview</h1>
+        <h1 class="app-header__title">NVZN Journal</h1>
     </div>
     <div class="app-header__right">
+        <app-account-selector />
         <button class="app-header__icon-btn" (click)="theme.toggle()"
             [title]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'">
             @if (theme.isDark()) {

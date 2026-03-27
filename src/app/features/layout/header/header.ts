@@ -1,10 +1,12 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ThemeService } from '../../../core/services/theme.service';
+import { AccountSelectorComponent } from './account-selector/account-selector.component';
 
 @Component({
   selector: 'app-header',
-  imports: [RouterLink],
+  standalone: true,
+  imports: [RouterLink, AccountSelectorComponent],
   templateUrl: './header.html',
   styleUrl: './header.scss',
 })

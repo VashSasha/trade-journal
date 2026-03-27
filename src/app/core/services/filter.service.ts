@@ -1,4 +1,4 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { Trade } from '../models/trade.model';
 
 export interface FilterState {
@@ -104,10 +104,8 @@ export class FilterService {
             if (s.sides.length > 0 && !s.sides.includes(t.direction)) return false;
 
 
-            if (s.accountIds.length > 0) {
-                if (t.accountId && !s.accountIds.includes(t.accountId)) {
-                    return false;
-                }
+            if (s.accountIds.length > 0 && t.accountId && t.accountId !== '0') {
+                if (!s.accountIds.includes(t.accountId)) return false;
             }
 
             return true;

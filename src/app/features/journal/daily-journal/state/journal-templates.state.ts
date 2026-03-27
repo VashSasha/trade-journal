@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { DailyJournalService } from '../../../../core/services/daily-journal.service';
 import { JournalTemplate } from '../../../../core/models/daily-journal.model';
 import { JournalFormState } from './journal-form.state';
+import { RECOMMENDED_TEMPLATES, RecommendedTemplate } from './recommended-templates.data';
 
 @Injectable()
 export class JournalTemplatesState {
@@ -14,6 +15,7 @@ export class JournalTemplatesState {
     templatePanelOpen = signal(false);
     templatePanelContext = signal<'pre-market' | 'post-market' | 'notes' | null>(null);
     selectedTemplate = signal<JournalTemplate | null>(null);
+    selectedRecommended = signal<RecommendedTemplate | null>(null);
     isEditingTemplate = signal(false);
     isCreatingTemplate = signal(false);
     editTemplateName = signal('');
@@ -26,6 +28,12 @@ export class JournalTemplatesState {
         return this.templates().filter(t => t.type === type);
     });
 
+    recommendedForContext = computed(() => {
+        const ctx = this.templatePanelContext();
+        const type = ctx === 'notes' ? 'notes' : 'plan';
+        return RECOMMENDED_TEMPLATES.filter(t => t.type === type);
+    });
+
     toggleDropdown(context: 'pre-market' | 'post-market' | 'notes'): void {
         this.openDropdown.set(this.openDropdown() === context ? null : context);
     }
@@ -35,6 +43,7 @@ export class JournalTemplatesState {
         this.templatePanelOpen.set(true);
         this.isEditingTemplate.set(false);
         this.isCreatingTemplate.set(false);
+        this.selectedRecommended.set(null);
         const first = this.panelTemplates()[0] ?? null;
         this.selectedTemplate.set(first);
     }
@@ -44,12 +53,41 @@ export class JournalTemplatesState {
         this.isEditingTemplate.set(false);
         this.isCreatingTemplate.set(false);
         this.selectedTemplate.set(null);
+        this.selectedRecommended.set(null);
     }
 
     selectTemplate(template: JournalTemplate): void {
         this.selectedTemplate.set(template);
+        this.selectedRecommended.set(null);
         this.isEditingTemplate.set(false);
         this.isCreatingTemplate.set(false);
+    }
+
+    selectRecommended(tpl: RecommendedTemplate): void {
+        this.selectedRecommended.set(tpl);
+        this.selectedTemplate.set(null);
+        this.isEditingTemplate.set(false);
+        this.isCreatingTemplate.set(false);
+    }
+
+    addRecommendedToMine(): void {
+        const tpl = this.selectedRecommended();
+        const ctx = this.templatePanelContext();
+        if (!tpl || !ctx) return;
+        const type: 'plan' | 'notes' = ctx === 'notes' ? 'notes' : 'plan';
+        const created = this.journalService.saveTemplate(tpl.name, type, tpl.content);
+        this.selectedTemplate.set(created);
+        this.selectedRecommended.set(null);
+    }
+
+    useRecommendedTemplate(): void {
+        const tpl = this.selectedRecommended();
+        const ctx = this.templatePanelContext();
+        if (!tpl || !ctx) return;
+        if (ctx === 'pre-market') this.form.preMarketPlan.set(tpl.content);
+        else if (ctx === 'post-market') this.form.postMarketReview.set(tpl.content);
+        else this.form.noteContent.set(tpl.content);
+        this.closePanel();
     }
 
     loadTemplate(template: JournalTemplate, context: 'pre-market' | 'post-market' | 'notes'): void {
@@ -106,6 +144,7 @@ export class JournalTemplatesState {
         this.isCreatingTemplate.set(true);
         this.isEditingTemplate.set(false);
         this.selectedTemplate.set(null);
+        this.selectedRecommended.set(null);
     }
 
     confirmCreate(): void {

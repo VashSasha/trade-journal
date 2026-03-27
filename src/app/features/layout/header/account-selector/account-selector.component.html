@@ -1,0 +1,85 @@
+@if (accountService.isConnected()) {
+<div class="acct-widget">
+    <div class="acct-widget__balance">
+        <span class="acct-widget__label">
+            @if (accountService.selectedIds().length > 1) {
+                Total ({{ accountService.selectedIds().length }} accounts)
+            } @else if (accountService.selectedIds().length === 1) {
+                Account Balance
+            } @else {
+                No Account Selected
+            }
+        </span>
+        <span class="acct-widget__value">
+            @if (accountService.selectedIds().length === 0) {
+                <span class="acct-widget__value--empty">—</span>
+            } @else {
+                {{ accountService.aggregatedBalance() | currency }}
+            }
+        </span>
+    </div>
+
+    <div class="acct-widget__divider"></div>
+
+    <!-- Refresh balance -->
+    <button class="acct-widget__icon-btn"
+        (click)="accountService.refreshBalances()"
+        [disabled]="accountService.isRefreshing()"
+        title="Refresh balance">
+        <svg [class.is-spinning]="accountService.isRefreshing()"
+            class="acct-widget__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+    </button>
+
+    <!-- Dropdown toggle -->
+    <div class="acct-widget__selector">
+        <button class="acct-widget__icon-btn" (click)="toggleDropdown()" title="Select accounts">
+            <svg class="acct-widget__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+        </button>
+
+        @if (dropdownOpen) {
+        <div class="acct-dropdown">
+            <div class="acct-dropdown__header">
+                <span class="acct-dropdown__title">Select Accounts</span>
+                <button class="acct-dropdown__close" (click)="closeDropdown()">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="acct-dropdown__actions">
+                <button class="acct-dropdown__action acct-dropdown__action--select"
+                    (click)="accountService.selectAll()">Select All</button>
+                <span class="acct-dropdown__sep">|</span>
+                <button class="acct-dropdown__action"
+                    (click)="accountService.deselectAll()">Deselect All</button>
+            </div>
+            <div class="acct-dropdown__list">
+                @for (account of accountService.accounts(); track account.id) {
+                <label class="acct-dropdown__item">
+                    <div class="acct-dropdown__item-left">
+                        <input type="checkbox" class="acct-dropdown__checkbox"
+                            [checked]="accountService.selectedIds().includes(account.id)"
+                            (change)="accountService.toggle(account.id)"/>
+                        <div>
+                            <div class="acct-dropdown__item-name">{{ account.name }}</div>
+                            <div class="acct-dropdown__item-id">ID: {{ account.id }}</div>
+                        </div>
+                    </div>
+                    <div class="acct-dropdown__item-balance">
+                        {{ accountService.accountBalances().get(account.id) ?? 0 | currency }}
+                    </div>
+                </label>
+                } @empty {
+                <div class="acct-dropdown__empty">No accounts found</div>
+                }
+            </div>
+        </div>
+        }
+    </div>
+</div>
+}

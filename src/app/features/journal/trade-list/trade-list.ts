@@ -1,9 +1,10 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/common';
+import { CurrencyPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { TradeService } from '../../../core/services/trade.service';
 import { SyncService } from '../../../core/services/sync.service';
-import { Trade, TradeStatus } from '../../../core/models/trade.model';
+import { FilterService } from '../../../core/services/filter.service';
+import { Trade } from '../../../core/models/trade.model';
 import { TradeTableComponent } from '../../../shared/components/trade-table/trade-table.component';
 
 type SortField = 'symbol' | 'assetType' | 'entryDate' | 'pnl' | 'status';
@@ -19,6 +20,7 @@ type SortDirection = 'asc' | 'desc';
 export class TradeListComponent {
     private tradeService = inject(TradeService);
     private syncService = inject(SyncService);
+    private filterService = inject(FilterService);
 
     // Signals for filtering and sorting
     searchQuery = signal('');
@@ -53,9 +55,9 @@ export class TradeListComponent {
     // Get all trades from service
     allTrades = this.tradeService.trades;
 
-    // Filtered and sorted trades
+    // Filtered and sorted trades (account filter applied via FilterService)
     filteredTrades = computed(() => {
-        let trades = this.allTrades();
+        let trades = this.filterService.filterTrades(this.allTrades());
 
         // Filter by search query
         const query = this.searchQuery().toLowerCase();
