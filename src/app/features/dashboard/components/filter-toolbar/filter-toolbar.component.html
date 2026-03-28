@@ -63,40 +63,6 @@
         </button>
     </div>
 
-    <div class="filter-toolbar__divider"></div>
-
-    <!-- Account Filter -->
-    <div class="filter-toolbar__dropdowns">
-        <div class="filter-dropdown">
-            <button class="filter-accounts-btn" (click)="showAccountFilter.set(!showAccountFilter())"
-                [class.filter-accounts-btn--active]="filterService.filters().accountIds.length > 0">
-                Accounts
-                @if (filterService.filters().accountIds.length > 0) {
-                    <span class="filter-accounts-btn__badge">{{ filterService.filters().accountIds.length }}</span>
-                }
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
-            @if (showAccountFilter()) {
-                <div class="filter-dropdown__panel filter-dropdown__panel--accounts">
-                    <div class="filter-dropdown__accounts-list">
-                        @for (account of availableAccounts(); track account.id) {
-                            <label class="filter-dropdown__account-item">
-                                <input type="checkbox"
-                                    [checked]="filterService.filters().accountIds.includes(account.id.toString())"
-                                    (change)="filterService.toggleAccount(account.id.toString())" />
-                                <span>{{ account.name }}</span>
-                            </label>
-                        } @empty {
-                            <div class="filter-dropdown__account-empty">No accounts available</div>
-                        }
-                    </div>
-                </div>
-            }
-        </div>
-    </div>
-
     <!-- Reset -->
     <button class="filter-toolbar__reset" (click)="reset()">Reset</button>
 </div>

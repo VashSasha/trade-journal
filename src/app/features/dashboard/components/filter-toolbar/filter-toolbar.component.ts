@@ -1,8 +1,7 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { FilterService } from '../../../../core/services/filter.service';
-import { TradovateService, TradovateAccount } from '../../../../core/services/tradovate.service';
 
 @Component({
     selector: 'app-filter-toolbar',
@@ -11,27 +10,15 @@ import { TradovateService, TradovateAccount } from '../../../../core/services/tr
     templateUrl: './filter-toolbar.component.html',
     styleUrl: './filter-toolbar.component.scss'
 })
-export class FilterToolbarComponent implements OnInit {
+export class FilterToolbarComponent {
     filterService = inject(FilterService);
-    tradovateService = inject(TradovateService);
 
-    // Track active date button state
     activeDateFilter = signal<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
-    showAccountFilter = signal(false);
-    availableAccounts = signal<TradovateAccount[]>([]);
 
     // Custom date picker
     showCustomDatePicker = signal(false);
     customStartDate = signal<string>('');
     customEndDate = signal<string>('');
-
-    ngOnInit() {
-        // Load available accounts for filtering
-        this.tradovateService.getAccounts().subscribe({
-            next: (accounts) => this.availableAccounts.set(accounts),
-            error: (err) => console.error('Failed to load accounts for filter:', err)
-        });
-    }
 
     setDateFilter(type: 'all' | 'today' | 'week' | 'month' | 'custom') {
         if (type === 'custom') {

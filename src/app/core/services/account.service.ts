@@ -24,9 +24,14 @@ export class AccountService {
     });
 
     constructor() {
+        // Auto-load accounts whenever a connection is established.
+        effect(() => {
+            if (this.isConnected() && this.accounts().length === 0) {
+                this.loadAccounts();
+            }
+        });
+
         // Push account selection into FilterService whenever it changes.
-        // All selected (or none) → empty array = no account filter.
-        // Partial selection → filter to only those account IDs.
         effect(() => {
             const ids = this.selectedIds();
             const total = this.accounts().length;
@@ -39,13 +44,15 @@ export class AccountService {
     }
 
     init(): void {
-        if (!this.isConnected()) return;
+        // Kept for explicit calls (e.g. after sync). Effect handles the reactive case.
+        if (this.isConnected()) this.loadAccounts();
+    }
 
+    private loadAccounts(): void {
         this.tradovateService.getAccounts().subscribe({
             next: (accounts) => {
                 this.accounts.set(accounts);
 
-                // Restore from localStorage; validate against actual account list
                 const stored = this.loadSelectedIds();
                 const valid = stored.filter(id => accounts.some(a => a.id === id));
                 const resolved = valid.length > 0 ? valid : accounts.map(a => a.id);
