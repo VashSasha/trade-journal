@@ -81,11 +81,11 @@
                 <div>
                   <p class="mb-2 text-xs text-slate-500 dark:text-slate-400">Quick range:</p>
                   <div class="flex flex-wrap gap-2">
-                    <button (click)="setPreset(30)" class="preset-btn">Last 30 days</button>
-                    <button (click)="setPreset(90)" class="preset-btn">Last 90 days</button>
-                    <button (click)="setPreset(180)" class="preset-btn">Last 6 months</button>
-                    <button (click)="setPreset(365)" class="preset-btn">Last year</button>
-                    <button (click)="setPreset(null)" class="preset-btn preset-btn--full">All time</button>
+                    <button (click)="setPreset(30)" class="preset-btn" [class.preset-btn--active]="activePreset() === 30">Last 30 days</button>
+                    <button (click)="setPreset(90)" class="preset-btn" [class.preset-btn--active]="activePreset() === 90">Last 90 days</button>
+                    <button (click)="setPreset(180)" class="preset-btn" [class.preset-btn--active]="activePreset() === 180">Last 6 months</button>
+                    <button (click)="setPreset(365)" class="preset-btn" [class.preset-btn--active]="activePreset() === 365">Last year</button>
+                    <button (click)="setPreset(null)" class="preset-btn preset-btn--full" [class.preset-btn--active]="activePreset() === null">All time</button>
                   </div>
                 </div>
 

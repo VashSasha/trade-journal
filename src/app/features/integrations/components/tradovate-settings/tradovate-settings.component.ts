@@ -29,6 +29,7 @@ export class TradovateSettingsComponent {
     syncError = signal<string | null>(null);
     syncResult = signal<number | null>(null);
     customFromDate = signal(this.defaultFromDate(30));
+    activePreset = signal<number | null | undefined>(30);
 
     // Expose service signals
     connections = this.tradovateService.connections;
@@ -55,8 +56,8 @@ export class TradovateSettingsComponent {
     }
 
     setPreset(daysAgo: number | null): void {
+        this.activePreset.set(daysAgo);
         if (daysAgo === null) {
-            // Full sync — set date to account creation or very far back
             this.customFromDate.set('2020-01-01');
         } else {
             this.customFromDate.set(this.defaultFromDate(daysAgo));

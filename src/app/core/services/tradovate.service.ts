@@ -539,13 +539,107 @@ export class TradovateService {
     }
 
     /**
-     * Parse CSV response data into fills array
+     * Parse response data from the Reports API into fills.
+     * The API returns HTML (not raw CSV/JSON) even when representationType='csv' is requested.
+     * Detects HTML and routes to the appropriate parser.
      */
-    private parseReportCsvResponse(csv: string, accountId: number): any[] {
-        if (!csv || csv.trim().length === 0 || csv.trim() === '\r\n') {
+    private parseReportCsvResponse(raw: string, accountId: number): any[] {
+        if (!raw || raw.trim().length === 0 || raw.trim() === '\r\n') return [];
+        const trimmed = raw.trim();
+        if (trimmed.startsWith('<') || trimmed.toLowerCase().includes('<table')) {
+            return this.parseReportHtml(trimmed, accountId);
+        }
+        return this.parseFillsCsv(raw, accountId);
+    }
+
+    /**
+     * Parse an HTML table response from the Reports API.
+     * Uses DOMParser (available in browser/Electron) to extract rows.
+     */
+    private parseReportHtml(html: string, accountId: number): any[] {
+        try {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const table = doc.querySelector('table');
+            if (!table) {
+                console.warn('[TradovateService] HTML response contained no <table> element. Raw:', html.slice(0, 300));
+                return [];
+            }
+
+            // Build header → column-index map (case-insensitive)
+            const headerRow = table.querySelector('thead tr, tr');
+            if (!headerRow) return [];
+            const headers = Array.from(headerRow.querySelectorAll('th, td'))
+                .map(el => el.textContent?.trim().toLowerCase() ?? '');
+
+            // col() returns the index of the FIRST header that contains any of the given strings.
+            // List more-specific terms first to avoid matching the wrong column.
+            // e.g. 'avg fill price' must come before 'price' to avoid matching 'limit price'.
+            const col = (names: string[]) => {
+                for (const name of names) {
+                    const idx = headers.findIndex(h => h.includes(name));
+                    if (idx !== -1) return idx;
+                }
+                return -1;
+            };
+
+            const idxId        = col(['order id', 'fill id', 'fillid']);
+            const idxSymbol    = col(['contract', 'symbol']);
+            const idxAction    = col(['b/s', 'side', 'action', 'buy/sell']);
+            const idxFilledQty = col(['filled qty', 'fill qty', 'qty', 'quantity']);
+            const idxPrice     = col(['avg fill price', 'fill price', 'price']);
+            const idxFillTime  = col(['fill time', 'timestamp', 'date']);
+            const idxStatus    = col(['status']);
+            const idxAccount   = col(['account']);
+
+            console.log('[TradovateService] Report columns:', headers);
+
+            const val = (cells: NodeListOf<Element>, idx: number) =>
+                idx >= 0 ? cells[idx]?.textContent?.trim() ?? '' : '';
+
+            const fills: any[] = [];
+            const rows = table.querySelectorAll('tbody tr, tr');
+            rows.forEach((row, rowIdx) => {
+                if (rowIdx === 0 && row === headerRow) return; // skip header row
+                const cells = row.querySelectorAll('td, th');
+                if (cells.length === 0) return;
+
+                // Skip header rows
+                if (cells[0].tagName.toLowerCase() === 'th') return;
+
+                // Skip unfilled/canceled orders — only process rows that were actually filled
+                const status = val(cells, idxStatus).toLowerCase();
+                if (status && !status.includes('filled')) return;
+
+                const filledQtyStr = val(cells, idxFilledQty);
+                if (!filledQtyStr) return; // no fill quantity = not filled
+
+                const idStr = val(cells, idxId);
+                if (!idStr) return;
+
+                let timestamp = val(cells, idxFillTime);
+                if (timestamp && !timestamp.includes('T')) {
+                    try { timestamp = new Date(timestamp).toISOString(); } catch { /* keep as-is */ }
+                }
+
+                const actionRaw = val(cells, idxAction).toLowerCase();
+                fills.push({
+                    id: idStr,
+                    symbol: val(cells, idxSymbol),
+                    action: (actionRaw.includes('buy') || actionRaw === 'b' ? 'Buy' : 'Sell') as 'Buy' | 'Sell',
+                    qty: parseFloat(filledQtyStr) || 0,
+                    price: parseFloat(val(cells, idxPrice)) || 0,
+                    timestamp,
+                    accountId,
+                    accountName: idxAccount >= 0 ? val(cells, idxAccount) : undefined
+                });
+            });
+
+            console.log(`[TradovateService] HTML parser extracted ${fills.length} fills from report table`);
+            return fills;
+        } catch (err) {
+            console.error('[TradovateService] HTML report parsing failed:', err);
             return [];
         }
-        return this.parseFillsCsv(csv, accountId);
     }
 
     /**
@@ -571,7 +665,10 @@ export class TradovateService {
             .set('p-ticket', ticket);
 
         return timer(waitMs).pipe(
-            switchMap(() => this.http.post<any>(url, body, { headers })),
+            switchMap(() => this.http.post(url, body, { headers, responseType: 'text' })),
+            map((raw: string) => {
+                try { return JSON.parse(raw); } catch { return { data: raw }; }
+            }),
             switchMap((res: any) => {
                 if (res.data && typeof res.data === 'string') {
                     const fills = this.parseReportCsvResponse(res.data, accountId);
@@ -600,7 +697,7 @@ export class TradovateService {
      * /fill/list only returns current-day data.
      * The Reports API is the official way to fetch historical fills.
      */
-    getHistoricalReportsAPI(startDate: Date, endDate?: Date, accountId?: number): Observable<any[]> {
+    getHistoricalReportsAPI(startDate: Date, endDate?: Date, accountName?: string): Observable<any[]> {
         try {
             this.requireToken();
         } catch (e) {
@@ -609,39 +706,44 @@ export class TradovateService {
 
         const end = endDate || new Date();
         const url = `${this.getRptUrl()}/reports/requestreport`;
+        const timezone = -new Date().getTimezoneOffset(); // e.g. -300 for EST
 
-        const body: any = {
-            name: 'Fills',
-            timezone: 0,
-            params: [
-                { name: 'startDate', value: this.formatDateForReport(startDate) },
-                { name: 'endDate', value: this.formatDateForReport(end) }
-            ],
-            representationType: 'csv'
-        };
-
-        if (accountId) {
-            body.params.push({ name: 'account', value: accountId.toString() });
+        const params: any[] = [
+            { name: 'startDate', value: this.formatDateForReport(startDate) },
+            { name: 'endDate',   value: this.formatDateForReport(end) },
+            { name: 'startTime', value: '00:00:00' },
+            { name: 'endTime',   value: '23:59:59' },
+        ];
+        if (accountName) {
+            params.push({ name: 'account', value: accountName });
         }
 
-        console.log(`[TradovateService] Requesting Fills report for account ${accountId}:`,
-            `${startDate.toISOString()} → ${end.toISOString()}`);
+        const body: any = {
+            name: 'Orders',
+            timezone,
+            params,
+            representationType: 'html'
+        };
+
+        console.log(`[TradovateService] Requesting Fills report: ${startDate.toISOString()} → ${end.toISOString()}${accountName ? ` (${accountName})` : ''}`);
 
         const headers = this.getAuthHeaders().set('Content-Type', 'application/json');
 
-        // Use responseType: 'text' because Tradovate sometimes returns raw CSV
-        // instead of a JSON-wrapped response, which would cause a JSON parse error.
         return this.http.post(url, body, { headers, responseType: 'text' }).pipe(
+            tap((raw: string) => console.log(`[TradovateService] Raw report response (${accountName}):`, raw.slice(0, 500))),
             map((raw: string) => {
                 try {
                     return JSON.parse(raw);
                 } catch {
-                    // Raw CSV response — wrap it so handleReportResponse can process it
+                    // Inline HTML/CSV response — wrap so handleReportResponse can process it
                     return { data: raw };
                 }
             }),
-            switchMap((res: any) => this.handleReportResponse(res, url, body, accountId || 0)),
-            catchError(err => this.handleReportError(err, accountId))
+            switchMap((res: any) => this.handleReportResponse(res, url, body, 0)),
+            catchError(err => {
+                console.error(`[TradovateService] Reports API error for account ${accountName}:`, err);
+                return this.handleReportError(err);
+            })
         );
     }
 
@@ -675,8 +777,7 @@ export class TradovateService {
 
         // Error response
         if (res.errorText) {
-            console.warn(`[TradovateService] Report API error: ${res.errorText}`);
-            return of([]);
+            return throwError(() => new Error(`Report API: ${res.errorText}`));
         }
 
         console.warn('[TradovateService] Unexpected response format:', res);
@@ -780,23 +881,6 @@ export class TradovateService {
     }
 
     /**
-     * Get effective start date for an account (uses account creation time if available)
-     * If requestedStart is null, uses account timestamp (for full sync)
-     * Otherwise returns the LATER of account creation date and requested start date
-     */
-    private getEffectiveStartDate(account: any, requestedStart: Date | null): Date {
-        const accountStart = account.timestamp ? new Date(account.timestamp) : new Date(2020, 0, 1);
-
-        if (!requestedStart) {
-            // Full sync - use account creation date
-            return accountStart;
-        }
-
-        // Use the later date - no point fetching fills before account existed
-        return accountStart > requestedStart ? accountStart : requestedStart;
-    }
-
-    /**
      * Tier 1: fetch today's fills via /fill/list + /order/list join.
      * /fill/list only returns current-session fills but has real fill IDs.
      * /order/list provides the accountId per order (joined via fill.orderId).
@@ -813,12 +897,30 @@ export class TradovateService {
                 }
                 console.log(`[TradovateService] /fill/list returned ${fills.length} fill(s)`);
 
-                return orders$.pipe(
-                    map(orders => {
+                // Resolve unique contractIds → symbol names via /contract/item
+                const uniqueContractIds = [...new Set(
+                    fills.map(f => f.contractId).filter((id): id is number => !!id)
+                )];
+                const contracts$ = uniqueContractIds.length
+                    ? forkJoin(uniqueContractIds.map(id =>
+                          this.authGet<any>('/contract/item', { id: id.toString() }).pipe(catchError(() => of(null)))
+                      ))
+                    : of([] as any[]);
+
+                return forkJoin([orders$, contracts$]).pipe(
+                    map(([orders, contracts]) => {
                         const orderAccountMap = new Map<number, number>();
                         if (Array.isArray(orders)) {
                             orders.forEach(o => {
                                 if (o.id && o.accountId) orderAccountMap.set(o.id, o.accountId);
+                            });
+                        }
+
+                        // contractId → symbol name (e.g. 12345 → "ESH5")
+                        const contractNameMap = new Map<number, string>();
+                        if (Array.isArray(contracts)) {
+                            contracts.forEach((c: any) => {
+                                if (c?.id && c?.name) contractNameMap.set(c.id, c.name);
                             });
                         }
 
@@ -830,7 +932,8 @@ export class TradovateService {
                             })
                             .map(f => {
                                 const accountId = orderAccountMap.get(f.orderId) || 0;
-                                return this.normalizeFill(f, accountId);
+                                const symbol = contractNameMap.get(f.contractId) || '';
+                                return this.normalizeFill({ ...f, symbol }, accountId);
                             });
                     })
                 );
@@ -845,7 +948,9 @@ export class TradovateService {
     /**
      * Get all fills enriched with accountId using a two-tier approach:
      *   Tier 1 — /fill/list + /order/list: today's fills (fast, reliable accountId join)
-     *   Tier 2 — Reports API per account:  historical fills before today
+     *   Tier 2 — Reports API (one request, all accounts): historical fills before today
+     *            Account IDs are resolved by matching the "Account" name column in the
+     *            HTML response to the accounts fetched from /account/list.
      * Results are merged and deduplicated by fill ID (Tier 1 takes precedence).
      */
     getAllFills(startDate: Date | null, endDate?: Date): Observable<TradovateFill[]> {
@@ -871,10 +976,36 @@ export class TradovateService {
             ? this.getAccounts().pipe(
                 switchMap(accounts => {
                     if (accounts.length === 0) return of([] as TradovateFill[]);
-                    console.log(`[TradovateService] Tier 2: fetching historical fills for ${accounts.length} account(s) via Reports API`);
-                    const requests = accounts.map((account: any) =>
-                        this.getFillsViaReportsApi(account, startDate, yesterday)
-                    );
+
+                    // Use earliest account creation date as the effective start
+                    const effectiveStart = startDate ?? accounts.reduce<Date>((earliest, a) => {
+                        const ts = a.timestamp ? new Date(a.timestamp) : new Date(2020, 0, 1);
+                        return ts < earliest ? ts : earliest;
+                    }, new Date());
+
+                    const chunks = this.chunkDateRange(effectiveStart, yesterday, 1);
+                    console.log(`[TradovateService] Tier 2: ${chunks.length} chunk(s) × ${accounts.length} account(s) via Reports API`);
+
+                    // One request per account per chunk — pass account name as the API expects
+                    console.log(`[TradovateService] Accounts for Reports API:`, accounts.map(a => `${a.name} (id:${a.id})`));
+                    const requests: Observable<TradovateFill[]>[] = [];
+                    for (const account of accounts) {
+                        for (const chunk of chunks) {
+                            requests.push(
+                                this.getHistoricalReportsAPI(chunk.start, chunk.end, account.name).pipe(
+                                    map(rawFills => {
+                                        console.log(`[TradovateService] Got ${rawFills.length} fills for ${account.name}`);
+                                        return rawFills.map(f => this.normalizeFill(f, account.id));
+                                    }),
+                                    catchError(err => {
+                                        console.error(`[TradovateService] Failed for account ${account.name}:`, err);
+                                        return of([] as TradovateFill[]);
+                                    })
+                                )
+                            );
+                        }
+                    }
+
                     return from(requests).pipe(
                         concatMap(req$ => req$),
                         reduce((all, chunk) => [...all, ...chunk], [] as TradovateFill[])
@@ -898,33 +1029,6 @@ export class TradovateService {
                 );
                 return merged;
             })
-        );
-    }
-
-    /**
-     * Fallback: fetch fills via Reports API, chunked into 3-month windows.
-     */
-    private getFillsViaReportsApi(account: any, startDate: Date | null, endDate: Date): Observable<TradovateFill[]> {
-        const effectiveStart = this.getEffectiveStartDate(account, startDate);
-        const chunks = this.chunkDateRange(effectiveStart, endDate, 3);
-        console.log(`[TradovateService] Reports API fallback for account ${account.id}: ${chunks.length} chunk(s)`);
-
-        const requests = chunks.map(chunk =>
-            this.getHistoricalReportsAPI(chunk.start, chunk.end, account.id).pipe(
-                map(report => {
-                    if (!Array.isArray(report)) return [];
-                    return report.map(f => this.normalizeFill(f, account.id));
-                }),
-                catchError(chunkErr => {
-                    console.warn(`[TradovateService] Reports API chunk failed for account ${account.id}:`, chunkErr);
-                    return of([]);
-                })
-            )
-        );
-
-        return from(requests).pipe(
-            concatMap(req$ => req$),
-            reduce((all, chunk) => [...all, ...chunk], [] as TradovateFill[])
         );
     }
 

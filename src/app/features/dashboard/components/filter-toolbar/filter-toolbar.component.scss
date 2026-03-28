@@ -74,12 +74,12 @@
     &:hover { background: var(--color-bg-surface-2); }
 
     &--active {
-        background: var(--color-bg-surface-2);
-        color: var(--color-text-primary);
+        background: rgba(99, 102, 241, 0.12);
+        color: #6366f1;
     }
 
     &--custom-active {
-        background: rgba(99, 102, 241, 0.1);
+        background: rgba(99, 102, 241, 0.12);
         color: #6366f1;
     }
 }
