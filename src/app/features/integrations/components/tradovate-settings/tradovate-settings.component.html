@@ -77,6 +77,21 @@
                   <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">Import Trades</span>
                 </div>
 
+                <!-- Commission setting -->
+                <div class="flex items-center gap-3">
+                  <label class="text-xs font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                    Commission per contract
+                  </label>
+                  <div class="flex items-center gap-1">
+                    <span class="text-xs text-slate-500">$</span>
+                    <input type="number" min="0" step="0.01"
+                           [ngModel]="accountSettings.commissionPerContract()"
+                           (ngModelChange)="accountSettings.setCommission(+$event)"
+                           class="form-input py-1 text-sm w-24" />
+                  </div>
+                  <span class="text-xs text-slate-400">per side (applied both entry & exit)</span>
+                </div>
+
                 <!-- Presets -->
                 <div>
                   <p class="mb-2 text-xs text-slate-500 dark:text-slate-400">Quick range:</p>

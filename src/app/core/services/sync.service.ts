@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { TradovateService, TradovateFill, TradovateAccount } from './tradovate.service';
 import { TradeService } from './trade.service';
+import { AccountSettingsService } from './account-settings.service';
 import { firstValueFrom, Observable } from 'rxjs';
 import { AuthService } from './auth.service';
 
@@ -17,6 +18,7 @@ export class SyncService {
     private tradovateService = inject(TradovateService);
     private tradeService = inject(TradeService);
     private authService = inject(AuthService);
+    private accountSettings = inject(AccountSettingsService);
 
     isSyncing = signal(false);
     lastSyncTime = signal<Date | null>(null);
@@ -225,9 +227,14 @@ export class SyncService {
                     const isLong = openFill.action === 'Buy';
                     const entryPrice = openFill.price;
                     const exitPrice = fill.price;
-                    const pnl = parseFloat(
+                    const grossPnl = parseFloat(
                         ((isLong ? exitPrice - entryPrice : entryPrice - exitPrice) * matchQty * multiplier).toFixed(2)
                     );
+                    // Commission applies to both entry and exit sides
+                    const commission = this.accountSettings.commissionPerContract();
+                    const fees = parseFloat((commission * matchQty * 2).toFixed(2));
+                    const pnl = grossPnl;
+                    const netPnl = parseFloat((grossPnl - fees).toFixed(2));
 
                     trades.push({
                         symbol: sym,
@@ -240,8 +247,8 @@ export class SyncService {
                         quantity: matchQty,
                         status: 'closed',
                         pnl,
-                        netPnl: pnl, // fees are 0 for Tradovate fills
-                        fees: 0,
+                        netPnl,
+                        fees,
                         multiplier,
                         pnlPercent: this.calculatePnlPercent(entryPrice, exitPrice, isLong),
                         source: 'tradovate',
@@ -277,7 +284,7 @@ export class SyncService {
                     entryPrice: fill.price,
                     quantity: fill.qty,
                     status: 'open',
-                    fees: 0,
+                    fees: parseFloat((this.accountSettings.commissionPerContract() * fill.qty).toFixed(2)),
                     source: 'tradovate',
                     connectionId,
                     externalId: `tradovate_open_${fill.id}`,

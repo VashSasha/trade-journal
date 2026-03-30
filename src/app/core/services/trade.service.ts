@@ -59,6 +59,11 @@ export class TradeService {
             }
         }
 
+        // Guard against duplicate externalIds (e.g. double sync)
+        if (trade.externalId && this.tradesSignal().some(t => t.externalId === trade.externalId)) {
+            return this.tradesSignal().find(t => t.externalId === trade.externalId)!;
+        }
+
         const updatedTrades = [...this.tradesSignal(), trade];
         this.tradesSignal.set(updatedTrades);
         this.saveTradesToStorage(updatedTrades);

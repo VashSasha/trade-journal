@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TradovateService, TradovateConnection } from '../../../../core/services/tradovate.service';
 import { SyncService } from '../../../../core/services/sync.service';
+import { AccountSettingsService } from '../../../../core/services/account-settings.service';
 
 @Component({
     selector: 'app-tradovate-settings',
@@ -17,6 +18,7 @@ export class TradovateSettingsComponent {
     private router = inject(Router);
     tradovateService = inject(TradovateService);
     syncService = inject(SyncService);
+    accountSettings = inject(AccountSettingsService);
 
     configForm: FormGroup;
     isSaved = signal(false);

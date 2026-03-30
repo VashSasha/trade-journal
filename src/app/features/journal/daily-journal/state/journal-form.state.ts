@@ -3,6 +3,7 @@ import { DailyJournalService } from '../../../../core/services/daily-journal.ser
 import { TradeService } from '../../../../core/services/trade.service';
 import { EconomicCalendarService } from '../../../../core/services/economic-calendar.service';
 import { AccountService } from '../../../../core/services/account.service';
+import { AccountSettingsService } from '../../../../core/services/account-settings.service';
 import { buildTimelineEntry, groupEntriesByMonth, MonthGroup, TimelineEntry } from '../utils/timeline.utils';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class JournalFormState {
     tradeService = inject(TradeService);
     private economicCalendarService = inject(EconomicCalendarService);
     private accountService = inject(AccountService);
+    private accountSettings = inject(AccountSettingsService);
 
     selectedDate = signal(new Date().toISOString().split('T')[0]);
     lastSaved = signal<Date | null>(null);
@@ -48,6 +50,15 @@ export class JournalFormState {
     dayPnl = computed(() =>
         this.dayTrades().reduce((sum, t) => sum + (t.netPnl ?? t.pnl ?? 0), 0)
     );
+
+    priorBalance = computed(() => {
+        const date = this.selectedDate();
+        const closedBefore = this.tradeService.trades().filter(
+            t => t.status === 'closed' && t.exitDate && t.exitDate < date + 'T'
+        );
+        const cumulativePnl = closedBefore.reduce((sum, t) => sum + (t.netPnl ?? t.pnl ?? 0), 0);
+        return this.accountSettings.startingBalance() + cumulativePnl;
+    });
 
     displayDate = computed(() =>
         new Date(this.selectedDate() + 'T12:00:00').toLocaleDateString('en-US', {

@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal, effect } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { TradovateService, TradovateAccount } from './tradovate.service';
 import { FilterService } from './filter.service';
+import { SyncService } from './sync.service';
 
 const STORAGE_KEY = 'tradovate_selected_account_ids';
 
@@ -9,6 +10,7 @@ const STORAGE_KEY = 'tradovate_selected_account_ids';
 export class AccountService {
     private tradovateService = inject(TradovateService);
     private filterService = inject(FilterService);
+    private syncService = inject(SyncService);
 
     accounts = signal<TradovateAccount[]>([]);
     selectedIds = signal<number[]>(this.loadSelectedIds());
@@ -88,14 +90,21 @@ export class AccountService {
         if (!this.isConnected()) return;
         this.isRefreshing.set(true);
         try {
-            const balances = await firstValueFrom(this.tradovateService.getCashBalances());
-            const map = new Map<number, number>();
-            (balances as any[]).forEach(b => {
-                if (b.accountId && b.amount !== undefined) map.set(b.accountId, b.amount);
-            });
-            this.accountBalances.set(map);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            await Promise.all([
+                firstValueFrom(this.tradovateService.getCashBalances()).then(balances => {
+                    const map = new Map<number, number>();
+                    (balances as any[]).forEach(b => {
+                        if (b.accountId && b.amount !== undefined) map.set(b.accountId, b.amount);
+                    });
+                    this.accountBalances.set(map);
+                }),
+                this.syncService.syncFrom(today)
+            ]);
         } catch (err) {
-            console.error('[AccountService] Failed to refresh balances:', err);
+            console.error('[AccountService] Failed to refresh:', err);
         } finally {
             this.isRefreshing.set(false);
         }

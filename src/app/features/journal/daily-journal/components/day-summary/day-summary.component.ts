@@ -15,6 +15,7 @@ import { EquityCurveChartComponent } from '../../../../../shared/components/equi
 })
 export class DaySummaryComponent {
     @Input({ required: true }) trades!: Trade[];
+    @Input() startBalance?: number;
 
     readonly accountSettings = inject(AccountSettingsService);
 
@@ -23,6 +24,7 @@ export class DaySummaryComponent {
     }
 
     get equityData() {
-        return buildEquityCurve(this.trades, this.accountSettings.startingBalance());
+        const base = this.startBalance ?? this.accountSettings.startingBalance();
+        return buildEquityCurve(this.trades, base);
     }
 }
