@@ -127,6 +127,11 @@ export class TradeService {
         this.saveTradesToStorage(updatedTrades);
     }
 
+    clearAllTrades(): void {
+        this.tradesSignal.set([]);
+        this.saveTradesToStorage([]);
+    }
+
     /**
      * Calculate P&L for a trade (mutates trade object)
      */

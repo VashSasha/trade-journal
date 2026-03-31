@@ -28,6 +28,6 @@ export class AccountSettingsService {
 
     private loadCommission(): number {
         const stored = localStorage.getItem(COMMISSION_KEY);
-        return stored ? Number(stored) : 0.85;
+        return stored ? Number(stored) : 0.25;
     }
 }

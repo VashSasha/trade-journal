@@ -983,6 +983,8 @@ export class TradovateService {
                         return ts < earliest ? ts : earliest;
                     }, new Date());
 
+                    // Tier 2 covers up to yesterday only — today's fills come from Tier 1 (/fill/list)
+                    // Extending to today causes double-counting because fill IDs differ between APIs
                     const chunks = this.chunkDateRange(effectiveStart, yesterday, 1);
                     console.log(`[TradovateService] Tier 2: ${chunks.length} chunk(s) × ${accounts.length} account(s) via Reports API`);
 

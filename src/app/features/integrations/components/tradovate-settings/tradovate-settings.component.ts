@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { TradovateService, TradovateConnection } from '../../../../core/services/tradovate.service';
 import { SyncService } from '../../../../core/services/sync.service';
 import { AccountSettingsService } from '../../../../core/services/account-settings.service';
+import { TradeService } from '../../../../core/services/trade.service';
 
 @Component({
     selector: 'app-tradovate-settings',
@@ -19,6 +20,7 @@ export class TradovateSettingsComponent {
     tradovateService = inject(TradovateService);
     syncService = inject(SyncService);
     accountSettings = inject(AccountSettingsService);
+    private tradeService = inject(TradeService);
 
     configForm: FormGroup;
     isSaved = signal(false);
@@ -169,6 +171,15 @@ export class TradovateSettingsComponent {
     disconnectConnection(connectionId: string): void {
         if (confirm('Are you sure you want to remove this connection?')) {
             this.tradovateService.removeConnection(connectionId);
+        }
+    }
+
+    resetAllTrades(): void {
+        if (confirm('Delete all trades? This cannot be undone.')) {
+            this.tradeService.clearAllTrades();
+            this.syncService.clearLog();
+            this.syncResult.set(null);
+            this.syncError.set(null);
         }
     }
 

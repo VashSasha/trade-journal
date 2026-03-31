@@ -98,10 +98,27 @@ export class DashboardComponent implements OnInit {
             }).sort((a, b) => a.timestamp - b.timestamp);
         }
 
-        const startingBalance = this.accountSettings.startingBalance();
+        // Use only account-filtered trades for priorPnl so the curve starts at the
+        // correct balance for the selected accounts, not the combined balance of all accounts.
+        const accountIds = this.filterService.filters().accountIds;
+        const allTrades = this.tradeService.trades()
+            .filter(t => {
+                if (t.status !== 'closed' || t.netPnl === undefined) return false;
+                if (accountIds.length > 0 && t.accountId && t.accountId !== '0') {
+                    return accountIds.includes(t.accountId);
+                }
+                return true;
+            });
+
+        const firstTimestamp = data.length > 0 ? data[0].timestamp : Infinity;
+        const priorPnl = allTrades
+            .filter(t => new Date(t.entryDate).getTime() < firstTimestamp)
+            .reduce((sum, t) => sum + (t.netPnl || 0), 0);
+
+        const startingBalance = this.accountSettings.startingBalance() + priorPnl;
         let cumulative = startingBalance;
         const labels: string[] = ['Start'];
-        const values: number[] = [startingBalance];
+        const values: number[] = [Math.round(startingBalance * 100) / 100];
 
         data.forEach(d => {
             cumulative += d.pnl;

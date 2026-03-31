@@ -108,6 +108,10 @@
         }
     }
 
+    &--locked {
+        opacity: 0.55;
+    }
+
     .is-collapsed & {
         justify-content: center;
         padding: 0.625rem;
@@ -120,6 +124,14 @@
     height: 1.25rem;
     flex-shrink: 0;
     transition: color 0.15s;
+}
+
+.nav-lock {
+    width: 0.75rem;
+    height: 0.75rem;
+    margin-left: auto;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
 }
 
 // ── Footer / User ────────────────────────────────────────────
@@ -149,6 +161,11 @@
     font-weight: 700;
     font-size: 0.75rem;
     flex-shrink: 0;
+
+    &--img {
+        object-fit: cover;
+        background: none;
+    }
 }
 
 .sidebar__user-info {
@@ -174,6 +191,10 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+
+    &--premium { color: #5865f2; }
+    &--lifetime { color: #f59e0b; }
+    &--free { color: var(--color-text-muted); }
 }
 
 .sidebar__logout {

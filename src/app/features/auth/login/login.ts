@@ -1,5 +1,4 @@
 import { Component, signal, inject } from '@angular/core';
-
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
@@ -24,6 +23,20 @@ export class LoginComponent {
 
     errorMessage = signal<string | null>(null);
     isLoading = signal(false);
+    isDiscordLoading = signal(false);
+
+    async loginWithDiscord(): Promise<void> {
+        this.isDiscordLoading.set(true);
+        this.errorMessage.set(null);
+        try {
+            await this.authService.loginWithDiscord();
+            const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
+            this.router.navigateByUrl(returnUrl);
+        } catch (err: any) {
+            this.errorMessage.set(err.message || 'Discord login failed. Please try again.');
+            this.isDiscordLoading.set(false);
+        }
+    }
 
     onSubmit(): void {
         if (this.loginForm.invalid) {
@@ -34,13 +47,10 @@ export class LoginComponent {
         this.isLoading.set(true);
         this.errorMessage.set(null);
 
-        const credentials = this.loginForm.value;
-        const result = this.authService.login(credentials);
-
+        const result = this.authService.login(this.loginForm.value);
         this.isLoading.set(false);
 
         if (result.success) {
-            // Get return URL from query params or default to dashboard
             const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
             this.router.navigateByUrl(returnUrl);
         } else {
@@ -48,14 +58,8 @@ export class LoginComponent {
         }
     }
 
-    get email() {
-        return this.loginForm.get('email');
-    }
-
-    get password() {
-        return this.loginForm.get('password');
-    }
-
+    get email() { return this.loginForm.get('email'); }
+    get password() { return this.loginForm.get('password'); }
     emailTouched(): boolean { return !!this.loginForm.get('email')?.touched; }
     passwordTouched(): boolean { return !!this.loginForm.get('password')?.touched; }
 }

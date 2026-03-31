@@ -1,0 +1,58 @@
+<div class="upgrade-page">
+    <div class="upgrade-card">
+        <div class="upgrade-card__icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clip-rule="evenodd" />
+            </svg>
+        </div>
+
+        <h1 class="upgrade-card__title">Upgrade Required</h1>
+
+        <p class="upgrade-card__subtitle">
+            This feature requires a higher plan.
+            Your current plan: <strong class="upgrade-card__plan">{{ auth.plan() | titlecase }}</strong>
+        </p>
+
+        <div class="upgrade-tiers">
+            <div class="upgrade-tier">
+                <div class="upgrade-tier__name">Free</div>
+                <ul class="upgrade-tier__features">
+                    <li>Dashboard &amp; stats</li>
+                    <li>Manual trade entry</li>
+                    <li>Daily journal</li>
+                </ul>
+            </div>
+
+            <div class="upgrade-tier upgrade-tier--premium">
+                <div class="upgrade-tier__badge">Premium</div>
+                <div class="upgrade-tier__name">Premium</div>
+                <ul class="upgrade-tier__features">
+                    <li>Everything in Free</li>
+                    <li>Tradovate auto-sync</li>
+                    <li>Analytics &amp; reports</li>
+                </ul>
+            </div>
+
+            <div class="upgrade-tier upgrade-tier--lifetime">
+                <div class="upgrade-tier__badge">Lifetime</div>
+                <div class="upgrade-tier__name">Lifetime</div>
+                <ul class="upgrade-tier__features">
+                    <li>Everything in Premium</li>
+                    <li>AI trade analysis</li>
+                    <li>All future features</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="upgrade-card__actions">
+            <a class="upgrade-btn upgrade-btn--primary" href="https://discord.gg/YOUR_SERVER_INVITE" target="_blank" rel="noopener">
+                <!-- Discord logo -->
+                <svg class="upgrade-btn__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 127.14 96.36">
+                    <path fill="currentColor" d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/>
+                </svg>
+                Upgrade on Discord
+            </a>
+            <button class="upgrade-btn upgrade-btn--secondary" (click)="back()">Back to Dashboard</button>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,7 @@
+name = "trade-journal-discord-exchange"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Set secrets via CLI (never commit these):
+#   wrangler secret put DISCORD_CLIENT_ID
+#   wrangler secret put DISCORD_GUILD_ID

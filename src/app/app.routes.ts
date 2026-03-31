@@ -2,11 +2,23 @@ import { Routes } from '@angular/router';
 import { MainLayoutComponent } from './features/layout/main-layout/main-layout';
 import { LoginComponent } from './features/auth/login/login';
 import { authGuard } from './core/guards/auth.guard';
+import { planGuard } from './core/guards/plan.guard';
 
 export const routes: Routes = [
     {
         path: 'login',
         component: LoginComponent
+    },
+    {
+        path: 'integrations/discord-callback',
+        loadComponent: () => import('./features/integrations/discord-callback/discord-callback.component')
+            .then(m => m.DiscordCallbackComponent)
+    },
+    {
+        path: 'upgrade',
+        canActivate: [authGuard],
+        loadComponent: () => import('./features/upgrade/upgrade.component')
+            .then(m => m.UpgradeComponent)
     },
     {
         path: '',
@@ -24,10 +36,12 @@ export const routes: Routes = [
             },
             {
                 path: 'analytics',
+                canActivate: [planGuard('premium')],
                 loadComponent: () => import('./features/analytics/analytics-dashboard.component').then(m => m.AnalyticsDashboardComponent)
             },
             {
                 path: 'reports',
+                canActivate: [planGuard('lifetime')],
                 loadComponent: () => import('./features/reports/ai-reports.component').then(m => m.AiReportsComponent)
             },
             {
@@ -45,6 +59,7 @@ export const routes: Routes = [
                     },
                     {
                         path: 'daily',
+                        canActivate: [planGuard('premium')],
                         loadComponent: () => import('./features/journal/daily-journal/daily-journal.component').then(m => m.DailyJournalComponent)
                     }
                 ]
@@ -69,6 +84,7 @@ export const routes: Routes = [
             },
             {
                 path: 'settings',
+                canActivate: [planGuard('premium')],
                 loadChildren: () => import('./features/integrations/integrations.routes')
                     .then(m => m.INTEGRATION_ROUTES)
             },

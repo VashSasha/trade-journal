@@ -53,9 +53,15 @@ export class JournalFormState {
 
     priorBalance = computed(() => {
         const date = this.selectedDate();
-        const closedBefore = this.tradeService.trades().filter(
-            t => t.status === 'closed' && t.exitDate && t.exitDate < date + 'T'
-        );
+        const selectedIds = this.accountService.selectedIds();
+        const total = this.accountService.accounts().length;
+        const closedBefore = this.tradeService.trades().filter(t => {
+            if (t.status !== 'closed' || !t.exitDate || t.exitDate >= date + 'T') return false;
+            if (selectedIds.length > 0 && selectedIds.length < total && t.accountId && t.accountId !== '0') {
+                return selectedIds.includes(+t.accountId);
+            }
+            return true;
+        });
         const cumulativePnl = closedBefore.reduce((sum, t) => sum + (t.netPnl ?? t.pnl ?? 0), 0);
         return this.accountSettings.startingBalance() + cumulativePnl;
     });

@@ -101,14 +101,46 @@
     }
 }
 
+.login-card {
+    &__subtitle {
+        margin-top: -0.75rem;
+        margin-bottom: 1.5rem;
+        font-size: 0.875rem;
+        color: #94a3b8;
+    }
+}
+
+.login-divider {
+    display: flex;
+    align-items: center;
+    margin: 1.25rem 0;
+    gap: 0.75rem;
+
+    &::before,
+    &::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #334155;
+    }
+
+    &__text {
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+    }
+}
+
 .login-submit {
     width: 100%;
     border-radius: 0.5rem;
     background: #10b981;
     border: none;
-    padding: 0.75rem 1rem;
+    padding: 0.875rem 1rem;
     font-size: 1rem;
-    font-weight: 500;
+    font-weight: 600;
     color: #fff;
     cursor: pointer;
     transition: background 0.12s, box-shadow 0.12s;
@@ -121,12 +153,53 @@
 
     &:focus {
         outline: none;
-        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.5);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
     }
 
     &:disabled {
-        opacity: 0.5;
+        opacity: 0.6;
         cursor: not-allowed;
+    }
+
+    &__spinner {
+        width: 1.25rem;
+        height: 1.25rem;
+        animation: spin 1s linear infinite;
+    }
+}
+
+.login-discord-btn {
+    width: 100%;
+    border-radius: 0.5rem;
+    background: #5865f2;
+    border: none;
+    padding: 0.875rem 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.12s, box-shadow 0.12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+
+    &:hover { background: #4752c4; }
+
+    &:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.5);
+    }
+
+    &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    &__icon {
+        width: 1.5rem;
+        height: 1.5rem;
+        flex-shrink: 0;
     }
 
     &__spinner {
