@@ -63,6 +63,9 @@ export class TradovateService {
     // Cached accounts for active connection
     accounts = signal<TradovateAccount[]>([]);
 
+    // Tracks which connection IDs have expired tokens
+    expiredConnectionIds = signal<string[]>([]);
+
     // Computed values
     activeConnection = computed(() => {
         const connId = this.activeConnectionId();
@@ -71,6 +74,13 @@ export class TradovateService {
     });
 
     isConnected = computed(() => this.activeConnection() !== null);
+
+    expiredConnections = computed(() => {
+        const ids = this.expiredConnectionIds();
+        return this.connections().filter(c => ids.includes(c.id));
+    });
+
+    hasExpiredConnections = computed(() => this.expiredConnections().length > 0);
 
     private _init = this.init();
 
@@ -200,6 +210,48 @@ export class TradovateService {
     }
 
     /**
+     * Update the token for an existing connection in-place (used on re-auth)
+     */
+    updateConnectionToken(connectionId: string, token: string): void {
+        this.connections.update(conns =>
+            conns.map(c => c.id === connectionId ? { ...c, token } : c)
+        );
+        this.clearExpiredConnection(connectionId);
+        this.accounts.set([]); // invalidate cached accounts
+        this.saveConnections();
+    }
+
+    /**
+     * Re-authenticate an expired direct-auth connection using stored username.
+     * Password must be supplied by the user (it is never stored).
+     */
+    reconnectConnection(connectionId: string, password: string): Observable<void> {
+        const conn = this.connections().find(c => c.id === connectionId);
+        if (!conn) return throwError(() => new Error('Connection not found'));
+        if (conn.config.authMode !== 'direct' || !conn.config.username) {
+            return throwError(() => new Error('Cannot auto-reconnect OAuth connections'));
+        }
+
+        const { username, environment = 'demo' } = conn.config;
+        const authUrl = environment === 'live'
+            ? 'https://tv-live.tradovateapi.com/authorize'
+            : 'https://tv-demo.tradovateapi.com/authorize';
+
+        const headers = new HttpHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' });
+
+        return this.http.post(authUrl, { locale: 'en', login: username, password }, { headers }).pipe(
+            map((res: any) => {
+                const token = res.d?.access_token || res.access_token;
+                if (!token) throw new Error(res.errorText || 'No access token received');
+                this.updateConnectionToken(connectionId, token);
+            }),
+            catchError(err => throwError(() => new Error(
+                err.error?.errorText || err.message || 'Reconnection failed'
+            )))
+        );
+    }
+
+    /**
      * Update connection accounts (after fetching from API)
      */
     updateConnectionAccounts(connectionId: string, accounts: TradovateAccount[]): void {
@@ -224,6 +276,7 @@ export class TradovateService {
      */
     removeConnection(connectionId: string): void {
         this.connections.update(conns => conns.filter(c => c.id !== connectionId));
+        this.clearExpiredConnection(connectionId);
         this.saveConnections();
 
         // If we removed the active connection, set another one as active
@@ -249,6 +302,22 @@ export class TradovateService {
             localStorage.setItem('tradovate_active_connection', connectionId);
             this.accounts.set([]); // Invalidate cache on connection switch
         }
+    }
+
+    /**
+     * Mark a connection's token as expired (called on 401 responses)
+     */
+    markConnectionExpired(connectionId: string): void {
+        this.expiredConnectionIds.update(ids =>
+            ids.includes(connectionId) ? ids : [...ids, connectionId]
+        );
+    }
+
+    /**
+     * Clear expired flag for a connection (called after successful re-auth)
+     */
+    clearExpiredConnection(connectionId: string): void {
+        this.expiredConnectionIds.update(ids => ids.filter(id => id !== connectionId));
     }
 
     /**
@@ -300,7 +369,8 @@ export class TradovateService {
     }
 
     /**
-     * Execute an authenticated GET request
+     * Execute an authenticated GET request.
+     * Intercepts 401 responses to mark the active connection as expired.
      */
     private authGet<T>(endpoint: string, params?: Record<string, string>): Observable<T> {
         try {
@@ -312,7 +382,15 @@ export class TradovateService {
         return this.http.get<T>(`${this.getBaseUrl()}${endpoint}`, {
             headers: this.getAuthHeaders(),
             params
-        });
+        }).pipe(
+            catchError(err => {
+                if (err?.status === 401 || err?.error?.errorText?.toLowerCase().includes('expired')) {
+                    const connId = this.activeConnectionId();
+                    if (connId) this.markConnectionExpired(connId);
+                }
+                return throwError(() => err);
+            })
+        );
     }
 
     // Exchange OAuth code for an access token (Live/Funded)
@@ -676,7 +754,13 @@ export class TradovateService {
                     return of(fills);
                 }
                 if (res['p-ticket']) {
-                    return this.pollWithPTicket(url, body, res['p-ticket'], waitMs, accountId, attempt + 1);
+                    const msg: string = res['p-message'] || '';
+                    if (msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('limit exceeded')) {
+                        console.warn(`[TradovateService] Rate limited by Tradovate: ${msg}`);
+                        return throwError(() => new Error(`Tradovate rate limit exceeded. Please wait before syncing again.`));
+                    }
+                    const nextWait = Math.max((res['p-time'] || 2) * 1000, 2000);
+                    return this.pollWithPTicket(url, body, res['p-ticket'], nextWait, accountId, attempt + 1);
                 }
                 if (res.errorText) {
                     console.warn(`[TradovateService] p-ticket error: ${res.errorText}`);
@@ -742,6 +826,10 @@ export class TradovateService {
             switchMap((res: any) => this.handleReportResponse(res, url, body, 0)),
             catchError(err => {
                 console.error(`[TradovateService] Reports API error for account ${accountName}:`, err);
+                if (err?.status === 401 || err?.error?.errorText?.toLowerCase().includes('expired')) {
+                    const connId = this.activeConnectionId();
+                    if (connId) this.markConnectionExpired(connId);
+                }
                 return this.handleReportError(err);
             })
         );
@@ -771,13 +859,21 @@ export class TradovateService {
         // P-ticket long-polling
         const pTicket = res['p-ticket'];
         if (pTicket) {
-            const waitMs = (res['p-time'] || 2) * 1000;
+            const waitMs = Math.max((res['p-time'] || 2) * 1000, 2000);
             return this.pollWithPTicket(url, body, pTicket, waitMs, accountId);
         }
 
-        // Error response
+        // Error response — flag auth errors so callers can bail out immediately
         if (res.errorText) {
-            return throwError(() => new Error(`Report API: ${res.errorText}`));
+            const msg = res.errorText as string;
+            const isAuth = msg.toLowerCase().includes('expired') || msg.toLowerCase().includes('unauthorized');
+            const err = new Error(`Report API: ${msg}`);
+            if (isAuth) {
+                const connId = this.activeConnectionId();
+                if (connId) this.markConnectionExpired(connId);
+                (err as any).isAuthError = true;
+            }
+            return throwError(() => err);
         }
 
         console.warn('[TradovateService] Unexpected response format:', res);
@@ -785,9 +881,28 @@ export class TradovateService {
     }
 
     /**
-     * Handle errors in report fetching with fallback to /fill/list
+     * Returns true for 401 / expired-token errors — these should stop sync immediately,
+     * not trigger per-chunk fallback calls.
+     */
+    private isAuthError(err: any): boolean {
+        if (err?.isAuthError) return true;
+        if (err?.status === 401) return true;
+        const msg = (err?.error?.errorText || err?.message || '').toLowerCase();
+        return msg.includes('expired') || msg.includes('unauthorized') || msg.includes('not authenticated');
+    }
+
+    /**
+     * Handle errors in report fetching.
+     * Auth errors (expired token) are re-thrown immediately — no fallback — so the
+     * caller can bail out of remaining chunks rather than hammering the API.
+     * Non-auth errors fall back to /fill/list for current-day data.
      */
     private handleReportError(err: any, accountId?: number): Observable<any[]> {
+        if (this.isAuthError(err)) {
+            console.warn('[TradovateService] Auth error in Reports API — skipping fallback, token expired.');
+            return throwError(() => err);
+        }
+
         console.error('Error in Report API workflow:', err);
         console.log('[TradovateService] Falling back to /fill/list (current-day only)...');
 
@@ -807,11 +922,19 @@ export class TradovateService {
             return throwError(() => e);
         }
 
+        const MAX_POLLS = 60; // 1s initial + 60 × 2s = ~2 min max
+        let pollCount = 0;
+
         return timer(1000, 2000).pipe(
-            mergeMap(() => this.http.get<any>(
-                `${this.getRptUrl()}/reports/pollreportstatus?reportId=${reportId}`,
-                { headers: this.getAuthHeaders() }
-            )),
+            mergeMap(() => {
+                if (++pollCount > MAX_POLLS) {
+                    return throwError(() => new Error(`Report ${reportId} polling timed out after ${MAX_POLLS} attempts`));
+                }
+                return this.http.get<any>(
+                    `${this.getRptUrl()}/reports/pollreportstatus?reportId=${reportId}`,
+                    { headers: this.getAuthHeaders() }
+                );
+            }),
             tap(status => console.log(`[TradovateService] Report ${reportId} status:`, status)),
             takeWhile(status => status.status !== 'Complete', true),
             switchMap(status => {
@@ -1000,6 +1123,10 @@ export class TradovateService {
                                         return rawFills.map(f => this.normalizeFill(f, account.id));
                                     }),
                                     catchError(err => {
+                                        if (this.isAuthError(err)) {
+                                            // Propagate auth errors — stops concatMap immediately
+                                            return throwError(() => err);
+                                        }
                                         console.error(`[TradovateService] Failed for account ${account.name}:`, err);
                                         return of([] as TradovateFill[]);
                                     })

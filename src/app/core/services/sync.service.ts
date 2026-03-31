@@ -20,10 +20,19 @@ export class SyncService {
     private authService = inject(AuthService);
     private accountSettings = inject(AccountSettingsService);
 
+    private static readonly LAST_SYNC_KEY = 'tradovate_last_sync_time';
+
     isSyncing = signal(false);
-    lastSyncTime = signal<Date | null>(null);
+    lastSyncTime = signal<Date | null>(SyncService.loadLastSyncTime());
     syncLog = signal<SyncLogEntry[]>([]);
     syncProgress = signal<{ current: number; total: number } | null>(null);
+
+    private static loadLastSyncTime(): Date | null {
+        const stored = localStorage.getItem(SyncService.LAST_SYNC_KEY);
+        if (!stored) return null;
+        const d = new Date(stored);
+        return isNaN(d.getTime()) ? null : d;
+    }
 
     private log(message: string, type: SyncLogEntry['type'] = 'info'): void {
         const entry: SyncLogEntry = {
@@ -155,7 +164,9 @@ export class SyncService {
                 this.syncProgress.set({ current: i + 1, total: tradesToImport.length });
             }
 
-            this.lastSyncTime.set(new Date());
+            const syncTime = new Date();
+            this.lastSyncTime.set(syncTime);
+            localStorage.setItem(SyncService.LAST_SYNC_KEY, syncTime.toISOString());
             this.tradovateService.updateConnectionSyncTime(activeConn.id);
 
             this.log(`Done! Imported ${tradesToImport.length} trade(s).`, 'success');

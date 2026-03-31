@@ -77,7 +77,7 @@
         "dmg",
         "zip"
       ],
-      "icon": "src/assets/icon.png"
+      "icon": "public/nvzn_logo.png"
     }
   }
 }

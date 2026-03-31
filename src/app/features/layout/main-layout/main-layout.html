@@ -2,6 +2,57 @@
     <app-sidebar />
     <div class="app-body">
         <app-header />
+
+        @if (tradovate.hasExpiredConnections() && !bannerDismissed()) {
+        <div class="expired-banner">
+            <svg class="expired-banner__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            </svg>
+
+            <div class="expired-banner__body">
+                @for (conn of tradovate.expiredConnections(); track conn.id) {
+                <div class="expired-banner__row">
+                    <span class="expired-banner__name">{{ conn.name }}</span>
+                    <span class="expired-banner__label">session expired</span>
+
+                    @if (reconnectingId() === conn.id) {
+                    <!-- Inline reconnect form -->
+                    <form class="expired-banner__form" (ngSubmit)="submitReconnect(conn.id)">
+                        <span class="expired-banner__username">{{ conn.config.username }}</span>
+                        <input class="expired-banner__pw"
+                               type="password"
+                               placeholder="Password"
+                               autocomplete="current-password"
+                               [ngModel]="reconnectPassword()"
+                               (ngModelChange)="reconnectPassword.set($event)"
+                               name="pw"
+                               autofocus />
+                        <button class="expired-banner__submit" type="submit" [disabled]="reconnectLoading()">
+                            {{ reconnectLoading() ? 'Connecting…' : 'Reconnect' }}
+                        </button>
+                        <button class="expired-banner__cancel" type="button" (click)="cancelReconnect()">Cancel</button>
+                    </form>
+                    @if (reconnectError()) {
+                    <span class="expired-banner__error">{{ reconnectError() }}</span>
+                    }
+                    } @else {
+                    <button class="expired-banner__reconnect-btn" (click)="startReconnect(conn.id)">
+                        Reconnect
+                    </button>
+                    }
+                </div>
+                }
+            </div>
+
+            <button class="expired-banner__dismiss" (click)="bannerDismissed.set(true)" aria-label="Dismiss">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        }
+
         <main class="app-content">
             <router-outlet />
         </main>

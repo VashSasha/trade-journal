@@ -140,7 +140,7 @@
         </div>
 
         <!-- Day Summary Card -->
-        <app-day-summary [trades]="form.dayTrades()" [startBalance]="form.priorBalance()"></app-day-summary>
+        <app-day-summary [trades]="form.dayTrades()" [startBalance]="form.priorBalance()" [date]="form.selectedDate()"></app-day-summary>
 
         <!-- Mood, Discipline & Day Summary -->
         <div class="dj-ratings" (click)="tagsState.showTagDropdown.set(false)">

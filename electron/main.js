@@ -14,6 +14,8 @@ let mainWindow;
 
 function createWindow() {
     // Create the browser window
+    const iconPath = path.join(__dirname, '../public/nvzn_logo.png');
+
     mainWindow = new BrowserWindow({
         width: 1400,
         height: 900,
@@ -26,9 +28,15 @@ function createWindow() {
             webSecurity: true,
             preload: path.join(__dirname, 'preload.js')
         },
+        icon: iconPath,
         title: 'Trade Journal',
         show: false // Don't show until ready
     });
+
+    // Set dock icon on macOS (dev mode — production uses the .icns from electron-builder)
+    if (process.platform === 'darwin' && app.dock) {
+        app.dock.setIcon(iconPath);
+    }
 
     // Determine if we're in development or production
     const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;

@@ -33,9 +33,13 @@ export class DashboardComponent implements OnInit {
     equityView = signal<'trade' | 'hour' | 'day'>('trade');
 
     ngOnInit(): void {
-        this.syncService.syncTrades().catch(err => {
-            console.error('Dashboard auto-sync failed:', err);
-        });
+        const lastSync = this.syncService.lastSyncTime();
+        const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+        if (!lastSync || lastSync.getTime() < fiveMinutesAgo) {
+            this.syncService.syncTrades().catch(err => {
+                console.error('Dashboard auto-sync failed:', err);
+            });
+        }
     }
 
     setEquityView(view: 'trade' | 'hour' | 'day') {
