@@ -1,6 +1,6 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, throwError, of, timer, from } from 'rxjs';
+import { Observable, throwError, of, timer, forkJoin, from } from 'rxjs';
 import { catchError, map, switchMap, tap, takeWhile, mergeMap, filter, concatMap, reduce } from 'rxjs/operators';
 
 export interface TradovateFill {
@@ -1022,7 +1022,8 @@ export class TradovateService {
                 if (accounts.length === 0) return of([] as TradovateFill[]);
 
                 const effectiveStart = startDate ?? accounts.reduce<Date>((earliest, a) => {
-                    const ts = a.timestamp ? new Date(a.timestamp) : new Date(2020, 0, 1);
+                    if (!a.timestamp) return earliest;
+                    const ts = new Date(a.timestamp);
                     return ts < earliest ? ts : earliest;
                 }, new Date());
 
@@ -1156,8 +1157,8 @@ export class TradovateService {
     getPerformanceTrades(
         startDate: Date,
         endDate: Date,
-        accountName: string,
-        accountId: number,
+        accountName?: string,
+        accountId?: number,
         attempt: number = 0,
         pTicket?: string
     ): Observable<any[]> {
@@ -1165,18 +1166,19 @@ export class TradovateService {
 
         const url = `${this.getRptUrl()}/reports/requestreport`;
         const timezone = -new Date().getTimezoneOffset();
+        const params: { name: string; value: string }[] = [
+            { name: 'startDate', value: this.formatDateForReport(startDate) },
+            { name: 'endDate',   value: this.formatDateForReport(endDate) },
+            { name: 'startTime', value: '00:00:00' },
+            { name: 'endTime',   value: '23:59:59' },
+        ];
+        if (accountName) params.push({ name: 'account', value: accountName });
         const body = {
             name: 'Performance',
             representationType: 'html',
             template: 'Flex.html',
             timezone,
-            params: [
-                { name: 'startDate', value: this.formatDateForReport(startDate) },
-                { name: 'endDate',   value: this.formatDateForReport(endDate) },
-                { name: 'startTime', value: '00:00:00' },
-                { name: 'endTime',   value: '23:59:59' },
-                { name: 'account',   value: accountName }
-            ]
+            params
         };
 
         let headers = this.getAuthHeaders().set('Content-Type', 'application/json');
@@ -1191,7 +1193,7 @@ export class TradovateService {
             }),
             switchMap((res: any): Observable<any[]> => {
                 if (res.data && typeof res.data === 'string') {
-                    return of(this.parsePerformanceTrades(res.data, accountId, accountName));
+                    return of(this.parsePerformanceTrades(res.data, accountId ?? 0, accountName ?? ''));
                 }
                 if (res['p-ticket']) {
                     if (attempt >= 30) {
@@ -1235,39 +1237,32 @@ export class TradovateService {
         try { this.requireToken(); } catch (e) { return throwError(() => e); }
 
         const end = endDate || new Date();
-        console.log(`[TradovateService] getAllTrades: ${startDate?.toISOString() ?? 'account start'} → ${end.toISOString()}`);
 
         return this.getAccounts().pipe(
-            switchMap(accounts => {
+            switchMap(allAccounts => {
+                const accounts = allAccounts.filter(a => a.active !== false);
                 if (accounts.length === 0) return of([] as any[]);
 
-                const effectiveStart = startDate ?? accounts.reduce<Date>((earliest, a) => {
-                    const ts = a.timestamp ? new Date(a.timestamp) : new Date(2020, 0, 1);
-                    return ts < earliest ? ts : earliest;
-                }, new Date());
+                console.log(`[TradovateService] getAllTrades: ${startDate?.toISOString() ?? 'account start'} → ${end.toISOString()}, ${accounts.length} account(s) in parallel`);
 
-                const chunks = this.chunkDateRange(effectiveStart, end, 1);
-                console.log(`[TradovateService] getAllTrades: ${chunks.length} chunk(s) × ${accounts.length} account(s)`);
-
-                const requests: Observable<any[]>[] = [];
-                for (const account of accounts) {
-                    for (const chunk of chunks) {
-                        requests.push(
-                            this.getPerformanceTrades(chunk.start, chunk.end, account.name, account.id).pipe(
-                                catchError(err => {
-                                    if (this.isAuthError(err)) return throwError(() => err);
-                                    console.error(`[TradovateService] getAllTrades failed for ${account.name}:`, err);
-                                    return of([] as any[]);
-                                })
-                            )
+                // One request per account, all fired in parallel.
+                // Start date is clamped to the account's creation date so we never
+                // request data from before the account existed.
+                return forkJoin(
+                    accounts.map(account => {
+                        const accountStart = account.timestamp ? new Date(account.timestamp) : null;
+                        const start = accountStart && (!startDate || accountStart > startDate)
+                            ? accountStart
+                            : (startDate ?? new Date());
+                        return this.getPerformanceTrades(start, end, account.name, account.id).pipe(
+                            catchError(err => {
+                                if (this.isAuthError(err)) return throwError(() => err);
+                                console.error(`[TradovateService] getAllTrades failed for ${account.name}:`, err);
+                                return of([] as any[]);
+                            })
                         );
-                    }
-                }
-
-                return from(requests).pipe(
-                    concatMap(req$ => req$),
-                    reduce((all, chunk) => [...all, ...chunk], [] as any[])
-                );
+                    })
+                ).pipe(map(results => results.flat()));
             }),
             catchError(err => {
                 if (this.isAuthError(err)) return throwError(() => err);

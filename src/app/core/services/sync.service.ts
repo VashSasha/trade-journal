@@ -2,7 +2,8 @@ import { Injectable, inject, signal } from '@angular/core';
 import { TradovateService } from './tradovate.service';
 import { TradeService } from './trade.service';
 import { AccountSettingsService } from './account-settings.service';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subject } from 'rxjs';
+import { takeUntil, timeout } from 'rxjs/operators';
 import { AuthService } from './auth.service';
 
 export interface SyncLogEntry {
@@ -21,11 +22,20 @@ export class SyncService {
     private accountSettings = inject(AccountSettingsService);
 
     private static readonly LAST_SYNC_KEY = 'tradovate_last_sync_time';
+    private static readonly SYNC_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
     isSyncing = signal(false);
     lastSyncTime = signal<Date | null>(SyncService.loadLastSyncTime());
     syncLog = signal<SyncLogEntry[]>([]);
     syncProgress = signal<{ current: number; total: number } | null>(null);
+
+    private cancel$ = new Subject<void>();
+
+    cancelSync(): void {
+        this.cancel$.next();
+        this.isSyncing.set(false);
+        this.log('Sync cancelled by user.', 'warn');
+    }
 
     private static loadLastSyncTime(): Date | null {
         const stored = localStorage.getItem(SyncService.LAST_SYNC_KEY);
@@ -89,7 +99,10 @@ export class SyncService {
             // Fetch pre-matched trades from Performance report
             this.log('Fetching trades from Tradovate Performance Report...');
             const rawTrades = await firstValueFrom(
-                this.tradovateService.getAllTrades(fromDate)
+                this.tradovateService.getAllTrades(fromDate).pipe(
+                    timeout(SyncService.SYNC_TIMEOUT_MS),
+                    takeUntil(this.cancel$)
+                )
             );
             this.log(`Retrieved ${rawTrades.length} trade(s)`, rawTrades.length > 0 ? 'success' : 'warn');
 

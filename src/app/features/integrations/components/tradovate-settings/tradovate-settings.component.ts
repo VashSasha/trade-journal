@@ -191,6 +191,10 @@ export class TradovateSettingsComponent {
         return conn.config.environment === 'live' ? 'Live' : 'Demo';
     }
 
+    activeAccountCount(conn: TradovateConnection): number {
+        return conn.accounts.filter(a => a.active !== false).length;
+    }
+
     formatDate(dateString: string): string {
         return new Date(dateString).toLocaleString();
     }

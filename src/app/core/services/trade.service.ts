@@ -98,7 +98,9 @@ export class TradeService {
             updatedAt: new Date().toISOString()
         };
 
-        if ((updatedTrade.status === 'closed' || updatedTrade.status === 'missed') && updatedTrade.exitPrice) {
+        // Skip P&L recalculation for broker-imported trades — their P&L is authoritative
+        const shouldRecalc = updatedTrade.source !== 'tradovate';
+        if (shouldRecalc && (updatedTrade.status === 'closed' || updatedTrade.status === 'missed') && updatedTrade.exitPrice) {
             this.calculatePnL(updatedTrade);
         }
 
