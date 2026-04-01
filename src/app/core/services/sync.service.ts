@@ -1,8 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { TradovateService, TradovateFill, TradovateAccount } from './tradovate.service';
+import { TradovateService } from './tradovate.service';
 import { TradeService } from './trade.service';
 import { AccountSettingsService } from './account-settings.service';
-import { firstValueFrom, Observable } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import { AuthService } from './auth.service';
 
 export interface SyncLogEntry {
@@ -86,67 +86,41 @@ export class SyncService {
 
             this.log(`Connected as: ${activeConn.name}`);
 
-            // Fetch fills
-            this.log('Fetching fills from Tradovate Reports API...');
-            const fills = await firstValueFrom(
-                this.tradovateService.getAllFills(fromDate)
+            // Fetch pre-matched trades from Performance report
+            this.log('Fetching trades from Tradovate Performance Report...');
+            const rawTrades = await firstValueFrom(
+                this.tradovateService.getAllTrades(fromDate)
             );
-            this.log(`Retrieved ${fills.length} raw fill(s)`, fills.length > 0 ? 'success' : 'warn');
+            this.log(`Retrieved ${rawTrades.length} trade(s)`, rawTrades.length > 0 ? 'success' : 'warn');
 
-            if (fills.length === 0) {
-                this.log('No fills found for the selected date range.', 'warn');
-                this.lastSyncTime.set(new Date());
+            if (rawTrades.length === 0) {
+                this.log('No trades found for the selected date range.', 'warn');
+                const syncTime = new Date();
+                this.lastSyncTime.set(syncTime);
+                localStorage.setItem(SyncService.LAST_SYNC_KEY, syncTime.toISOString());
                 return 0;
             }
 
-            // Fetch accounts for name mapping
-            const accounts = await firstValueFrom(
-                this.tradovateService.getAccounts() as Observable<TradovateAccount[]>
-            );
-            const accountMap = new Map<number, string>();
-            accounts.forEach((acc: TradovateAccount) => accountMap.set(acc.id, acc.name));
-            this.log(`Loaded ${accounts.length} account(s)`);
+            // Apply commission and build final trade objects
+            const commission = this.accountSettings.commissionPerContract();
+            const matchedTrades = rawTrades.map(t => {
+                const fees = parseFloat((commission * t.quantity * 2).toFixed(2));
+                const netPnl = parseFloat((t.pnl - fees).toFixed(2));
+                return {
+                    ...t,
+                    fees,
+                    netPnl,
+                    source: 'tradovate' as const,
+                    connectionId: activeConn.id,
+                };
+            });
 
-            // Fetch contract details for multipliers
-            const contractIds = new Set(fills.map(f => f.contractId).filter(id => !!id) as number[]);
-            const contractMap = new Map<number, any>();
-            this.log(`Fetching details for ${contractIds.size} contract(s)...`);
-            this.syncProgress.set({ current: 0, total: contractIds.size });
-
-            let contractIdx = 0;
-            for (const id of contractIds) {
-                try {
-                    const contract = await firstValueFrom(this.tradovateService.getContract(id));
-                    contractMap.set(id, contract);
-                } catch {
-                    this.log(`Could not load contract ${id} — using symbol fallback`, 'warn');
-                }
-                contractIdx++;
-                this.syncProgress.set({ current: contractIdx, total: contractIds.size });
-            }
-
-            // FIFO match fills into trades
-            this.log('Running FIFO matching algorithm...');
-            const matchedTrades = this.matchTrades(fills, contractMap, accountMap, activeConn.id);
-            this.log(`Matched ${matchedTrades.length} trade(s)`);
-
-            // Deduplicate — also patch accountId on existing trades that were stored as "0"
+            // Deduplicate
             const existingByExternalId = new Map(
                 this.tradeService.trades()
                     .filter(t => t.source === 'tradovate' && t.externalId)
                     .map(t => [t.externalId, t])
             );
-
-            let patched = 0;
-            for (const matched of matchedTrades) {
-                const existing = existingByExternalId.get(matched.externalId);
-                if (existing && matched.accountId && matched.accountId !== '0' &&
-                    (!existing.accountId || existing.accountId === '0')) {
-                    this.tradeService.updateTrade(existing.id, { accountId: matched.accountId });
-                    patched++;
-                }
-            }
-            if (patched > 0) this.log(`Patched accountId on ${patched} existing trade(s)`, 'info');
 
             const tradesToImport = matchedTrades.filter(t => !existingByExternalId.has(t.externalId));
             this.log(
@@ -182,136 +156,5 @@ export class SyncService {
         } finally {
             this.isSyncing.set(false);
         }
-    }
-
-    private matchTrades(
-        fills: TradovateFill[],
-        contractMap: Map<number, any>,
-        accountMap: Map<number, string>,
-        connectionId: string
-    ): any[] {
-        const sortedFills = [...fills].sort(
-            (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-        );
-
-        const trades: any[] = [];
-        const openPositions = new Map<string, TradovateFill[]>();
-
-        const getMultiplier = (fill: TradovateFill): number => {
-            if (fill.contractId && contractMap.has(fill.contractId)) {
-                const c = contractMap.get(fill.contractId);
-                if (c.pointValue) return c.pointValue;
-                const name = (c.name || '').toUpperCase();
-                if (name.includes('MNQ') || name.includes('MICRO E-MINI NASDAQ')) return 2;
-                if (name.includes('MES') || name.includes('MICRO E-MINI S&P')) return 5;
-                if (name.includes('NQ') || name.includes('E-MINI NASDAQ')) return 20;
-                if (name.includes('ES') || name.includes('E-MINI S&P')) return 50;
-                if (name.includes('CL') || name.includes('CRUDE OIL')) return 1000;
-                if (name.includes('GC') || name.includes('GOLD')) return 100;
-            }
-            const sym = (fill.symbol || '').toUpperCase();
-            if (sym.includes('MNQ')) return 2;
-            if (sym.includes('MES')) return 5;
-            if (sym.includes('NQ')) return 20;
-            if (sym.includes('ES')) return 50;
-            if (sym.includes('CL')) return 1000;
-            if (sym.includes('GC')) return 100;
-            return 1;
-        };
-
-        for (const fill of sortedFills) {
-            const sym = fill.contractId
-                ? (contractMap.get(fill.contractId)?.name || fill.symbol)
-                : fill.symbol;
-            const multiplier = getMultiplier(fill);
-            const currentPosition = openPositions.get(sym) || [];
-
-            if (currentPosition.length === 0 || currentPosition[0].action === fill.action) {
-                currentPosition.push({ ...fill });
-                openPositions.set(sym, currentPosition);
-            } else {
-                let remainingQty = fill.qty;
-
-                while (remainingQty > 0 && currentPosition.length > 0) {
-                    const openFill = currentPosition[0];
-                    const matchQty = Math.min(remainingQty, openFill.qty);
-                    const isLong = openFill.action === 'Buy';
-                    const entryPrice = openFill.price;
-                    const exitPrice = fill.price;
-                    const grossPnl = parseFloat(
-                        ((isLong ? exitPrice - entryPrice : entryPrice - exitPrice) * matchQty * multiplier).toFixed(2)
-                    );
-                    // Commission applies to both entry and exit sides
-                    const commission = this.accountSettings.commissionPerContract();
-                    const fees = parseFloat((commission * matchQty * 2).toFixed(2));
-                    const pnl = grossPnl;
-                    const netPnl = parseFloat((grossPnl - fees).toFixed(2));
-
-                    trades.push({
-                        symbol: sym,
-                        assetType: 'futures',
-                        direction: isLong ? 'long' : 'short',
-                        entryDate: new Date(openFill.timestamp).toISOString(),
-                        exitDate: new Date(fill.timestamp).toISOString(),
-                        entryPrice,
-                        exitPrice,
-                        quantity: matchQty,
-                        status: 'closed',
-                        pnl,
-                        netPnl,
-                        fees,
-                        multiplier,
-                        pnlPercent: this.calculatePnlPercent(entryPrice, exitPrice, isLong),
-                        source: 'tradovate',
-                        connectionId,
-                        externalId: `tradovate_paired_${openFill.id}_${fill.id}`,
-                        accountId: openFill.accountId?.toString(),
-                        accountName: openFill.accountId ? accountMap.get(openFill.accountId) : undefined,
-                        notes: 'Matched Trade (FIFO)'
-                    });
-
-                    remainingQty -= matchQty;
-                    openFill.qty -= matchQty;
-                    if (openFill.qty <= 0) currentPosition.shift();
-                }
-
-                if (remainingQty > 0) {
-                    currentPosition.push({ ...fill, qty: remainingQty });
-                    openPositions.set(sym, currentPosition);
-                }
-
-                if (currentPosition.length === 0) openPositions.delete(sym);
-            }
-        }
-
-        // Remaining open positions
-        openPositions.forEach((fills, sym) => {
-            fills.forEach(fill => {
-                trades.push({
-                    symbol: sym,
-                    assetType: 'futures',
-                    direction: fill.action === 'Buy' ? 'long' : 'short',
-                    entryDate: new Date(fill.timestamp).toISOString(),
-                    entryPrice: fill.price,
-                    quantity: fill.qty,
-                    status: 'open',
-                    fees: parseFloat((this.accountSettings.commissionPerContract() * fill.qty).toFixed(2)),
-                    source: 'tradovate',
-                    connectionId,
-                    externalId: `tradovate_open_${fill.id}`,
-                    accountId: fill.accountId?.toString(),
-                    accountName: fill.accountId ? accountMap.get(fill.accountId) : undefined,
-                    notes: 'Open Position (Unmatched)'
-                });
-            });
-        });
-
-        return trades;
-    }
-
-    private calculatePnlPercent(entry: number, exit: number, isLong: boolean): number {
-        if (!entry) return 0;
-        const diff = isLong ? (exit - entry) : (entry - exit);
-        return (diff / entry) * 100;
     }
 }

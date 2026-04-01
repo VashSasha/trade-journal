@@ -13,8 +13,10 @@ app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder');
 let mainWindow;
 
 function createWindow() {
-    // Create the browser window
-    const iconPath = path.join(__dirname, '../public/nvzn_logo.png');
+    // In production the icon is embedded by electron-builder (.icns).
+    // Only set it explicitly in dev mode where the source tree is available.
+    const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+    const iconPath = isDev ? path.join(__dirname, '../public/nvzn_logo.png') : undefined;
 
     mainWindow = new BrowserWindow({
         width: 1400,
@@ -28,18 +30,14 @@ function createWindow() {
             webSecurity: true,
             preload: path.join(__dirname, 'preload.js')
         },
-        icon: iconPath,
+        ...(iconPath ? { icon: iconPath } : {}),
         title: 'Trade Journal',
         show: false // Don't show until ready
     });
 
-    // Set dock icon on macOS (dev mode — production uses the .icns from electron-builder)
-    if (process.platform === 'darwin' && app.dock) {
+    if (isDev && iconPath && process.platform === 'darwin' && app.dock) {
         app.dock.setIcon(iconPath);
     }
-
-    // Determine if we're in development or production
-    const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
     if (isDev) {
         // Development: Load from Angular dev server

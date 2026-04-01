@@ -1,6 +1,6 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, throwError, of, timer, from, forkJoin } from 'rxjs';
+import { Observable, throwError, of, timer, from } from 'rxjs';
 import { catchError, map, switchMap, tap, takeWhile, mergeMap, filter, concatMap, reduce } from 'rxjs/operators';
 
 export interface TradovateFill {
@@ -1004,77 +1004,8 @@ export class TradovateService {
     }
 
     /**
-     * Tier 1: fetch today's fills via /fill/list + /order/list join.
-     * /fill/list only returns current-session fills but has real fill IDs.
-     * /order/list provides the accountId per order (joined via fill.orderId).
-     */
-    private buildTodayFills(end: Date): Observable<TradovateFill[]> {
-        const fills$ = this.authGet<any[]>('/fill/list');
-        const orders$ = this.authGet<any[]>('/order/list').pipe(catchError(() => of([])));
-
-        return fills$.pipe(
-            switchMap(fills => {
-                if (!Array.isArray(fills)) {
-                    console.warn('[TradovateService] /fill/list did not return an array:', fills);
-                    return of([]);
-                }
-                console.log(`[TradovateService] /fill/list returned ${fills.length} fill(s)`);
-
-                // Resolve unique contractIds → symbol names via /contract/item
-                const uniqueContractIds = [...new Set(
-                    fills.map(f => f.contractId).filter((id): id is number => !!id)
-                )];
-                const contracts$ = uniqueContractIds.length
-                    ? forkJoin(uniqueContractIds.map(id =>
-                          this.authGet<any>('/contract/item', { id: id.toString() }).pipe(catchError(() => of(null)))
-                      ))
-                    : of([] as any[]);
-
-                return forkJoin([orders$, contracts$]).pipe(
-                    map(([orders, contracts]) => {
-                        const orderAccountMap = new Map<number, number>();
-                        if (Array.isArray(orders)) {
-                            orders.forEach(o => {
-                                if (o.id && o.accountId) orderAccountMap.set(o.id, o.accountId);
-                            });
-                        }
-
-                        // contractId → symbol name (e.g. 12345 → "ESH5")
-                        const contractNameMap = new Map<number, string>();
-                        if (Array.isArray(contracts)) {
-                            contracts.forEach((c: any) => {
-                                if (c?.id && c?.name) contractNameMap.set(c.id, c.name);
-                            });
-                        }
-
-                        return fills
-                            .filter(f => {
-                                const ts = f.timestamp || f.time;
-                                if (!ts) return false;
-                                return new Date(ts) <= end;
-                            })
-                            .map(f => {
-                                const accountId = orderAccountMap.get(f.orderId) || 0;
-                                const symbol = contractNameMap.get(f.contractId) || '';
-                                return this.normalizeFill({ ...f, symbol }, accountId);
-                            });
-                    })
-                );
-            }),
-            catchError(err => {
-                console.warn('[TradovateService] /fill/list failed:', err);
-                return of([] as TradovateFill[]);
-            })
-        );
-    }
-
-    /**
-     * Get all fills enriched with accountId using a two-tier approach:
-     *   Tier 1 — /fill/list + /order/list: today's fills (fast, reliable accountId join)
-     *   Tier 2 — Reports API (one request, all accounts): historical fills before today
-     *            Account IDs are resolved by matching the "Account" name column in the
-     *            HTML response to the accounts fetched from /account/list.
-     * Results are merged and deduplicated by fill ID (Tier 1 takes precedence).
+     * Get all fills via the Reports API for the full date range.
+     * Account IDs are resolved from the "Account" column in the HTML response.
      */
     getAllFills(startDate: Date | null, endDate?: Date): Observable<TradovateFill[]> {
         try {
@@ -1084,79 +1015,264 @@ export class TradovateService {
         }
 
         const end = endDate || new Date();
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // midnight local — start of today
-
         console.log(`[TradovateService] getAllFills: ${startDate?.toISOString() ?? 'account start'} → ${end.toISOString()}`);
 
-        const tier1$ = this.buildTodayFills(end);
+        return this.getAccounts().pipe(
+            switchMap(accounts => {
+                if (accounts.length === 0) return of([] as TradovateFill[]);
 
-        // Tier 2 only needed when startDate is before today (or full sync with no startDate)
-        const needsHistory = !startDate || startDate < today;
-        const yesterday = new Date(today.getTime() - 1); // 1ms before midnight = end of yesterday
+                const effectiveStart = startDate ?? accounts.reduce<Date>((earliest, a) => {
+                    const ts = a.timestamp ? new Date(a.timestamp) : new Date(2020, 0, 1);
+                    return ts < earliest ? ts : earliest;
+                }, new Date());
 
-        const tier2$: Observable<TradovateFill[]> = needsHistory
-            ? this.getAccounts().pipe(
-                switchMap(accounts => {
-                    if (accounts.length === 0) return of([] as TradovateFill[]);
+                const chunks = this.chunkDateRange(effectiveStart, end, 1);
+                console.log(`[TradovateService] ${chunks.length} chunk(s) × ${accounts.length} account(s) via Reports API`);
 
-                    // Use earliest account creation date as the effective start
-                    const effectiveStart = startDate ?? accounts.reduce<Date>((earliest, a) => {
-                        const ts = a.timestamp ? new Date(a.timestamp) : new Date(2020, 0, 1);
-                        return ts < earliest ? ts : earliest;
-                    }, new Date());
-
-                    // Tier 2 covers up to yesterday only — today's fills come from Tier 1 (/fill/list)
-                    // Extending to today causes double-counting because fill IDs differ between APIs
-                    const chunks = this.chunkDateRange(effectiveStart, yesterday, 1);
-                    console.log(`[TradovateService] Tier 2: ${chunks.length} chunk(s) × ${accounts.length} account(s) via Reports API`);
-
-                    // One request per account per chunk — pass account name as the API expects
-                    console.log(`[TradovateService] Accounts for Reports API:`, accounts.map(a => `${a.name} (id:${a.id})`));
-                    const requests: Observable<TradovateFill[]>[] = [];
-                    for (const account of accounts) {
-                        for (const chunk of chunks) {
-                            requests.push(
-                                this.getHistoricalReportsAPI(chunk.start, chunk.end, account.name).pipe(
-                                    map(rawFills => {
-                                        console.log(`[TradovateService] Got ${rawFills.length} fills for ${account.name}`);
-                                        return rawFills.map(f => this.normalizeFill(f, account.id));
-                                    }),
-                                    catchError(err => {
-                                        if (this.isAuthError(err)) {
-                                            // Propagate auth errors — stops concatMap immediately
-                                            return throwError(() => err);
-                                        }
-                                        console.error(`[TradovateService] Failed for account ${account.name}:`, err);
-                                        return of([] as TradovateFill[]);
-                                    })
-                                )
-                            );
-                        }
+                const requests: Observable<TradovateFill[]>[] = [];
+                for (const account of accounts) {
+                    for (const chunk of chunks) {
+                        requests.push(
+                            this.getHistoricalReportsAPI(chunk.start, chunk.end, account.name).pipe(
+                                map(rawFills => {
+                                    console.log(`[TradovateService] Got ${rawFills.length} fills for ${account.name}`);
+                                    return rawFills.map(f => this.normalizeFill(f, account.id));
+                                }),
+                                catchError(err => {
+                                    if (this.isAuthError(err)) return throwError(() => err);
+                                    console.error(`[TradovateService] Failed for account ${account.name}:`, err);
+                                    return of([] as TradovateFill[]);
+                                })
+                            )
+                        );
                     }
+                }
 
-                    return from(requests).pipe(
-                        concatMap(req$ => req$),
-                        reduce((all, chunk) => [...all, ...chunk], [] as TradovateFill[])
-                    );
-                }),
-                catchError(err => {
-                    console.warn('[TradovateService] Tier 2 (Reports API) failed — proceeding with today-only fills:', err);
-                    return of([] as TradovateFill[]);
-                })
-            )
-            : of([] as TradovateFill[]);
-
-        return forkJoin([tier1$, tier2$]).pipe(
-            map(([tier1Fills, tier2Fills]) => {
-                // Tier 1 wins on duplicates (has accurate accountId from order join)
-                const tier1Ids = new Set(tier1Fills.map(f => String(f.id)));
-                const uniqueTier2 = tier2Fills.filter(f => !tier1Ids.has(String(f.id)));
-                const merged = [...tier1Fills, ...uniqueTier2];
-                console.log(
-                    `[TradovateService] Merged: ${tier1Fills.length} today + ${uniqueTier2.length} historical = ${merged.length} total fills`
+                return from(requests).pipe(
+                    concatMap(req$ => req$),
+                    reduce((all, chunk) => [...all, ...chunk], [] as TradovateFill[])
                 );
-                return merged;
+            }),
+            catchError(err => {
+                if (this.isAuthError(err)) return throwError(() => err);
+                console.warn('[TradovateService] Reports API failed:', err);
+                return of([] as TradovateFill[]);
+            })
+        );
+    }
+
+    /**
+     * Parse a P&L string from the Performance report.
+     * "$(38.00)" → -38  |  "$106.00" → 106  |  "$1,054.00" → 1054
+     */
+    private parsePerformancePnl(raw: string): number {
+        const isNegative = raw.includes('(');
+        const value = parseFloat(raw.replace(/[$(),\s]/g, '')) || 0;
+        return isNegative ? -value : value;
+    }
+
+    /**
+     * Parse the "Trades" table from a Performance report HTML response.
+     * Each row is a completed, already-matched trade.
+     */
+    private parsePerformanceTrades(html: string, accountId: number, accountName: string): any[] {
+        try {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+
+            // Find the .performance-chart section whose <h5> says "Trades"
+            let tradesTable: Element | null = null;
+            doc.querySelectorAll('.performance-chart').forEach(chart => {
+                if (chart.querySelector('h5')?.textContent?.trim() === 'Trades') {
+                    tradesTable = chart.querySelector('table');
+                }
+            });
+
+            if (!tradesTable) {
+                console.warn('[TradovateService] Performance report: no Trades table found');
+                return [];
+            }
+
+            const trades: any[] = [];
+            (tradesTable as Element).querySelectorAll('tbody tr').forEach((row, i) => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length < 8) return;
+
+                const symbol      = cells[0].textContent?.trim() ?? '';
+                const quantity    = parseFloat(cells[1].textContent?.trim() ?? '0') || 0;
+                const buyPrice    = parseFloat(cells[2].textContent?.trim() ?? '0') || 0;
+                const buyTimeStr  = cells[3].textContent?.trim() ?? '';
+                // cells[4] = Duration — skip
+                const sellTimeStr = cells[5].textContent?.trim() ?? '';
+                const sellPrice   = parseFloat(cells[6].textContent?.trim() ?? '0') || 0;
+                const pnl         = this.parsePerformancePnl(cells[7].textContent?.trim() ?? '');
+
+                if (!symbol || !quantity || !buyTimeStr || !sellTimeStr) return;
+
+                const buyTime  = new Date(buyTimeStr);
+                const sellTime = new Date(sellTimeStr);
+
+                if (isNaN(buyTime.getTime()) || isNaN(sellTime.getTime())) return;
+
+                // If sell happened before buy → SHORT (sold to enter, bought to cover)
+                const isShort    = sellTime < buyTime;
+                const entryDate  = (isShort ? sellTime : buyTime).toISOString();
+                const exitDate   = (isShort ? buyTime  : sellTime).toISOString();
+                const entryPrice = isShort ? sellPrice : buyPrice;
+                const exitPrice  = isShort ? buyPrice  : sellPrice;
+                const pnlPercent = entryPrice
+                    ? ((isShort ? entryPrice - exitPrice : exitPrice - entryPrice) / entryPrice) * 100
+                    : 0;
+
+                trades.push({
+                    symbol,
+                    assetType: 'futures',
+                    direction: isShort ? 'short' : 'long',
+                    quantity,
+                    entryDate,
+                    exitDate,
+                    entryPrice,
+                    exitPrice,
+                    pnl,
+                    pnlPercent,
+                    status: 'closed',
+                    accountId: String(accountId),
+                    accountName,
+                    externalId: `tradovate_perf_${symbol}_${entryDate}_${exitDate}`
+                });
+            });
+
+            console.log(`[TradovateService] Performance parser extracted ${trades.length} trades`);
+            return trades;
+        } catch (err) {
+            console.error('[TradovateService] Performance report parsing failed:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Request a Performance report for one account/chunk and return parsed trades.
+     * Handles p-ticket long-polling (up to 30 attempts).
+     */
+    getPerformanceTrades(
+        startDate: Date,
+        endDate: Date,
+        accountName: string,
+        accountId: number,
+        attempt: number = 0,
+        pTicket?: string
+    ): Observable<any[]> {
+        try { this.requireToken(); } catch (e) { return throwError(() => e); }
+
+        const url = `${this.getRptUrl()}/reports/requestreport`;
+        const timezone = -new Date().getTimezoneOffset();
+        const body = {
+            name: 'Performance',
+            representationType: 'html',
+            template: 'Flex.html',
+            timezone,
+            params: [
+                { name: 'startDate', value: this.formatDateForReport(startDate) },
+                { name: 'endDate',   value: this.formatDateForReport(endDate) },
+                { name: 'startTime', value: '00:00:00' },
+                { name: 'endTime',   value: '23:59:59' },
+                { name: 'account',   value: accountName }
+            ]
+        };
+
+        let headers = this.getAuthHeaders().set('Content-Type', 'application/json');
+        if (pTicket) headers = headers.set('p-ticket', pTicket);
+
+        const waitMs = pTicket ? 2000 : 0;
+
+        return timer(waitMs).pipe(
+            switchMap(() => this.http.post(url, body, { headers, responseType: 'text' })),
+            map((raw: string) => {
+                try { return JSON.parse(raw); } catch { return { data: raw }; }
+            }),
+            switchMap((res: any): Observable<any[]> => {
+                if (res.data && typeof res.data === 'string') {
+                    return of(this.parsePerformanceTrades(res.data, accountId, accountName));
+                }
+                if (res['p-ticket']) {
+                    if (attempt >= 30) {
+                        console.warn('[TradovateService] Performance report polling timed out');
+                        return of([]);
+                    }
+                    const msg: string = res['p-message'] || '';
+                    if (msg.toLowerCase().includes('rate limit')) {
+                        return throwError(() => new Error('Tradovate rate limit exceeded'));
+                    }
+                    const nextWait = Math.max((res['p-time'] || 2) * 1000, 2000);
+                    console.log(`[TradovateService] Performance p-ticket poll #${attempt + 1}, waiting ${nextWait / 1000}s...`);
+                    return timer(nextWait).pipe(
+                        switchMap(() => this.getPerformanceTrades(startDate, endDate, accountName, accountId, attempt + 1, res['p-ticket']))
+                    );
+                }
+                if (res.errorText) {
+                    const err = new Error(`Performance Report API: ${res.errorText}`);
+                    if (this.isAuthError({ message: res.errorText })) {
+                        const connId = this.activeConnectionId();
+                        if (connId) this.markConnectionExpired(connId);
+                        (err as any).isAuthError = true;
+                    }
+                    return throwError(() => err);
+                }
+                console.warn('[TradovateService] Unexpected Performance report response:', res);
+                return of([]);
+            }),
+            catchError(err => {
+                if (this.isAuthError(err)) return throwError(() => err);
+                console.error(`[TradovateService] Performance report error for ${accountName}:`, err);
+                return of([] as any[]);
+            })
+        );
+    }
+
+    /**
+     * Get all pre-matched trades from the Performance report for all accounts and the full date range.
+     */
+    getAllTrades(startDate: Date | null, endDate?: Date): Observable<any[]> {
+        try { this.requireToken(); } catch (e) { return throwError(() => e); }
+
+        const end = endDate || new Date();
+        console.log(`[TradovateService] getAllTrades: ${startDate?.toISOString() ?? 'account start'} → ${end.toISOString()}`);
+
+        return this.getAccounts().pipe(
+            switchMap(accounts => {
+                if (accounts.length === 0) return of([] as any[]);
+
+                const effectiveStart = startDate ?? accounts.reduce<Date>((earliest, a) => {
+                    const ts = a.timestamp ? new Date(a.timestamp) : new Date(2020, 0, 1);
+                    return ts < earliest ? ts : earliest;
+                }, new Date());
+
+                const chunks = this.chunkDateRange(effectiveStart, end, 1);
+                console.log(`[TradovateService] getAllTrades: ${chunks.length} chunk(s) × ${accounts.length} account(s)`);
+
+                const requests: Observable<any[]>[] = [];
+                for (const account of accounts) {
+                    for (const chunk of chunks) {
+                        requests.push(
+                            this.getPerformanceTrades(chunk.start, chunk.end, account.name, account.id).pipe(
+                                catchError(err => {
+                                    if (this.isAuthError(err)) return throwError(() => err);
+                                    console.error(`[TradovateService] getAllTrades failed for ${account.name}:`, err);
+                                    return of([] as any[]);
+                                })
+                            )
+                        );
+                    }
+                }
+
+                return from(requests).pipe(
+                    concatMap(req$ => req$),
+                    reduce((all, chunk) => [...all, ...chunk], [] as any[])
+                );
+            }),
+            catchError(err => {
+                if (this.isAuthError(err)) return throwError(() => err);
+                console.warn('[TradovateService] getAllTrades failed:', err);
+                return of([] as any[]);
             })
         );
     }

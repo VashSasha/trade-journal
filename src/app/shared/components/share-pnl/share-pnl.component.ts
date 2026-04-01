@@ -168,7 +168,7 @@ export class SharePnlComponent implements OnDestroy {
 
       // Logo centered at top
       try {
-        const logo = await this.loadImage('/NVZN_Trading_logo.png');
+        const logo = await this.loadImage('./NVZN_Trading_logo.png');
         const logoH = 240;
         const logoW = Math.min(600, (logo.width / logo.height) * logoH);
         ctx.drawImage(logo, (W - logoW) / 2, 0, logoW, logoH);
@@ -176,7 +176,7 @@ export class SharePnlComponent implements OnDestroy {
         ctx.fillStyle = '#10b981';
         ctx.font = 'bold 24px system-ui, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('NVZN TRADING', W / 2, 120);
+      ctx.fillText('NVZN TRADING', W / 2, 120);
         ctx.textAlign = 'left';
       }
 
@@ -205,7 +205,7 @@ export class SharePnlComponent implements OnDestroy {
 
       // Logo top-left
       try {
-        const logo = await this.loadImage('/NVZN_Trading_logo.png');
+        const logo = await this.loadImage('./NVZN_Trading_logo.png');
         const logoH = 350;
         const logoW = Math.min(1200, (logo.width / logo.height) * logoH);
         ctx.drawImage(logo, 30, 0, logoW, logoH);
