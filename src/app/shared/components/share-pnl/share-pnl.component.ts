@@ -138,6 +138,10 @@ export class SharePnlComponent implements OnDestroy {
     ];
   }
 
+  private cssVar(name: string): string {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
   private async drawCanvas(): Promise<void> {
     if (!this.canvasRef) return;
     const canvas = this.canvasRef.nativeElement;
@@ -148,20 +152,22 @@ export class SharePnlComponent implements OnDestroy {
     canvas.height = H;
     const ctx = canvas.getContext('2d')!;
 
-    // Background
-    ctx.fillStyle = '#0f172a';
+    // Canvas card is always dark-themed (share card for social media)
+    ctx.fillStyle = '#070b15';
     ctx.fillRect(0, 0, W, H);
 
-    // Radial gradient overlay
+    const isPositive = this.pnl >= 0;
+    const pnlColor = isPositive ? '#00E0D3' : '#ef4444';
+    const gradientColor = isPositive ? '16,185,129' : '239,68,68';
+    const pnlText = (isPositive ? '+' : '') +
+      new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD'}).format(this.pnl);
+
+    // Radial gradient overlay — color matches P&L direction
     const grad = ctx.createRadialGradient(W * 0.5, H * 0.3, 0, W * 0.5, H * 0.5, W * 0.7);
-    grad.addColorStop(0, 'rgba(16,185,129,0.07)');
+    grad.addColorStop(0, `rgba(${gradientColor},0.08)`);
     grad.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
-
-    const pnlColor = this.pnl >= 0 ? '#10b981' : '#ef4444';
-    const pnlText = (this.pnl >= 0 ? '+' : '') +
-      new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD'}).format(this.pnl);
 
     if (isClean) {
       // ── Clean layout: square, logo centered top, P&L centered ─────────────
@@ -173,28 +179,28 @@ export class SharePnlComponent implements OnDestroy {
         const logoW = Math.min(600, (logo.width / logo.height) * logoH);
         ctx.drawImage(logo, (W - logoW) / 2, 0, logoW, logoH);
       } catch {
-        ctx.fillStyle = '#10b981';
+        ctx.fillStyle = this.cssVar('--color-accent');
         ctx.font = 'bold 24px system-ui, sans-serif';
         ctx.textAlign = 'center';
-      ctx.fillText('NVZN TRADING', W / 2, 120);
+        ctx.fillText('NVZN TRADING', W / 2, 120);
         ctx.textAlign = 'left';
       }
 
       // NET P&L label
-      ctx.fillStyle = '#64748b';
+      ctx.fillStyle = this.cssVar('--color-text-secondary');
       ctx.font = '600 16px system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('NET P&L:', W / 3, H / 2 + 10 );
 
       // P&L value
-      ctx.fillStyle = '#00E0D3';
+      ctx.fillStyle = pnlColor;
       ctx.font = 'bold 60px system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(pnlText, W / 2, H / 2 + 62);
 
       // Date below
       if (this.date) {
-        ctx.fillStyle = '#94a3b8';
+        ctx.fillStyle = this.cssVar('--color-text-muted');
         ctx.font = '400 16px system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(this.formattedDate() ?? '', W / 2, H / 2 + 120);
@@ -210,35 +216,35 @@ export class SharePnlComponent implements OnDestroy {
         const logoW = Math.min(1200, (logo.width / logo.height) * logoH);
         ctx.drawImage(logo, 30, 0, logoW, logoH);
       } catch {
-        ctx.fillStyle = '#10b981';
+        ctx.fillStyle = this.cssVar('--color-accent');
         ctx.font = 'bold 22px system-ui, sans-serif';
         ctx.fillText('NVZN TRADING', 48, 80);
       }
 
       // Context label (top-right)
-      ctx.fillStyle = '#475569';
+      ctx.fillStyle = this.cssVar('--color-text-muted');
       ctx.font = '500 15px system-ui, sans-serif';
       ctx.textAlign = 'right';
       ctx.fillText(this.context === 'journal' ? 'Daily Journal' : 'Dashboard Summary', W - 48, 64);
       ctx.textAlign = 'left';
       // ── Full layout: P&L left + stats grid right ──────────────────────────
-      ctx.fillStyle = '#64748b';
+      ctx.fillStyle = this.cssVar('--color-text-secondary');
       ctx.font = '600 20px system-ui, sans-serif';
       ctx.fillText('NET P&L:', 48, H / 2 - 24);
 
-      ctx.fillStyle = '#00E0D3'
+      ctx.fillStyle = pnlColor;
       ctx.font = 'bold 84px system-ui, sans-serif';
       ctx.fillText(pnlText, 48, H / 2 + 64);
 
       if (this.date) {
-        ctx.fillStyle = '#94a3b8';
+        ctx.fillStyle = this.cssVar('--color-text-muted');
         ctx.font = '400 20px system-ui, sans-serif';
         ctx.fillText(this.formattedDate() ?? '', 48, H / 2 + 120);
       }
 
       // Vertical divider
       const divX = Math.round(W * 0.58);
-      ctx.strokeStyle = '#1e293b';
+      ctx.strokeStyle = this.cssVar('--color-border');
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(divX, 80);
@@ -270,11 +276,11 @@ export class SharePnlComponent implements OnDestroy {
         const x = statsX + col * colW;
         const y = startY + row * rowH;
 
-        ctx.fillStyle = '#f1f5f9';
+        ctx.fillStyle = this.cssVar('--color-text-primary');
         ctx.font = 'bold 34px system-ui, sans-serif';
         ctx.fillText(item.value, x, y + 34);
 
-        ctx.fillStyle = '#64748b';
+        ctx.fillStyle = this.cssVar('--color-text-secondary');
         ctx.font = '500 13px system-ui, sans-serif';
         ctx.fillText(item.label, x, y + 56);
       });
@@ -284,7 +290,7 @@ export class SharePnlComponent implements OnDestroy {
     ctx.fillStyle = '#080e1a';
     ctx.fillRect(0, H - 56, W, 56);
 
-    ctx.fillStyle = '#334155';
+    ctx.fillStyle = this.cssVar('--color-text-muted');
     ctx.font = '400 16px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('NVZN Trading Journal  •  Trade smarter, not harder', W / 2, H - 21);

@@ -151,8 +151,8 @@
         transition: background 0.12s, color 0.12s;
 
         &:hover {
-            background: rgba(239, 68, 68, 0.1);
-            color: #ef4444;
+            background: var(--color-negative-subtle);
+            color: var(--color-negative);
         }
 
         svg {
@@ -194,7 +194,7 @@
         transition: width 0.5s ease;
 
         &--complete { background: var(--color-accent); }
-        &--in-progress { background: #3b82f6; }
+        &--in-progress { background: var(--color-info); }
         &--empty { background: var(--color-border); }
     }
 }

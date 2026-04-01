@@ -8,10 +8,10 @@
         border-color: transparent;
     }
 
-    &[data-grade="A"].is-active { background-color: #10b981; }
-    &[data-grade="B"].is-active { background-color: #3b82f6; }
-    &[data-grade="C"].is-active { background-color: #f59e0b; }
-    &[data-grade="D"].is-active { background-color: #ef4444; }
+    &[data-grade="A"].is-active { background-color: var(--color-positive); }
+    &[data-grade="B"].is-active { background-color: var(--color-info); }
+    &[data-grade="C"].is-active { background-color: var(--color-warning); }
+    &[data-grade="D"].is-active { background-color: var(--color-negative); }
 }
 
 .direction-btn {

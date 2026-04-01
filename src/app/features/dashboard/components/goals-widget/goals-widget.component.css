@@ -142,8 +142,8 @@
   transition: background 0.12s, color 0.12s;
 }
 .goal-item__delete:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: var(--color-negative-subtle);
+  color: var(--color-negative);
 }
 .goal-item__delete svg {
   width: 0.75rem;
@@ -181,7 +181,7 @@
   background: var(--color-accent);
 }
 .goal-item__bar-fill--in-progress {
-  background: #3b82f6;
+  background: var(--color-info);
 }
 .goal-item__bar-fill--empty {
   background: var(--color-border);

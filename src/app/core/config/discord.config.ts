@@ -19,8 +19,8 @@ export const DISCORD_CONFIG = {
      */
     roles: {
         admin: '1197302887617925250',
+        lifetime: '1439849246663643148',
         premium: '1198859184402333706',
-        lifetime: '1439849246663643148'
     },
 
     /** OAuth2 scopes — do not change */

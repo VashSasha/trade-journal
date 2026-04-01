@@ -143,10 +143,10 @@
     font-weight: 700;
     color: #fff;
 
-    &[data-grade="A"] { background-color: #10b981; }
-    &[data-grade="B"] { background-color: #3b82f6; }
-    &[data-grade="C"] { background-color: #f59e0b; }
-    &[data-grade="D"] { background-color: #ef4444; }
+    &[data-grade="A"] { background-color: var(--color-positive); }
+    &[data-grade="B"] { background-color: var(--color-info); }
+    &[data-grade="C"] { background-color: var(--color-warning); }
+    &[data-grade="D"] { background-color: var(--color-negative); }
 }
 
 .detail-label {
@@ -159,10 +159,10 @@
 
 .mistake-tag {
     border-radius: 9999px;
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid var(--color-negative-subtle);
+    background: var(--color-negative-subtle);
     padding: 0.25rem 0.75rem;
     font-size: 0.75rem;
     font-weight: 500;
-    color: #ef4444;
+    color: var(--color-negative);
 }

@@ -51,10 +51,10 @@
   color: var(--color-text-primary);
 }
 .ds-pnl.positive {
-  color: #10b981;
+  color: var(--color-positive);
 }
 .ds-pnl.negative {
-  color: #ef4444;
+  color: var(--color-negative);
 }
 @media (max-width: 800px) {
   .ds-pnl {
@@ -150,10 +150,10 @@
   line-height: 1.2;
 }
 .ds-stat__value.positive {
-  color: #10b981;
+  color: var(--color-positive);
 }
 .ds-stat__value.negative {
-  color: #ef4444;
+  color: var(--color-negative);
 }
 .ds-stat__label {
   font-size: 0.6875rem;
@@ -189,10 +189,10 @@
   color: var(--color-text-primary);
 }
 .ds-footer-stat__value.positive {
-  color: #10b981;
+  color: var(--color-positive);
 }
 .ds-footer-stat__value.negative {
-  color: #ef4444;
+  color: var(--color-negative);
 }
 
 .ds-footer-divider {

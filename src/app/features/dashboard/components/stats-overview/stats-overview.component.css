@@ -55,28 +55,28 @@
   height: 1.5rem;
 }
 .stat-card--positive .stat-card__value {
-  color: #10b981;
+  color: var(--color-positive);
 }
 .stat-card--positive .stat-card__icon {
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--color-positive-subtle);
 }
 .stat-card--positive .stat-card__icon svg {
-  color: #10b981;
+  color: var(--color-positive);
 }
 .stat-card--negative .stat-card__value {
-  color: #ef4444;
+  color: var(--color-negative);
 }
 .stat-card--negative .stat-card__icon {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-negative-subtle);
 }
 .stat-card--negative .stat-card__icon svg {
-  color: #ef4444;
+  color: var(--color-negative);
 }
 .stat-card--blue .stat-card__icon {
   background: rgba(59, 130, 246, 0.1);
 }
 .stat-card--blue .stat-card__icon svg {
-  color: #3b82f6;
+  color: var(--color-info);
 }
 .stat-card--purple .stat-card__icon {
   background: rgba(168, 85, 247, 0.1);

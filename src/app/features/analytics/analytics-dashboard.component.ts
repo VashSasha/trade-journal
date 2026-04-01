@@ -37,9 +37,28 @@ export class AnalyticsDashboardComponent {
         this.filterService.filterTrades(this.tradeService.trades())
     );
 
-    equityCurveData = computed(() =>
-        buildEquityCurve(this.filteredTrades(), this.accountSettings.startingBalance())
-    );
+    equityCurveData = computed(() => {
+        const filtered = this.filteredTrades();
+        const accountIds = this.filterService.filters().accountIds;
+
+        const allClosed = this.tradeService.trades().filter(t => {
+            if (t.status !== 'closed' || t.netPnl === undefined) return false;
+            if (accountIds.length > 0 && t.accountId && t.accountId !== '0') {
+                return accountIds.includes(t.accountId);
+            }
+            return true;
+        });
+
+        const firstDate = filtered.length > 0
+            ? Math.min(...filtered.map(t => new Date(t.entryDate).getTime()))
+            : Infinity;
+        const priorPnl = allClosed
+            .filter(t => new Date(t.entryDate).getTime() < firstDate)
+            .reduce((sum, t) => sum + (t.netPnl ?? 0), 0);
+
+        const adjustedStart = this.accountSettings.startingBalance() + priorPnl;
+        return buildEquityCurve(filtered, adjustedStart);
+    });
 
     equityBaseline = computed(() => this.accountSettings.startingBalance());
 }

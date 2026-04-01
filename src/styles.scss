@@ -20,24 +20,36 @@
     --color-text-primary: #0f172a;
     --color-text-secondary:#64748b;
     --color-text-muted:   #94a3b8;
-    --color-accent:       #10b981;
-    --color-accent-hover: #059669;
-    --color-accent-subtle:rgba(16, 185, 129, 0.12);
+    --color-accent:          #0096FF;
+    --color-accent-hover:    #0A8F9A;
+    --color-accent-subtle:   rgba(16, 185, 129, 0.12);
+    --color-positive:        #10b981;
+    --color-positive-subtle: rgba(16, 185, 129, 0.12);
+    --color-negative:        #ef4444;
+    --color-negative-subtle: rgba(239, 68, 68, 0.12);
+    --color-warning:         #f59e0b;
+    --color-info:            #3b82f6;
 }
 
 :root.dark {
-    --color-bg-base:      #020617;
-    --color-bg-surface:   #0f172a;
-    --color-bg-surface-2: #1e293b;
-    --color-bg-surface-3: #334155;
-    --color-border:       #1e293b;
-    --color-border-subtle:#0f172a;
-    --color-text-primary: #f1f5f9;
-    --color-text-secondary:#94a3b8;
-    --color-text-muted:   #64748b;
-    --color-accent:       #10b981;
-    --color-accent-hover: #34d399;
-    --color-accent-subtle:rgba(16, 185, 129, 0.15);
+    --color-bg-base:         #020617;
+    --color-bg-surface:      #0f172a;
+    --color-bg-surface-2:    #1e293b;
+    --color-bg-surface-3:    #334155;
+    --color-border:          #1e293b;
+    --color-border-subtle:   #0f172a;
+    --color-text-primary:    #f1f5f9;
+    --color-text-secondary:  #94a3b8;
+    --color-text-muted:      #64748b;
+    --color-accent:          #10b981;
+    --color-accent-hover:    #34d399;
+    --color-accent-subtle:   rgba(16, 185, 129, 0.15);
+    --color-positive:        #10b981;
+    --color-positive-subtle: rgba(16, 185, 129, 0.15);
+    --color-negative:        #ef4444;
+    --color-negative-subtle: rgba(239, 68, 68, 0.15);
+    --color-warning:         #f59e0b;
+    --color-info:            #3b82f6;
 }
 
 /* Custom Global Styles */
@@ -139,11 +151,11 @@ html, body {
 
     /* --- P&L Colors --- */
     .pnl-positive {
-        @apply text-emerald-600 dark:text-emerald-400;
+        color: var(--color-positive);
     }
 
     .pnl-negative {
-        @apply text-red-600 dark:text-red-400;
+        color: var(--color-negative);
     }
 
     /* --- Table --- */
@@ -165,19 +177,19 @@ html, body {
 .quill-editor-custom {
     .ql-toolbar {
         @apply border-slate-200 bg-slate-50 rounded-t-lg dark:border-slate-700 dark:bg-slate-800;
-        
+
         .ql-stroke {
             @apply stroke-slate-700 dark:stroke-slate-300;
         }
-        
+
         .ql-fill {
             @apply fill-slate-700 dark:fill-slate-300;
         }
-        
+
         .ql-picker-label {
             @apply text-slate-700 dark:text-slate-300;
         }
-        
+
         button:hover,
         button.ql-active {
             .ql-stroke {
@@ -188,41 +200,41 @@ html, body {
             }
         }
     }
-    
+
     .ql-container {
         @apply border-slate-200 bg-white rounded-b-lg dark:border-slate-700 dark:bg-slate-900;
         font-family: inherit;
-        
+
         .ql-editor {
             @apply text-slate-900 dark:text-white;
             min-height: 500px;
             font-size: 1rem;
             line-height: 1.75;
-            
+
             &.ql-blank::before {
                 @apply text-slate-400 dark:text-slate-500 italic;
             }
-            
+
             h1 {
                 @apply text-3xl font-bold mb-4 text-slate-900 dark:text-white;
             }
-            
+
             h2 {
                 @apply text-2xl font-bold mb-3 text-slate-900 dark:text-white;
             }
-            
+
             blockquote {
                 @apply border-l-4 border-slate-300 pl-4 italic text-slate-600 dark:border-slate-600 dark:text-slate-400;
             }
-            
+
             code {
                 @apply bg-slate-100 px-1.5 py-0.5 rounded text-sm dark:bg-slate-800;
             }
-            
+
             pre {
                 @apply bg-slate-100 p-4 rounded-lg dark:bg-slate-800;
             }
-            
+
             a {
                 @apply text-emerald-600 underline dark:text-emerald-400;
             }

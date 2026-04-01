@@ -110,16 +110,16 @@
   color: #fff;
 }
 .trade-grade-badge[data-grade=A] {
-  background-color: #10b981;
+  background-color: var(--color-positive);
 }
 .trade-grade-badge[data-grade=B] {
-  background-color: #3b82f6;
+  background-color: var(--color-info);
 }
 .trade-grade-badge[data-grade=C] {
-  background-color: #f59e0b;
+  background-color: var(--color-warning);
 }
 .trade-grade-badge[data-grade=D] {
-  background-color: #ef4444;
+  background-color: var(--color-negative);
 }
 
 .trade-table {
@@ -169,10 +169,10 @@
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  background: rgba(16, 185, 129, 0.15);
+  background: var(--color-positive-subtle);
   font-size: 0.75rem;
   font-weight: 700;
-  color: #10b981;
+  color: var(--color-positive);
 }
 .bulk-action-bar__actions {
   display: flex;
@@ -201,10 +201,10 @@
   background: var(--color-bg-surface-2);
 }
 .bulk-action-bar__btn--danger {
-  color: #ef4444;
+  color: var(--color-negative);
 }
 .bulk-action-bar__btn--danger:hover {
-  background: rgba(239, 68, 68, 0.08);
+  background: var(--color-negative-subtle);
 }
 
 /*# sourceMappingURL=trade-list.css.map */

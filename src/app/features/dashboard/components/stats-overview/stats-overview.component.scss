@@ -59,26 +59,26 @@
     }
 
     &--positive {
-        .stat-card__value { color: #10b981; }
+        .stat-card__value { color: var(--color-positive); }
 
         .stat-card__icon {
-            background: rgba(16, 185, 129, 0.1);
-            svg { color: #10b981; }
+            background: var(--color-positive-subtle);
+            svg { color: var(--color-positive); }
         }
     }
 
     &--negative {
-        .stat-card__value { color: #ef4444; }
+        .stat-card__value { color: var(--color-negative); }
 
         .stat-card__icon {
-            background: rgba(239, 68, 68, 0.1);
-            svg { color: #ef4444; }
+            background: var(--color-negative-subtle);
+            svg { color: var(--color-negative); }
         }
     }
 
     &--blue .stat-card__icon {
         background: rgba(59, 130, 246, 0.1);
-        svg { color: #3b82f6; }
+        svg { color: var(--color-info); }
     }
 
     &--purple .stat-card__icon {

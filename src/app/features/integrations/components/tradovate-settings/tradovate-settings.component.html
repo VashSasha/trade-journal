@@ -45,7 +45,7 @@
                   </div>
                   @if (conn.accounts.length > 0) {
                     <p class="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-                      {{ conn.accounts.length }} account{{ conn.accounts.length !== 1 ? 's' : '' }}
+                      {{ activeAccountCount(conn) }} account{{ activeAccountCount(conn) !== 1 ? 's' : '' }}
                       &bull;
                       Last synced: {{ conn.lastSyncedAt ? formatDate(conn.lastSyncedAt) : 'Never' }}
                     </p>
@@ -125,6 +125,12 @@
                       Import Trades
                     }
                   </button>
+                  @if (isSyncing()) {
+                    <button (click)="syncService.cancelSync()"
+                            class="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 whitespace-nowrap">
+                      Cancel
+                    </button>
+                  }
                 </div>
 
                 <!-- Progress bar -->
