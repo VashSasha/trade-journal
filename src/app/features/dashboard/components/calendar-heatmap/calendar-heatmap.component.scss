@@ -12,6 +12,12 @@
     @apply text-lg font-semibold text-slate-900 dark:text-white;
 }
 
+.cal-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .cal-nav {
     @apply flex items-center gap-2;
 }
@@ -105,18 +111,139 @@
     }
 }
 
-// ── P&L display ──────────────────────────────────────────────────────────────
+// ── Settings gear ────────────────────────────────────────────────────────────
 
-.cal-pnl {
-    @apply mt-2 text-right;
+.cal-settings {
+    position: relative;
 }
 
-.cal-pnl-amount {
-    @apply text-xs font-bold text-white;
+.cal-settings-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    color: var(--color-text-muted);
+    transition: background 0.15s, color 0.15s;
+
+    &:hover,
+    &--active {
+        background: var(--color-bg-surface-2);
+        color: var(--color-text-primary);
+    }
 }
 
-.cal-pnl-pct {
-    @apply text-[10px] font-medium text-white/90;
+.cal-settings-icon {
+    width: 17px;
+    height: 17px;
+}
+
+.cal-settings-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 20;
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.14);
+    min-width: 150px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.cal-settings-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+    padding: 4px 8px 6px;
+    margin: 0;
+}
+
+.cal-mode-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background 0.12s;
+
+    &:hover {
+        background: var(--color-bg-surface-2);
+        color: var(--color-text-primary);
+    }
+
+    &--active {
+        color: var(--color-text-primary);
+        font-weight: 500;
+    }
+}
+
+.cal-mode-checkbox {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--color-accent);
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+// ── Metric rows ───────────────────────────────────────────────────────────────
+
+.cal-metrics {
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-end;
+}
+
+.cal-metric-row {
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+    line-height: 1.2;
+}
+
+.cal-metric-val {
+    font-size: 10px;
+    font-weight: 600;
+    color: #fff;
+
+    &--pnl {
+        font-size: 15px;
+        font-weight: 700;
+    }
+
+    &--lg {
+        font-size: 14px;
+        font-weight: 700;
+    }
+}
+
+.cal-metric-sub {
+    font-size: 9px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+// On uncolored background
+.cal-metrics--light {
+    .cal-metric-val {
+        color: var(--color-text-primary);
+    }
+
+    .cal-metric-sub {
+        color: var(--color-text-secondary);
+    }
 }
 
 // ── Economic event tags ───────────────────────────────────────────────────────

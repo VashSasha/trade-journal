@@ -3,19 +3,50 @@
   <!-- Header -->
   <div class="cal-header">
     <h3 class="cal-title">Performance Calendar</h3>
-    <div class="cal-nav">
-      <button (click)="prevMonth()" class="cal-nav-btn">
-        <svg class="cal-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-        </svg>
-      </button>
-      <span class="cal-month-label">{{ currentMonthYear() }}</span>
-      <button (click)="nextMonth()" class="cal-nav-btn">
-        <svg class="cal-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-        </svg>
-      </button>
-      <button (click)="today()" class="cal-today-btn">Today</button>
+    <div class="cal-header-right">
+      <div class="cal-nav">
+        <button (click)="prevMonth()" class="cal-nav-btn">
+          <svg class="cal-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+          </svg>
+        </button>
+        <span class="cal-month-label">{{ currentMonthYear() }}</span>
+        <button (click)="nextMonth()" class="cal-nav-btn">
+          <svg class="cal-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </button>
+        <button (click)="today()" class="cal-today-btn">Today</button>
+      </div>
+
+      <!-- Settings -->
+      <div class="cal-settings">
+        <button class="cal-settings-btn"
+                (click)="$event.stopPropagation(); toggleSettings()"
+                [class.cal-settings-btn--active]="settingsOpen()"
+                title="Display options">
+          <svg class="cal-settings-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </button>
+
+        @if (settingsOpen()) {
+          <div class="cal-settings-panel" (click)="$event.stopPropagation()">
+            <p class="cal-settings-label">Show in cells</p>
+            @for (opt of modeOptions; track opt.value) {
+              <label class="cal-mode-option" [class.cal-mode-option--active]="isSelected(opt.value)">
+                <input type="checkbox"
+                       class="cal-mode-checkbox"
+                       [checked]="isSelected(opt.value)"
+                       (change)="toggleMode(opt.value)"/>
+                {{ opt.label }}
+              </label>
+            }
+          </div>
+        }
+      </div>
     </div>
   </div>
 
@@ -33,7 +64,7 @@
   <!-- Calendar grid -->
   <div class="cal-grid">
     @for (day of calendarData(); track $index) {
-      @let hasPnl = day.hasTrades && day.pnl !== 0;
+      @let colored = isCellColored(day);
       <div class="cal-day"
            [class.cal-day--other-month]="!day.isCurrentMonth"
            [class.cal-day--closed]="day.isMarketClosed && !day.hasTrades"
@@ -43,20 +74,52 @@
         <div class="cal-day-top">
           <span class="cal-day-num"
                 [class.cal-day-num--today]="day.isToday"
-                [class.cal-day-num--on-pnl]="hasPnl">
+                [class.cal-day-num--on-pnl]="colored">
             {{ day.day }}
           </span>
-          @if (day.hasTrades) {
-            <span class="cal-trade-count" [class.cal-trade-count--on-pnl]="hasPnl">
-              {{ day.count }}
-            </span>
-          }
+<!--          @if (day.hasTrades && !isSelected('trades')) {-->
+<!--            <span class="cal-trade-count" [class.cal-trade-count&#45;&#45;on-pnl]="colored">-->
+<!--              {{ day.count }}-->
+<!--            </span>-->
+<!--          }-->
         </div>
 
-        @if (hasPnl) {
-          <div class="cal-pnl">
-            <div class="cal-pnl-amount">{{ day.pnl | currency }}</div>
-            <div class="cal-pnl-pct">{{ day.pnlPercent > 0 ? '+' : '' }}{{ day.pnlPercent.toFixed(1) }}%</div>
+        @if (day.hasTrades) {
+          <div class="cal-metrics" [class.cal-metrics--light]="!colored">
+
+            @if (isSelected('pnl') && day.pnl !== 0) {
+              <div class="cal-metric-row">
+                <span class="cal-metric-val cal-metric-val--pnl ">{{ day.pnl | currency }}</span>
+              </div>
+            }
+
+            @if (isSelected('points') && day.points !== 0) {
+              <div class="cal-metric-row">
+                <span class="cal-metric-val">{{ formatSign(day.points) }}{{ day.points.toFixed(2) }}</span>
+                <span class="cal-metric-sub">pts</span>
+              </div>
+            }
+
+            @if (isSelected('trades')) {
+              <div class="cal-metric-row cal-metric-row--trades">
+                <span class="cal-metric-val">{{ day.count }}</span>
+                <span class="cal-metric-sub">trade{{ day.count !== 1 ? 's' : '' }}</span>
+              </div>
+            }
+
+            @if (isSelected('winrate') && day.closedCount > 0) {
+              <div class="cal-metric-row">
+                <span class="cal-metric-val">{{ day.winRate.toFixed(0) }}%</span>
+                <span class="cal-metric-sub">{{ day.wins }}W/{{ day.closedCount - day.wins }}L</span>
+              </div>
+            }
+
+            @if (isSelected('percent') && day.pnlPercent !== 0) {
+              <div class="cal-metric-row">
+                <span class="cal-metric-val">{{ formatSign(day.pnlPercent) }}{{ day.pnlPercent.toFixed(2) }}%</span>
+              </div>
+            }
+
           </div>
         }
 
@@ -65,13 +128,13 @@
             @for (ev of day.events; track $index) {
               <div class="cal-event-wrap">
                 <a class="cal-event-tag"
-                   [class.cal-event-tag--on-pnl]="hasPnl"
+                   [class.cal-event-tag--on-pnl]="colored"
                    [attr.data-abbr]="ev.abbr"
                    [href]="ev.link"
                    target="_blank" rel="noopener">
                   {{ ev.abbr }}
                 </a>
-                <div class="cal-event-tooltip" [class.cal-event-tooltip--on-pnl]="hasPnl">
+                <div class="cal-event-tooltip" [class.cal-event-tooltip--on-pnl]="colored">
                   <div class="cal-event-tooltip-name">{{ ev.event }}</div>
                   <div class="cal-event-tooltip-meta">
                     <span>{{ ev.time }} ET</span>

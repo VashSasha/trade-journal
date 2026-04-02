@@ -51,7 +51,37 @@ export class AccountService {
     }
 
     init(): void {
-        // No-op: the effect handles reactive account loading from allAccounts().
+        if (!this.isConnected()) return;
+        const cached = this.tradovateService.allAccounts();
+        if (cached.length === 0) {
+            // Accounts not cached yet — fetch from API, then load balances
+            Promise.all(
+                this.tradovateService.connections().map(conn =>
+                    firstValueFrom(this.tradovateService.getAccountsForConnection(conn)).catch(() => null)
+                )
+            ).then(() => this.fetchBalances());
+        } else {
+            // Accounts already in cache — just load balances
+            this.fetchBalances();
+        }
+    }
+
+    private async fetchBalances(): Promise<void> {
+        const conns = this.tradovateService.connections();
+        await Promise.all(
+            conns.map(conn =>
+                firstValueFrom(this.tradovateService.getCashBalancesForConnection(conn))
+                    .then(balances => {
+                        this.accountBalances.update(map => {
+                            const next = new Map(map);
+                            (balances as any[]).forEach(b => {
+                                if (b.accountId && b.amount !== undefined) next.set(b.accountId, b.amount);
+                            });
+                            return next;
+                        });
+                    }).catch(() => {})
+            )
+        );
     }
 
     toggle(id: number): void {

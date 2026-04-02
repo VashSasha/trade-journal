@@ -1,0 +1,240 @@
+// Tier color tokens
+$t1-text:   #dc2626;
+$t1-bg:     rgba(220, 38, 38, 0.1);
+$t1-border: rgba(220, 38, 38, 0.3);
+
+$t2-text:   #d97706;
+$t2-bg:     rgba(217, 119, 6, 0.1);
+$t2-border: rgba(217, 119, 6, 0.3);
+
+$t3-text:   #65a30d;
+$t3-bg:     rgba(101, 163, 13, 0.1);
+$t3-border: rgba(101, 163, 13, 0.3);
+
+// ── Wrapper ───────────────────────────────────────────────────
+
+.dj-news {
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+// ── Header label row ──────────────────────────────────────────
+
+.dj-news__header {
+    display: flex;
+    align-items: center;
+}
+
+.dj-news__title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dj-news__icon {
+    width: 14px;
+    height: 14px;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+}
+
+.dj-news__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+// ── Pills row — same layout as Tags ──────────────────────────
+
+.dj-news__pills {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+// ── Input + dropdown — mirrors .dj-tag-input-wrap ─────────────
+
+.dj-news__input-wrap {
+    position: relative;
+}
+
+.dj-news__input {
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-surface-2);
+    color: var(--color-text-primary);
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    width: 160px;
+    transition: border-color 0.15s;
+
+    &::placeholder {
+        color: var(--color-text-muted);
+    }
+
+    &:focus {
+        border-color: var(--color-accent);
+        background: var(--color-bg-surface);
+    }
+}
+
+.dj-news__dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 30;
+    min-width: 220px;
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.dj-news__dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    border-radius: 5px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.1s;
+
+    &:hover {
+        background: var(--color-bg-surface-2);
+        color: var(--color-text-primary);
+    }
+
+    &--new {
+        color: var(--color-accent);
+        font-weight: 500;
+        border-top: 1px solid var(--color-border);
+        margin-top: 2px;
+        padding-top: 8px;
+    }
+}
+
+.dj-news__dropdown-abbr {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    background: #e2e8f0;
+    color: #475569;
+
+    &[data-abbr="FOMC"] { background: #ede9fe; color: #5b21b6; }
+    &[data-abbr="CPI"], &[data-abbr="CPI*"],
+    &[data-abbr="PPI"], &[data-abbr="PCE"], &[data-abbr="PCE*"] { background: #dbeafe; color: #1e40af; }
+    &[data-abbr="NFP"], &[data-abbr="UE%"] { background: #fed7aa; color: #9a3412; }
+    &[data-abbr="GDP"] { background: #d1fae5; color: #065f46; }
+}
+
+.dj-news__dropdown-name {
+    flex: 1;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dj-news__dropdown-time {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+}
+
+.dj-news__plus-icon {
+    width: 11px;
+    height: 11px;
+    flex-shrink: 0;
+}
+
+// ── Tier-colored pills — mirrors .dj-tag-pill ─────────────────
+
+.dj-news__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 4px 3px 9px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-surface-2);
+    color: var(--color-text-primary);
+
+    &[data-tier="T1"] { background: $t1-bg; border-color: $t1-border; color: $t1-text; }
+    &[data-tier="T2"] { background: $t2-bg; border-color: $t2-border; color: $t2-text; }
+    &[data-tier="T3"] { background: $t3-bg; border-color: $t3-border; color: $t3-text; }
+}
+
+.dj-news__pill-name {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+// Clickable tier badge
+.dj-news__tier-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    height: 16px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    border: 1px solid currentColor;
+    background: rgba(255, 255, 255, 0.35);
+    color: inherit;
+    transition: filter 0.1s;
+
+    &:hover { filter: brightness(0.8); }
+}
+
+// Remove × button
+.dj-news__pill-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    font-size: 13px;
+    line-height: 1;
+    color: inherit;
+    opacity: 0.55;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: opacity 0.12s;
+
+    &:hover { opacity: 1; }
+}

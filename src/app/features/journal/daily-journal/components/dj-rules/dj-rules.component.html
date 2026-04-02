@@ -1,0 +1,89 @@
+<div class="dj-rules">
+
+  <div class="dj-rules__header">
+    <h3>Rules Checklist</h3>
+    <div class="dj-rules__header-right">
+      <span class="dj-rules__count">{{ form.checkedRules().size }} / {{ rules.customRules().length }} followed</span>
+      <button class="dj-rules__manage-btn" (click)="rules.toggleManage()">
+        {{ rules.showManageRules() ? 'Done' : 'Edit rules' }}
+      </button>
+    </div>
+  </div>
+
+  <div class="dj-rules__grid">
+    @for (rule of rules.customRules(); track $index; let idx = $index) {
+
+      @if (rules.showManageRules() && rules.editingRuleIndex() === idx) {
+
+        <!-- Inline edit form -->
+        <div class="rule-edit-row">
+          <input type="text" class="rule-edit-input"
+                 [ngModel]="rules.editingRuleText()" (ngModelChange)="rules.editingRuleText.set($event)"
+                 (keydown.enter)="rules.saveEdit()" (keydown.escape)="rules.cancelEdit()" />
+          <button class="rule-edit-save" (click)="rules.saveEdit()">Save</button>
+          <button class="rule-edit-cancel" (click)="rules.cancelEdit()">Cancel</button>
+        </div>
+
+      } @else if (rules.showManageRules()) {
+
+        <!-- Manage mode with drag handle -->
+        <div class="rule-manage-item"
+             draggable="true"
+             [class.is-dragging]="rules.dragFromIndex() === idx"
+             [class.is-drag-over]="rules.dragOverIndex() === idx"
+             (dragstart)="rules.onDragStart(idx)"
+             (dragenter)="$event.preventDefault(); rules.onDragEnter(idx)"
+             (dragover)="$event.preventDefault()"
+             (drop)="$event.preventDefault(); rules.onDrop(idx)"
+             (dragend)="rules.onDragEnd()">
+          <svg class="rule-manage-item__drag" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/>
+          </svg>
+          <span class="rule-manage-item__label">{{ rule }}</span>
+          <div class="rule-manage-item__actions">
+            <button class="rule-manage-item__edit" (click)="rules.startEdit(idx)" title="Edit">
+              <svg class="h-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+            </button>
+            <button class="rule-manage-item__delete" (click)="rules.deleteRule(idx)" title="Delete">
+              <svg class="h-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+      } @else {
+
+        <!-- Normal checklist mode -->
+        <label class="rule-item" [class.is-checked]="form.checkedRules().has(rule)">
+          <input type="checkbox" [checked]="form.checkedRules().has(rule)"
+                 (change)="form.toggleRule(rule)" class="rule-item__checkbox" />
+          <span class="rule-item__label">{{ rule }}</span>
+        </label>
+
+      }
+    }
+  </div>
+
+  @if (rules.showManageRules()) {
+    <div class="dj-rules__add-section">
+      @if (rules.showAddRule()) {
+        <div class="rule-add-form">
+          <input type="text" class="rule-add-form__input" placeholder="New rule text..."
+                 [ngModel]="rules.newRuleText()" (ngModelChange)="rules.newRuleText.set($event)"
+                 (keydown.enter)="rules.addRule()"
+                 (keydown.escape)="rules.showAddRule.set(false); rules.newRuleText.set('')" />
+          <button class="rule-add-form__confirm" [disabled]="!rules.newRuleText().trim()" (click)="rules.addRule()">Add</button>
+          <button class="rule-add-form__cancel" (click)="rules.showAddRule.set(false); rules.newRuleText.set('')">Cancel</button>
+        </div>
+      } @else {
+        <button class="dj-rules__add-btn" (click)="rules.showAddRule.set(true)">+ Add rule</button>
+      }
+    </div>
+  }
+
+</div>

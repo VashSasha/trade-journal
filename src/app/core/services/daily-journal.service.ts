@@ -77,6 +77,13 @@ export class DailyJournalService {
         localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify(updated));
     }
 
+    swapRules(indexA: number, indexB: number): void {
+        const rules = [...this.customRulesSignal()];
+        [rules[indexA], rules[indexB]] = [rules[indexB], rules[indexA]];
+        this.customRulesSignal.set(rules);
+        localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify(rules));
+    }
+
     // ── Templates ────────────────────────────────────────────
 
     saveTemplate(name: string, type: 'plan' | 'notes', content: string): JournalTemplate {

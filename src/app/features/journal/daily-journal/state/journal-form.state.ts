@@ -5,6 +5,7 @@ import { EconomicCalendarService } from '../../../../core/services/economic-cale
 import { AccountService } from '../../../../core/services/account.service';
 import { AccountSettingsService } from '../../../../core/services/account-settings.service';
 import { buildTimelineEntry, groupEntriesByMonth, MonthGroup, TimelineEntry } from '../utils/timeline.utils';
+import { NewsEventTag } from '../../../../core/models/daily-journal.model';
 
 @Injectable()
 export class JournalFormState {
@@ -27,6 +28,7 @@ export class JournalFormState {
     noteContent = signal('');
     avoidedNewsEvents = signal<Set<string>>(new Set());
     customNewsEvents = signal<Array<{ name: string; time: string; avoided: boolean }>>([]);
+    newsEventTags = signal<NewsEventTag[]>([]);
 
     tags = signal<string[]>([]);
 
@@ -128,6 +130,7 @@ export class JournalFormState {
                 this.avoidedNewsEvents.set(new Set(events.map(e => e.abbr)));
             }
             this.customNewsEvents.set(note?.customNewsEvents ?? []);
+            this.newsEventTags.set(note?.newsEventTags ?? []);
             this.isDirty.set(false);
         });
     }
@@ -181,6 +184,7 @@ export class JournalFormState {
             rulesFollowed: Array.from(this.checkedRules()),
             avoidedNewsEvents: Array.from(this.avoidedNewsEvents()),
             customNewsEvents: this.customNewsEvents(),
+            newsEventTags: this.newsEventTags(),
             tags: this.tags(),
         });
         this.lastSaved.set(new Date());

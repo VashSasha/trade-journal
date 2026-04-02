@@ -1,0 +1,70 @@
+<div class="dj-news">
+
+  <div class="dj-news__header">
+    <div class="dj-news__title-row">
+      <svg class="dj-news__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+      </svg>
+      <span class="dj-news__label">News Events</span>
+    </div>
+  </div>
+
+  <div class="dj-news__pills">
+
+    <!-- Input with dropdown — identical pattern to Tags -->
+    <div class="dj-news__input-wrap">
+      <input
+        class="dj-news__input"
+        type="text"
+        placeholder="Add news event..."
+        [ngModel]="news.newsInput()"
+        (ngModelChange)="news.newsInput.set($event); news.showNewsDropdown.set(true)"
+        (focus)="news.showNewsDropdown.set(true)"
+        (keydown.enter)="news.addFromInput()"
+        (keydown.escape)="news.showNewsDropdown.set(false); news.newsInput.set('')"
+      />
+
+      @if (news.showNewsDropdown() && (news.dropdownOptions().length > 0 || news.newsInput().trim())) {
+        <div class="dj-news__dropdown">
+
+          @for (ev of news.dropdownOptions(); track ev.abbr) {
+            <button class="dj-news__dropdown-item" type="button"
+                    (click)="news.addFromCalendar(ev.abbr, ev.event, ev.time, ev.link)">
+              <span class="dj-news__dropdown-abbr" [attr.data-abbr]="ev.abbr">{{ ev.abbr }}</span>
+              <span class="dj-news__dropdown-name">{{ ev.event }}</span>
+              @if (ev.time) {
+                <span class="dj-news__dropdown-time">{{ ev.time }} ET</span>
+              }
+            </button>
+          }
+
+          @if (news.inputIsNew()) {
+            <button class="dj-news__dropdown-item dj-news__dropdown-item--new" type="button"
+                    (click)="news.addFromInput()">
+              <svg class="dj-news__plus-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Add "{{ news.newsInput().trim() }}"
+            </button>
+          }
+
+        </div>
+      }
+    </div>
+
+    <!-- Added event pills -->
+    @for (tag of form.newsEventTags(); track tag.abbr) {
+      <span class="dj-news__pill" [attr.data-tier]="tag.tier">
+        <span class="dj-news__pill-name">{{ tag.name || tag.abbr }}</span>
+        <button class="dj-news__tier-badge" [attr.data-tier]="tag.tier"
+                (click)="news.cycleTier(tag.abbr)" type="button" title="Click to change tier">
+          {{ tag.tier }}
+        </button>
+        <button class="dj-news__pill-remove" (click)="news.removeEvent(tag.abbr)" type="button">×</button>
+      </span>
+    }
+
+  </div>
+
+</div>

@@ -1,3 +1,14 @@
+export type NewsTier = 'T1' | 'T2' | 'T3';
+
+export interface NewsEventTag {
+    abbr: string;       // e.g. "CPI", "FOMC", or custom name used as key
+    name: string;       // full event name
+    tier: NewsTier;
+    time?: string;      // e.g. "08:30"
+    link?: string;
+    isCustom?: boolean;
+}
+
 export interface DailyNote {
     id: string;
     date: string; // YYYY-MM-DD
@@ -7,8 +18,11 @@ export interface DailyNote {
     mood?: number;        // 1-5
     discipline?: number;  // 1-5
     rulesFollowed?: string[]; // checked rule texts
-    avoidedNewsEvents?: string[]; // abbrs of auto-detected events the user marked as avoided
+    /** @deprecated use newsEventTags instead */
+    avoidedNewsEvents?: string[];
+    /** @deprecated use newsEventTags instead */
     customNewsEvents?: Array<{ name: string; time: string; avoided: boolean }>;
+    newsEventTags?: NewsEventTag[];
     tags?: string[];
     createdAt: string;
     updatedAt: string;

@@ -56,4 +56,33 @@ export class JournalRulesState {
         this.newRuleText.set('');
         this.showAddRule.set(false);
     }
+
+    dragFromIndex = signal<number | null>(null);
+    dragOverIndex = signal<number | null>(null);
+
+    onDragStart(index: number): void {
+        this.dragFromIndex.set(index);
+        this.dragOverIndex.set(null);
+    }
+
+    // Use dragenter (fires once) — more stable than dragover (fires continuously)
+    onDragEnter(index: number): void {
+        if (this.dragFromIndex() !== null && this.dragFromIndex() !== index) {
+            this.dragOverIndex.set(index);
+        }
+    }
+
+    onDrop(toIndex: number): void {
+        const from = this.dragFromIndex();
+        if (from !== null && from !== toIndex) {
+            this.journalService.swapRules(from, toIndex);
+        }
+        this.dragFromIndex.set(null);
+        this.dragOverIndex.set(null);
+    }
+
+    onDragEnd(): void {
+        this.dragFromIndex.set(null);
+        this.dragOverIndex.set(null);
+    }
 }
