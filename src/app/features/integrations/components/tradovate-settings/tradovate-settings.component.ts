@@ -37,8 +37,6 @@ export class TradovateSettingsComponent {
 
     // Expose service signals
     connections = this.tradovateService.connections;
-    activeConnectionId = this.tradovateService.activeConnectionId;
-    activeConnection = this.tradovateService.activeConnection;
     isSyncing = this.syncService.isSyncing;
     syncLog = this.syncService.syncLog;
     syncProgress = this.syncService.syncProgress;
@@ -143,29 +141,11 @@ export class TradovateSettingsComponent {
     }
 
     private loadAccountsForConnection(connectionId: string): void {
-        const previousActive = this.activeConnectionId();
-        this.tradovateService.setActiveConnection(connectionId);
-
-        this.tradovateService.getAccounts().subscribe({
-            next: (accounts) => {
-                this.tradovateService.updateConnectionAccounts(connectionId, accounts);
-                if (previousActive && previousActive !== connectionId) {
-                    this.tradovateService.setActiveConnection(previousActive);
-                } else {
-                    this.tradovateService.setActiveConnection(connectionId);
-                }
-            },
-            error: () => {
-                if (previousActive) this.tradovateService.setActiveConnection(previousActive);
-            }
+        const conn = this.tradovateService.connections().find(c => c.id === connectionId);
+        if (!conn) return;
+        this.tradovateService.getAccountsForConnection(conn).subscribe({
+            error: (err) => console.error('[TradovateSettings] Failed to load accounts for', conn.name, err)
         });
-    }
-
-    setActiveConnection(connectionId: string): void {
-        this.tradovateService.setActiveConnection(connectionId);
-        this.syncService.clearLog();
-        this.syncResult.set(null);
-        this.syncError.set(null);
     }
 
     disconnectConnection(connectionId: string): void {

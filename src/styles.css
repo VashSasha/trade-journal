@@ -1,0 +1,200 @@
+@charset "UTF-8";
+@import 'quill/dist/quill.snow.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* Quill Editor Styles */
+/* ============================================================
+   CSS Custom Properties — Theme Variables
+   New components should use these instead of Tailwind classes
+   ============================================================ */
+:root {
+  --color-bg-base: #f8fafc;
+  --color-bg-surface: #ffffff;
+  --color-bg-surface-2: #f1f5f9;
+  --color-bg-surface-3: #e2e8f0;
+  --color-border: #e2e8f0;
+  --color-border-subtle:#f1f5f9;
+  --color-text-primary: #0f172a;
+  --color-text-secondary:#64748b;
+  --color-text-muted: #94a3b8;
+  --color-accent: #0096FF;
+  --color-accent-hover: #0A8F9A;
+  --color-accent-subtle: rgba(16, 185, 129, 0.12);
+  --color-positive: #10b981;
+  --color-positive-subtle: rgba(16, 185, 129, 0.12);
+  --color-negative: #ef4444;
+  --color-negative-subtle: rgba(239, 68, 68, 0.12);
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+}
+
+:root.dark {
+  --color-bg-base: #020617;
+  --color-bg-surface: #0f172a;
+  --color-bg-surface-2: #1e293b;
+  --color-bg-surface-3: #334155;
+  --color-border: #1e293b;
+  --color-border-subtle: #0f172a;
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+  --color-accent: #10b981;
+  --color-accent-hover: #34d399;
+  --color-accent-subtle: rgba(16, 185, 129, 0.15);
+  --color-positive: #10b981;
+  --color-positive-subtle: rgba(16, 185, 129, 0.15);
+  --color-negative: #ef4444;
+  --color-negative-subtle: rgba(239, 68, 68, 0.15);
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+}
+
+/* Custom Global Styles */
+html, body {
+  height: 100%;
+}
+
+/* ============================================================
+   Global Component Classes
+   ============================================================ */
+@layer components {
+  /* --- Layout --- */
+  .page-shell {
+    @apply min-h-full bg-slate-50 p-6 dark:bg-slate-950;
+  }
+  .page-container-xl {
+    @apply mx-auto max-w-7xl;
+  }
+  .page-container-md {
+    @apply mx-auto max-w-4xl;
+  }
+  /* --- Typography --- */
+  .page-title {
+    @apply text-3xl font-bold text-slate-900 dark:text-white;
+  }
+  .page-subtitle {
+    @apply mt-1 text-slate-600 dark:text-slate-400;
+  }
+  .section-title {
+    @apply mb-4 text-lg font-semibold text-slate-900 dark:text-white;
+  }
+  /* --- Cards --- */
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900;
+  }
+  .card-sm {
+    @apply rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900;
+  }
+  /* --- Buttons --- */
+  .btn-primary {
+    @apply rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600;
+  }
+  .btn-secondary {
+    @apply rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700;
+  }
+  .btn-danger {
+    @apply rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-red-900/20;
+  }
+  .btn-icon {
+    @apply rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300;
+  }
+  /* --- Form Controls --- */
+  .form-label {
+    @apply mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300;
+  }
+  .form-input {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-900 placeholder-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500;
+  }
+  /* --- Badges --- */
+  .trade-badge {
+    @apply rounded px-2 py-0.5 text-xs font-medium;
+  }
+  .badge-long {
+    @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400;
+  }
+  .badge-short {
+    @apply bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400;
+  }
+  .badge-open {
+    @apply bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400;
+  }
+  .badge-closed {
+    @apply bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300;
+  }
+  .badge-missed {
+    @apply bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400;
+  }
+  /* --- P&L Colors --- */
+  .pnl-positive {
+    color: var(--color-positive);
+  }
+  .pnl-negative {
+    color: var(--color-negative);
+  }
+  /* --- Table --- */
+  .th-cell {
+    @apply px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400;
+  }
+  /* --- Empty State --- */
+  .empty-state {
+    @apply p-12 text-center;
+  }
+  .empty-state-icon {
+    @apply mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800;
+  }
+}
+/* Quill Editor Custom Styling */
+.quill-editor-custom .ql-toolbar {
+  @apply border-slate-200 bg-slate-50 rounded-t-lg dark:border-slate-700 dark:bg-slate-800;
+}
+.quill-editor-custom .ql-toolbar .ql-stroke {
+  @apply stroke-slate-700 dark:stroke-slate-300;
+}
+.quill-editor-custom .ql-toolbar .ql-fill {
+  @apply fill-slate-700 dark:fill-slate-300;
+}
+.quill-editor-custom .ql-toolbar .ql-picker-label {
+  @apply text-slate-700 dark:text-slate-300;
+}
+.quill-editor-custom .ql-toolbar button:hover .ql-stroke,
+.quill-editor-custom .ql-toolbar button.ql-active .ql-stroke {
+  @apply stroke-emerald-600 dark:stroke-emerald-400;
+}
+.quill-editor-custom .ql-toolbar button:hover .ql-fill,
+.quill-editor-custom .ql-toolbar button.ql-active .ql-fill {
+  @apply fill-emerald-600 dark:fill-emerald-400;
+}
+.quill-editor-custom .ql-container {
+  @apply border-slate-200 bg-white rounded-b-lg dark:border-slate-700 dark:bg-slate-900;
+  font-family: inherit;
+}
+.quill-editor-custom .ql-container .ql-editor {
+  @apply text-slate-900 dark:text-white;
+  min-height: 500px;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+.quill-editor-custom .ql-container .ql-editor.ql-blank::before {
+  @apply text-slate-400 dark:text-slate-500 italic;
+}
+.quill-editor-custom .ql-container .ql-editor h1 {
+  @apply text-3xl font-bold mb-4 text-slate-900 dark:text-white;
+}
+.quill-editor-custom .ql-container .ql-editor h2 {
+  @apply text-2xl font-bold mb-3 text-slate-900 dark:text-white;
+}
+.quill-editor-custom .ql-container .ql-editor blockquote {
+  @apply border-l-4 border-slate-300 pl-4 italic text-slate-600 dark:border-slate-600 dark:text-slate-400;
+}
+.quill-editor-custom .ql-container .ql-editor code {
+  @apply bg-slate-100 px-1.5 py-0.5 rounded text-sm dark:bg-slate-800;
+}
+.quill-editor-custom .ql-container .ql-editor pre {
+  @apply bg-slate-100 p-4 rounded-lg dark:bg-slate-800;
+}
+.quill-editor-custom .ql-container .ql-editor a {
+  @apply text-emerald-600 underline dark:text-emerald-400;
+}
+
+/*# sourceMappingURL=styles.css.map */

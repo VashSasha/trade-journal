@@ -91,10 +91,10 @@ export class SyncService {
         this.log(`Starting sync ${rangeLabel}...`);
 
         try {
-            const activeConn = this.tradovateService.activeConnection();
-            if (!activeConn) throw new Error('No active Tradovate connection');
+            const conns = this.tradovateService.connections();
+            if (conns.length === 0) throw new Error('No Tradovate connections found');
 
-            this.log(`Connected as: ${activeConn.name}`);
+            this.log(`Syncing ${conns.length} connection(s): ${conns.map(c => c.name).join(', ')}`);
 
             // Fetch pre-matched trades from Performance report
             this.log('Fetching trades from Tradovate Performance Report...');
@@ -111,6 +111,7 @@ export class SyncService {
                 const syncTime = new Date();
                 this.lastSyncTime.set(syncTime);
                 localStorage.setItem(SyncService.LAST_SYNC_KEY, syncTime.toISOString());
+                conns.forEach(c => this.tradovateService.updateConnectionSyncTime(c.id));
                 return 0;
             }
 
@@ -124,7 +125,7 @@ export class SyncService {
                     fees,
                     netPnl,
                     source: 'tradovate' as const,
-                    connectionId: activeConn.id,
+                    // connectionId is already embedded per-trade from getAllTrades()
                 };
             });
 
@@ -154,7 +155,7 @@ export class SyncService {
             const syncTime = new Date();
             this.lastSyncTime.set(syncTime);
             localStorage.setItem(SyncService.LAST_SYNC_KEY, syncTime.toISOString());
-            this.tradovateService.updateConnectionSyncTime(activeConn.id);
+            conns.forEach(c => this.tradovateService.updateConnectionSyncTime(c.id));
 
             this.log(`Done! Imported ${tradesToImport.length} trade(s).`, 'success');
             this.syncProgress.set(null);

@@ -26,11 +26,16 @@ export class AccountService {
     });
 
     constructor() {
-        // Auto-load accounts whenever a connection is established.
+        // Reactively sync accounts from all connections whenever any connection's accounts change.
         effect(() => {
-            if (this.isConnected() && this.accounts().length === 0) {
-                this.loadAccounts();
-            }
+            const accounts = this.tradovateService.allAccounts();
+            if (accounts.length === 0) return;
+            this.accounts.set(accounts);
+            const stored = this.loadSelectedIds();
+            const valid = stored.filter(id => accounts.some(a => a.id === id));
+            const resolved = valid.length > 0 ? valid : accounts.map(a => a.id);
+            this.selectedIds.set(resolved);
+            this.saveSelectedIds(resolved);
         });
 
         // Push account selection into FilterService whenever it changes.
@@ -46,25 +51,7 @@ export class AccountService {
     }
 
     init(): void {
-        // Kept for explicit calls (e.g. after sync). Effect handles the reactive case.
-        if (this.isConnected()) this.loadAccounts();
-    }
-
-    private loadAccounts(): void {
-        this.tradovateService.getAccounts().subscribe({
-            next: (accounts) => {
-                this.accounts.set(accounts);
-
-                const stored = this.loadSelectedIds();
-                const valid = stored.filter(id => accounts.some(a => a.id === id));
-                const resolved = valid.length > 0 ? valid : accounts.map(a => a.id);
-                this.selectedIds.set(resolved);
-                this.saveSelectedIds(resolved);
-
-                this.refreshBalances();
-            },
-            error: (err) => console.error('[AccountService] Failed to load accounts:', err)
-        });
+        // No-op: the effect handles reactive account loading from allAccounts().
     }
 
     toggle(id: number): void {
@@ -90,17 +77,23 @@ export class AccountService {
         if (!this.isConnected()) return;
         this.isRefreshing.set(true);
         try {
+            const conns = this.tradovateService.connections();
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
             await Promise.all([
-                firstValueFrom(this.tradovateService.getCashBalances()).then(balances => {
-                    const map = new Map<number, number>();
-                    (balances as any[]).forEach(b => {
-                        if (b.accountId && b.amount !== undefined) map.set(b.accountId, b.amount);
-                    });
-                    this.accountBalances.set(map);
-                }),
+                ...conns.map(conn =>
+                    firstValueFrom(this.tradovateService.getCashBalancesForConnection(conn))
+                        .then(balances => {
+                            this.accountBalances.update(map => {
+                                const next = new Map(map);
+                                (balances as any[]).forEach(b => {
+                                    if (b.accountId && b.amount !== undefined) next.set(b.accountId, b.amount);
+                                });
+                                return next;
+                            });
+                        }).catch((err) => console.error('[AccountService] Failed to fetch balances for', conn.name, err))
+                ),
                 this.syncService.syncFrom(today)
             ]);
         } catch (err) {

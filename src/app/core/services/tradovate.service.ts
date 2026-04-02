@@ -73,7 +73,11 @@ export class TradovateService {
         return this.connections().find(c => c.id === connId) || null;
     });
 
-    isConnected = computed(() => this.activeConnection() !== null);
+    isConnected = computed(() => this.connections().length > 0);
+
+    allAccounts = computed(() =>
+        this.connections().flatMap(c => c.accounts.filter(a => a.active !== false))
+    );
 
     expiredConnections = computed(() => {
         const ids = this.expiredConnectionIds();
@@ -346,6 +350,24 @@ export class TradovateService {
         return config?.environment === 'live' ? this.liveRptUrl : this.demoRptUrl;
     }
 
+    private getBaseUrlFor(conn: TradovateConnection): string {
+        return conn.config.environment === 'live' ? this.liveBaseUrl : this.demoBaseUrl;
+    }
+
+    private getRptUrlFor(conn: TradovateConnection): string {
+        return conn.config.environment === 'live' ? this.liveRptUrl : this.demoRptUrl;
+    }
+
+    private authGetFor<T>(conn: TradovateConnection, endpoint: string, params?: Record<string, string>): Observable<T> {
+        const headers = new HttpHeaders({ 'Authorization': `Bearer ${conn.token}`, 'Accept': 'application/json' });
+        return this.http.get<T>(`${this.getBaseUrlFor(conn)}${endpoint}`, { headers, params }).pipe(
+            catchError(err => {
+                if (err?.status === 401) this.markConnectionExpired(conn.id);
+                return throwError(() => err);
+            })
+        );
+    }
+
     /**
      * Get authenticated headers for API requests
      */
@@ -493,6 +515,16 @@ export class TradovateService {
 
     getCashBalances(): Observable<any[]> {
         return this.authGet<any[]>('/cashBalance/list');
+    }
+
+    getAccountsForConnection(conn: TradovateConnection): Observable<TradovateAccount[]> {
+        return this.authGetFor<TradovateAccount[]>(conn, '/account/list').pipe(
+            tap(accounts => this.updateConnectionAccounts(conn.id, accounts))
+        );
+    }
+
+    getCashBalancesForConnection(conn: TradovateConnection): Observable<any[]> {
+        return this.authGetFor<any[]>(conn, '/cashBalance/list');
     }
 
     // Account selection management (per-connection)
@@ -1160,11 +1192,18 @@ export class TradovateService {
         accountName?: string,
         accountId?: number,
         attempt: number = 0,
-        pTicket?: string
+        pTicket?: string,
+        conn?: TradovateConnection
     ): Observable<any[]> {
-        try { this.requireToken(); } catch (e) { return throwError(() => e); }
+        if (conn) {
+            // Per-connection auth path
+        } else {
+            try { this.requireToken(); } catch (e) { return throwError(() => e); }
+        }
 
-        const url = `${this.getRptUrl()}/reports/requestreport`;
+        const token = conn ? conn.token : this.getToken()!;
+        const rptUrl = conn ? this.getRptUrlFor(conn) : this.getRptUrl();
+        const url = `${rptUrl}/reports/requestreport`;
         const timezone = -new Date().getTimezoneOffset();
         const params: { name: string; value: string }[] = [
             { name: 'startDate', value: this.formatDateForReport(startDate) },
@@ -1181,7 +1220,7 @@ export class TradovateService {
             params
         };
 
-        let headers = this.getAuthHeaders().set('Content-Type', 'application/json');
+        let headers = new HttpHeaders({ 'Authorization': `Bearer ${token}`, 'Accept': 'application/json', 'Content-Type': 'application/json' });
         if (pTicket) headers = headers.set('p-ticket', pTicket);
 
         const waitMs = pTicket ? 2000 : 0;
@@ -1207,13 +1246,13 @@ export class TradovateService {
                     const nextWait = Math.max((res['p-time'] || 2) * 1000, 2000);
                     console.log(`[TradovateService] Performance p-ticket poll #${attempt + 1}, waiting ${nextWait / 1000}s...`);
                     return timer(nextWait).pipe(
-                        switchMap(() => this.getPerformanceTrades(startDate, endDate, accountName, accountId, attempt + 1, res['p-ticket']))
+                        switchMap(() => this.getPerformanceTrades(startDate, endDate, accountName, accountId, attempt + 1, res['p-ticket'], conn))
                     );
                 }
                 if (res.errorText) {
                     const err = new Error(`Performance Report API: ${res.errorText}`);
                     if (this.isAuthError({ message: res.errorText })) {
-                        const connId = this.activeConnectionId();
+                        const connId = conn?.id ?? this.activeConnectionId();
                         if (connId) this.markConnectionExpired(connId);
                         (err as any).isAuthError = true;
                     }
@@ -1234,27 +1273,25 @@ export class TradovateService {
      * Get all pre-matched trades from the Performance report for all accounts and the full date range.
      */
     getAllTrades(startDate: Date | null, endDate?: Date): Observable<any[]> {
-        try { this.requireToken(); } catch (e) { return throwError(() => e); }
-
         const end = endDate || new Date();
+        const conns = this.connections();
+        if (conns.length === 0) return of([]);
 
-        return this.getAccounts().pipe(
-            switchMap(allAccounts => {
-                const accounts = allAccounts.filter(a => a.active !== false);
+        console.log(`[TradovateService] getAllTrades: ${startDate?.toISOString() ?? 'account start'} → ${end.toISOString()}, ${conns.length} connection(s)`);
+
+        return forkJoin(
+            conns.map(conn => {
+                const accounts = conn.accounts.filter(a => a.active !== false);
                 if (accounts.length === 0) return of([] as any[]);
 
-                console.log(`[TradovateService] getAllTrades: ${startDate?.toISOString() ?? 'account start'} → ${end.toISOString()}, ${accounts.length} account(s) in parallel`);
-
-                // One request per account, all fired in parallel.
-                // Start date is clamped to the account's creation date so we never
-                // request data from before the account existed.
                 return forkJoin(
                     accounts.map(account => {
                         const accountStart = account.timestamp ? new Date(account.timestamp) : null;
                         const start = accountStart && (!startDate || accountStart > startDate)
                             ? accountStart
                             : (startDate ?? new Date());
-                        return this.getPerformanceTrades(start, end, account.name, account.id).pipe(
+                        return this.getPerformanceTrades(start, end, account.name, account.id, 0, undefined, conn).pipe(
+                            map(trades => trades.map(t => ({ ...t, connectionId: conn.id }))),
                             catchError(err => {
                                 if (this.isAuthError(err)) return throwError(() => err);
                                 console.error(`[TradovateService] getAllTrades failed for ${account.name}:`, err);
@@ -1263,7 +1300,9 @@ export class TradovateService {
                         );
                     })
                 ).pipe(map(results => results.flat()));
-            }),
+            })
+        ).pipe(
+            map(results => results.flat()),
             catchError(err => {
                 if (this.isAuthError(err)) return throwError(() => err);
                 console.warn('[TradovateService] getAllTrades failed:', err);
