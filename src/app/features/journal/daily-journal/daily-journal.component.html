@@ -266,11 +266,12 @@
                         }
                     </div>
                 </div>
-                <quill-editor [ngModel]="form.preMarketPlan()" (ngModelChange)="form.setPreMarketPlan($event)"
+                <app-rich-editor class="dj-plan-quill dj-plan-quill--pre"
+                    [value]="form.preMarketPlan()"
+                    (valueChange)="form.setPreMarketPlan($event)"
                     [modules]="quillCompactModules"
-                    placeholder="What's the plan for today? Key levels, target symbols, max risk..."
-                    class="dj-plan-quill dj-plan-quill--pre">
-                </quill-editor>
+                    placeholder="What's the plan for today? Key levels, target symbols, max risk...">
+                </app-rich-editor>
             </div>
 
             <div class="dj-plan-card">
@@ -312,11 +313,12 @@
                         }
                     </div>
                 </div>
-                <quill-editor [ngModel]="form.postMarketReview()" (ngModelChange)="form.setPostMarketReview($event)"
+                <app-rich-editor class="dj-plan-quill dj-plan-quill--post"
+                    [value]="form.postMarketReview()"
+                    (valueChange)="form.setPostMarketReview($event)"
                     [modules]="quillCompactModules"
-                    placeholder="How did the session go? What went well? What would you do differently?"
-                    class="dj-plan-quill dj-plan-quill--post">
-                </quill-editor>
+                    placeholder="How did the session go? What went well? What would you do differently?">
+                </app-rich-editor>
             </div>
         </div>
 
@@ -401,12 +403,13 @@
                 </div>
             </div>
             <div class="dj-notes__body">
-                <quill-editor [ngModel]="form.noteContent()" (ngModelChange)="form.setNoteContent($event)"
+                <app-rich-editor class="quill-editor-custom"
+                    [value]="form.noteContent()"
+                    (valueChange)="form.setNoteContent($event)"
                     [modules]="quillModules"
                     placeholder="Any additional thoughts, charts to review, lessons learned..."
-                    class="quill-editor-custom"
                     [styles]="{'min-height': form.notesExpanded() ? '600px' : '300px', 'border-radius': '0.5rem'}">
-                </quill-editor>
+                </app-rich-editor>
             </div>
         </div>
 
@@ -509,11 +512,12 @@
                         [ngModel]="templates.editTemplateName()" (ngModelChange)="templates.editTemplateName.set($event)" />
                 </div>
                 <div class="tpl-editor__quill-wrap">
-                    <quill-editor class="tpl-quill"
-                        [ngModel]="templates.editTemplateContent()" (ngModelChange)="templates.editTemplateContent.set($event)"
+                    <app-rich-editor class="tpl-quill"
+                        [value]="templates.editTemplateContent()"
+                        (valueChange)="templates.editTemplateContent.set($event)"
                         [modules]="quillCompactModules"
                         placeholder="Write your template content here...">
-                    </quill-editor>
+                    </app-rich-editor>
                 </div>
                 <div class="tpl-editor__footer">
                     <button class="tpl-editor__save-btn" [disabled]="!templates.editTemplateName().trim()"
@@ -530,11 +534,12 @@
                         [ngModel]="templates.editTemplateName()" (ngModelChange)="templates.editTemplateName.set($event)" />
                 </div>
                 <div class="tpl-editor__quill-wrap">
-                    <quill-editor class="tpl-quill"
-                        [ngModel]="templates.editTemplateContent()" (ngModelChange)="templates.editTemplateContent.set($event)"
+                    <app-rich-editor class="tpl-quill"
+                        [value]="templates.editTemplateContent()"
+                        (valueChange)="templates.editTemplateContent.set($event)"
                         [modules]="quillCompactModules"
                         placeholder="Write your template content here...">
-                    </quill-editor>
+                    </app-rich-editor>
                 </div>
                 <div class="tpl-editor__footer">
                     <button class="tpl-editor__save-btn" [disabled]="!templates.editTemplateName().trim()"

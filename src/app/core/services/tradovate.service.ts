@@ -117,6 +117,14 @@ export class TradovateService {
                 const connections = JSON.parse(stored);
                 this.connections.set(connections);
 
+                // Mark any connections whose token was previously cleared (expired) as expired on load
+                const expiredIds = connections
+                    .filter((c: TradovateConnection) => !c.token)
+                    .map((c: TradovateConnection) => c.id);
+                if (expiredIds.length > 0) {
+                    this.expiredConnectionIds.set(expiredIds);
+                }
+
                 // Load active connection ID from storage, or use first connection
                 if (storedActiveId && connections.find((c: TradovateConnection) => c.id === storedActiveId)) {
                     this.activeConnectionId.set(storedActiveId);
@@ -309,12 +317,18 @@ export class TradovateService {
     }
 
     /**
-     * Mark a connection's token as expired (called on 401 responses)
+     * Mark a connection's token as expired (called on 401 responses).
+     * Also clears the token from the stored connection so it doesn't survive an app restart.
      */
     markConnectionExpired(connectionId: string): void {
         this.expiredConnectionIds.update(ids =>
             ids.includes(connectionId) ? ids : [...ids, connectionId]
         );
+        // Clear the stale token from storage so the app doesn't try to use it after restart
+        this.connections.update(conns =>
+            conns.map(c => c.id === connectionId ? { ...c, token: '' } : c)
+        );
+        this.saveConnections();
     }
 
     /**

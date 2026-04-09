@@ -44,6 +44,13 @@ Uses **Angular Signals** throughout (not NgRx/BehaviorSubjects). `TradeService` 
 | File | Exports |
 |---|---|
 | `trade-stats.utils.ts` | `computeDayStats()`, `buildEquityCurve()`, `DayStats`, `EquityCurve` |
+| `market-holidays.ts` | `isMarketClosed(date)` — returns true for weekends and US market holidays |
+| `economic-events.ts` | Static economic event data used by `EconomicCalendarService` |
+
+### Journal Utilities (`src/app/features/journal/daily-journal/utils/`)
+
+| File | Exports |
+|---|---|
 | `timeline.utils.ts` | `buildTimelineEntry()`, `groupEntriesByMonth()`, `stripHtml()` |
 | `quill-modules.ts` | `QUILL_FULL_MODULES`, `QUILL_COMPACT_MODULES` |
 
@@ -55,12 +62,19 @@ Uses **Angular Signals** throughout (not NgRx/BehaviorSubjects). `TradeService` 
 |---|---|
 | `EquityCurveChartComponent` | Reusable Chart.js equity curve with split green/red fill at baseline, segment coloring, dashed baseline line |
 | `TradeTableComponent` | Trade list table |
+| `RichEditorComponent` | Quill-based rich text editor with floating selection toolbar (bold/italic/highlight/link) |
+| `SharePnlComponent` | P&L share card generator |
 
 **Use `EquityCurveChartComponent` for all equity curve charts — do not create new Chart.js instances for this purpose.**
+**Use `RichEditorComponent` for all Quill rich text inputs — do not instantiate `ngx-quill` directly.**
 
 ### Feature Modules (`src/app/features/`)
 
 All routes are lazy-loaded. The main authenticated shell is `MainLayoutComponent` → sidebar + header + `<router-outlet>`.
+
+Route access is controlled by two guards:
+- `authGuard` — requires login
+- `planGuard('premium')` / `planGuard('lifetime')` — gates analytics (premium) and AI reports (lifetime)
 
 #### Journal (`src/app/features/journal/daily-journal/`)
 
@@ -81,6 +95,8 @@ Scoped state pattern — each domain is its own `@Injectable()` class listed in 
 3. Fills matched into complete trades via **FIFO algorithm** in `SyncService`
 4. Resulting trades stored in `TradeService` signal + localStorage
 5. `FilterService` applies filters reactively for display
+
+`FilterService` has two filtering methods: `filterTrades()` (respects all filters including date range) and `filterTradesIgnoreDateRange()` (skips date range — use this for components that manage their own date navigation, like the calendar heatmap).
 
 ### Tradovate Integration
 
