@@ -1,21 +1,53 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, protocol, net, session } = require('electron');
 const http = require('http');
 const crypto = require('crypto');
+const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-// Performance flags
+// Load .env — tries the project root (dev) then next to app.asar (production extraResources)
+(function loadEnv() {
+    const candidates = [
+        path.join(__dirname, '../.env'),          // dev: project root
+        path.join(process.resourcesPath, '.env'), // production: Contents/Resources/.env
+    ];
+    for (const envPath of candidates) {
+        try {
+            const envContent = fs.readFileSync(envPath, 'utf8');
+            for (const line of envContent.split('\n')) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#')) continue;
+                const eqIdx = trimmed.indexOf('=');
+                if (eqIdx < 1) continue;
+                const key = trimmed.slice(0, eqIdx).trim();
+                const val = trimmed.slice(eqIdx + 1).trim().replace(/^['"]|['"]$/g, '');
+                if (key && !(key in process.env)) process.env[key] = val;
+            }
+            return; // stop after first successful load
+        } catch { continue; }
+    }
+})();
+
+// Performance flags (macOS-safe only — VaapiVideoDecoder is Linux-only and was removed)
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('enable-zero-copy');
-app.commandLine.appendSwitch('disable-software-rasterizer');
-app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder');
+
+// 'app://' must be registered as privileged BEFORE app.whenReady()
+// This gives the Angular app a real origin so ES module imports work correctly.
+// Without this, file:// has a null origin and type="module" chunk loading fails (white screen).
+protocol.registerSchemesAsPrivileged([
+    {
+        scheme: 'app',
+        privileges: { secure: true, standard: true, supportFetchAPI: true, corsEnabled: true }
+    }
+]);
+
+const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+const angularDistPath = path.join(__dirname, '../dist/trade-journal/browser');
 
 let mainWindow;
 
 function createWindow() {
-    // In production the icon is embedded by electron-builder (.icns).
-    // Only set it explicitly in dev mode where the source tree is available.
-    const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
     const iconPath = isDev ? path.join(__dirname, '../public/nvzn_logo.png') : undefined;
 
     mainWindow = new BrowserWindow({
@@ -27,12 +59,15 @@ function createWindow() {
             nodeIntegration: false,
             contextIsolation: true,
             enableRemoteModule: false,
-            webSecurity: true,
+            // webSecurity must be false in production so Angular's app:// origin can reach
+            // external APIs (Tradovate, Discord token exchange). The webRequest interceptors
+            // below handle CORS. SSL certificate validation is unaffected by this flag.
+            webSecurity: isDev,
             preload: path.join(__dirname, 'preload.js')
         },
         ...(iconPath ? { icon: iconPath } : {}),
         title: 'Trade Journal',
-        show: false // Don't show until ready
+        show: false
     });
 
     if (isDev && iconPath && process.platform === 'darwin' && app.dock) {
@@ -40,60 +75,100 @@ function createWindow() {
     }
 
     if (isDev) {
-        // Development: Load from Angular dev server
         mainWindow.loadURL('http://localhost:4200');
-
-        // Open DevTools only when explicitly requested via DEVTOOLS=true
         if (process.env.DEVTOOLS === 'true') {
             mainWindow.webContents.openDevTools();
         }
     } else {
-        // Production: Load from built files
-        mainWindow.loadURL(
-            url.format({
-                pathname: path.join(__dirname, '../dist/trade-journal/browser/index.html'),
-                protocol: 'file:',
-                slashes: true
-            })
-        );
+        // Load via custom app:// scheme — gives Angular a real origin so ES module
+        // chunk imports aren't blocked by Chromium's null-origin CORS check.
+        mainWindow.loadURL('app://localhost/');
     }
 
-    // Show window when ready
-    mainWindow.once('ready-to-show', () => {
-        mainWindow.show();
-    });
+    mainWindow.once('ready-to-show', () => mainWindow.show());
+    mainWindow.on('closed', () => { mainWindow = null; });
 
-    // Handle window closed
-    mainWindow.on('closed', () => {
-        mainWindow = null;
-    });
+    // In production, log load failures to help diagnose issues
+    if (!isDev) {
+        mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+            console.error(`[Electron] Failed to load: ${url} — ${code} ${desc}`);
+        });
+    }
 }
 
-// Create window when Electron is ready
 app.whenReady().then(() => {
+    if (!isDev) {
+        // Serve every request under app:// from the Angular dist folder.
+        // Falls back to index.html for any path that isn't a real file,
+        // so Angular's client-side router handles all navigation.
+        protocol.handle('app', async (request) => {
+            const { pathname } = new URL(request.url);
+            const decoded = decodeURIComponent(pathname);
+            let filePath = path.join(angularDistPath, decoded === '/' ? 'index.html' : decoded);
+
+            try {
+                await fs.promises.access(filePath, fs.constants.F_OK);
+            } catch {
+                // Not a real file — return index.html so Angular's router takes over
+                filePath = path.join(angularDistPath, 'index.html');
+            }
+
+            return net.fetch(url.pathToFileURL(filePath).toString());
+        });
+    }
+
+    // ── Tradovate CORS bypass ─────────────────────────────────────────────────
+    // The app:// scheme isn't whitelisted by Tradovate's CORS policy, so Chromium
+    // blocks requests with status 0. Fix: strip Origin on the way out (the server
+    // won't see a cross-origin request) and inject CORS headers on the way in
+    // (so Chromium accepts the response).
+    const tradovateFilter = { urls: ['https://*.tradovateapi.com/*'] };
+
+    session.defaultSession.webRequest.onBeforeSendHeaders(tradovateFilter, (details, callback) => {
+        // In production the page origin is app://localhost which Tradovate doesn't whitelist.
+        // Strip Origin/Referer so the server treats it as a same-origin request.
+        // In dev the page origin is http://localhost:4200 which Tradovate allows — leave it alone.
+        if (!isDev) {
+            const headers = details.requestHeaders;
+            for (const key of Object.keys(headers)) {
+                const lower = key.toLowerCase();
+                if (lower === 'origin' || lower === 'referer') delete headers[key];
+            }
+            callback({ requestHeaders: headers });
+        } else {
+            callback({});
+        }
+    });
+
+    session.defaultSession.webRequest.onHeadersReceived(tradovateFilter, (details, callback) => {
+        callback({
+            responseHeaders: {
+                ...details.responseHeaders,
+                'access-control-allow-origin':  ['*'],
+                'access-control-allow-headers': ['Content-Type, Accept, Authorization'],
+                'access-control-allow-methods': ['GET, POST, PUT, DELETE, OPTIONS'],
+            }
+        });
+    });
+
     createWindow();
 
-    // On macOS, re-create window when dock icon is clicked
     app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow();
-        }
+        if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
 });
 
-// Quit when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        app.quit();
-    }
+    if (process.platform !== 'darwin') app.quit();
 });
 
 // ─── Discord OAuth IPC handler ──────────────────────────────────────────────
 
-// Discord app client secret — safe here (Node.js main process, never bundled to web)
-const DISCORD_CLIENT_SECRET = 'OR7lSXffa1bWLauBNdasicvvfkWqjtOJ';
+const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
+if (!DISCORD_CLIENT_SECRET) {
+    console.warn('[Electron] WARNING: DISCORD_CLIENT_SECRET is not set. Discord login will fail.');
+}
 
-// Track the active callback server so we can close it before starting a new one
 let activeCallbackServer = null;
 
 function closeCallbackServer() {
@@ -111,14 +186,11 @@ ipcMain.handle('discord-login', async (event, { clientId, guildId, roles, port }
     const redirectUri = `http://localhost:${callbackPort}/callback`;
     console.log('Discord OAuth callback URL:', redirectUri);
 
-    // Close any previously open callback server before starting a new flow
     closeCallbackServer();
 
-    // 1. Generate PKCE pair
     const codeVerifier = crypto.randomBytes(32).toString('base64url');
     const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest().toString('base64url');
 
-    // 2. Build Discord OAuth URL
     const params = new URLSearchParams({
         client_id: clientId,
         response_type: 'code',
@@ -129,7 +201,6 @@ ipcMain.handle('discord-login', async (event, { clientId, guildId, roles, port }
     });
     const authUrl = `https://discord.com/oauth2/authorize?${params}`;
 
-    // 3. Start local HTTP server to capture the callback
     const code = await new Promise((resolve, reject) => {
         const server = http.createServer((req, res) => {
             const url = new URL(req.url, `http://localhost:${callbackPort}`);
@@ -139,7 +210,7 @@ ipcMain.handle('discord-login', async (event, { clientId, guildId, roles, port }
             res.writeHead(200, { 'Content-Type': 'text/html' });
             res.end(`
                 <html><body style="font-family:sans-serif;text-align:center;padding:3rem;background:#0f172a;color:#94a3b8">
-                    <script>window.close();</script>
+                    <script>window.close();<\/script>
                     <p>Login complete. You can close this tab.</p>
                 </body></html>
             `);
@@ -152,25 +223,15 @@ ipcMain.handle('discord-login', async (event, { clientId, guildId, roles, port }
         });
 
         activeCallbackServer = server;
+        server.on('error', (err) => { activeCallbackServer = null; reject(err); });
+        server.listen(callbackPort, '127.0.0.1', () => { shell.openExternal(authUrl); });
 
-        server.on('error', (err) => {
-            activeCallbackServer = null;
-            reject(err);
-        });
-
-        server.listen(callbackPort, '127.0.0.1', () => {
-            // 4. Open the browser after the server is ready
-            shell.openExternal(authUrl);
-        });
-
-        // Timeout after 5 minutes
         setTimeout(() => {
             closeCallbackServer();
             reject(new Error('Login timed out'));
         }, 5 * 60 * 1000);
     });
 
-    // 5. Exchange code for access token (Node fetch — no CORS restriction)
     const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -191,9 +252,8 @@ ipcMain.handle('discord-login', async (event, { clientId, guildId, roles, port }
 
     const tokenData = await tokenRes.json();
     const accessToken = tokenData.access_token;
-    const expiresIn = tokenData.expires_in; // seconds
+    const expiresIn = tokenData.expires_in;
 
-    // 6. Fetch user info and guild member roles in parallel
     const [userRes, memberRes] = await Promise.all([
         fetch('https://discord.com/api/v10/users/@me', {
             headers: { Authorization: `Bearer ${accessToken}` }
@@ -228,7 +288,6 @@ ipcMain.handle('discord-login', async (event, { clientId, guildId, roles, port }
     };
 });
 
-// Log useful info
 console.log('Electron version:', process.versions.electron);
 console.log('Chrome version:', process.versions.chrome);
 console.log('Node version:', process.versions.node);

@@ -3,7 +3,13 @@
     <!-- Logo / Toggle -->
     <div class="sidebar__logo">
         @if (!layout.collapsed()) {
-        <span class="sidebar__brand">NVZN JOURNAL</span>
+          <img class="sidebar__logo-img" src="NVZN_Trading_logo_transparent_noshine.png" alt="NVZN" />
+<!--            <span class="sidebar__brand">NVZN Trading</span>-->
+        }
+      @if (layout.collapsed()) {
+        <img class="sidebar__logo-img" src="nvzn_logo.png" alt="NVZN" />
+
+        <!--            <span class="sidebar__brand">NVZN Trading</span>-->
         }
         <button class="sidebar__toggle"
             (click)="layout.toggle()"

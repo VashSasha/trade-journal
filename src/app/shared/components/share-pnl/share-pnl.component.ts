@@ -157,8 +157,8 @@ export class SharePnlComponent implements OnDestroy {
     ctx.fillRect(0, 0, W, H);
 
     const isPositive = this.pnl >= 0;
-    const pnlColor = isPositive ? '#00E0D3' : '#ef4444';
-    const gradientColor = isPositive ? '16,185,129' : '239,68,68';
+    const pnlColor = isPositive ? '#00E0D3' : '#8B2635';
+    const gradientColor = isPositive ? '16,185,129' : '139,38,53';
     const pnlText = (isPositive ? '+' : '') +
       new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD'}).format(this.pnl);
 

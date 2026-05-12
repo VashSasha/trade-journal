@@ -31,7 +31,7 @@ import { TradovateService } from '../../../../core/services/tradovate.service';
             }
 
             @if (status() === 'success') {
-                <div class="rounded-lg bg-emerald-100 p-4 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                <div class="rounded-lg p-4" style="background-color: var(--color-accent-subtle); color: var(--color-accent);">
                     <p class="font-medium">Successfully Connected!</p>
                     <p class="text-sm">Redirecting you back...</p>
                 </div>

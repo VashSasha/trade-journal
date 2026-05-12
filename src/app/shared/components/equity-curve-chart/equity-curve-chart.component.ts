@@ -6,9 +6,12 @@ import {
   OnChanges,
   OnDestroy,
   SimpleChanges,
-  ViewChild
+  ViewChild,
+  effect,
+  inject
 } from '@angular/core';
 import { Chart, registerables } from 'chart.js';
+import { ThemeService } from '../../../core/services/theme.service';
 
 Chart.register(...registerables);
 
@@ -41,6 +44,18 @@ export class EquityCurveChartComponent implements AfterViewInit, OnDestroy, OnCh
 
   @ViewChild('chartCanvas') chartRef!: ElementRef<HTMLCanvasElement>;
   private chart?: Chart;
+  private theme = inject(ThemeService);
+
+  constructor() {
+    effect(() => {
+      this.theme.isDark(); // track theme changes
+      if (this.chart) {
+        this.chart.destroy();
+        this.chart = undefined;
+        setTimeout(() => this.createChart(), 0);
+      }
+    });
+  }
 
   ngAfterViewInit(): void {
     setTimeout(() => this.createChart(), 50);
@@ -60,6 +75,8 @@ export class EquityCurveChartComponent implements AfterViewInit, OnDestroy, OnCh
 
   private createChart(): void {
     if (!this.chartRef) return;
+    this.chart?.destroy();
+    this.chart = undefined;
 
     this.chart = new Chart(this.chartRef.nativeElement, {
       type: 'line',
@@ -105,13 +122,15 @@ export class EquityCurveChartComponent implements AfterViewInit, OnDestroy, OnCh
           segment: {
             borderColor: (ctx: any) => {
               const mid = (ctx.p0.parsed.y + ctx.p1.parsed.y) / 2;
-              return mid >= baseline ? '#10b981' : '#ef4444';
+              return mid >= baseline
+                ? (this.theme.isDark() ? '#10b981' : '#059669')
+                : (this.theme.isDark() ? '#6B1F2A' : '#8B2635');
             }
           },
           fill: {
             target: {value: baseline},
-            above: 'rgba(16,185,129,0.15)',
-            below: 'rgba(239,68,68,0.12)'
+            above: this.theme.isDark() ? 'rgba(16,185,129,0.25)' : 'rgba(16,185,129,0.20)',
+            below: this.theme.isDark() ? 'rgba(107,31,42,0.40)' : 'rgba(139,38,53,0.25)'
           }
         },
         {

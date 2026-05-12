@@ -24,10 +24,14 @@
   align-items: flex-start;
   gap: 0.75rem;
   padding: 0.625rem 1.25rem;
-  background: rgba(234, 179, 8, 0.08);
-  border-bottom: 1px solid rgba(234, 179, 8, 0.2);
+  background: #FFF8E1;
+  border-bottom: 1px solid rgba(234, 179, 8, 0.35);
   flex-shrink: 0;
   /* Inline password form */
+}
+:root.dark .expired-banner {
+  background: #2A2000;
+  border-bottom-color: #4A3800;
 }
 .expired-banner__icon {
   width: 1rem;
@@ -35,6 +39,9 @@
   color: #eab308;
   flex-shrink: 0;
   margin-top: 0.2rem;
+}
+:root.dark .expired-banner__icon {
+  color: #8A6A00;
 }
 .expired-banner__body {
   flex: 1;
@@ -51,11 +58,17 @@
 .expired-banner__name {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: #7c5200;
+}
+:root.dark .expired-banner__name {
+  color: #8A6A00;
 }
 .expired-banner__label {
   font-size: 0.75rem;
-  color: var(--color-text-muted);
+  color: #92600a;
+}
+:root.dark .expired-banner__label {
+  color: #8A6A00;
 }
 .expired-banner__reconnect-btn {
   font-size: 0.75rem;
@@ -67,6 +80,10 @@
   padding: 0.15rem 0.6rem;
   cursor: pointer;
   transition: background 0.12s;
+}
+:root.dark .expired-banner__reconnect-btn {
+  color: #8A6A00;
+  border-color: #4A3800;
 }
 .expired-banner__reconnect-btn:hover {
   background: rgba(234, 179, 8, 0.1);

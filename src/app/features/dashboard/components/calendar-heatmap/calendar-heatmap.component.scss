@@ -1,15 +1,24 @@
 .cal-wrap {
-    @apply rounded-lg border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-surface);
+    padding: 24px;
 }
 
 // ── Header ──────────────────────────────────────────────────────────────────
 
 .cal-header {
-    @apply mb-6 flex items-center justify-between;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .cal-title {
-    @apply text-lg font-semibold text-slate-900 dark:text-white;
+    font-size: 18px;
+    line-height: 28px;
+    font-weight: 600;
+    color: var(--color-text-primary);
 }
 
 .cal-header-right {
@@ -19,95 +28,137 @@
 }
 
 .cal-nav {
-    @apply flex items-center gap-2;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .cal-nav-btn {
-    @apply rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800;
+    border-radius: 4px;
+    padding: 4px;
+
+    &:hover {
+        background: var(--color-bg-surface-2);
+    }
 }
 
 .cal-nav-icon {
-    @apply h-5 w-5 text-slate-600 dark:text-slate-400;
+    width: 20px;
+    height: 20px;
+    color: var(--color-text-secondary);
 }
 
 .cal-month-label {
-    @apply min-w-[140px] text-center font-medium text-slate-900 dark:text-white;
+    min-width: 140px;
+    text-align: center;
+    font-weight: 500;
+    color: var(--color-text-primary);
 }
 
 .cal-today-btn {
-    @apply ml-2 text-sm text-emerald-600 hover:text-emerald-700 dark:text-emerald-400;
+    margin-left: 8px;
+    font-size: 14px;
+    color: var(--color-accent);
+    &:hover { color: var(--color-accent-hover); }
 }
 
 // ── Weekday header row ───────────────────────────────────────────────────────
 
 .cal-weekdays {
-    @apply mb-2 grid grid-cols-7 text-center;
+    margin-bottom: 8px;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
 
     span {
-        @apply text-xs font-medium text-slate-400;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--color-text-muted);
     }
 }
 
 // ── Grid ─────────────────────────────────────────────────────────────────────
 
 .cal-grid {
-    @apply grid grid-cols-7 gap-2;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
     overflow: visible;
 }
 
 .cal-day {
-    @apply min-h-[90px] rounded-lg border border-slate-100 p-2 transition-all
-           dark:border-slate-800;
+    min-height: 90px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    padding: 8px;
+    transition: all 0.15s;
 
     &:hover {
-        @apply shadow-md;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
     }
 
     &--other-month {
-        @apply opacity-40;
+        opacity: 0.4;
     }
 
     // Market closed (weekend / US holiday) with no trades — grey wash
     &--closed {
-        @apply bg-slate-100 dark:bg-slate-800/60;
+        background: var(--color-bg-surface-2);
 
         .cal-day-num {
-            @apply text-slate-400 dark:text-slate-600;
+            color: var(--color-text-muted);
         }
     }
 
     &--open {
-        @apply bg-white dark:bg-slate-900;
+        background: var(--color-bg-surface);
+    }
+
+    &--positive {
+        background-color: rgba(var(--color-cal-positive-rgb), var(--cal-cell-opacity, 0.3));
+        color: var(--color-cal-positive-text);
+    }
+
+    &--negative {
+        background-color: rgba(var(--color-cal-negative-rgb), var(--cal-cell-opacity, 1));
+        color: var(--color-cal-negative-text);
     }
 }
 
 // ── Day number ───────────────────────────────────────────────────────────────
 
 .cal-day-top {
-    @apply flex items-start justify-between;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
 }
 
 .cal-day-num {
-    @apply text-xs font-medium text-slate-900 dark:text-slate-200;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-text-primary);
 
     &--today {
-        @apply rounded-full bg-slate-200 px-1.5 dark:bg-slate-700;
+        border-radius: 9999px;
+        background: var(--color-bg-surface-3);
+        padding: 0 6px;
     }
 
     &--on-pnl {
-        @apply text-white;
+        color: inherit;
 
         &.cal-day-num--today {
-            @apply bg-white/30;
+            background: rgba(255, 255, 255, 0.3);
         }
     }
 }
 
 .cal-trade-count {
-    @apply text-[10px] text-slate-500;
+    font-size: 10px;
+    color: var(--color-text-muted);
 
     &--on-pnl {
-        @apply text-white/80;
+        color: rgba(255, 255, 255, 0.8);
     }
 }
 
@@ -216,7 +267,7 @@
 .cal-metric-val {
     font-size: 10px;
     font-weight: 600;
-    color: #fff;
+    color: inherit;
 
     &--pnl {
         font-size: 15px;
@@ -232,7 +283,8 @@
 .cal-metric-sub {
     font-size: 9px;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.8);
+    color: inherit;
+    opacity: 0.75;
 }
 
 // On uncolored background
@@ -249,7 +301,10 @@
 // ── Economic event tags ───────────────────────────────────────────────────────
 
 .cal-events {
-    @apply mt-1.5 flex flex-wrap gap-1;
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
 }
 
 // Wrapper provides the hover anchor for the tooltip
@@ -276,7 +331,13 @@
 }
 
 .cal-event-tag {
-    @apply inline-block rounded px-1 py-0.5 text-[9px] font-bold leading-none no-underline;
+    display: inline-block;
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    text-decoration: none;
     cursor: pointer;
     background: #e2e8f0;
     color: #475569;
@@ -355,7 +416,11 @@
 }
 
 .cal-event-tooltip-est {
-    @apply rounded bg-slate-700 px-1 py-0.5 text-[9px] text-slate-400;
+    border-radius: 4px;
+    background: #374151;
+    padding: 2px 4px;
+    font-size: 9px;
+    color: #94a3b8;
 }
 
 .cal-event-tooltip-link {
@@ -373,15 +438,26 @@
 // ── Legend ───────────────────────────────────────────────────────────────────
 
 .cal-legend {
-    @apply mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400;
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--color-text-muted);
 }
 
 .cal-legend-item {
-    @apply flex items-center gap-1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .cal-legend-dot {
-    @apply inline-block h-2 w-2 rounded-full;
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
 
     &--fomc { background: #7c3aed; }
     &--cpi  { background: #2563eb; }
@@ -389,5 +465,7 @@
 }
 
 .cal-legend-note {
-    @apply ml-auto text-[10px] text-slate-400 dark:text-slate-600;
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--color-text-muted);
 }

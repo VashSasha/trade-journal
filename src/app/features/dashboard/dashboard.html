@@ -1,32 +1,39 @@
 <div class="dash">
-    <div class="dash__container">
+  <div class="dash__container">
 
-        <!-- Filter Toolbar -->
-        <app-filter-toolbar></app-filter-toolbar>
+    <!-- Filter Toolbar -->
+    <app-filter-toolbar></app-filter-toolbar>
 
-        <!-- Stats Overview -->
-        <app-stats-overview [stats]="stats()"></app-stats-overview>
+    <!-- Stats Overview -->
+    <app-stats-overview [stats]="stats()"></app-stats-overview>
 
-        <!-- Performance Chart Card -->
-        <div class="dash-card dash__chart-card">
-            <div class="dash-card__header">
-                <h3 class="dash-card__title">Performance Overview</h3>
-                <div class="equity-tabs">
-                    <button class="equity-tab" [class.is-active]="equityView() === 'trade'" (click)="setEquityView('trade')">Trade</button>
-                    <button class="equity-tab" [class.is-active]="equityView() === 'hour'"  (click)="setEquityView('hour')">Hour</button>
-                    <button class="equity-tab" [class.is-active]="equityView() === 'day'"   (click)="setEquityView('day')">Day</button>
-                </div>
-            </div>
-            <app-performance-charts [equityData]="equityCurveData()" [winLossStats]="stats()">
-            </app-performance-charts>
+    <!-- Performance Chart Card -->
+    <div class="dash-card dash__chart-card">
+      <div class="dash-card__header">
+        <h3 class="dash-card__title">Performance Overview</h3>
+        <div class="equity-tabs">
+          <button class="equity-tab" [class.is-active]="equityView() === 'trade'" (click)="setEquityView('trade')">
+            Trade
+          </button>
+          <button class="equity-tab" [class.is-active]="equityView() === 'hour'" (click)="setEquityView('hour')">Hour
+          </button>
+          <button class="equity-tab" [class.is-active]="equityView() === 'day'" (click)="setEquityView('day')">Day
+          </button>
         </div>
-
-        <!-- Bottom Grid: Calendar + Recent Trades + Goals -->
-        <div class="dash__bottom-grid">
-            <app-calendar-heatmap class="dash__calendar" [trades]="trades()"></app-calendar-heatmap>
-            <app-recent-trades    class="dash__recent"   [trades]="recentTrades()"></app-recent-trades>
-            <app-goals-widget     class="dash__goals"></app-goals-widget>
-        </div>
-
+      </div>
+      <app-performance-charts
+        [equityData]="equityCurveData()"
+        [winLossStats]="stats()"
+      >
+      </app-performance-charts>
     </div>
+
+    <!-- Bottom Grid: Calendar + Recent Trades + Goals -->
+    <div class="dash__bottom-grid">
+      <app-calendar-heatmap class="dash__calendar" [trades]="calendarTrades()"></app-calendar-heatmap>
+      <app-recent-trades class="dash__recent" [trades]="recentTrades()"></app-recent-trades>
+      <app-goals-widget class="dash__goals"></app-goals-widget>
+    </div>
+
+  </div>
 </div>

@@ -88,7 +88,7 @@ export class HourlyPerformanceComponent implements AfterViewInit {
                         data: [],
                         backgroundColor: (context) => {
                             const value = context.raw as number;
-                            return value >= 0 ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)';
+                            return value >= 0 ? 'rgba(16, 185, 129, 0.5)' : 'rgba(139,38,53,0.65)';
                         },
                         yAxisID: 'y',
                         borderRadius: 4

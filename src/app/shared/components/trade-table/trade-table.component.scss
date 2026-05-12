@@ -40,7 +40,7 @@
            hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40;
 
     &:last-child { @apply border-b-0; }
-    &--selected  { @apply bg-emerald-50 dark:bg-emerald-900/10; }
+    &--selected  { background-color: var(--color-accent-subtle); }
     &--missed    { @apply opacity-60; }
 }
 
@@ -55,8 +55,9 @@
 }
 
 .tt-checkbox {
-    @apply h-4 w-4 rounded border-slate-300 text-emerald-600 accent-emerald-500
-           focus:ring-emerald-500 dark:border-slate-700;
+    @apply h-4 w-4 rounded border-slate-300 dark:border-slate-700;
+    accent-color: var(--color-accent);
+    color: var(--color-accent);
 }
 
 // ── Symbol cell ───────────────────────────────────────────────────────────────
@@ -66,15 +67,16 @@
 }
 
 .tt-symbol-link {
-    @apply font-semibold text-emerald-600 hover:text-emerald-700 hover:underline
-           dark:text-emerald-400 dark:hover:text-emerald-300;
+    @apply font-semibold hover:underline;
+    color: var(--color-text-primary);
+    &:hover { color: var(--color-accent-hover); }
 }
 
 // ── P&L ───────────────────────────────────────────────────────────────────────
 
 .tt-pnl {
     @apply font-semibold;
-    &--pos     { @apply text-emerald-600 dark:text-emerald-400; }
+    &--pos     { color: var(--color-accent); }
     &--neg     { @apply text-red-600 dark:text-red-400; }
     &--neutral { @apply text-slate-400; }
 }

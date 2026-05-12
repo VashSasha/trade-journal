@@ -4,8 +4,8 @@
     gap: 0.75rem;
     padding: 0.5rem 0.75rem;
     border-radius: 0.75rem;
-    border: 1px solid var(--color-border);
-    background: var(--color-bg-surface-2);
+    border: 1px solid var(--color-chrome-border);
+    background: var(--color-chrome-widget-bg);
     position: relative;
 }
 
@@ -18,7 +18,7 @@
 .acct-widget__label {
     font-size: 0.6rem;
     font-weight: 500;
-    color: var(--color-text-muted);
+    color: var(--color-chrome-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     white-space: nowrap;
@@ -27,16 +27,16 @@
 .acct-widget__value {
     font-size: 0.9375rem;
     font-weight: 700;
-    color: var(--color-text-primary);
+    color: var(--color-chrome-text);
     font-variant-numeric: tabular-nums;
 
-    &--empty { color: var(--color-text-muted); }
+    &--empty { color: var(--color-chrome-text-muted); }
 }
 
 .acct-widget__divider {
     width: 1px;
     height: 1.75rem;
-    background: var(--color-border);
+    background: var(--color-chrome-border);
 }
 
 .acct-widget__icon-btn {
@@ -47,12 +47,12 @@
     border-radius: 0.5rem;
     border: none;
     background: none;
-    color: var(--color-text-muted);
+    color: var(--color-chrome-text);
     cursor: pointer;
     transition: background 0.12s, color 0.12s;
 
     &:hover {
-        background: var(--color-bg-surface-3);
+        background: var(--color-chrome-widget-hover);
         color: var(--color-accent);
     }
 
@@ -80,8 +80,8 @@
 .acct-dropdown {
     position: absolute;
     right: 0;
-    top: calc(100% + 0.5rem);
-    width: 18rem;
+    top: calc(100% + 1rem);
+    width: 21rem;
     border-radius: 0.5rem;
     border: 1px solid var(--color-border);
     background: var(--color-bg-surface);

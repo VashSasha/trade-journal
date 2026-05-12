@@ -34,11 +34,7 @@ export class AuthService {
     isAuthenticated = computed(() => {
         const user = this.currentUserSignal();
         if (!user) return false;
-        // Treat expired sessions as unauthenticated
-        if (user.sessionExpiry && Date.now() > user.sessionExpiry) {
-            this.logout();
-            return false;
-        }
+        if (user.sessionExpiry && Date.now() > user.sessionExpiry) return false;
         return true;
     });
 
@@ -77,7 +73,13 @@ export class AuthService {
     private loadUserFromStorage(): User | null {
         try {
             const stored = localStorage.getItem(STORAGE_KEY);
-            return stored ? JSON.parse(stored) : null;
+            if (!stored) return null;
+            const user: User = JSON.parse(stored);
+            if (user.sessionExpiry && Date.now() > user.sessionExpiry) {
+                localStorage.removeItem(STORAGE_KEY);
+                return null;
+            }
+            return user;
         } catch {
             return null;
         }

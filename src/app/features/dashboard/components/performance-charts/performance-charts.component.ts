@@ -1,8 +1,8 @@
-import { Component, Input, ViewChild, ElementRef, AfterViewInit, OnDestroy, OnChanges, SimpleChanges, inject } from '@angular/core';
+import { Component, Input, ViewChild, ElementRef, AfterViewInit, OnDestroy, OnChanges, SimpleChanges, inject, effect } from '@angular/core';
 
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { TradeStats } from '../../../../core/models/trade.model';
-import { AccountSettingsService } from '../../../../core/services/account-settings.service';
+import { ThemeService } from '../../../../core/services/theme.service';
 import { EquityCurveChartComponent } from '../../../../shared/components/equity-curve-chart/equity-curve-chart.component';
 
 Chart.register(...registerables);
@@ -19,8 +19,22 @@ export class PerformanceChartsComponent implements AfterViewInit, OnDestroy, OnC
 
     @ViewChild('winLossChart') winLossChartRef!: ElementRef<HTMLCanvasElement>;
 
-    readonly accountSettings = inject(AccountSettingsService);
+    private theme = inject(ThemeService);
     private winLossChart?: Chart;
+
+    private get winColor(): string {
+        return this.theme.isDark() ? '#059669' : '#059669';
+    }
+
+    constructor() {
+        effect(() => {
+            this.theme.isDark(); // track
+            if (this.winLossChart) {
+                (this.winLossChart.data.datasets[0] as any).backgroundColor[0] = this.winColor;
+                this.winLossChart.update();
+            }
+        });
+    }
 
     ngOnChanges(changes: SimpleChanges): void {
         if (changes['winLossStats'] && this.winLossChart && !changes['winLossStats'].firstChange) {
@@ -45,7 +59,7 @@ export class PerformanceChartsComponent implements AfterViewInit, OnDestroy, OnC
                 labels: ['Wins', 'Losses'],
                 datasets: [{
                     data: [this.winLossStats.winningTrades, this.winLossStats.losingTrades],
-                    backgroundColor: ['#10b981', '#ef4444'],
+                    backgroundColor: [this.winColor, this.theme.isDark() ? '#8B2635' : '#e35868'],
                     borderWidth: 0
                 }]
             },

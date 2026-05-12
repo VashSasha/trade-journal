@@ -9,10 +9,8 @@ npm start              # Angular dev server
 npm run electron:dev   # Angular dev server + Electron (concurrent)
 npm run build          # Production web build
 npm run electron:build # Production Electron build (macOS)
-npm test               # Run tests with Vitest
+npm test               # Run tests (ng test with Angular unit-test builder)
 ```
-
-Always run `npm run build` after making changes to verify compilation. Never skip this step.
 
 ---
 
@@ -156,4 +154,4 @@ Just keep the architecture clean so adding that layer later is straightforward.
 - Use Tailwind classes in HTML templates
 - Create Chart.js instances directly for equity curves — use `EquityCurveChartComponent`
 - Duplicate logic that exists in `core/utils/`
-- Skip `npm run build` verification after changes
+- Run `npm run build` after every change — only run it when explicitly asked or when verifying a suspected compilation error

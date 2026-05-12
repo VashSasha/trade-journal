@@ -2,6 +2,7 @@ import { Component, input, signal, computed, inject, HostListener, ElementRef } 
 import { CurrencyPipe } from '@angular/common';
 import { Trade } from '../../../../core/models/trade.model';
 import { EconomicCalendarService, EconomicEvent } from '../../../../core/services/economic-calendar.service';
+import { ThemeService } from '../../../../core/services/theme.service';
 import { isMarketClosed } from '../../../../core/utils/market-holidays';
 
 export type CalDisplayMode = 'pnl' | 'points' | 'trades' | 'winrate' | 'percent';
@@ -46,6 +47,7 @@ export class CalendarHeatmapComponent {
     trades = input.required<Trade[]>();
 
     private economicCalendarService = inject(EconomicCalendarService);
+    private theme = inject(ThemeService);
     private elRef = inject(ElementRef);
 
     currentDate = signal(new Date());
@@ -190,11 +192,15 @@ export class CalendarHeatmapComponent {
         return day.hasTrades && day.pnl !== 0;
     }
 
-    getDayBg(day: CalendarDay): string {
-        if (!day.hasTrades || day.pnl === 0) return '';
-        // Background always based on P&L regardless of selected display modes
-        const opacity = 0.55 + Math.min(Math.abs(day.pnlPercent) / 5, 0.35);
-        return day.pnl > 0 ? `rgba(16,185,129,${opacity})` : `rgba(239,68,68,${opacity})`;
+    getCellOpacity(day: CalendarDay): number {
+        if (!day.hasTrades || day.pnl === 0) return 0;
+        const isDark = this.theme.isDark();
+        if (day.pnl > 0) {
+            return isDark
+                ? 0.40 + Math.min(Math.abs(day.pnlPercent) / 5, 0.30)
+                : 0.20 + Math.min(Math.abs(day.pnlPercent) / 5, 0.28);
+        }
+        return 0.78 + Math.min(Math.abs(day.pnlPercent) / 5, 0.22);
     }
 
     formatSign(value: number): string {

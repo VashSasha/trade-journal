@@ -18,7 +18,8 @@
     @apply flex-1 rounded-lg px-4 py-2.5 font-medium transition-colors bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300;
 
     &.active-long {
-        @apply bg-emerald-500 text-white;
+        background-color: var(--color-accent);
+        color: white;
     }
 
     &.active-short {
@@ -38,7 +39,8 @@
     @apply mt-4 rounded-lg border p-4 border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800;
 
     &.positive {
-        @apply border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30;
+        border-color: var(--color-accent);
+        background-color: var(--color-accent-subtle);
     }
 
     &.negative {
@@ -49,20 +51,20 @@
 .pnl-preview-label {
     @apply text-sm font-medium text-slate-700 dark:text-slate-300;
 
-    .positive & { @apply text-emerald-700 dark:text-emerald-400; }
+    .positive & { color: var(--color-accent); }
     .negative & { @apply text-red-700 dark:text-red-400; }
 }
 
 .pnl-preview-value {
     @apply text-lg font-bold text-slate-600 dark:text-slate-400;
 
-    .positive & { @apply text-emerald-600 dark:text-emerald-400; }
+    .positive & { color: var(--color-accent); }
     .negative & { @apply text-red-600 dark:text-red-400; }
 }
 
 .pnl-preview-percent {
     @apply text-sm text-slate-500;
 
-    .positive & { @apply text-emerald-600 dark:text-emerald-500; }
+    .positive & { color: var(--color-accent); }
     .negative & { @apply text-red-600 dark:text-red-500; }
 }

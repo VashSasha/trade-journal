@@ -111,7 +111,7 @@ export class PerformanceBySetupComponent implements AfterViewInit, OnDestroy {
         this.chart.data.labels = data.map(d => d.setup);
         this.chart.data.datasets[0].data = data.map(d => d.pnl);
         (this.chart.data.datasets[0] as any).backgroundColor = data.map(d =>
-            d.pnl >= 0 ? 'rgba(16,185,129,0.6)' : 'rgba(239,68,68,0.6)'
+            d.pnl >= 0 ? 'rgba(16,185,129,0.6)' : 'rgba(139,38,53,0.65)'
         );
         this.chart.update();
     }

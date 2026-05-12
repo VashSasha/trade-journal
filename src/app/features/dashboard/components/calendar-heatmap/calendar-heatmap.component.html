@@ -69,7 +69,9 @@
            [class.cal-day--other-month]="!day.isCurrentMonth"
            [class.cal-day--closed]="day.isMarketClosed && !day.hasTrades"
            [class.cal-day--open]="!day.isMarketClosed && !day.hasTrades"
-           [style.background-color]="getDayBg(day)">
+           [class.cal-day--positive]="day.hasTrades && day.pnl > 0"
+           [class.cal-day--negative]="day.hasTrades && day.pnl < 0"
+           [style.--cal-cell-opacity]="getCellOpacity(day)">
 
         <div class="cal-day-top">
           <span class="cal-day-num"

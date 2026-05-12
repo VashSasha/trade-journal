@@ -7,6 +7,15 @@
 /bazel-out
 /dist-electron
 
+# Claude Code project files
+.claude/
+
+# Compiled CSS artifacts (generated from SCSS)
+src/styles.css
+src/styles.css.map
+**/*.component.css
+**/*.component.css.map
+
 # Node
 /node_modules
 npm-debug.log
@@ -38,6 +47,9 @@ yarn-error.log
 testem.log
 /typings
 __screenshots__/
+
+# Environment / secrets
+.env
 
 # System files
 .DS_Store

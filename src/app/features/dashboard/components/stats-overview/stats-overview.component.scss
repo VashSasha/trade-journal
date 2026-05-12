@@ -68,21 +68,24 @@
     }
 
     &--negative {
-        .stat-card__value { color: var(--color-negative); }
+        .stat-card__value {
+          color: var(--color-negative);
+          margin-right: 0.5rem;
+        }
 
         .stat-card__icon {
-            background: var(--color-negative-subtle);
+            background: rgba(207, 89, 89, 0.18);
             svg { color: var(--color-negative); }
         }
     }
 
     &--blue .stat-card__icon {
-        background: rgba(59, 130, 246, 0.1);
+        background: rgba(59, 130, 246, 0.18);
         svg { color: var(--color-info); }
     }
 
     &--purple .stat-card__icon {
-        background: rgba(168, 85, 247, 0.1);
+        background: rgba(168, 85, 247, 0.18);
         svg { color: #a855f7; }
     }
 

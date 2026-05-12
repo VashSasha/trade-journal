@@ -29,8 +29,8 @@
         color: var(--color-text-primary);
         line-height: 1;
 
-        &--positive { color: #10b981; }
-        &--negative { color: #ef4444; }
+        &--positive { color: var(--color-positive); }
+        &--negative { color: var(--color-negative); }
     }
 
     @media (max-width: 960px) {

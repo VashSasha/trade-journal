@@ -30,7 +30,7 @@ export class DashboardComponent implements OnInit {
     private filterService = inject(FilterService);
     readonly accountSettings = inject(AccountSettingsService);
 
-    equityView = signal<'trade' | 'hour' | 'day'>('trade');
+    equityView = signal<'trade' | 'hour' | 'day'>('hour');
 
     ngOnInit(): void {
         const lastSync = this.syncService.lastSyncTime();
@@ -50,15 +50,19 @@ export class DashboardComponent implements OnInit {
         this.filterService.filterTrades(this.tradeService.trades())
     );
 
-    stats = computed(() => this.tradeService.calculateStats(this.filteredTrades()));
+    // Date-range-agnostic — used by the calendar, which manages its own month navigation
+    calendarTrades = computed(() =>
+        this.filterService.filterTradesIgnoreDateRange(this.tradeService.trades())
+    );
 
-    trades = this.filteredTrades;
+    stats = computed(() => this.tradeService.calculateStats(this.filteredTrades()));
 
     recentTrades = computed(() =>
         [...this.filteredTrades()]
             .sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime())
             .slice(0, 5)
     );
+
 
     equityCurveData = computed(() => {
         const trades = this.filteredTrades()
@@ -102,24 +106,7 @@ export class DashboardComponent implements OnInit {
             }).sort((a, b) => a.timestamp - b.timestamp);
         }
 
-        // Use only account-filtered trades for priorPnl so the curve starts at the
-        // correct balance for the selected accounts, not the combined balance of all accounts.
-        const accountIds = this.filterService.filters().accountIds;
-        const allTrades = this.tradeService.trades()
-            .filter(t => {
-                if (t.status !== 'closed' || t.netPnl === undefined) return false;
-                if (accountIds.length > 0 && t.accountId && t.accountId !== '0') {
-                    return accountIds.includes(t.accountId);
-                }
-                return true;
-            });
-
-        const firstTimestamp = data.length > 0 ? data[0].timestamp : Infinity;
-        const priorPnl = allTrades
-            .filter(t => new Date(t.entryDate).getTime() < firstTimestamp)
-            .reduce((sum, t) => sum + (t.netPnl || 0), 0);
-
-        const startingBalance = this.accountSettings.startingBalance() + priorPnl;
+        const startingBalance = this.accountSettings.startingBalance();
         let cumulative = startingBalance;
         const labels: string[] = ['Start'];
         const values: number[] = [Math.round(startingBalance * 100) / 100];

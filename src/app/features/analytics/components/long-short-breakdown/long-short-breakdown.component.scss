@@ -13,8 +13,8 @@
         flex-direction: column;
         gap: 18px;
 
-        &--long  { border-top: 3px solid #10b981; }
-        &--short { border-top: 3px solid #ef4444; }
+        &--long  { border-top: 3px solid var(--color-positive); }
+        &--short { border-top: 3px solid var(--color-negative); }
     }
 
     &__header {
@@ -31,8 +31,8 @@
         text-transform: uppercase;
         letter-spacing: 0.05em;
 
-        &--long  { background: rgba(16,185,129,0.12); color: #10b981; }
-        &--short { background: rgba(239,68,68,0.12);  color: #ef4444; }
+        &--long  { background: var(--color-positive-subtle); color: var(--color-positive); }
+        &--short { background: var(--color-negative-subtle); color: var(--color-negative); }
     }
 
     &__trade-count {
@@ -69,7 +69,7 @@
         font-weight: 600;
         color: var(--color-text-primary);
 
-        &--pos { color: #10b981; }
-        &--neg { color: #ef4444; }
+        &--pos { color: var(--color-positive); }
+        &--neg { color: var(--color-negative); }
     }
 }

@@ -32,12 +32,13 @@
             </div>
             <div>
               <div class="recent-trade__symbol">
-                {{ trade.symbol }}
                 <span class="recent-trade__direction-badge"
                       [class.recent-trade__direction-badge--long]="trade.direction === 'long'"
                       [class.recent-trade__direction-badge--short]="trade.direction === 'short'">
+                  {{ trade.quantity }}
                   {{ trade.direction | titlecase }}
                 </span>
+                {{ trade.status }}
               </div>
               <div class="recent-trade__date">{{ trade.entryDate | date:'MMM d, y' }}</div>
             </div>

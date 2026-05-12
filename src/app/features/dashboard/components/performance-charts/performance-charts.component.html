@@ -5,7 +5,7 @@
         <div class="h-64">
             <app-equity-curve-chart
                 [equityData]="equityData"
-                [baseline]="accountSettings.startingBalance()">
+                [baseline]="equityData.values[0] ?? 0">
             </app-equity-curve-chart>
         </div>
     </div>

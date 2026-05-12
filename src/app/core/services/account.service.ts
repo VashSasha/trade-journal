@@ -113,6 +113,10 @@ export class AccountService {
 
             await Promise.all([
                 ...conns.map(conn =>
+                    firstValueFrom(this.tradovateService.getAccountsForConnection(conn))
+                        .catch(err => console.error('[AccountService] Failed to refresh accounts for', conn.name, err))
+                ),
+                ...conns.map(conn =>
                     firstValueFrom(this.tradovateService.getCashBalancesForConnection(conn))
                         .then(balances => {
                             this.accountBalances.update(map => {

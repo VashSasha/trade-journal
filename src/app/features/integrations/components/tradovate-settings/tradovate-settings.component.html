@@ -152,7 +152,7 @@
               @for (entry of syncLog(); track $index) {
                 <div class="flex gap-2"
                      [class.text-slate-500]="entry.type === 'info'"
-                     [class.text-emerald-600]="entry.type === 'success'"
+                     [style.color]="entry.type === 'success' ? 'var(--color-accent)' : null"
                      [class.text-amber-600]="entry.type === 'warn'"
                      [class.text-red-600]="entry.type === 'error'">
                   <span class="flex-shrink-0 text-slate-400">{{ entry.time }}</span>
@@ -166,9 +166,9 @@
         <!-- Result banner -->
         @if (!isSyncing() && syncResult() !== null) {
           <div class="rounded-lg border px-4 py-3 text-sm font-medium"
-               [class.border-emerald-200]="syncResult()! > 0"
-               [class.bg-emerald-50]="syncResult()! > 0"
-               [class.text-emerald-700]="syncResult()! > 0"
+               [style.borderColor]="syncResult()! > 0 ? 'var(--color-accent)' : null"
+               [style.backgroundColor]="syncResult()! > 0 ? 'var(--color-accent-subtle)' : null"
+               [style.color]="syncResult()! > 0 ? 'var(--color-accent)' : null"
                [class.border-slate-200]="syncResult() === 0"
                [class.bg-slate-50]="syncResult() === 0"
                [class.text-slate-600]="syncResult() === 0">

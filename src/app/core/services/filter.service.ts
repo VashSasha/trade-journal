@@ -103,6 +103,23 @@ export class FilterService {
             // Sides
             if (s.sides.length > 0 && !s.sides.includes(t.direction)) return false;
 
+            if (s.accountIds.length > 0 && t.accountId && t.accountId !== '0') {
+                if (!s.accountIds.includes(t.accountId)) return false;
+            }
+
+            return true;
+        });
+    }
+
+    /** Same as filterTrades() but skips the date range filter.
+     *  Use for components that manage their own date navigation (e.g. calendar heatmap). */
+    filterTradesIgnoreDateRange(trades: Trade[]): Trade[] {
+        const s = this.state();
+
+        return trades.filter(t => {
+            if (s.symbols.length > 0 && !s.symbols.includes(t.symbol)) return false;
+            if (s.setups.length > 0 && (!t.setup || !s.setups.includes(t.setup))) return false;
+            if (s.sides.length > 0 && !s.sides.includes(t.direction)) return false;
 
             if (s.accountIds.length > 0 && t.accountId && t.accountId !== '0') {
                 if (!s.accountIds.includes(t.accountId)) return false;

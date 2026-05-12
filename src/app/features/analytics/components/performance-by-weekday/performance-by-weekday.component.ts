@@ -147,7 +147,7 @@ export class PerformanceByWeekdayComponent implements AfterViewInit, OnDestroy {
         this.chart.data.datasets[0].data = data.map(d => d.winRate);
         this.chart.data.datasets[1].data = data.map(d => d.avgPnl);
         (this.chart.data.datasets[1] as any).backgroundColor = data.map(d =>
-            d.avgPnl >= 0 ? 'rgba(16,185,129,0.6)' : 'rgba(239,68,68,0.6)'
+            d.avgPnl >= 0 ? 'rgba(16,185,129,0.6)' : 'rgba(139,38,53,0.65)'
         );
         this.chart.update();
     }
