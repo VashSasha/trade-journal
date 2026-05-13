@@ -76,6 +76,48 @@
                 } @empty {
                 <div class="acct-dropdown__empty">No accounts found</div>
                 }
+
+                @if (accountService.inactiveAccounts().length > 0) {
+                <div class="acct-dropdown__section-label">Inactive</div>
+                @for (account of accountService.inactiveAccounts(); track account.id) {
+                <label class="acct-dropdown__item acct-dropdown__item--inactive">
+                    <div class="acct-dropdown__item-left">
+                        <input type="checkbox" class="acct-dropdown__checkbox"
+                            [checked]="accountService.selectedIds().includes(account.id)"
+                            (change)="accountService.toggle(account.id)"/>
+                        <div>
+                            <div class="acct-dropdown__item-name">
+                                {{ account.name }}
+                                <span class="acct-dropdown__item-badge">Inactive</span>
+                            </div>
+                            <div class="acct-dropdown__item-id">ID: {{ account.id }}</div>
+                        </div>
+                    </div>
+                    <div class="acct-dropdown__item-balance acct-dropdown__item-balance--na">—</div>
+                </label>
+                }
+                }
+
+                @if (accountService.historicalAccounts().length > 0) {
+                <div class="acct-dropdown__section-label">Historical</div>
+                @for (account of accountService.historicalAccounts(); track account.id) {
+                <label class="acct-dropdown__item acct-dropdown__item--inactive">
+                    <div class="acct-dropdown__item-left">
+                        <input type="checkbox" class="acct-dropdown__checkbox"
+                            [checked]="accountService.selectedIds().includes(account.id)"
+                            (change)="accountService.toggle(account.id)"/>
+                        <div>
+                            <div class="acct-dropdown__item-name">
+                                {{ account.name }}
+                                <span class="acct-dropdown__item-badge">Historical</span>
+                            </div>
+                            <div class="acct-dropdown__item-id">ID: {{ account.id }}</div>
+                        </div>
+                    </div>
+                    <div class="acct-dropdown__item-balance acct-dropdown__item-balance--na">—</div>
+                </label>
+                }
+                }
             </div>
         </div>
         }

@@ -3,9 +3,15 @@ import { DailyJournalService } from '../../../../core/services/daily-journal.ser
 import { TradeService } from '../../../../core/services/trade.service';
 import { EconomicCalendarService } from '../../../../core/services/economic-calendar.service';
 import { AccountService } from '../../../../core/services/account.service';
-import { AccountSettingsService } from '../../../../core/services/account-settings.service';
 import { buildTimelineEntry, groupEntriesByMonth, MonthGroup, TimelineEntry } from '../utils/timeline.utils';
 import { NewsEventTag } from '../../../../core/models/daily-journal.model';
+
+function localDateStr(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
 
 @Injectable()
 export class JournalFormState {
@@ -13,9 +19,8 @@ export class JournalFormState {
     tradeService = inject(TradeService);
     private economicCalendarService = inject(EconomicCalendarService);
     private accountService = inject(AccountService);
-    private accountSettings = inject(AccountSettingsService);
 
-    selectedDate = signal(new Date().toISOString().split('T')[0]);
+    selectedDate = signal(localDateStr(new Date()));
     lastSaved = signal<Date | null>(null);
     isDirty = signal(false);
     showAllTrades = signal(false);
@@ -40,7 +45,7 @@ export class JournalFormState {
         const total = this.accountService.accounts().length;
         return this.tradeService.trades()
             .filter(t => {
-                if (!t.entryDate?.startsWith(date)) return false;
+                if (!t.entryDate || localDateStr(new Date(t.entryDate)) !== date) return false;
                 if (selectedIds.length > 0 && selectedIds.length < total && t.accountId && t.accountId !== '0') {
                     return selectedIds.includes(+t.accountId);
                 }
@@ -53,20 +58,9 @@ export class JournalFormState {
         this.dayTrades().reduce((sum, t) => sum + (t.netPnl ?? t.pnl ?? 0), 0)
     );
 
-    priorBalance = computed(() => {
-        const date = this.selectedDate();
-        const selectedIds = this.accountService.selectedIds();
-        const total = this.accountService.accounts().length;
-        const closedBefore = this.tradeService.trades().filter(t => {
-            if (t.status !== 'closed' || !t.exitDate || t.exitDate >= date + 'T') return false;
-            if (selectedIds.length > 0 && selectedIds.length < total && t.accountId && t.accountId !== '0') {
-                return selectedIds.includes(+t.accountId);
-            }
-            return true;
-        });
-        const cumulativePnl = closedBefore.reduce((sum, t) => sum + (t.netPnl ?? t.pnl ?? 0), 0);
-        return this.accountSettings.startingBalance() + cumulativePnl;
-    });
+    priorBalance = computed(() =>
+        this.accountService.aggregatedBalance() - this.dayPnl()
+    );
 
     displayDate = computed(() =>
         new Date(this.selectedDate() + 'T12:00:00').toLocaleDateString('en-US', {
@@ -76,7 +70,7 @@ export class JournalFormState {
 
     timelineEntries = computed((): TimelineEntry[] => {
         const today = new Date();
-        const todayStr = today.toISOString().split('T')[0];
+        const todayStr = localDateStr(today);
         const trades = this.tradeService.trades();
         const selectedIds = this.accountService.selectedIds();
         const total = this.accountService.accounts().length;
@@ -85,11 +79,11 @@ export class JournalFormState {
         for (let i = 0; i < 60; i++) {
             const date = new Date(today);
             date.setDate(date.getDate() - i);
-            const dateStr = date.toISOString().split('T')[0];
+            const dateStr = localDateStr(date);
 
             const note = this.journalService.getNoteForDate(dateStr);
             const dayTrades = trades.filter(t => {
-                if (!t.entryDate?.startsWith(dateStr)) return false;
+                if (!t.entryDate || localDateStr(new Date(t.entryDate)) !== dateStr) return false;
                 if (selectedIds.length > 0 && selectedIds.length < total && t.accountId && t.accountId !== '0') {
                     return selectedIds.includes(+t.accountId);
                 }
@@ -138,7 +132,7 @@ export class JournalFormState {
     changeDate(days: number): void {
         const d = new Date(this.selectedDate() + 'T12:00:00');
         d.setDate(d.getDate() + days);
-        this.selectedDate.set(d.toISOString().split('T')[0]);
+        this.selectedDate.set(localDateStr(d));
     }
 
     onDateChange(event: Event): void {

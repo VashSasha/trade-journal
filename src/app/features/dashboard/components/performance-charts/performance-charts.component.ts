@@ -3,6 +3,7 @@ import { Component, Input, ViewChild, ElementRef, AfterViewInit, OnDestroy, OnCh
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { TradeStats } from '../../../../core/models/trade.model';
 import { ThemeService } from '../../../../core/services/theme.service';
+import { AccountSettingsService } from '../../../../core/services/account-settings.service';
 import { EquityCurveChartComponent } from '../../../../shared/components/equity-curve-chart/equity-curve-chart.component';
 
 Chart.register(...registerables);
@@ -20,6 +21,7 @@ export class PerformanceChartsComponent implements AfterViewInit, OnDestroy, OnC
     @ViewChild('winLossChart') winLossChartRef!: ElementRef<HTMLCanvasElement>;
 
     private theme = inject(ThemeService);
+    readonly accountSettings = inject(AccountSettingsService);
     private winLossChart?: Chart;
 
     private get winColor(): string {

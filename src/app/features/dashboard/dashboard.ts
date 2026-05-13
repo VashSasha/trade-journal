@@ -2,7 +2,7 @@ import { Component, inject, computed, signal, OnInit } from '@angular/core';
 import { TradeService } from '../../core/services/trade.service';
 import { SyncService } from '../../core/services/sync.service';
 import { FilterService } from '../../core/services/filter.service';
-import { AccountSettingsService } from '../../core/services/account-settings.service';
+import { AccountService } from '../../core/services/account.service';
 import { GoalsWidgetComponent } from './components/goals-widget/goals-widget.component';
 import { StatsOverviewComponent } from './components/stats-overview/stats-overview.component';
 import { PerformanceChartsComponent } from './components/performance-charts/performance-charts.component';
@@ -28,7 +28,7 @@ export class DashboardComponent implements OnInit {
     private tradeService = inject(TradeService);
     private syncService = inject(SyncService);
     private filterService = inject(FilterService);
-    readonly accountSettings = inject(AccountSettingsService);
+    private accountService = inject(AccountService);
 
     equityView = signal<'trade' | 'hour' | 'day'>('hour');
 
@@ -106,7 +106,8 @@ export class DashboardComponent implements OnInit {
             }).sort((a, b) => a.timestamp - b.timestamp);
         }
 
-        const startingBalance = this.accountSettings.startingBalance();
+        const filteredPnl = trades.reduce((sum, t) => sum + (t.netPnl ?? 0), 0);
+        const startingBalance = this.accountService.aggregatedBalance() - filteredPnl;
         let cumulative = startingBalance;
         const labels: string[] = ['Start'];
         const values: number[] = [Math.round(startingBalance * 100) / 100];

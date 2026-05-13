@@ -79,6 +79,10 @@ export class TradovateService {
         this.connections().flatMap(c => c.accounts.filter(a => a.active !== false))
     );
 
+    inactiveAccounts = computed(() =>
+        this.connections().flatMap(c => c.accounts.filter(a => a.active === false))
+    );
+
     expiredConnections = computed(() => {
         const ids = this.expiredConnectionIds();
         return this.connections().filter(c => ids.includes(c.id));

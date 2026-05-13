@@ -3,6 +3,7 @@ import { firstValueFrom } from 'rxjs';
 import { TradovateService, TradovateAccount } from './tradovate.service';
 import { FilterService } from './filter.service';
 import { SyncService } from './sync.service';
+import { TradeService } from './trade.service';
 
 const STORAGE_KEY = 'tradovate_selected_account_ids';
 
@@ -11,8 +12,29 @@ export class AccountService {
     private tradovateService = inject(TradovateService);
     private filterService = inject(FilterService);
     private syncService = inject(SyncService);
+    private tradeService = inject(TradeService);
 
     accounts = signal<TradovateAccount[]>([]);
+    inactiveAccounts = computed(() => this.tradovateService.inactiveAccounts());
+
+    // Accounts derived from trade history that are not in active or inactive Tradovate connection lists.
+    // Covers accounts that were removed from all connections but still have saved trades.
+    historicalAccounts = computed((): TradovateAccount[] => {
+        const knownIds = new Set([
+            ...this.accounts().map(a => a.id),
+            ...this.inactiveAccounts().map(a => a.id)
+        ]);
+        const seen = new Set<number>();
+        const result: TradovateAccount[] = [];
+        for (const t of this.tradeService.trades()) {
+            if (!t.accountId || t.accountId === '0') continue;
+            const id = Number(t.accountId);
+            if (isNaN(id) || knownIds.has(id) || seen.has(id)) continue;
+            seen.add(id);
+            result.push({ id, name: t.accountName || t.accountId, userId: 0, accountType: '', active: false });
+        }
+        return result;
+    });
     selectedIds = signal<number[]>(this.loadSelectedIds());
     accountBalances = signal<Map<number, number>>(new Map());
     isRefreshing = signal(false);
@@ -32,17 +54,26 @@ export class AccountService {
             if (accounts.length === 0) return;
             this.accounts.set(accounts);
             const stored = this.loadSelectedIds();
-            const valid = stored.filter(id => accounts.some(a => a.id === id));
-            const resolved = valid.length > 0 ? valid : accounts.map(a => a.id);
+            // Allow stored IDs from active, inactive, or historical (trade-derived) accounts
+            const allKnownIds = new Set([
+                ...accounts.map(a => a.id),
+                ...this.inactiveAccounts().map(a => a.id),
+                ...this.historicalAccounts().map(a => a.id)
+            ]);
+            const valid = stored.filter(id => allKnownIds.has(id));
+            const resolved = valid.length > 0 ? valid : accounts.length > 0 ? [accounts[0].id] : [];
             this.selectedIds.set(resolved);
             this.saveSelectedIds(resolved);
         });
 
         // Push account selection into FilterService whenever it changes.
+        // Always pass explicit IDs so trades from inactive/old accounts are never shown
+        // when only specific accounts are selected. Only skip the filter when no accounts
+        // are loaded yet or none are selected (show all / manual trades fall through).
         effect(() => {
             const ids = this.selectedIds();
-            const total = this.accounts().length;
-            if (total === 0 || ids.length === 0 || ids.length === total) {
+            const totalKnown = this.accounts().length + this.inactiveAccounts().length + this.historicalAccounts().length;
+            if (totalKnown === 0 || ids.length === 0) {
                 this.filterService.updateAccounts([]);
             } else {
                 this.filterService.updateAccounts(ids.map(id => id.toString()));
