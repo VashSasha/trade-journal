@@ -108,6 +108,12 @@ export class SyncService {
 
             if (rawTrades.length === 0) {
                 this.log('No trades found for the selected date range.', 'warn');
+                const commission0 = this.accountSettings.commissionPerContract();
+                const totals0 = this.tradeService.recalculateTradovateNetPnl(commission0);
+                console.log(
+                    `[SyncService] Fee reconciliation — gross P&L: $${totals0.grossPnl.toFixed(2)}, ` +
+                    `total fees: $${totals0.totalFees.toFixed(2)}, net P&L: $${totals0.netPnl.toFixed(2)}`
+                );
                 const syncTime = new Date();
                 this.lastSyncTime.set(syncTime);
                 localStorage.setItem(SyncService.LAST_SYNC_KEY, syncTime.toISOString());
@@ -115,34 +121,60 @@ export class SyncService {
                 return 0;
             }
 
-            // Apply commission and build final trade objects
+            // Use fees from the Performance report directly.
+            // Fall back to the configured commission rate only when the report doesn't include a fees column.
             const commission = this.accountSettings.commissionPerContract();
             const matchedTrades = rawTrades.map(t => {
-                const fees = parseFloat((commission * t.quantity * 2).toFixed(2));
+                const fees = t.fees !== undefined
+                    ? t.fees
+                    : parseFloat((commission * t.quantity * 2).toFixed(2));
                 const netPnl = parseFloat((t.pnl - fees).toFixed(2));
-                return {
-                    ...t,
-                    fees,
-                    netPnl,
-                    source: 'tradovate' as const,
-                    // connectionId is already embedded per-trade from getAllTrades()
-                };
+                return { ...t, fees, netPnl, source: 'tradovate' as const };
             });
 
-            // Deduplicate
+            // Deduplicate and collect fee updates for already-stored trades
             const existingByExternalId = new Map(
                 this.tradeService.trades()
                     .filter(t => t.source === 'tradovate' && t.externalId)
                     .map(t => [t.externalId, t])
             );
 
-            const tradesToImport = matchedTrades.filter(t => !existingByExternalId.has(t.externalId));
+            const tradesToImport: typeof matchedTrades = [];
+            const feeUpdates: { id: string; fees: number; netPnl: number }[] = [];
+
+            for (const t of matchedTrades) {
+                // New-format externalId check (accountId included)
+                let existing = existingByExternalId.get(t.externalId);
+
+                if (!existing) {
+                    // Legacy-format check (no accountId prefix) — same account only
+                    const legacyId = `tradovate_perf_${t.symbol}_${t.entryDate}_${t.exitDate}`;
+                    const leg = existingByExternalId.get(legacyId);
+                    if (leg && leg.accountId === t.accountId) existing = leg;
+                }
+
+                if (existing) {
+                    // Trade already stored — update fees/netPnl if the report gives different values
+                    if (existing.fees !== t.fees || existing.netPnl !== t.netPnl) {
+                        feeUpdates.push({ id: existing.id, fees: t.fees, netPnl: t.netPnl });
+                    }
+                } else {
+                    tradesToImport.push(t);
+                }
+            }
+
             this.log(
                 `${tradesToImport.length} new trade(s) to import (${matchedTrades.length - tradesToImport.length} already exist)`,
                 tradesToImport.length > 0 ? 'info' : 'warn'
             );
 
-            // Import
+            // Apply fee corrections to existing trades from the authoritative report data
+            if (feeUpdates.length > 0) {
+                this.tradeService.patchTradesFees(feeUpdates);
+                this.log(`Updated fees for ${feeUpdates.length} existing trade(s) from report.`, 'info');
+            }
+
+            // Import new trades
             const currentUser = this.authService.currentUser();
             if (!currentUser) throw new Error('User not logged in');
 
@@ -156,6 +188,13 @@ export class SyncService {
             this.lastSyncTime.set(syncTime);
             localStorage.setItem(SyncService.LAST_SYNC_KEY, syncTime.toISOString());
             conns.forEach(c => this.tradovateService.updateConnectionSyncTime(c.id));
+
+            // Recompute netPnl from stored fees (ensures consistency after import + fee patches)
+            const totals = this.tradeService.recalculateTradovateNetPnl(commission);
+            console.log(
+                `[SyncService] Fee reconciliation — gross P&L: $${totals.grossPnl.toFixed(2)}, ` +
+                `total fees: $${totals.totalFees.toFixed(2)}, net P&L: $${totals.netPnl.toFixed(2)}`
+            );
 
             this.log(`Done! Imported ${tradesToImport.length} trade(s).`, 'success');
             this.syncProgress.set(null);

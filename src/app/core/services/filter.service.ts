@@ -1,5 +1,13 @@
 import { Injectable, signal } from '@angular/core';
 import { Trade } from '../models/trade.model';
+import { tradeSessionDateStr } from '../utils/market-holidays';
+
+function toDateStr(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
 
 export interface FilterState {
     dateRange: { start: Date | null; end: Date | null };
@@ -85,13 +93,14 @@ export class FilterService {
         const s = this.state();
 
         return trades.filter(t => {
-            // Date Range
-            if (s.dateRange.start && new Date(t.entryDate) < s.dateRange.start) return false;
-            if (s.dateRange.end) {
-                const entry = new Date(t.entryDate);
-                const end = new Date(s.dateRange.end);
-                end.setHours(23, 59, 59, 999);
-                if (entry > end) return false;
+            // Date Range — use the same session-date attribution as the calendar:
+            // closed trades are attributed to their exitDate (session-adjusted),
+            // open trades to their entryDate (session-adjusted).
+            if (s.dateRange.start || s.dateRange.end) {
+                const isoDate = (t.status === 'closed' && t.exitDate) ? t.exitDate : t.entryDate;
+                const tradeDate = tradeSessionDateStr(isoDate);
+                if (s.dateRange.start && tradeDate < toDateStr(s.dateRange.start)) return false;
+                if (s.dateRange.end   && tradeDate > toDateStr(s.dateRange.end))   return false;
             }
 
             // Symbols

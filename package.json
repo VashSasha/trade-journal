@@ -2,7 +2,7 @@
   "name": "trade-journal",
   "version": "0.0.0",
   "main": "electron/main.js",
-  "author": "Trade Journal",
+  "author": "Oleksandr Vashchuk (NVZN)",
   "description": "A comprehensive trading journal for analyzing and improving your trading performance",
   "scripts": {
     "ng": "ng",
@@ -63,7 +63,7 @@
   },
   "build": {
     "appId": "com.tradejournal.app",
-    "productName": "Trade Journal",
+    "productName": "NVZN Journal",
     "directories": {
       "output": "dist-electron"
     },

@@ -1156,6 +1156,10 @@ export class TradovateService {
                 const sellTimeStr = cells[5].textContent?.trim() ?? '';
                 const sellPrice   = parseFloat(cells[6].textContent?.trim() ?? '0') || 0;
                 const pnl         = this.parsePerformancePnl(cells[7].textContent?.trim() ?? '');
+                // cells[8] = Commission/fees (present in Flex.html Performance report)
+                const fees        = cells.length > 8
+                    ? Math.abs(this.parsePerformancePnl(cells[8].textContent?.trim() ?? ''))
+                    : undefined;
 
                 if (!symbol || !quantity || !buyTimeStr || !sellTimeStr) return;
 
@@ -1185,10 +1189,11 @@ export class TradovateService {
                     exitPrice,
                     pnl,
                     pnlPercent,
+                    fees,
                     status: 'closed',
                     accountId: String(accountId),
                     accountName,
-                    externalId: `tradovate_perf_${symbol}_${entryDate}_${exitDate}`
+                    externalId: `tradovate_perf_${accountId}_${symbol}_${entryDate}_${exitDate}`
                 });
             });
 

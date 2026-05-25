@@ -112,7 +112,7 @@
             @if (isSelected('winrate') && day.closedCount > 0) {
               <div class="cal-metric-row">
                 <span class="cal-metric-val">{{ day.winRate.toFixed(0) }}%</span>
-                <span class="cal-metric-sub">{{ day.wins }}W/{{ day.closedCount - day.wins }}L</span>
+                <span class="cal-metric-sub">{{ day.wins }}W/{{ day.losses }}L</span>
               </div>
             }
 

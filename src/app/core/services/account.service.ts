@@ -61,7 +61,13 @@ export class AccountService {
                 ...this.historicalAccounts().map(a => a.id)
             ]);
             const valid = stored.filter(id => allKnownIds.has(id));
-            const resolved = valid.length > 0 ? valid : accounts.length > 0 ? [accounts[0].id] : [];
+            // Auto-include any active account not yet in the stored selection so a
+            // newly connected second account is shown immediately without manual action.
+            const storedSet = new Set(stored);
+            const newActive = accounts.map(a => a.id).filter(id => !storedSet.has(id));
+            const resolved = valid.length > 0
+                ? [...new Set([...valid, ...newActive])]
+                : accounts.map(a => a.id);
             this.selectedIds.set(resolved);
             this.saveSelectedIds(resolved);
         });

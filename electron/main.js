@@ -66,7 +66,7 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.js')
         },
         ...(iconPath ? { icon: iconPath } : {}),
-        title: 'Trade Journal',
+        title: 'NVZN Journal',
         show: false
     });
 

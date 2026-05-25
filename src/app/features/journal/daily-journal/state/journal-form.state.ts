@@ -4,6 +4,7 @@ import { TradeService } from '../../../../core/services/trade.service';
 import { EconomicCalendarService } from '../../../../core/services/economic-calendar.service';
 import { AccountService } from '../../../../core/services/account.service';
 import { buildTimelineEntry, groupEntriesByMonth, MonthGroup, TimelineEntry } from '../utils/timeline.utils';
+import { tradeSessionDateStr } from '../../../../core/utils/market-holidays';
 import { NewsEventTag } from '../../../../core/models/daily-journal.model';
 
 function localDateStr(date: Date): string {
@@ -45,7 +46,8 @@ export class JournalFormState {
         const total = this.accountService.accounts().length;
         return this.tradeService.trades()
             .filter(t => {
-                if (!t.entryDate || localDateStr(new Date(t.entryDate)) !== date) return false;
+                const dateKey = (t.status === 'closed' && t.exitDate) ? t.exitDate : t.entryDate;
+                if (!dateKey || tradeSessionDateStr(dateKey) !== date) return false;
                 if (selectedIds.length > 0 && selectedIds.length < total && t.accountId && t.accountId !== '0') {
                     return selectedIds.includes(+t.accountId);
                 }
@@ -83,7 +85,8 @@ export class JournalFormState {
 
             const note = this.journalService.getNoteForDate(dateStr);
             const dayTrades = trades.filter(t => {
-                if (!t.entryDate || localDateStr(new Date(t.entryDate)) !== dateStr) return false;
+                const dateKey = (t.status === 'closed' && t.exitDate) ? t.exitDate : t.entryDate;
+                if (!dateKey || tradeSessionDateStr(dateKey) !== dateStr) return false;
                 if (selectedIds.length > 0 && selectedIds.length < total && t.accountId && t.accountId !== '0') {
                     return selectedIds.includes(+t.accountId);
                 }

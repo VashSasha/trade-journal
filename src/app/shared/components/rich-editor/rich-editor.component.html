@@ -38,6 +38,13 @@
 
       <span class="re-sep"></span>
 
+      <!-- Headings -->
+      <button class="re-btn re-btn--label" [class.is-active]="fmt()['header'] === 1" (click)="formatHeader(1)" title="Heading 1">H1</button>
+      <button class="re-btn re-btn--label" [class.is-active]="fmt()['header'] === 2" (click)="formatHeader(2)" title="Heading 2">H2</button>
+
+
+      <span class="re-sep"></span>
+
       <!-- Highlight with color picker -->
       <div class="re-highlight-wrap">
         <button class="re-btn re-btn--highlight"
@@ -67,6 +74,36 @@
         }
       </div>
 
+      <!-- Text color with color picker -->
+      <div class="re-highlight-wrap">
+        <button class="re-btn re-btn--highlight"
+                [class.is-active]="!!fmt()['color'] && fmt()['color'] !== '#1e293b'"
+                (click)="toggleTextColorPicker($event)"
+                title="Text color">
+          <span class="re-tc-letter">A</span>
+          <span class="re-hl-swatch"
+                [style.background]="fmt()['color'] && fmt()['color'] !== '#1e293b' ? fmt()['color'] : '#94a3b8'"></span>
+        </button>
+
+        @if (textColorPickerOpen()) {
+          <div class="re-color-picker" (mousedown)="$event.preventDefault()">
+            @for (c of textColors; track c.color) {
+              <button class="re-color-swatch"
+                      [class.is-active]="fmt()['color'] === c.color"
+                      [style.background]="c.color"
+                      [title]="c.label"
+                      (click)="applyTextColor(c.color, $event)">
+              </button>
+            }
+            <button class="re-color-swatch re-color-swatch--remove"
+                    [class.is-active]="!fmt()['color'] || fmt()['color'] === '#1e293b'"
+                    title="Default color"
+                    (click)="applyTextColor(null, $event)">
+            </button>
+          </div>
+        }
+      </div>
+
       <span class="re-sep"></span>
 
       <!-- Link -->
@@ -74,6 +111,13 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
           <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        </svg>
+      </button>
+
+      <!-- Clear formatting -->
+      <button class="re-btn" (click)="clearFormat()" title="Clear formatting">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 19h4v-4.83l-4.83-4.83L3.5 10.9V19H6zm13.41-13L18 4.59 16.17 6.41 14.41 4.66l-1.42 1.41 1.75 1.75-3.41 3.41-1.75-1.75-1.41 1.42 1.75 1.75L6.41 16.5l1.42 1.41L10 15.83V19h7.83L19 17.83V17l.41-.41L21 15l-1.42-1.41L21 12l-1.59-1.59zM18 9.17l1.41 1.41L18 12l-1.41-1.41zM10.83 19H10v-.83l.83-.83.83.83z"/>
         </svg>
       </button>
 

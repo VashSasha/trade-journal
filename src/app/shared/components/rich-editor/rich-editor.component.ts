@@ -2,9 +2,20 @@ import { Component, Input, Output, EventEmitter, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { QuillModule } from 'ngx-quill';
 
-const DEFAULT_MODULES = {
+export const QUILL_FULL_MODULES = {
     toolbar: [
         ['bold', 'italic', 'underline', 'strike'],
+        [{ 'header': 1 }, { 'header': 2 }],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        [{ 'background': [] }, { 'color': [] }],
+        ['link'],
+        ['clean']
+    ]
+};
+
+export const QUILL_COMPACT_MODULES = {
+    toolbar: [
+        ['bold', 'italic', 'underline'],
         [{ 'header': 1 }, { 'header': 2 }],
         [{ 'list': 'ordered' }, { 'list': 'bullet' }],
         ['link'],
@@ -21,6 +32,17 @@ export const HIGHLIGHT_COLORS = [
     { bg: '#c4b5fd', label: 'Purple' },
 ];
 
+export const TEXT_COLORS = [
+    { color: '#ef4444', label: 'Red' },
+    { color: '#f97316', label: 'Orange' },
+    { color: '#eab308', label: 'Yellow' },
+    { color: '#22c55e', label: 'Green' },
+    { color: '#3b82f6', label: 'Blue' },
+    { color: '#a855f7', label: 'Purple' },
+    { color: '#ec4899', label: 'Pink' },
+    { color: '#94a3b8', label: 'Gray' },
+];
+
 @Component({
     selector: 'app-rich-editor',
     standalone: true,
@@ -31,7 +53,7 @@ export const HIGHLIGHT_COLORS = [
 export class RichEditorComponent {
     @Input() value = '';
     @Output() valueChange = new EventEmitter<string>();
-    @Input() modules: any = DEFAULT_MODULES;
+    @Input() modules: any = QUILL_FULL_MODULES;
     @Input() placeholder = '';
     @Input() styles: any = {};
     @Input() quillClass = '';
@@ -42,8 +64,10 @@ export class RichEditorComponent {
     toolbarLeft = signal(0);
     fmt = signal<Record<string, any>>({});
     colorPickerOpen = signal(false);
+    textColorPickerOpen = signal(false);
 
     readonly highlightColors = HIGHLIGHT_COLORS;
+    readonly textColors = TEXT_COLORS;
 
     onEditorCreated(quill: any): void {
         this.quillInstance.set(quill);
@@ -55,6 +79,7 @@ export class RichEditorComponent {
             } else {
                 this.toolbarVisible.set(false);
                 this.colorPickerOpen.set(false);
+                this.textColorPickerOpen.set(false);
             }
         });
     }
@@ -81,7 +106,15 @@ export class RichEditorComponent {
     toggleColorPicker(event: MouseEvent): void {
         event.preventDefault();
         event.stopPropagation();
+        this.textColorPickerOpen.set(false);
         this.colorPickerOpen.update(v => !v);
+    }
+
+    toggleTextColorPicker(event: MouseEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.colorPickerOpen.set(false);
+        this.textColorPickerOpen.update(v => !v);
     }
 
     applyHighlight(color: string, event: MouseEvent): void {
@@ -101,6 +134,38 @@ export class RichEditorComponent {
             this.fmt.set({ ...current, background: color, color: '#1e293b' });
         }
         this.colorPickerOpen.set(false);
+    }
+
+    formatHeader(level: 1 | 2): void {
+        const q = this.quillInstance();
+        if (!q) return;
+        const current = this.fmt();
+        const next = current['header'] === level ? false : level;
+        q.format('header', next, 'user');
+        this.fmt.set({ ...current, header: next });
+    }
+
+    clearFormat(): void {
+        const q = this.quillInstance();
+        if (!q) return;
+        const range = q.getSelection();
+        if (range) q.removeFormat(range.index, range.length, 'user');
+        this.fmt.set({});
+    }
+
+    applyTextColor(color: string | null, event: MouseEvent): void {
+        event.preventDefault();
+        const q = this.quillInstance();
+        if (!q) return;
+        const current = this.fmt();
+        if (!color || current['color'] === color) {
+            q.format('color', false, 'user');
+            this.fmt.set({ ...current, color: false });
+        } else {
+            q.format('color', color, 'user');
+            this.fmt.set({ ...current, color });
+        }
+        this.textColorPickerOpen.set(false);
     }
 
     formatLink(): void {

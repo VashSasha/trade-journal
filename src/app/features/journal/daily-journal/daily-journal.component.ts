@@ -3,7 +3,7 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TradeTableComponent } from '../../../shared/components/trade-table/trade-table.component';
 import { RichEditorComponent } from '../../../shared/components/rich-editor/rich-editor.component';
-import { QUILL_FULL_MODULES, QUILL_COMPACT_MODULES } from './utils/quill-modules';
+import { QUILL_FULL_MODULES, QUILL_COMPACT_MODULES } from '../../../shared/components/rich-editor/rich-editor.component';
 import { JournalFormState } from './state/journal-form.state';
 import { JournalNewsState } from './state/journal-news.state';
 import { JournalRulesState } from './state/journal-rules.state';

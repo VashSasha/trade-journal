@@ -136,6 +136,44 @@ export class TradeService {
     }
 
     /**
+     * Update fees and netPnl for a specific set of trades by id.
+     * Used by SyncService to apply authoritative fee data from the Performance report
+     * to trades that were previously stored with stale values.
+     */
+    patchTradesFees(updates: { id: string; fees: number; netPnl: number }[]): void {
+        const map = new Map(updates.map(u => [u.id, u]));
+        const patched = this.tradesSignal().map(t => {
+            const u = map.get(t.id);
+            return u ? { ...t, fees: u.fees, netPnl: u.netPnl } : t;
+        });
+        this.tradesSignal.set(patched);
+        this.saveTradesToStorage(patched);
+    }
+
+    /**
+     * Recompute netPnl from each trade's stored fees field.
+     * Called after every sync to ensure netPnl is consistent with fees.
+     */
+    recalculateTradovateNetPnl(commissionFallback?: number): { grossPnl: number; totalFees: number; netPnl: number } {
+        let grossPnl = 0;
+        let totalFees = 0;
+        const updated = this.tradesSignal().map(t => {
+            if (t.source !== 'tradovate' || t.pnl === undefined) return t;
+            const storedFees = t.fees ?? 0;
+            const fees = storedFees === 0 && commissionFallback
+                ? parseFloat((commissionFallback * (t.quantity ?? 1) * 2).toFixed(2))
+                : storedFees;
+            const netPnl = parseFloat((t.pnl - fees).toFixed(2));
+            grossPnl += t.pnl;
+            totalFees += fees;
+            return { ...t, netPnl };
+        });
+        this.tradesSignal.set(updated);
+        this.saveTradesToStorage(updated);
+        return { grossPnl, totalFees, netPnl: grossPnl - totalFees };
+    }
+
+    /**
      * Calculate P&L for a trade (mutates trade object)
      */
     private calculatePnL(trade: Trade): void {

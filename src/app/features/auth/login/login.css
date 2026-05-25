@@ -3,7 +3,7 @@
   min-height: 100vh;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  background: var(--color-bg-base);
   padding: 1rem;
 }
 
@@ -16,40 +16,40 @@
   margin-bottom: 2rem;
   text-align: center;
 }
-.login-brand__name {
-  font-size: 2.25rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: #10b981;
+.login-brand__logo {
+  max-width: 240px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
 }
 .login-brand__tagline {
-  margin-top: 0.5rem;
-  color: #94a3b8;
+  margin-top: 0.75rem;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
 }
 
 .login-card {
   border-radius: 1rem;
-  border: 1px solid #334155;
-  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
   padding: 2rem;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
 }
 .login-card__title {
   margin-bottom: 1.5rem;
   font-size: 1.5rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .login-error {
   margin-bottom: 1rem;
   border-radius: 0.5rem;
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.08);
   padding: 0.75rem;
   font-size: 0.875rem;
-  color: #f87171;
+  color: #ef4444;
 }
 
 .login-form {
@@ -63,26 +63,26 @@
   margin-bottom: 0.5rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #cbd5e1;
+  color: var(--color-text-secondary);
 }
 .login-field__input {
   width: 100%;
   border-radius: 0.5rem;
-  border: 1px solid #475569;
-  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface-2);
   padding: 0.75rem 1rem;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 1rem;
   transition: border-color 0.12s, box-shadow 0.12s;
   box-sizing: border-box;
 }
 .login-field__input::placeholder {
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 .login-field__input:focus {
   outline: none;
-  border-color: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle);
 }
 .login-field__input--error {
   border-color: #ef4444;
@@ -90,14 +90,14 @@
 .login-field__error {
   margin-top: 0.25rem;
   font-size: 0.875rem;
-  color: #f87171;
+  color: #ef4444;
 }
 
 .login-card__subtitle {
   margin-top: -0.75rem;
   margin-bottom: 1.5rem;
   font-size: 0.875rem;
-  color: #94a3b8;
+  color: var(--color-text-muted);
 }
 
 .login-divider {
@@ -110,20 +110,20 @@
   content: "";
   flex: 1;
   height: 1px;
-  background: #334155;
+  background: var(--color-border);
 }
 .login-divider__text {
   font-size: 0.75rem;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 .login-submit {
   width: 100%;
   border-radius: 0.5rem;
-  background: #10b981;
+  background: var(--color-accent);
   border: none;
   padding: 0.875rem 1rem;
   font-size: 1rem;
@@ -137,11 +137,12 @@
   gap: 0.5rem;
 }
 .login-submit:hover {
-  background: #059669;
+  background: var(--color-accent-hover);
+  filter: brightness(0.9);
 }
 .login-submit:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle);
 }
 .login-submit:disabled {
   opacity: 0.6;
@@ -174,7 +175,7 @@
 }
 .login-discord-btn:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.5);
+  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.4);
 }
 .login-discord-btn:disabled {
   opacity: 0.6;
@@ -202,8 +203,8 @@
 .login-demo {
   margin-top: 1.5rem;
   border-radius: 0.5rem;
-  border: 1px solid #334155;
-  background: rgba(15, 23, 42, 0.3);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface-2);
   padding: 1rem;
 }
 .login-demo__heading {
@@ -212,21 +213,21 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 .login-demo__row {
   font-size: 0.875rem;
-  color: #cbd5e1;
+  color: var(--color-text-secondary);
 }
 .login-demo__key {
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 .login-footer {
   margin-top: 1.5rem;
   text-align: center;
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 /*# sourceMappingURL=login.css.map */
