@@ -25,6 +25,7 @@ export class TradeListComponent {
     // Signals for filtering and sorting
     searchQuery = signal('');
     statusFilter = signal<'all' | 'open' | 'closed' | 'missed'>('all');
+    visibleCount = signal(50);
 
     // Selection Logic
     selectedTradeIds = signal<Set<string>>(new Set());
@@ -55,9 +56,15 @@ export class TradeListComponent {
     // Get all trades from service
     allTrades = this.tradeService.trades;
 
+    // Account-filtered trades (no search/status filter) — used for stats so they
+    // reflect the selected account regardless of what's typed in the search box.
+    private accountFilteredTrades = computed(() =>
+        this.filterService.filterTradesIgnoreDateRange(this.allTrades())
+    );
+
     // Filtered and sorted trades (account filter applied via FilterService)
     filteredTrades = computed(() => {
-        let trades = this.filterService.filterTrades(this.allTrades());
+        let trades = this.filterService.filterTradesIgnoreDateRange(this.allTrades());
 
         // Filter by search query
         const query = this.searchQuery().toLowerCase();
@@ -95,12 +102,20 @@ export class TradeListComponent {
         return trades;
     });
 
-    // Stats
-    stats = this.tradeService.stats;
-    missedTradesCount = computed(() => this.allTrades().filter(t => t.status === 'missed').length);
+    visibleTrades = computed(() => this.filteredTrades().slice(0, this.visibleCount()));
+    hasMore = computed(() => this.filteredTrades().length > this.visibleCount());
+
+    // Stats derived from account-filtered trades so they match the table
+    stats = computed(() => this.tradeService.calculateStats(this.accountFilteredTrades()));
+    missedTradesCount = computed(() => this.accountFilteredTrades().filter(t => t.status === 'missed').length);
 
     setStatusFilter(status: 'all' | 'open' | 'closed' | 'missed'): void {
         this.statusFilter.set(status);
+        this.visibleCount.set(50);
+    }
+
+    loadMore(): void {
+        this.visibleCount.update(n => n + 50);
     }
 
     setSort(field: SortField): void {
@@ -116,6 +131,7 @@ export class TradeListComponent {
     onSearchInput(event: Event): void {
         const input = event.target as HTMLInputElement;
         this.searchQuery.set(input.value);
+        this.visibleCount.set(50);
     }
 
     deleteTrade(trade: Trade, event: Event): void {
@@ -173,8 +189,8 @@ export class TradeListComponent {
                 t.quantity,
                 t.netPnl || 0,
                 t.fees || 0,
-                `"${t.setup || ''}"`,
-                `"${t.notes?.replace(/"/g, '""') || ''}"` // Escape quotes in notes
+                `"${t.setup?.replace(/"/g, '""') || ''}"`,
+                `"${t.notes?.replace(/"/g, '""') || ''}"`
             ].join(','))
         ].join('\n');
 

@@ -572,7 +572,7 @@
                     </div>
                 </div>
                 <div class="tpl-preview__body">
-                    <div class="tpl-preview__html ql-editor" [innerHTML]="templates.selectedTemplate()!.content"></div>
+                    <div class="tpl-preview__html ql-editor" [innerHTML]="templates.selectedTemplate()!.content | safeHtml"></div>
                 </div>
             </div>
 
@@ -603,7 +603,7 @@
                 </div>
                 <p class="tpl-rec-description">{{ templates.selectedRecommended()!.description }}</p>
                 <div class="tpl-preview__body">
-                    <div class="tpl-preview__html ql-editor" [innerHTML]="templates.selectedRecommended()!.content"></div>
+                    <div class="tpl-preview__html ql-editor" [innerHTML]="templates.selectedRecommended()!.content | safeHtml"></div>
                 </div>
             </div>
 

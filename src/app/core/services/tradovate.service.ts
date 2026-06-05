@@ -1,4 +1,4 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, signal, computed, inject, isDevMode } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, throwError, of, timer, forkJoin, from } from 'rxjs';
 import { catchError, map, switchMap, tap, takeWhile, mergeMap, filter, concatMap, reduce } from 'rxjs/operators';
@@ -105,7 +105,7 @@ export class TradovateService {
         // Remove old key with _id suffix that could conflict
         if (localStorage.getItem('tradovate_active_connection_id')) {
             localStorage.removeItem('tradovate_active_connection_id');
-            console.log('[TradovateService] Cleaned up old tradovate_active_connection_id key');
+            if (isDevMode()) { console.log('[TradovateService] Cleaned up old tradovate_active_connection_id key'); }
         }
     }
 
@@ -187,7 +187,7 @@ export class TradovateService {
                 localStorage.removeItem('tradovate_config');
                 localStorage.removeItem('tradovate_selected_accounts');
 
-                console.log('[TradovateService] Migrated old token and account selection to new multi-connection format');
+                if (isDevMode()) { console.log('[TradovateService] Migrated old token and account selection to new multi-connection format'); }
             } catch (err) {
                 console.error('Failed to migrate old storage:', err);
             }
@@ -578,7 +578,7 @@ export class TradovateService {
         const token = this.getToken();
         const wsUrl = 'wss://md.tradovateapi.com/v1/websocket';
 
-        console.log(`[TradovateWS] Connecting to ${wsUrl} (Raw) for ${symbol} (${timeframe}, ${barsCount} bars)...`);
+        if (isDevMode()) { console.log(`[TradovateWS] Connecting to ${wsUrl} (Raw) for ${symbol} (${timeframe}, ${barsCount} bars)...`); }
 
         return new Promise((resolve, reject) => {
             const ws = new WebSocket(wsUrl);
@@ -591,13 +591,13 @@ export class TradovateService {
             }, 10000);
 
             ws.onopen = () => {
-                console.log('[TradovateWS] Connection opened. Authorizing (Raw)...');
+                if (isDevMode()) { console.log('[TradovateWS] Connection opened. Authorizing (Raw)...'); }
                 ws.send(`authorize\n${messageId++}\n\n${token}`);
             };
 
             ws.onmessage = (event) => {
                 const msg = event.data;
-                console.log(`[TradovateWS] Frame received: ${msg.substring(0, 100)}`);
+                if (isDevMode()) { console.log(`[TradovateWS] Frame received: ${msg.substring(0, 100)}`); }
 
                 if (msg === 'o' || msg === 'h' || msg.startsWith('c')) return;
 
@@ -608,7 +608,7 @@ export class TradovateService {
                             // Check for Auth success
                             if (!authorized && item.s === 200) {
                                 authorized = true;
-                                console.log('[TradovateWS] Authorized. Requesting chart...');
+                                if (isDevMode()) { console.log('[TradovateWS] Authorized. Requesting chart...'); }
                                 // Map timeframe to Tradovate chart description
                                 const chartDesc = this.getChartDescription(timeframe, barsCount);
 
@@ -623,7 +623,7 @@ export class TradovateService {
                             }
                             // Check for Chart success
                             else if (item.s === 200 && item.d && item.d.bars) {
-                                console.log(`[TradovateWS] Received ${item.d.bars.length} bars.`);
+                                if (isDevMode()) { console.log(`[TradovateWS] Received ${item.d.bars.length} bars.`); }
                                 clearTimeout(timeout);
                                 const bars = item.d.bars.map((b: any) => ({
                                     timestamp: b.timestamp,
@@ -638,7 +638,7 @@ export class TradovateService {
                             }
                             // Check for specific Errors
                             else if (item.s && item.s >= 400) {
-                                console.warn('[TradovateWS] Error frame received:', item);
+                                if (isDevMode()) { console.warn('[TradovateWS] Error frame received:', item); }
                                 clearTimeout(timeout);
                                 ws.close();
                                 reject(new Error(`Tradovate MD Error ${item.s}: ${item.d?.errorText || 'Unknown. Possibly missing MD subscription.'}`));
@@ -689,7 +689,7 @@ export class TradovateService {
             const doc = new DOMParser().parseFromString(html, 'text/html');
             const table = doc.querySelector('table');
             if (!table) {
-                console.warn('[TradovateService] HTML response contained no <table> element. Raw:', html.slice(0, 300));
+                if (isDevMode()) { console.warn('[TradovateService] HTML response contained no <table> element. Raw:', html.slice(0, 300)); }
                 return [];
             }
 
@@ -719,7 +719,7 @@ export class TradovateService {
             const idxStatus    = col(['status']);
             const idxAccount   = col(['account']);
 
-            console.log('[TradovateService] Report columns:', headers);
+            if (isDevMode()) { console.log('[TradovateService] Report columns:', headers); }
 
             const val = (cells: NodeListOf<Element>, idx: number) =>
                 idx >= 0 ? cells[idx]?.textContent?.trim() ?? '' : '';
@@ -762,7 +762,7 @@ export class TradovateService {
                 });
             });
 
-            console.log(`[TradovateService] HTML parser extracted ${fills.length} fills from report table`);
+            if (isDevMode()) { console.log(`[TradovateService] HTML parser extracted ${fills.length} fills from report table`); }
             return fills;
         } catch (err) {
             console.error('[TradovateService] HTML report parsing failed:', err);
@@ -782,11 +782,11 @@ export class TradovateService {
         attempt: number = 1
     ): Observable<any[]> {
         if (attempt > 30) {
-            console.warn('[TradovateService] p-ticket polling exceeded 30 attempts');
+            if (isDevMode()) { console.warn('[TradovateService] p-ticket polling exceeded 30 attempts'); }
             return of([]);
         }
 
-        console.log(`[TradovateService] p-ticket poll #${attempt}, waiting ${waitMs / 1000}s...`);
+        if (isDevMode()) { console.log(`[TradovateService] p-ticket poll #${attempt}, waiting ${waitMs / 1000}s...`); }
 
         const headers = this.getAuthHeaders()
             .set('Content-Type', 'application/json')
@@ -800,23 +800,23 @@ export class TradovateService {
             switchMap((res: any) => {
                 if (res.data && typeof res.data === 'string') {
                     const fills = this.parseReportCsvResponse(res.data, accountId);
-                    console.log(`[TradovateService] Parsed ${fills.length} fills after ${attempt} poll(s)`);
+                    if (isDevMode()) { console.log(`[TradovateService] Parsed ${fills.length} fills after ${attempt} poll(s)`); }
                     return of(fills);
                 }
                 if (res['p-ticket']) {
                     const msg: string = res['p-message'] || '';
                     if (msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('limit exceeded')) {
-                        console.warn(`[TradovateService] Rate limited by Tradovate: ${msg}`);
+                        if (isDevMode()) { console.warn(`[TradovateService] Rate limited by Tradovate: ${msg}`); }
                         return throwError(() => new Error(`Tradovate rate limit exceeded. Please wait before syncing again.`));
                     }
                     const nextWait = Math.max((res['p-time'] || 2) * 1000, 2000);
                     return this.pollWithPTicket(url, body, res['p-ticket'], nextWait, accountId, attempt + 1);
                 }
                 if (res.errorText) {
-                    console.warn(`[TradovateService] p-ticket error: ${res.errorText}`);
+                    if (isDevMode()) { console.warn(`[TradovateService] p-ticket error: ${res.errorText}`); }
                     return of([]);
                 }
-                console.warn('[TradovateService] Unexpected p-ticket response:', res);
+                if (isDevMode()) { console.warn('[TradovateService] Unexpected p-ticket response:', res); }
                 return of([]);
             }),
             catchError(err => {
@@ -859,12 +859,12 @@ export class TradovateService {
             representationType: 'html'
         };
 
-        console.log(`[TradovateService] Requesting Fills report: ${startDate.toISOString()} → ${end.toISOString()}${accountName ? ` (${accountName})` : ''}`);
+        if (isDevMode()) { console.log(`[TradovateService] Requesting Fills report: ${startDate.toISOString()} → ${end.toISOString()}${accountName ? ` (${accountName})` : ''}`); }
 
         const headers = this.getAuthHeaders().set('Content-Type', 'application/json');
 
         return this.http.post(url, body, { headers, responseType: 'text' }).pipe(
-            tap((raw: string) => console.log(`[TradovateService] Raw report response (${accountName}):`, raw.slice(0, 500))),
+            tap((raw: string) => { if (isDevMode()) { console.log(`[TradovateService] Raw report response (${accountName}):`, raw.slice(0, 500)); } }),
             map((raw: string) => {
                 try {
                     return JSON.parse(raw);
@@ -892,14 +892,14 @@ export class TradovateService {
         // Inline CSV data
         if (res.data && typeof res.data === 'string') {
             const fills = this.parseReportCsvResponse(res.data, accountId);
-            console.log(`[TradovateService] Parsed ${fills.length} fills from inline CSV`);
+            if (isDevMode()) { console.log(`[TradovateService] Parsed ${fills.length} fills from inline CSV`); }
             return of(fills);
         }
 
         // Report ID for polling
         const reportId = res.reportId || res.id;
         if (reportId) {
-            console.log(`[TradovateService] Report queued (ID: ${reportId}). Polling...`);
+            if (isDevMode()) { console.log(`[TradovateService] Report queued (ID: ${reportId}). Polling...`); }
             return this.pollReportStatus(reportId).pipe(
                 filter((pollRes: any) => typeof pollRes === 'string' && pollRes.length > 0),
                 map((csv: string) => this.parseReportCsvResponse(csv, accountId))
@@ -926,7 +926,7 @@ export class TradovateService {
             return throwError(() => err);
         }
 
-        console.warn('[TradovateService] Unexpected response format:', res);
+        if (isDevMode()) { console.warn('[TradovateService] Unexpected response format:', res); }
         return of([]);
     }
 
@@ -949,18 +949,18 @@ export class TradovateService {
      */
     private handleReportError(err: any, accountId?: number): Observable<any[]> {
         if (this.isAuthError(err)) {
-            console.warn('[TradovateService] Auth error in Reports API — skipping fallback, token expired.');
+            if (isDevMode()) { console.warn('[TradovateService] Auth error in Reports API — skipping fallback, token expired.'); }
             return throwError(() => err);
         }
 
         console.error('Error in Report API workflow:', err);
-        console.log('[TradovateService] Falling back to /fill/list (current-day only)...');
+        if (isDevMode()) { console.log('[TradovateService] Falling back to /fill/list (current-day only)...'); }
 
         const params: Record<string, string> = {};
         if (accountId) params['accountId'] = accountId.toString();
 
         return this.authGet<any[]>('/fill/list', params).pipe(
-            tap(fills => console.log(`[TradovateService] Fallback returned ${fills?.length ?? 0} fills`)),
+            tap(fills => { if (isDevMode()) { console.log(`[TradovateService] Fallback returned ${fills?.length ?? 0} fills`); } }),
             catchError(() => of([]))
         );
     }
@@ -985,7 +985,7 @@ export class TradovateService {
                     { headers: this.getAuthHeaders() }
                 );
             }),
-            tap(status => console.log(`[TradovateService] Report ${reportId} status:`, status)),
+            tap(status => { if (isDevMode()) { console.log(`[TradovateService] Report ${reportId} status:`, status); } }),
             takeWhile(status => status.status !== 'Complete', true),
             switchMap(status => {
                 if (status.status === 'Complete') return this.downloadReport(reportId);
@@ -1065,7 +1065,7 @@ export class TradovateService {
         }
 
         const end = endDate || new Date();
-        console.log(`[TradovateService] getAllFills: ${startDate?.toISOString() ?? 'account start'} → ${end.toISOString()}`);
+        if (isDevMode()) { console.log(`[TradovateService] getAllFills: ${startDate?.toISOString() ?? 'account start'} → ${end.toISOString()}`); }
 
         return this.getAccounts().pipe(
             switchMap(accounts => {
@@ -1078,7 +1078,7 @@ export class TradovateService {
                 }, new Date());
 
                 const chunks = this.chunkDateRange(effectiveStart, end, 1);
-                console.log(`[TradovateService] ${chunks.length} chunk(s) × ${accounts.length} account(s) via Reports API`);
+                if (isDevMode()) { console.log(`[TradovateService] ${chunks.length} chunk(s) × ${accounts.length} account(s) via Reports API`); }
 
                 const requests: Observable<TradovateFill[]>[] = [];
                 for (const account of accounts) {
@@ -1086,7 +1086,7 @@ export class TradovateService {
                         requests.push(
                             this.getHistoricalReportsAPI(chunk.start, chunk.end, account.name).pipe(
                                 map(rawFills => {
-                                    console.log(`[TradovateService] Got ${rawFills.length} fills for ${account.name}`);
+                                    if (isDevMode()) { console.log(`[TradovateService] Got ${rawFills.length} fills for ${account.name}`); }
                                     return rawFills.map(f => this.normalizeFill(f, account.id));
                                 }),
                                 catchError(err => {
@@ -1106,7 +1106,7 @@ export class TradovateService {
             }),
             catchError(err => {
                 if (this.isAuthError(err)) return throwError(() => err);
-                console.warn('[TradovateService] Reports API failed:', err);
+                if (isDevMode()) { console.warn('[TradovateService] Reports API failed:', err); }
                 return of([] as TradovateFill[]);
             })
         );
@@ -1139,7 +1139,7 @@ export class TradovateService {
             });
 
             if (!tradesTable) {
-                console.warn('[TradovateService] Performance report: no Trades table found');
+                if (isDevMode()) { console.warn('[TradovateService] Performance report: no Trades table found'); }
                 return [];
             }
 
@@ -1197,7 +1197,7 @@ export class TradovateService {
                 });
             });
 
-            console.log(`[TradovateService] Performance parser extracted ${trades.length} trades`);
+            if (isDevMode()) { console.log(`[TradovateService] Performance parser extracted ${trades.length} trades`); }
             return trades;
         } catch (err) {
             console.error('[TradovateService] Performance report parsing failed:', err);
@@ -1259,7 +1259,7 @@ export class TradovateService {
                 }
                 if (res['p-ticket']) {
                     if (attempt >= 30) {
-                        console.warn('[TradovateService] Performance report polling timed out');
+                        if (isDevMode()) { console.warn('[TradovateService] Performance report polling timed out'); }
                         return of([]);
                     }
                     const msg: string = res['p-message'] || '';
@@ -1267,7 +1267,7 @@ export class TradovateService {
                         return throwError(() => new Error('Tradovate rate limit exceeded'));
                     }
                     const nextWait = Math.max((res['p-time'] || 2) * 1000, 2000);
-                    console.log(`[TradovateService] Performance p-ticket poll #${attempt + 1}, waiting ${nextWait / 1000}s...`);
+                    if (isDevMode()) { console.log(`[TradovateService] Performance p-ticket poll #${attempt + 1}, waiting ${nextWait / 1000}s...`); }
                     return timer(nextWait).pipe(
                         switchMap(() => this.getPerformanceTrades(startDate, endDate, accountName, accountId, attempt + 1, res['p-ticket'], conn))
                     );
@@ -1281,7 +1281,7 @@ export class TradovateService {
                     }
                     return throwError(() => err);
                 }
-                console.warn('[TradovateService] Unexpected Performance report response:', res);
+                if (isDevMode()) { console.warn('[TradovateService] Unexpected Performance report response:', res); }
                 return of([]);
             }),
             catchError(err => {
@@ -1300,7 +1300,7 @@ export class TradovateService {
         const conns = this.connections();
         if (conns.length === 0) return of([]);
 
-        console.log(`[TradovateService] getAllTrades: ${startDate?.toISOString() ?? 'account start'} → ${end.toISOString()}, ${conns.length} connection(s)`);
+        if (isDevMode()) { console.log(`[TradovateService] getAllTrades: ${startDate?.toISOString() ?? 'account start'} → ${end.toISOString()}, ${conns.length} connection(s)`); }
 
         return forkJoin(
             conns.map(conn => {
@@ -1328,7 +1328,7 @@ export class TradovateService {
             map(results => results.flat()),
             catchError(err => {
                 if (this.isAuthError(err)) return throwError(() => err);
-                console.warn('[TradovateService] getAllTrades failed:', err);
+                if (isDevMode()) { console.warn('[TradovateService] getAllTrades failed:', err); }
                 return of([] as any[]);
             })
         );

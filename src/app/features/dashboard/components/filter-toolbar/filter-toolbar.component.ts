@@ -13,10 +13,10 @@ import { FilterService } from '../../../../core/services/filter.service';
 export class FilterToolbarComponent {
     filterService = inject(FilterService);
 
-    activeDateFilter = signal<'all' | 'today' | 'week' | 'month' | 'custom'>('today');
+    activeDateFilter = signal<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
 
     constructor() {
-        this.setDateFilter('today');
+        this.setDateFilter('all');
     }
 
     // Custom date picker
@@ -76,7 +76,7 @@ export class FilterToolbarComponent {
     }
 
     reset() {
-        this.activeDateFilter.set('today');
+        this.activeDateFilter.set('all');
         this.customStartDate.set('');
         this.customEndDate.set('');
         this.showCustomDatePicker.set(false);

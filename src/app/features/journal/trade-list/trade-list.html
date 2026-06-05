@@ -61,7 +61,7 @@
       <div class="trade-list__status-filters">
         <button class="trade-list__status-btn" (click)="setStatusFilter('all')"
                 [class.trade-list__status-btn--active]="statusFilter() === 'all'">
-          All ({{ allTrades().length }})
+          All ({{ stats().totalTrades }})
         </button>
         <button class="trade-list__status-btn" (click)="setStatusFilter('open')"
                 [class.trade-list__status-btn--active]="statusFilter() === 'open'">
@@ -103,11 +103,20 @@
       </div>
     } @else {
       <app-trade-table
-        [trades]="filteredTrades()"
+        [trades]="visibleTrades()"
         [selectable]="true"
         [selectedIds]="selectedTradeIds()"
         (selectedIdsChange)="selectedTradeIds.set($event)">
       </app-trade-table>
+
+      @if (hasMore()) {
+        <div class="trade-list__load-more">
+          <button class="trade-list__load-more-btn" (click)="loadMore()">
+            Show 50 more
+            <span class="trade-list__load-more-count">({{ filteredTrades().length - visibleCount() }} remaining)</span>
+          </button>
+        </div>
+      }
     }
   </div>
 

@@ -177,7 +177,7 @@ export class RichEditorComponent {
             this.fmt.set({ ...current, link: false });
         } else {
             const url = prompt('Enter URL:');
-            if (url) {
+            if (url && /^https?:\/\//i.test(url)) {
                 q.format('link', url, 'user');
                 this.fmt.set({ ...current, link: url });
             }

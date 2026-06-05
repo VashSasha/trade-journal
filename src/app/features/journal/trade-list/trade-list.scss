@@ -97,6 +97,38 @@
         color: var(--color-text-muted);
         pointer-events: none;
     }
+
+    &__load-more {
+        display: flex;
+        justify-content: center;
+        padding: 1.25rem 0 0.5rem;
+    }
+
+    &__load-more-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-radius: 0.5rem;
+        border: 1px solid var(--color-border);
+        background: var(--color-bg-surface);
+        padding: 0.625rem 1.25rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--color-text-secondary);
+        cursor: pointer;
+        transition: background 0.12s, border-color 0.12s;
+
+        &:hover {
+            background: var(--color-bg-surface-2);
+            border-color: var(--color-accent);
+            color: var(--color-text-primary);
+        }
+    }
+
+    &__load-more-count {
+        font-size: 0.8rem;
+        color: var(--color-text-muted);
+    }
 }
 
 .trade-grade-badge {

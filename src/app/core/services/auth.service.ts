@@ -4,24 +4,31 @@ import { DiscordAuthService } from './discord-auth.service';
 
 const STORAGE_KEY = 'trade_journal_user';
 
-const MOCK_USERS: Array<User & { password: string }> = [
+// Local-only mock credentials for offline/dev use. Real auth uses Discord OAuth.
+// Passwords are stored as SHA-256 hashes — never plaintext in source.
+const MOCK_USERS: Array<User & { passwordHash: string }> = [
     {
         id: '1',
-        email: 'sasha@tradejournal.com',
-        password: 'demo123',
+        email: 'admin@nvzn.local',
+        passwordHash: 'da8b81df6975c703ff93f53564a40d340e91de8e7c2389151832fc3bba79884d',
         name: 'Sasha Vash',
         initials: 'SV',
         plan: 'lifetime'
     },
     {
         id: '2',
-        email: 'trader@example.com',
-        password: 'password',
-        name: 'Jane Smith',
-        initials: 'JS',
+        email: 'demo@nvzn.local',
+        passwordHash: '35dc0b7ce805d5e9c91c2999b7b09240fe6d35cc7bb1613dc629e7c9efafc7b5',
+        name: 'Demo User',
+        initials: 'DU',
         plan: 'free'
     }
 ];
+
+async function hashPassword(password: string): Promise<string> {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 @Injectable({
     providedIn: 'root'
@@ -40,15 +47,16 @@ export class AuthService {
 
     plan = computed((): PlanTier => this.currentUserSignal()?.plan ?? 'free');
 
-    login(credentials: LoginCredentials): { success: boolean; error?: string } {
-        const user = MOCK_USERS.find(
-            u => u.email === credentials.email && u.password === credentials.password
-        );
-        if (user) {
-            const { password, ...userWithoutPassword } = user;
-            this.currentUserSignal.set(userWithoutPassword);
-            this.saveUserToStorage(userWithoutPassword);
-            return { success: true };
+    async login(credentials: LoginCredentials): Promise<{ success: boolean; error?: string }> {
+        const candidate = MOCK_USERS.find(u => u.email === credentials.email);
+        if (candidate) {
+            const hash = await hashPassword(credentials.password ?? '');
+            if (hash === candidate.passwordHash) {
+                const { passwordHash, ...userWithoutPassword } = candidate;
+                this.currentUserSignal.set(userWithoutPassword);
+                this.saveUserToStorage(userWithoutPassword);
+                return { success: true };
+            }
         }
         return { success: false, error: 'Invalid email or password' };
     }

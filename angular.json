@@ -35,6 +35,15 @@
           },
           "configurations": {
             "production": {
+              "optimization": {
+                "scripts": true,
+                "styles": { "minify": true, "inlineCritical": false },
+                "fonts": false
+              },
+              "outputHashing": "all",
+              "sourceMap": false,
+              "namedChunks": false,
+              "extractLicenses": true,
               "budgets": [
                 {
                   "type": "initial",
@@ -47,7 +56,10 @@
                   "maximumError": "80kB"
                 }
               ],
-              "outputHashing": "all"
+              "allowedCommonJsDependencies": [
+                "quill",
+                "marked"
+              ]
             },
             "development": {
               "optimization": false,

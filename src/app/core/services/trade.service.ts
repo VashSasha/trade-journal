@@ -76,7 +76,6 @@ export class TradeService {
      */
     updateTrade(id: string, updates: Partial<TradeFormData>): void {
         const trades = this.tradesSignal();
-        console.log(trades);
         const index = trades.findIndex(t => t.id === id);
 
         if (index === -1) return;

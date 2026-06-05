@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, isDevMode } from '@angular/core';
 import { TradovateService } from './tradovate.service';
 import { TradeService } from './trade.service';
 import { AccountSettingsService } from './account-settings.service';
@@ -51,7 +51,7 @@ export class SyncService {
             type
         };
         this.syncLog.update(logs => [...logs, entry]);
-        console.log(`[SyncService] ${message}`);
+        if (isDevMode()) { console.log(`[SyncService] ${message}`); }
     }
 
     clearLog(): void {
@@ -110,10 +110,10 @@ export class SyncService {
                 this.log('No trades found for the selected date range.', 'warn');
                 const commission0 = this.accountSettings.commissionPerContract();
                 const totals0 = this.tradeService.recalculateTradovateNetPnl(commission0);
-                console.log(
+                if (isDevMode()) { console.log(
                     `[SyncService] Fee reconciliation — gross P&L: $${totals0.grossPnl.toFixed(2)}, ` +
                     `total fees: $${totals0.totalFees.toFixed(2)}, net P&L: $${totals0.netPnl.toFixed(2)}`
-                );
+                ); }
                 const syncTime = new Date();
                 this.lastSyncTime.set(syncTime);
                 localStorage.setItem(SyncService.LAST_SYNC_KEY, syncTime.toISOString());
@@ -191,10 +191,10 @@ export class SyncService {
 
             // Recompute netPnl from stored fees (ensures consistency after import + fee patches)
             const totals = this.tradeService.recalculateTradovateNetPnl(commission);
-            console.log(
+            if (isDevMode()) { console.log(
                 `[SyncService] Fee reconciliation — gross P&L: $${totals.grossPnl.toFixed(2)}, ` +
                 `total fees: $${totals.totalFees.toFixed(2)}, net P&L: $${totals.netPnl.toFixed(2)}`
-            );
+            ); }
 
             this.log(`Done! Imported ${tradesToImport.length} trade(s).`, 'success');
             this.syncProgress.set(null);

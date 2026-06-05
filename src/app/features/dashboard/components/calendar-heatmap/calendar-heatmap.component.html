@@ -69,8 +69,8 @@
            [class.cal-day--other-month]="!day.isCurrentMonth"
            [class.cal-day--closed]="day.isMarketClosed && !day.hasTrades"
            [class.cal-day--open]="!day.isMarketClosed && !day.hasTrades"
-           [class.cal-day--positive]="day.hasTrades && day.pnl > 0"
-           [class.cal-day--negative]="day.hasTrades && day.pnl < 0"
+           [class.cal-day--positive]="day.hasTrades && day.stats.netPnl > 0"
+           [class.cal-day--negative]="day.hasTrades && day.stats.netPnl < 0"
            [style.--cal-cell-opacity]="getCellOpacity(day)">
 
         <div class="cal-day-top">
@@ -79,19 +79,14 @@
                 [class.cal-day-num--on-pnl]="colored">
             {{ day.day }}
           </span>
-<!--          @if (day.hasTrades && !isSelected('trades')) {-->
-<!--            <span class="cal-trade-count" [class.cal-trade-count&#45;&#45;on-pnl]="colored">-->
-<!--              {{ day.count }}-->
-<!--            </span>-->
-<!--          }-->
         </div>
 
         @if (day.hasTrades) {
           <div class="cal-metrics" [class.cal-metrics--light]="!colored">
 
-            @if (isSelected('pnl') && day.pnl !== 0) {
+            @if (isSelected('pnl') && day.stats.netPnl !== 0) {
               <div class="cal-metric-row">
-                <span class="cal-metric-val cal-metric-val--pnl ">{{ day.pnl | currency }}</span>
+                <span class="cal-metric-val cal-metric-val--pnl ">{{ day.stats.netPnl | currency }}</span>
               </div>
             }
 
@@ -104,15 +99,15 @@
 
             @if (isSelected('trades')) {
               <div class="cal-metric-row cal-metric-row--trades">
-                <span class="cal-metric-val">{{ day.count }}</span>
-                <span class="cal-metric-sub">trade{{ day.count !== 1 ? 's' : '' }}</span>
+                <span class="cal-metric-val">{{ day.stats.totalTrades }}</span>
+                <span class="cal-metric-sub">trade{{ day.stats.totalTrades !== 1 ? 's' : '' }}</span>
               </div>
             }
 
-            @if (isSelected('winrate') && day.closedCount > 0) {
+            @if (isSelected('winrate') && day.stats.totalTrades > 0) {
               <div class="cal-metric-row">
-                <span class="cal-metric-val">{{ day.winRate.toFixed(0) }}%</span>
-                <span class="cal-metric-sub">{{ day.wins }}W/{{ day.losses }}L</span>
+                <span class="cal-metric-val">{{ day.stats.winRate.toFixed(0) }}%</span>
+                <span class="cal-metric-sub">{{ day.stats.winners }}W/{{ day.stats.losers }}L</span>
               </div>
             }
 

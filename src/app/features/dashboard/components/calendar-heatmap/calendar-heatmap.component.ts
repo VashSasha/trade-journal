@@ -4,7 +4,7 @@ import { Trade } from '../../../../core/models/trade.model';
 import { EconomicCalendarService, EconomicEvent } from '../../../../core/services/economic-calendar.service';
 import { ThemeService } from '../../../../core/services/theme.service';
 import { isMarketClosed, tradeSessionDateStr } from '../../../../core/utils/market-holidays';
-import { computeDayStats } from '../../../../core/utils/trade-stats.utils';
+import { computeDayStats, DayStats } from '../../../../core/utils/trade-stats.utils';
 
 export type CalDisplayMode = 'pnl' | 'points' | 'trades' | 'winrate' | 'percent';
 
@@ -12,14 +12,9 @@ interface CalendarDay {
     date: Date;
     day: number;
     isCurrentMonth: boolean;
-    pnl: number;
+    stats: DayStats;
     pnlPercent: number;
     points: number;
-    count: number;
-    closedCount: number;
-    wins: number;
-    losses: number;
-    winRate: number;
     hasTrades: boolean;
     isToday: boolean;
     isMarketClosed: boolean;
@@ -34,8 +29,6 @@ function localDateStr(date: Date): string {
 }
 
 const STORAGE_KEY = 'cal_selected_modes';
-// Priority order for background coloring (first selected directional mode wins)
-const BG_PRIORITY: CalDisplayMode[] = ['pnl', 'points', 'percent', 'winrate'];
 
 @Component({
     selector: 'app-calendar-heatmap',
@@ -105,7 +98,7 @@ export class CalendarHeatmapComponent {
         const makeDay = (date: Date, isCurrentMonth: boolean, isToday: boolean): CalendarDay => {
             const dateStr = localDateStr(date);
             const dayTrades = tradesByDay.get(dateStr) ?? [];
-            const ds = computeDayStats(dayTrades);
+            const stats = computeDayStats(dayTrades);
 
             let points = 0;
             dayTrades.filter(t => t.status === 'closed').forEach(t => {
@@ -120,20 +113,11 @@ export class CalendarHeatmapComponent {
             let pnlPercent = 0;
             dayTrades.forEach(t => { if (t.pnlPercent) pnlPercent += t.pnlPercent; });
 
-            const winRate = (ds.winners + ds.losers) > 0
-                ? (ds.winners / (ds.winners + ds.losers)) * 100
-                : 0;
-
             return {
                 date, day: date.getDate(), isCurrentMonth,
-                pnl: ds.netPnl,
+                stats,
                 pnlPercent,
                 points,
-                count: dayTrades.length,
-                closedCount: ds.totalTrades,
-                wins: ds.winners,
-                losses: ds.losers,
-                winRate,
                 hasTrades: dayTrades.length > 0,
                 isToday, isMarketClosed: isMarketClosed(date),
                 events: eventsMap.get(dateStr) || []
@@ -205,13 +189,13 @@ export class CalendarHeatmapComponent {
     }
 
     isCellColored(day: CalendarDay): boolean {
-        return day.hasTrades && day.pnl !== 0;
+        return day.hasTrades && day.stats.netPnl !== 0;
     }
 
     getCellOpacity(day: CalendarDay): number {
-        if (!day.hasTrades || day.pnl === 0) return 0;
+        if (!day.hasTrades || day.stats.netPnl === 0) return 0;
         const isDark = this.theme.isDark();
-        if (day.pnl > 0) {
+        if (day.stats.netPnl > 0) {
             return isDark
                 ? 0.40 + Math.min(Math.abs(day.pnlPercent) / 5, 0.30)
                 : 0.20 + Math.min(Math.abs(day.pnlPercent) / 5, 0.28);

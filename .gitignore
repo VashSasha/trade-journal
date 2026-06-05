@@ -11,10 +11,8 @@
 .claude/
 
 # Compiled CSS artifacts (generated from SCSS)
-src/styles.css
-src/styles.css.map
-**/*.component.css
-**/*.component.css.map
+src/**/*.css
+src/**/*.css.map
 
 # Node
 /node_modules
