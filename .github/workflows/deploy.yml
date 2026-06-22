@@ -2,6 +2,15 @@ name: "Deploy: Trade Journal"
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        required: true
+        default: "preview"
+        type: choice
+        options:
+          - preview
+          - production
 
 permissions:
   contents: read
@@ -9,7 +18,7 @@ permissions:
 
 jobs:
   build-and-deploy:
-    name: Build & Deploy
+    name: Build & Deploy (${{ github.event.inputs.environment }})
     runs-on: ubuntu-latest
 
     steps:
@@ -36,4 +45,4 @@ jobs:
           projectName: trade-journal-2go
           directory: dist/trade-journal/browser
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ github.ref_name }}
+          branch: ${{ github.event.inputs.environment == 'production' && 'main' || 'dev' }}
