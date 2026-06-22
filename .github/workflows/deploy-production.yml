@@ -1,0 +1,54 @@
+name: "Deploy: Production"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  validate-branch:
+    name: Validate branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check allowed branches
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          if [[ "$BRANCH" != "main" && "$BRANCH" != hotfix/* ]]; then
+            echo "❌ Production deploys are only allowed from main or hotfix/* branches."
+            echo "   Current branch: $BRANCH"
+            exit 1
+          fi
+          echo "✅ Branch $BRANCH is allowed for production."
+
+  build-and-deploy:
+    name: Build & Deploy → Production (${{ github.ref_name }})
+    needs: validate-branch
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to Cloudflare Pages (production)
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: trade-journal-2go
+          directory: dist/trade-journal/browser
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          branch: main
