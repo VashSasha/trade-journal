@@ -252,3 +252,176 @@
     &::-webkit-outer-spin-button,
     &::-webkit-inner-spin-button { -webkit-appearance: none; }
 }
+
+/* ── AI Insight container ── */
+.ds-insight {
+    margin-top: 0.75rem;
+}
+
+.ds-insight__trigger {
+    background: none;
+    border: 1px dashed var(--color-border);
+    color: var(--color-text-muted);
+    border-radius: 0.375rem;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8125rem;
+    cursor: pointer;
+    transition: border-color 0.12s, color 0.12s;
+
+    &:hover {
+        border-color: var(--color-accent);
+        color: var(--color-accent);
+    }
+}
+
+.ds-insight__error-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+
+/* ── Working panel (streaming) ── */
+@keyframes dsStepIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes dsDots {
+    0%   { content: '.'; }
+    33%  { content: '..'; }
+    66%  { content: '...'; }
+    100% { content: ''; }
+}
+
+@keyframes dsFollowUpBlink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+}
+
+.ds-working-panel {
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    min-height: 140px;
+
+    &__label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--color-text-muted);
+        margin-bottom: 14px;
+    }
+
+    &__steps {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+
+.ds-working-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: dsStepIn 0.3s ease-out both;
+
+    &__dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--color-accent);
+        flex-shrink: 0;
+    }
+
+    &__text {
+        font-size: 13px;
+        color: var(--color-text-secondary);
+        line-height: 1.4;
+    }
+
+    &--active &__text::after {
+        content: '';
+        animation: dsDots 1.2s steps(3, end) infinite;
+    }
+}
+
+/* ── Insight result panel (complete) ── */
+.ds-insight-panel {
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 16px 20px;
+
+    &__label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--color-text-muted);
+        margin-bottom: 12px;
+    }
+
+    &__body {
+        font-size: 0.875rem;
+        color: var(--color-text-secondary);
+        line-height: 1.65;
+    }
+
+    &__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        padding-top: 0.875rem;
+        border-top: 1px solid var(--color-border);
+    }
+
+    &__followup {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--color-border);
+        font-size: 0.875rem;
+        color: var(--color-text-secondary);
+        line-height: 1.65;
+    }
+
+    &__followup-text {
+        white-space: pre-wrap;
+        color: var(--color-text-secondary);
+
+        &::after {
+            content: '▋';
+            animation: dsFollowUpBlink 1s step-end infinite;
+            color: var(--color-accent);
+        }
+    }
+
+    &__error {
+        font-size: 0.8125rem;
+        color: var(--color-text-muted);
+        margin: 0;
+    }
+}
+
+.ds-insight-chip {
+    padding: 0.3125rem 0.75rem;
+    border-radius: 1rem;
+    border: 1px solid var(--color-border);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: 0.8125rem;
+    cursor: pointer;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+
+    &:hover {
+        border-color: var(--color-accent);
+        color: var(--color-accent);
+        background: var(--color-accent-subtle);
+    }
+}

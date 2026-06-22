@@ -58,6 +58,16 @@
   --tagShortBg: var(--color-redSoft);
   --tagShortColor: var(--color-redDeep);
 
+  /* Direction badges & signal box */
+  --color-direction-long-bg:      #F0FDF4;
+  --color-direction-long-border:  #86EFAC;
+  --color-direction-long-text:    #166534;
+  --color-direction-short-bg:     #FEF2F2;
+  --color-direction-short-border: #FECACA;
+  --color-direction-short-text:   #991B1B;
+  --color-signal-bg:              #FEF2F2;
+  --color-signal-border:          #FECACA;
+
 }
 
 :root.dark {
@@ -101,6 +111,16 @@
 
   --tagLongBg: var(--color-bg-surface-2);
   --tagLongColor: var(--color-bg-surface-2);
+
+  /* Direction badges & signal box — dark */
+  --color-direction-long-bg:      #051A0D;
+  --color-direction-long-border:  #0D4D25;
+  --color-direction-long-text:    #00D4A0;
+  --color-direction-short-bg:     #1A0A0A;
+  --color-direction-short-border: #3D1515;
+  --color-direction-short-text:   #FF5555;
+  --color-signal-bg:              #1A0A0A;
+  --color-signal-border:          #3D1515;
 }
 
 

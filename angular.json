@@ -35,6 +35,12 @@
           },
           "configurations": {
             "production": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
+                }
+              ],
               "optimization": {
                 "scripts": true,
                 "styles": { "minify": true, "inlineCritical": false },
@@ -76,7 +82,8 @@
               "buildTarget": "trade-journal:build:production"
             },
             "development": {
-              "buildTarget": "trade-journal:build:development"
+              "buildTarget": "trade-journal:build:development",
+              "proxyConfig": "proxy.conf.json"
             }
           },
           "defaultConfiguration": "development"
