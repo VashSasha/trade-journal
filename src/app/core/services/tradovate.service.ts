@@ -54,6 +54,14 @@ export class TradovateService {
     private liveRptUrl = 'https://rpt.tradovateapi.com/v1';
     private demoRptUrl = 'https://rpt-demo.tradovateapi.com/v1';
 
+    /**
+     * Web-only CORS proxy. Tradovate's hosts don't send CORS headers, so browser
+     * builds route every REST/auth/reports call through this Cloudflare Worker
+     * (see tradovate-proxy/). Electron isn't bound by CORS and calls Tradovate
+     * directly. Must match the deployed worker origin (no trailing slash).
+     */
+    private readonly tradovateProxyOrigin = 'https://trade-journal-tradovate-proxy.nvzn-journal.workers.dev';
+
     private http = inject(HttpClient);
 
     // Multi-account support
@@ -249,9 +257,9 @@ export class TradovateService {
         }
 
         const { username, environment = 'demo' } = conn.config;
-        const authUrl = environment === 'live'
+        const authUrl = this.proxify(environment === 'live'
             ? 'https://tv-live.tradovateapi.com/authorize'
-            : 'https://tv-demo.tradovateapi.com/authorize';
+            : 'https://tv-demo.tradovateapi.com/authorize');
 
         const headers = new HttpHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' });
 
@@ -358,22 +366,36 @@ export class TradovateService {
         return conn?.token || null;
     }
 
+    private get isElectron(): boolean {
+        return !!(typeof window !== 'undefined' && (window as any).electronAPI?.isElectron);
+    }
+
+    /**
+     * Route a Tradovate URL through the CORS proxy on web; pass it through
+     * unchanged in Electron (which isn't bound by browser CORS). The proxy
+     * forwards `https://<worker>/<host>/<path>` to `https://<host>/<path>`.
+     */
+    private proxify(url: string): string {
+        if (this.isElectron) return url;
+        return `${this.tradovateProxyOrigin}/${url.replace(/^https?:\/\//, '')}`;
+    }
+
     private getBaseUrl(): string {
         const config = this.getConfig();
-        return config?.environment === 'live' ? this.liveBaseUrl : this.demoBaseUrl;
+        return this.proxify(config?.environment === 'live' ? this.liveBaseUrl : this.demoBaseUrl);
     }
 
     private getRptUrl(): string {
         const config = this.getConfig();
-        return config?.environment === 'live' ? this.liveRptUrl : this.demoRptUrl;
+        return this.proxify(config?.environment === 'live' ? this.liveRptUrl : this.demoRptUrl);
     }
 
     private getBaseUrlFor(conn: TradovateConnection): string {
-        return conn.config.environment === 'live' ? this.liveBaseUrl : this.demoBaseUrl;
+        return this.proxify(conn.config.environment === 'live' ? this.liveBaseUrl : this.demoBaseUrl);
     }
 
     private getRptUrlFor(conn: TradovateConnection): string {
-        return conn.config.environment === 'live' ? this.liveRptUrl : this.demoRptUrl;
+        return this.proxify(conn.config.environment === 'live' ? this.liveRptUrl : this.demoRptUrl);
     }
 
     private authGetFor<T>(conn: TradovateConnection, endpoint: string, params?: Record<string, string>): Observable<T> {
@@ -447,9 +469,9 @@ export class TradovateService {
             redirect_uri: window.location.origin + '/settings/tradovate/callback'
         };
 
-        const authUrl = isDemo
+        const authUrl = this.proxify(isDemo
             ? 'https://demo.tradovateapi.com/v1/auth/oauthtoken'
-            : 'https://live.tradovateapi.com/auth/oauthtoken';
+            : 'https://live.tradovateapi.com/auth/oauthtoken');
 
         return this.http.post(authUrl, body).pipe(
             map((res: any) => {
@@ -473,9 +495,9 @@ export class TradovateService {
             password: password
         };
 
-        const authUrl = environment === 'live'
+        const authUrl = this.proxify(environment === 'live'
             ? 'https://tv-live.tradovateapi.com/authorize'
-            : 'https://tv-demo.tradovateapi.com/authorize';
+            : 'https://tv-demo.tradovateapi.com/authorize');
 
         const headers = new HttpHeaders({
             'Content-Type': 'application/json',
