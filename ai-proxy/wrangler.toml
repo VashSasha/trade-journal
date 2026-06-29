@@ -1,0 +1,22 @@
+name = "trade-journal-ai-proxy"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Per-user Anthropic key store + AI proxy. Keys are encrypted at rest in KV and
+# never returned to the browser. Requests authenticate with the session JWT
+# minted by the discord-exchange worker (shared JWT_SECRET).
+
+# Create with:  wrangler kv namespace create API_KEYS
+# then paste the returned id below.
+kv_namespaces = [
+  { binding = "API_KEYS", id = "44ba6feac73a4461bb815f9a7a104a4c" }
+]
+
+# Custom domain (zone nvzn-journal.com must be on this account — same as tv-proxy).
+routes = [
+  { pattern = "ai-proxy.nvzn-journal.com", custom_domain = true }
+]
+
+# Secrets — set via CLI (never commit):
+#   wrangler secret put JWT_SECRET       # same value as discord-exchange
+#   wrangler secret put KEY_ENC_SECRET   # AES-GCM key material for at-rest encryption

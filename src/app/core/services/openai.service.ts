@@ -1,38 +1,121 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal, effect } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import { AuthService } from './auth.service';
 
 const CLAUDE_MODEL   = 'claude-opus-4-7';
 const CLAUDE_VERSION = '2023-06-01';
+const LOCAL_KEY      = 'anthropic_api_key'; // Electron-only: key stored locally
 
 @Injectable({
     providedIn: 'root'
 })
 export class OpenAiService {
     private http = inject(HttpClient);
+    private auth = inject(AuthService);
 
-    private getApiKey(): string | null {
-        return localStorage.getItem('anthropic_api_key');
+    /**
+     * Web: the Anthropic key lives server-side (ai-proxy worker) and never
+     * reaches the browser — AI calls go through the proxy with a Bearer session
+     * JWT. Electron (interim): key kept in localStorage, Anthropic called directly.
+     */
+    private get isElectron(): boolean {
+        return !!(typeof window !== 'undefined' && (window as any).electronAPI?.isElectron);
     }
 
-    saveApiKey(key: string): void {
-        localStorage.setItem('anthropic_api_key', key);
+    /** Reactive "a key is configured" state — drives @if gating in templates. */
+    private hasKeySig = signal<boolean>(false);
+
+    constructor() {
+        if (this.isElectron) {
+            this.hasKeySig.set(!!localStorage.getItem(LOCAL_KEY));
+        } else {
+            // Re-check server-side key status whenever the session token changes.
+            effect(() => {
+                const token = this.auth.authToken();
+                if (token) this.refreshKeyStatus(token);
+                else this.hasKeySig.set(false);
+            });
+        }
     }
 
     hasApiKey(): boolean {
-        return !!this.getApiKey();
+        return this.hasKeySig();
+    }
+
+    /** Save (web: store server-side via proxy; Electron: localStorage). */
+    async saveApiKey(key: string): Promise<void> {
+        const trimmed = key.trim();
+        if (!trimmed) throw new Error('API key is empty.');
+
+        if (this.isElectron) {
+            localStorage.setItem(LOCAL_KEY, trimmed);
+            this.hasKeySig.set(true);
+            return;
+        }
+        const res = await fetch(`${environment.aiProxyUrl}/key`, {
+            method: 'POST',
+            headers: this.proxyHeaders(true),
+            body: JSON.stringify({ apiKey: trimmed }),
+        });
+        if (!res.ok) throw new Error('Failed to save API key.');
+        this.hasKeySig.set(true);
+    }
+
+    /** Remove the stored key (web: server-side; Electron: localStorage). */
+    async clearApiKey(): Promise<void> {
+        if (this.isElectron) {
+            localStorage.removeItem(LOCAL_KEY);
+            this.hasKeySig.set(false);
+            return;
+        }
+        const res = await fetch(`${environment.aiProxyUrl}/key`, {
+            method: 'DELETE',
+            headers: this.proxyHeaders(),
+        });
+        if (!res.ok) throw new Error('Failed to remove API key.');
+        this.hasKeySig.set(false);
+    }
+
+    private async refreshKeyStatus(token: string): Promise<void> {
+        try {
+            const res = await fetch(`${environment.aiProxyUrl}/key/status`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            this.hasKeySig.set(res.ok && (await res.json()).hasKey === true);
+        } catch {
+            this.hasKeySig.set(false);
+        }
+    }
+
+    private proxyHeaders(json = false): Record<string, string> {
+        const token = this.auth.authToken();
+        const h: Record<string, string> = {};
+        if (token) h['Authorization'] = `Bearer ${token}`;
+        if (json) h['Content-Type'] = 'application/json';
+        return h;
+    }
+
+    /** POST a Claude messages body — through the proxy (web) or direct (Electron). */
+    private postMessages(body: any): Observable<any> {
+        if (this.isElectron) {
+            const apiKey = localStorage.getItem(LOCAL_KEY);
+            if (!apiKey) return throwError(() => new Error('Anthropic API key is missing.'));
+            return this.http.post<any>(environment.anthropicApiUrl, body, { headers: this.buildHeaders(apiKey) });
+        }
+        const token = this.auth.authToken();
+        if (!token) return throwError(() => new Error('Not authenticated.'));
+        return this.http.post<any>(`${environment.aiProxyUrl}/v1/messages`, body, {
+            headers: new HttpHeaders({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }),
+        });
     }
 
     // ── Non-streaming helpers ─────────────────────────────────────────────────
 
     analyzeTrade(marketData: any[], tradeDetails: any): Observable<string> {
-        const apiKey = this.getApiKey();
-        if (!apiKey) return throwError(() => new Error('Anthropic API key is missing.'));
-
-        const headers = this.buildHeaders(apiKey);
-        const prompt  = this.constructPrompt(marketData, tradeDetails);
+        const prompt = this.constructPrompt(marketData, tradeDetails);
 
         const body = {
             model: CLAUDE_MODEL,
@@ -41,7 +124,7 @@ export class OpenAiService {
             messages: [{ role: 'user', content: prompt }],
         };
 
-        return this.http.post<any>(environment.anthropicApiUrl, body, { headers }).pipe(
+        return this.postMessages(body).pipe(
             map(res => res.content?.[0]?.text || 'No analysis provided.'),
             catchError(err => {
                 console.error('Claude API Error:', err);
@@ -51,10 +134,6 @@ export class OpenAiService {
     }
 
     analyzeImage(imageBase64: string, tradeDetails: any): Observable<string> {
-        const apiKey = this.getApiKey();
-        if (!apiKey) return throwError(() => new Error('Anthropic API key is missing.'));
-
-        const headers = this.buildHeaders(apiKey);
         const body = {
             model: CLAUDE_MODEL,
             max_tokens: 1000,
@@ -68,7 +147,7 @@ export class OpenAiService {
             }]
         };
 
-        return this.http.post<any>(environment.anthropicApiUrl, body, { headers }).pipe(
+        return this.postMessages(body).pipe(
             map(res => res.content?.[0]?.text || 'No analysis provided.'),
             catchError(err => {
                 console.error('Claude Vision Error:', err);
@@ -78,10 +157,6 @@ export class OpenAiService {
     }
 
     predictMarket(candles: any[], symbol: string, timeframe: string): Observable<string> {
-        const apiKey = this.getApiKey();
-        if (!apiKey) return throwError(() => new Error('Anthropic API key is missing.'));
-
-        const headers  = this.buildHeaders(apiKey);
         const candleStr = this.formatCandles(candles);
 
         const body = {
@@ -94,7 +169,7 @@ export class OpenAiService {
             }]
         };
 
-        return this.http.post<any>(environment.anthropicApiUrl, body, { headers }).pipe(
+        return this.postMessages(body).pipe(
             map(res => res.content?.[0]?.text || 'No prediction generated.'),
             catchError(err => {
                 console.error('Claude Market Prediction Error:', err);
@@ -106,8 +181,25 @@ export class OpenAiService {
     // ── Streaming ─────────────────────────────────────────────────────────────
 
     streamAnalysis(messages: any[], maxTokens = 1200): Observable<string> {
-        const apiKey = this.getApiKey();
-        if (!apiKey) return throwError(() => new Error('Anthropic API key is missing.'));
+        let url: string;
+        let headers: Record<string, string>;
+
+        if (this.isElectron) {
+            const apiKey = localStorage.getItem(LOCAL_KEY);
+            if (!apiKey) return throwError(() => new Error('Anthropic API key is missing.'));
+            url = environment.anthropicApiUrl;
+            headers = {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': CLAUDE_VERSION,
+                'anthropic-dangerous-direct-browser-access': 'true',
+            };
+        } else {
+            const token = this.auth.authToken();
+            if (!token) return throwError(() => new Error('Not authenticated.'));
+            url = `${environment.aiProxyUrl}/v1/messages`;
+            headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+        }
 
         return new Observable<string>(subscriber => {
             const controller = new AbortController();
@@ -117,14 +209,9 @@ export class OpenAiService {
             const systemMsg = messages.find(m => m.role === 'system');
             const chatMsgs  = messages.filter(m => m.role !== 'system');
 
-            fetch(environment.anthropicApiUrl, {
+            fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': apiKey,
-                    'anthropic-version': CLAUDE_VERSION,
-                    'anthropic-dangerous-direct-browser-access': 'true',
-                },
+                headers,
                 body: JSON.stringify({
                     model: CLAUDE_MODEL,
                     max_tokens: maxTokens,

@@ -47,6 +47,9 @@ export class AuthService {
 
     plan = computed((): PlanTier => this.currentUserSignal()?.plan ?? 'free');
 
+    /** Session JWT for the ai-proxy worker (present after web Discord login). */
+    authToken = computed((): string | null => this.currentUserSignal()?.authToken ?? null);
+
     async login(credentials: LoginCredentials): Promise<{ success: boolean; error?: string }> {
         const candidate = MOCK_USERS.find(u => u.email === credentials.email);
         if (candidate) {

@@ -1,5 +1,6 @@
 import { Component, inject, signal, DestroyRef, WritableSignal, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { provideMarkdown, MarkdownComponent } from 'ngx-markdown';
@@ -47,7 +48,7 @@ interface VerdictCard {
 @Component({
     selector: 'app-ai-reports',
     standalone: true,
-    imports: [FormsModule, MarkdownComponent],
+    imports: [FormsModule, MarkdownComponent, RouterLink],
     providers: [provideMarkdown()],
     templateUrl: './ai-reports.component.html',
     styleUrl: './ai-reports.component.scss'
@@ -64,7 +65,6 @@ export class AiReportsComponent implements OnDestroy {
     symbol        = signal('');
     timeframe     = signal('15min');
     lookbackBars  = signal(100);
-    apiKeyInput   = '';
 
     // ── Streaming state ──────────────────────────────────────────────────────
     analysisState      = signal<AnalysisState>({ status: 'idle', content: '', error: null });
@@ -95,13 +95,6 @@ export class AiReportsComponent implements OnDestroy {
     clearImage(): void {
         this.selectedImage.set(null);
         this.imagePreview.set(null);
-    }
-
-    saveApiKey(): void {
-        if (this.apiKeyInput.trim()) {
-            this.openAiService.saveApiKey(this.apiKeyInput.trim());
-            this.apiKeyInput = '';
-        }
     }
 
     // ── Analysis entry points ────────────────────────────────────────────────

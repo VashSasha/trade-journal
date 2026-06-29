@@ -88,12 +88,8 @@
             <!-- API Key Warning -->
             @if (!openAiService.hasApiKey()) {
                 <div class="air-apikey-warning">
-                    <p class="air-apikey-warning__text">Anthropic API key required for analysis</p>
-                    <div class="air-apikey-warning__row">
-                        <input class="air-input air-input--sm" type="password"
-                               [(ngModel)]="apiKeyInput" placeholder="sk-ant-..." />
-                        <button class="air-btn air-btn--amber" (click)="saveApiKey()">Save Key</button>
-                    </div>
+                    <p class="air-apikey-warning__text">An Anthropic API key is required for analysis.</p>
+                    <a class="air-btn air-btn--amber" routerLink="/settings">Add API key in Settings</a>
                 </div>
             }
 
