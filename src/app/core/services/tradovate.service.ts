@@ -60,7 +60,7 @@ export class TradovateService {
      * (see tradovate-proxy/). Electron isn't bound by CORS and calls Tradovate
      * directly. Must match the deployed worker origin (no trailing slash).
      */
-    private readonly tradovateProxyOrigin = 'https://trade-journal-tradovate-proxy.nvzn-journal.workers.dev';
+    private readonly tradovateProxyOrigin = 'https://tv-proxy.nvzn-journal.com';
 
     private http = inject(HttpClient);
 

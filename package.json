@@ -13,7 +13,9 @@
     "test": "ng test",
     "electron": "electron .",
     "electron:dev": "concurrently \"npm start\" \"wait-on http://localhost:4200 && cross-env NODE_ENV=development electron .\"",
-    "electron:build": "npm run build:electron && electron-builder --mac"
+    "electron:build": "npm run build:electron && electron-builder --mac",
+    "deploy:tradovate": "cd tradovate-proxy && wrangler deploy",
+    "deploy:discord": "cd discord-exchange && wrangler deploy"
   },
   "prettier": {
     "printWidth": 100,
@@ -59,7 +61,8 @@
     "tailwindcss": "^3.4.19",
     "typescript": "~5.9.2",
     "vitest": "^4.1.7",
-    "wait-on": "^9.0.10"
+    "wait-on": "^9.0.10",
+    "wrangler": "^4.105.0"
   },
   "build": {
     "appId": "com.tradejournal.app",
