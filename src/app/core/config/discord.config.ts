@@ -33,7 +33,7 @@ export const DISCORD_CONFIG = {
      * Web only: URL of your serverless function that handles the token exchange.
      * See discord-exchange/ in the project root for the Cloudflare Worker implementation.
      */
-    webExchangeUrl: 'https://trade-journal-discord-exchange.nvzn-journal.workers.dev/discord-exchange',
+    webExchangeUrl: 'https://discord-exchange.nvzn-journal.com/discord-exchange',
 
     /** Web only: redirect URI registered in Discord Developer Portal for web builds */
     webCallbackUrl: typeof window !== 'undefined'
