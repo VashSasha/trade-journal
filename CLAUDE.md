@@ -74,6 +74,24 @@ Route access is controlled by two guards:
 - `authGuard` — requires login
 - `planGuard('premium')` / `planGuard('lifetime')` — gates analytics (premium) and AI reports (lifetime)
 
+#### Organize new features BY FEATURE, not by type (REQUIRED for new code)
+
+Each new feature is a **self-contained folder** under `src/app/features/<feature>/` that co-locates everything that feature owns — component(s), service(s), model(s), and routes:
+
+```
+features/
+  trades/
+    trades.component.ts
+    trades.service.ts
+    trades.model.ts
+    trades.routes.ts
+```
+
+- Feature-specific services, models, and routes live **inside the feature folder** — not in `core/services`, `core/models`, or a central routes file.
+- `core/` is reserved for genuinely cross-cutting/global services and utilities used by multiple features (e.g. `TradeService`, `ThemeService`, `trade-stats.utils.ts`). `shared/components/` is only for components reused across features.
+- Applies to **new** features. Existing by-type code (e.g. the `core/services` table above) is not required to migrate — leave it unless a change naturally touches it.
+- Composes with the widget rule below: a feature folder may hold several self-contained section/widget components.
+
 #### Journal (`src/app/features/journal/daily-journal/`)
 
 Scoped state pattern — each domain is its own `@Injectable()` class listed in the component's `providers` array:

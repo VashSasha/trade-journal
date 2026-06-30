@@ -27,7 +27,7 @@ export class PerformanceBySetupComponent implements AfterViewInit, OnDestroy {
     trades = input.required<Trade[]>();
 
     @ViewChild('chartCanvas') chartCanvas!: ElementRef<HTMLCanvasElement>;
-    private chart: Chart | undefined;
+    private chart: Chart<'bar'> | undefined;
 
     chartData = computed((): SetupStat[] => {
         const map = new Map<string, { pnl: number; wins: number; total: number }>();
