@@ -20,6 +20,10 @@
  * Register this Worker's origin in tradovate.service.ts → tradovateProxyOrigin.
  */
 
+// Cap upstream calls so a slow Tradovate host yields a CORS-tagged 504, not a
+// CORS-less Cloudflare edge timeout.
+const UPSTREAM_TIMEOUT_MS = 20_000;
+
 const CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -36,6 +40,17 @@ const STRIP_REQUEST_HEADERS = new Set([
 
 export default {
     async fetch(request) {
+        try {
+            return await handle(request);
+        } catch (e) {
+            // Never let an uncaught error become a CORS-less Cloudflare error page —
+            // always return a response the browser can read.
+            return json({ error: 'proxy_error', detail: String(e) }, 500);
+        }
+    },
+};
+
+async function handle(request) {
         if (request.method === 'OPTIONS') {
             return new Response(null, { headers: CORS });
         }
@@ -65,6 +80,13 @@ export default {
 
         const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
 
+        // Bound the upstream call. Tradovate's demo hosts can hang on a cold/slow
+        // first hit; without this the subrequest stalls until Cloudflare returns a
+        // CORS-less edge timeout page, which the browser reports as a CORS error.
+        // A bounded fetch lets us return a readable 504 (with CORS) the app can retry.
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+
         let upstream;
         try {
             upstream = await fetch(target.toString(), {
@@ -72,9 +94,16 @@ export default {
                 headers,
                 body: hasBody ? await request.arrayBuffer() : undefined,
                 redirect: 'follow',
+                signal: controller.signal,
             });
         } catch (e) {
-            return json({ error: 'Upstream fetch failed', detail: String(e) }, 502);
+            const aborted = e && e.name === 'AbortError';
+            return json(
+                { error: aborted ? 'Upstream timeout' : 'Upstream fetch failed', detail: String(e) },
+                aborted ? 504 : 502,
+            );
+        } finally {
+            clearTimeout(timeout);
         }
 
         // Pass the upstream response through verbatim, plus CORS.
@@ -90,8 +119,7 @@ export default {
             statusText: upstream.statusText,
             headers: respHeaders,
         });
-    },
-};
+}
 
 function text(body, status = 200) {
     return new Response(body, { status, headers: { 'Content-Type': 'text/plain', ...CORS } });
