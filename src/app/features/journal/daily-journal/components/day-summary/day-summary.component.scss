@@ -371,6 +371,37 @@
         font-size: 0.875rem;
         color: var(--color-text-secondary);
         line-height: 1.65;
+
+        // ngx-markdown injects these elements dynamically, so they escape the
+        // component's emulated encapsulation — reach them with ::ng-deep.
+        ::ng-deep {
+            > *:first-child { margin-top: 0; }
+            > *:last-child { margin-bottom: 0; }
+
+            h2, h3 {
+                margin: 1rem 0 0.5rem;
+                font-size: 0.75rem;
+                font-weight: 700;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                color: var(--color-text-muted);
+            }
+
+            p { margin: 0 0 0.625rem; }
+
+            ul { margin: 0 0 0.625rem; padding-left: 1.25rem; }
+            li { margin-bottom: 0.25rem; }
+
+            // GitHub task-list items: drop the bullet, align the checkbox.
+            li:has(input[type='checkbox']) {
+                list-style: none;
+                margin-left: -1.25rem;
+            }
+            input[type='checkbox'] {
+                margin-right: 0.5rem;
+                accent-color: var(--color-accent);
+            }
+        }
     }
 
     &__chips {
@@ -423,5 +454,24 @@
         border-color: var(--color-accent);
         color: var(--color-accent);
         background: var(--color-accent-subtle);
+    }
+}
+
+.ds-insight-copy {
+    display: block;
+    margin-top: 0.75rem;
+    padding: 0.375rem 0.875rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-accent);
+    background: var(--color-accent-subtle);
+    color: var(--color-accent);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s, opacity 0.12s;
+
+    &:hover {
+        background: var(--color-accent);
+        color: #fff;
     }
 }

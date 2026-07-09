@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, Input, OnDestroy, signal, ViewChild, WritableSignal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, Input, OnDestroy, signal, ViewChild, WritableSignal } from '@angular/core';
 import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -50,6 +50,10 @@ export class DaySummaryComponent implements OnDestroy {
   followUpInsight = signal<AnalysisState>({status: 'idle', content: '', error: null});
   followUpInsightConfidence = signal<ConfidenceTier>(null);
   activeInsightSteps = signal<string[]>([]);
+  copiedActionPoints = signal(false);
+
+  /** Task-list items extracted from the AI insight's "Action Points" section. */
+  readonly actionPoints = computed(() => this.extractActionPoints(this.insightState().content));
 
   private insightStepsInterval: ReturnType<typeof setInterval> | null = null;
   private insightMessages: any[] = [];
@@ -74,27 +78,70 @@ export class DaySummaryComponent implements OnDestroy {
     this.sharePnl.open();
   }
 
+  /** Copy the AI's action-points checklist (raw Markdown) to the clipboard. */
+  copyActionPoints(): void {
+    const items = this.actionPoints();
+    if (!items.length) return;
+    navigator.clipboard.writeText(items.join('\n')).then(() => {
+      this.copiedActionPoints.set(true);
+      setTimeout(() => this.copiedActionPoints.set(false), 2000);
+    });
+  }
+
+  /**
+   * Pull GitHub task-list items (`- [ ] ...`) out of the "Action Points" section
+   * of the insight Markdown. Falls back to any task-list items in the content if
+   * the heading isn't matched, so a slightly-off model response still copies.
+   */
+  private extractActionPoints(content: string): string[] {
+    const isTask = (line: string) => /^[-*]\s*\[[ xX]?\]\s+/.test(line);
+    const lines = content.split('\n').map(l => l.trim());
+
+    const inSection: string[] = [];
+    let active = false;
+    for (const line of lines) {
+      if (/^#{1,6}\s/.test(line)) {
+        active = /action\s*point/i.test(line);
+        continue;
+      }
+      if (active && isTask(line)) inSection.push(line);
+    }
+    if (inSection.length) return inSection;
+
+    return lines.filter(isTask);
+  }
+
   // ── AI Insight ───────────────────────────────────────────────────────────
   generateInsight(): void {
     const s = this.stats;
     this.insightMessages = [
       {
         role: 'system',
-        content: 'You are an expert trading performance analyst. Analyze a trader\'s daily performance and provide a concise, insightful one-paragraph interpretation. Focus on performance quality, patterns, and one actionable insight. Be direct and specific.'
+        content: `You are an expert trading performance analyst. Analyze a trader's daily performance and reply in concise, scannable GitHub-flavored Markdown using EXACTLY these sections and headings:
+
+## Summary
+2–3 sentences on the day's performance quality and the single most important pattern.
+
+## Key Takeaways
+2–4 short one-line bullet points, drawn strictly from the data.
+
+## Action Points for Tomorrow
+A checklist of 3–5 specific, concrete steps the trader can apply tomorrow. Write each as a GitHub task list item that starts with a verb, e.g. \`- [ ] Cut position size after two consecutive losses\`.
+
+Rules: be direct and specific, base every claim on the numbers provided, never invent trades or prices you were not given, and keep the whole reply tight.`
       },
       {
         role: 'user',
-        content: `Date: ${this.date ?? 'today'}
-          Total trades: ${s.totalTrades}
-          Net P&L: $${s.netPnl.toFixed(2)}
-          Win rate: ${s.winRate.toFixed(1)}%
-          Winners: ${s.winners} / Losers: ${s.losers}
-          Gross P&L: $${s.grossPnl.toFixed(2)}
-          Commissions: $${s.commissions.toFixed(2)}
-          Avg trade: $${s.avgNetPnl.toFixed(2)}
+        content: `Analyze this trading day.
 
-          Provide a one-paragraph interpretation.
-        `
+Date: ${this.date ?? 'today'}
+Total trades: ${s.totalTrades}
+Net P&L: $${s.netPnl.toFixed(2)}
+Win rate: ${s.winRate.toFixed(1)}%
+Winners: ${s.winners} / Losers: ${s.losers}
+Gross P&L: $${s.grossPnl.toFixed(2)}
+Commissions: $${s.commissions.toFixed(2)}
+Avg trade: $${s.avgNetPnl.toFixed(2)}`
       }
     ];
     this.followUpInsight.set({status: 'idle', content: '', error: null});
@@ -135,7 +182,7 @@ export class DaySummaryComponent implements OnDestroy {
 
     stateSignal.set({status: 'streaming', content: '', error: null});
 
-    const sub = this.openAiService.streamAnalysis(messages, 400)
+    const sub = this.openAiService.streamAnalysis(messages, 600)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: token => stateSignal.update(s => ({...s, content: s.content + token})),
