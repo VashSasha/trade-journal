@@ -19,6 +19,7 @@ interface DiscordLoginResult {
     roles: string[];
     roleConfig: Record<string, string>;
     sessionExpiry: number;
+    authToken?: string; // Session JWT for the ai-proxy (web flow only; Electron omits it)
 }
 
 @Injectable({ providedIn: 'root' })
@@ -116,7 +117,8 @@ export class DiscordAuthService {
             initials,
             avatar: data.avatar ?? undefined,
             plan,
-            sessionExpiry: data.sessionExpiry
+            sessionExpiry: data.sessionExpiry,
+            authToken: data.authToken
         };
     }
 

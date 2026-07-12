@@ -3,7 +3,8 @@ import { CurrencyPipe } from '@angular/common';
 import { Trade } from '../../../../core/models/trade.model';
 import { EconomicCalendarService, EconomicEvent } from '../../../../core/services/economic-calendar.service';
 import { ThemeService } from '../../../../core/services/theme.service';
-import { isMarketClosed } from '../../../../core/utils/market-holidays';
+import { isMarketClosed, tradeSessionDateStr } from '../../../../core/utils/market-holidays';
+import { computeDayStats, DayStats } from '../../../../core/utils/trade-stats.utils';
 
 export type CalDisplayMode = 'pnl' | 'points' | 'trades' | 'winrate' | 'percent';
 
@@ -11,13 +12,9 @@ interface CalendarDay {
     date: Date;
     day: number;
     isCurrentMonth: boolean;
-    pnl: number;
+    stats: DayStats;
     pnlPercent: number;
     points: number;
-    count: number;
-    closedCount: number;
-    wins: number;
-    winRate: number;
     hasTrades: boolean;
     isToday: boolean;
     isMarketClosed: boolean;
@@ -32,8 +29,6 @@ function localDateStr(date: Date): string {
 }
 
 const STORAGE_KEY = 'cal_selected_modes';
-// Priority order for background coloring (first selected directional mode wins)
-const BG_PRIORITY: CalDisplayMode[] = ['pnl', 'points', 'percent', 'winrate'];
 
 @Component({
     selector: 'app-calendar-heatmap',
@@ -73,26 +68,16 @@ export class CalendarHeatmapComponent {
         const year = current.getFullYear();
         const month = current.getMonth();
 
-        type DayStats = { pnl: number; pnlPercent: number; points: number; count: number; closedCount: number; wins: number };
-        const dailyStats = new Map<string, DayStats>();
-
+        const tradesByDay = new Map<string, Trade[]>();
         this.trades().forEach(trade => {
-            const dateStr = localDateStr(new Date(trade.entryDate));
-            const s = dailyStats.get(dateStr) ?? { pnl: 0, pnlPercent: 0, points: 0, count: 0, closedCount: 0, wins: 0 };
-            s.count++;
-            if (trade.status === 'closed' && trade.netPnl !== undefined) {
-                s.closedCount++;
-                s.pnl += trade.netPnl;
-                if (trade.pnlPercent) s.pnlPercent += trade.pnlPercent;
-                if (trade.netPnl > 0) s.wins++;
-                if (trade.exitPrice && trade.entryPrice) {
-                    const diff = trade.direction === 'long'
-                        ? trade.exitPrice - trade.entryPrice
-                        : trade.entryPrice - trade.exitPrice;
-                    s.points += diff * (trade.quantity || 1);
-                }
-            }
-            dailyStats.set(dateStr, s);
+            // Group closed trades by exitDate so P&L is attributed to the day it was realized,
+            // matching Tradovate's Performance report. Open trades fall back to entryDate.
+            // Apply the 5 PM session cutoff: trades at/after 17:00 local belong to the next day.
+            const dateKey = (trade.status === 'closed' && trade.exitDate) ? trade.exitDate : trade.entryDate;
+            const dateStr = tradeSessionDateStr(dateKey);
+            const bucket = tradesByDay.get(dateStr) ?? [];
+            bucket.push(trade);
+            tradesByDay.set(dateStr, bucket);
         });
 
         const eventsThisMonth = this.economicCalendarService.getEventsForMonth(year, month);
@@ -112,13 +97,28 @@ export class CalendarHeatmapComponent {
 
         const makeDay = (date: Date, isCurrentMonth: boolean, isToday: boolean): CalendarDay => {
             const dateStr = localDateStr(date);
-            const s = dailyStats.get(dateStr) ?? { pnl: 0, pnlPercent: 0, points: 0, count: 0, closedCount: 0, wins: 0 };
+            const dayTrades = tradesByDay.get(dateStr) ?? [];
+            const stats = computeDayStats(dayTrades);
+
+            let points = 0;
+            dayTrades.filter(t => t.status === 'closed').forEach(t => {
+                if (t.exitPrice && t.entryPrice) {
+                    const diff = t.direction === 'long'
+                        ? t.exitPrice - t.entryPrice
+                        : t.entryPrice - t.exitPrice;
+                    points += diff * (t.quantity || 1);
+                }
+            });
+
+            let pnlPercent = 0;
+            dayTrades.forEach(t => { if (t.pnlPercent) pnlPercent += t.pnlPercent; });
+
             return {
                 date, day: date.getDate(), isCurrentMonth,
-                pnl: s.pnl, pnlPercent: s.pnlPercent, points: s.points,
-                count: s.count, closedCount: s.closedCount, wins: s.wins,
-                winRate: s.closedCount > 0 ? (s.wins / s.closedCount) * 100 : 0,
-                hasTrades: s.count > 0,
+                stats,
+                pnlPercent,
+                points,
+                hasTrades: dayTrades.length > 0,
                 isToday, isMarketClosed: isMarketClosed(date),
                 events: eventsMap.get(dateStr) || []
             };
@@ -189,13 +189,13 @@ export class CalendarHeatmapComponent {
     }
 
     isCellColored(day: CalendarDay): boolean {
-        return day.hasTrades && day.pnl !== 0;
+        return day.hasTrades && day.stats.netPnl !== 0;
     }
 
     getCellOpacity(day: CalendarDay): number {
-        if (!day.hasTrades || day.pnl === 0) return 0;
+        if (!day.hasTrades || day.stats.netPnl === 0) return 0;
         const isDark = this.theme.isDark();
-        if (day.pnl > 0) {
+        if (day.stats.netPnl > 0) {
             return isDark
                 ? 0.40 + Math.min(Math.abs(day.pnlPercent) / 5, 0.30)
                 : 0.20 + Math.min(Math.abs(day.pnlPercent) / 5, 0.28);

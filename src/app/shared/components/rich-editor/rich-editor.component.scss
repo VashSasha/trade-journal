@@ -68,6 +68,14 @@
         color: #fff;
     }
 
+    // Text label buttons (H1, H2)
+    &--label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        width: 24px;
+    }
+
     // Highlight button shows swatch strip at bottom
     &--highlight {
         position: relative;
@@ -88,6 +96,14 @@
     height: 3px;
     border-radius: 1px;
     flex-shrink: 0;
+}
+
+.re-tc-letter {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    font-family: serif;
+    color: inherit;
 }
 
 // Highlight color picker popover
@@ -138,6 +154,28 @@
     &.is-active {
         border-color: #fff;
         transform: scale(1.15);
+    }
+
+    // "No color / reset" swatch — strikethrough look
+    &--remove {
+        background: rgba(255, 255, 255, 0.15) !important;
+        position: relative;
+        overflow: hidden;
+
+        &::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #ef4444;
+            transform: translateY(-50%) rotate(-45deg) scaleX(1.4);
+        }
+
+        &.is-active {
+            border-color: rgba(255, 255, 255, 0.6);
+        }
     }
 }
 

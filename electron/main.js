@@ -66,7 +66,7 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.js')
         },
         ...(iconPath ? { icon: iconPath } : {}),
-        title: 'Trade Journal',
+        title: 'NVZN Journal',
         show: false
     });
 
@@ -117,17 +117,25 @@ app.whenReady().then(() => {
         });
     }
 
-    // ── Tradovate CORS bypass ─────────────────────────────────────────────────
-    // The app:// scheme isn't whitelisted by Tradovate's CORS policy, so Chromium
-    // blocks requests with status 0. Fix: strip Origin on the way out (the server
-    // won't see a cross-origin request) and inject CORS headers on the way in
-    // (so Chromium accepts the response).
-    const tradovateFilter = { urls: ['https://*.tradovateapi.com/*'] };
+    // ── CORS bypass for external APIs ─────────────────────────────────────────
+    // In production the page origin is app://localhost, which external APIs don't
+    // whitelist. Fix: strip Origin/Referer on outbound requests (server sees no
+    // cross-origin request) and inject CORS headers on inbound responses (Chromium
+    // accepts the response). This lets us keep webSecurity: true.
+    //
+    // Covered APIs: Tradovate, Anthropic (Claude), Discord Cloudflare worker exchange.
+    const externalApiFilter = {
+        urls: [
+            'https://*.tradovateapi.com/*',
+            'https://api.openai.com/*',
+            'https://api.anthropic.com/*',
+            'https://*.workers.dev/*'
+        ]
+    };
 
-    session.defaultSession.webRequest.onBeforeSendHeaders(tradovateFilter, (details, callback) => {
-        // In production the page origin is app://localhost which Tradovate doesn't whitelist.
-        // Strip Origin/Referer so the server treats it as a same-origin request.
-        // In dev the page origin is http://localhost:4200 which Tradovate allows — leave it alone.
+    session.defaultSession.webRequest.onBeforeSendHeaders(externalApiFilter, (details, callback) => {
+        // Strip Origin/Referer only in production — in dev the origin is
+        // http://localhost:4200 which most APIs accept.
         if (!isDev) {
             const headers = details.requestHeaders;
             for (const key of Object.keys(headers)) {
@@ -140,12 +148,12 @@ app.whenReady().then(() => {
         }
     });
 
-    session.defaultSession.webRequest.onHeadersReceived(tradovateFilter, (details, callback) => {
+    session.defaultSession.webRequest.onHeadersReceived(externalApiFilter, (details, callback) => {
         callback({
             responseHeaders: {
                 ...details.responseHeaders,
                 'access-control-allow-origin':  ['*'],
-                'access-control-allow-headers': ['Content-Type, Accept, Authorization'],
+                'access-control-allow-headers': ['Content-Type, Accept, Authorization, x-api-key, anthropic-version, anthropic-dangerous-direct-browser-access'],
                 'access-control-allow-methods': ['GET, POST, PUT, DELETE, OPTIONS'],
             }
         });
@@ -184,7 +192,7 @@ app.on('before-quit', closeCallbackServer);
 ipcMain.handle('discord-login', async (event, { clientId, guildId, roles, port }) => {
     const callbackPort = port || 59432;
     const redirectUri = `http://localhost:${callbackPort}/callback`;
-    console.log('Discord OAuth callback URL:', redirectUri);
+    if (isDev) { console.log('Discord OAuth callback URL:', redirectUri); }
 
     closeCallbackServer();
 
@@ -288,7 +296,9 @@ ipcMain.handle('discord-login', async (event, { clientId, guildId, roles, port }
     };
 });
 
-console.log('Electron version:', process.versions.electron);
-console.log('Chrome version:', process.versions.chrome);
-console.log('Node version:', process.versions.node);
-console.log('App path:', app.getAppPath());
+if (isDev) {
+    console.log('Electron version:', process.versions.electron);
+    console.log('Chrome version:', process.versions.chrome);
+    console.log('Node version:', process.versions.node);
+    console.log('App path:', app.getAppPath());
+}

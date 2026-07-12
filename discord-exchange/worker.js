@@ -88,6 +88,14 @@ export default {
             memberRoles = memberData.roles || [];
         }
 
+        const sessionExpiry = Date.now() + expiresIn * 1000;
+
+        // Mint a signed session token (HMAC-SHA256) the browser presents to the
+        // ai-proxy worker. Shared JWT_SECRET; `sub` = Discord user id.
+        const authToken = env.JWT_SECRET
+            ? await signJwt({ sub: discordUser.id, exp: Math.floor(sessionExpiry / 1000) }, env.JWT_SECRET)
+            : undefined;
+
         return json({
             id: discordUser.id,
             username: discordUser.username,
@@ -96,10 +104,32 @@ export default {
                 ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
                 : null,
             roles: memberRoles,
-            sessionExpiry: Date.now() + expiresIn * 1000
+            sessionExpiry,
+            authToken
         });
     }
 };
+
+// ── JWT (HMAC-SHA256) signing ────────────────────────────────────────────────
+
+async function signJwt(payload, secret) {
+    const header = { alg: 'HS256', typ: 'JWT' };
+    const encode = obj => b64url(new TextEncoder().encode(JSON.stringify(obj)));
+    const data = `${encode(header)}.${encode(payload)}`;
+
+    const key = await crypto.subtle.importKey(
+        'raw', new TextEncoder().encode(secret),
+        { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    );
+    const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
+    return `${data}.${b64url(new Uint8Array(sig))}`;
+}
+
+function b64url(bytes) {
+    let bin = '';
+    for (const b of bytes) bin += String.fromCharCode(b);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
 function json(data, status = 200) {
     return new Response(JSON.stringify(data), {

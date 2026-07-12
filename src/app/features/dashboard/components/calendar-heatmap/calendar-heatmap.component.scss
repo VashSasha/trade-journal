@@ -278,6 +278,13 @@
         font-size: 14px;
         font-weight: 700;
     }
+
+    &--wl {
+        font-size: 9px;
+        font-weight: 600;
+        white-space: nowrap;
+        letter-spacing: 0.01em;
+    }
 }
 
 .cal-metric-sub {

@@ -38,7 +38,7 @@ export class LoginComponent {
         }
     }
 
-    onSubmit(): void {
+    async onSubmit(): Promise<void> {
         if (this.loginForm.invalid) {
             this.loginForm.markAllAsTouched();
             return;
@@ -47,7 +47,7 @@ export class LoginComponent {
         this.isLoading.set(true);
         this.errorMessage.set(null);
 
-        const result = this.authService.login(this.loginForm.value);
+        const result = await this.authService.login(this.loginForm.value);
         this.isLoading.set(false);
 
         if (result.success) {

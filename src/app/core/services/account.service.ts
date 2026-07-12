@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal, effect } from '@angular/core';
+import { Injectable, computed, inject, signal, effect, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { TradovateService, TradovateAccount } from './tradovate.service';
 import { FilterService } from './filter.service';
@@ -53,17 +53,28 @@ export class AccountService {
             const accounts = this.tradovateService.allAccounts();
             if (accounts.length === 0) return;
             this.accounts.set(accounts);
-            const stored = this.loadSelectedIds();
-            // Allow stored IDs from active, inactive, or historical (trade-derived) accounts
+
+            // Default to ALL accounts only when no selection has ever been made.
+            // Once a selection exists, respect it across pages — never reset to all.
+            if (!this.hasStoredSelection()) {
+                const all = accounts.map(a => a.id);
+                this.selectedIds.set(all);
+                this.saveSelectedIds(all);
+                return;
+            }
+
+            // Respect the saved selection; only drop ids that no longer exist
+            // anywhere. Never auto-re-add accounts the user deselected.
             const allKnownIds = new Set([
                 ...accounts.map(a => a.id),
                 ...this.inactiveAccounts().map(a => a.id),
                 ...this.historicalAccounts().map(a => a.id)
             ]);
-            const valid = stored.filter(id => allKnownIds.has(id));
-            const resolved = valid.length > 0 ? valid : accounts.length > 0 ? [accounts[0].id] : [];
-            this.selectedIds.set(resolved);
-            this.saveSelectedIds(resolved);
+            const pruned = this.loadSelectedIds().filter(id => allKnownIds.has(id));
+            if (!this.sameIds(untracked(() => this.selectedIds()), pruned)) {
+                this.selectedIds.set(pruned);
+                this.saveSelectedIds(pruned);
+            }
         });
 
         // Push account selection into FilterService whenever it changes.
@@ -166,6 +177,17 @@ export class AccountService {
         } finally {
             this.isRefreshing.set(false);
         }
+    }
+
+    /** True once the user has made (and persisted) any account selection. */
+    private hasStoredSelection(): boolean {
+        return localStorage.getItem(STORAGE_KEY) !== null;
+    }
+
+    private sameIds(a: number[], b: number[]): boolean {
+        if (a.length !== b.length) return false;
+        const setB = new Set(b);
+        return a.every(id => setB.has(id));
     }
 
     private loadSelectedIds(): number[] {

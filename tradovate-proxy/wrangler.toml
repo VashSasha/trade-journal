@@ -1,0 +1,12 @@
+name = "trade-journal-tradovate-proxy"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Generic CORS proxy for *.tradovateapi.com — no secrets required.
+# Deploy from this directory with:  wrangler deploy
+#
+# Served on a custom domain (zone nvzn-journal.com must be on this account).
+# Cloudflare auto-provisions the DNS record + SSL cert for this hostname.
+routes = [
+  { pattern = "tv-proxy.nvzn-journal.com", custom_domain = true }
+]

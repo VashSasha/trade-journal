@@ -2,7 +2,15 @@ import { Component, inject, computed, signal, OnInit } from '@angular/core';
 import { TradeService } from '../../core/services/trade.service';
 import { SyncService } from '../../core/services/sync.service';
 import { FilterService } from '../../core/services/filter.service';
-import { AccountService } from '../../core/services/account.service';
+import { AccountSettingsService } from '../../core/services/account-settings.service';
+import { tradeSessionDateStr } from '../../core/utils/market-holidays';
+
+function toDateStr(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
 import { GoalsWidgetComponent } from './components/goals-widget/goals-widget.component';
 import { StatsOverviewComponent } from './components/stats-overview/stats-overview.component';
 import { PerformanceChartsComponent } from './components/performance-charts/performance-charts.component';
@@ -28,11 +36,16 @@ export class DashboardComponent implements OnInit {
     private tradeService = inject(TradeService);
     private syncService = inject(SyncService);
     private filterService = inject(FilterService);
-    private accountService = inject(AccountService);
+    private accountSettings = inject(AccountSettingsService);
 
     equityView = signal<'trade' | 'hour' | 'day'>('hour');
 
     ngOnInit(): void {
+        // Always recompute netPnl from stored fees on load so stale localStorage
+        // values (synced before fee logic existed) are corrected immediately,
+        // without waiting for the next sync.
+        this.tradeService.recalculateTradovateNetPnl(this.accountSettings.commissionPerContract());
+
         const lastSync = this.syncService.lastSyncTime();
         const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
         if (!lastSync || lastSync.getTime() < fiveMinutesAgo) {
@@ -67,22 +80,27 @@ export class DashboardComponent implements OnInit {
     equityCurveData = computed(() => {
         const trades = this.filteredTrades()
             .filter(t => t.status === 'closed' && t.netPnl !== undefined)
-            .sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime());
+            // P&L is realised at exit — sort by exitDate so the curve matches the
+            // calendar and filter attribution (which also use exitDate).
+            .sort((a, b) => new Date(a.exitDate ?? a.entryDate).getTime() - new Date(b.exitDate ?? b.entryDate).getTime());
 
         const view = this.equityView();
         let data: { date: string, rawDate: Date, pnl: number, timestamp: number }[] = [];
 
         if (view === 'trade') {
-            data = trades.map(t => ({
-                date: new Date(t.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                rawDate: new Date(t.entryDate),
-                pnl: t.netPnl || 0,
-                timestamp: new Date(t.entryDate).getTime()
-            }));
+            data = trades.map(t => {
+                const d = new Date(t.exitDate ?? t.entryDate);
+                return {
+                    date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    rawDate: d,
+                    pnl: t.netPnl || 0,
+                    timestamp: d.getTime()
+                };
+            });
         } else if (view === 'day') {
             const groups = new Map<string, number>();
             trades.forEach(t => {
-                const day = new Date(t.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const day = new Date(t.exitDate ?? t.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                 groups.set(day, (groups.get(day) || 0) + (t.netPnl || 0));
             });
             data = Array.from(groups.entries()).map(([dateStr, pnl]) => {
@@ -92,7 +110,7 @@ export class DashboardComponent implements OnInit {
         } else if (view === 'hour') {
             const groups = new Map<string, number>();
             trades.forEach(t => {
-                const d = new Date(t.entryDate);
+                const d = new Date(t.exitDate ?? t.entryDate);
                 d.setMinutes(0, 0, 0);
                 const key = d.toISOString();
                 groups.set(key, (groups.get(key) || 0) + (t.netPnl || 0));
@@ -106,11 +124,22 @@ export class DashboardComponent implements OnInit {
             }).sort((a, b) => a.timestamp - b.timestamp);
         }
 
-        const filteredPnl = trades.reduce((sum, t) => sum + (t.netPnl ?? 0), 0);
-        const startingBalance = this.accountService.aggregatedBalance() - filteredPnl;
-        let cumulative = startingBalance;
+        const startingBalance = this.accountSettings.startingBalance();
+
+        // If a date range is active, offset the starting point by all P&L realised before it
+        const dateRangeStart = this.filterService.filters().dateRange.start;
+        let priorPnl = 0;
+        if (dateRangeStart) {
+            const startStr = toDateStr(dateRangeStart);
+            priorPnl = this.filterService.filterTradesIgnoreDateRange(this.tradeService.trades())
+                .filter(t => t.status === 'closed' && t.netPnl !== undefined)
+                .filter(t => tradeSessionDateStr(t.exitDate ?? t.entryDate) < startStr)
+                .reduce((sum, t) => sum + (t.netPnl || 0), 0);
+        }
+
+        let cumulative = startingBalance + priorPnl;
         const labels: string[] = ['Start'];
-        const values: number[] = [Math.round(startingBalance * 100) / 100];
+        const values: number[] = [Math.round(cumulative * 100) / 100];
 
         data.forEach(d => {
             cumulative += d.pnl;

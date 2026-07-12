@@ -1,13 +1,12 @@
 import { Routes } from '@angular/router';
 import { MainLayoutComponent } from './features/layout/main-layout/main-layout';
-import { LoginComponent } from './features/auth/login/login';
 import { authGuard } from './core/guards/auth.guard';
 import { planGuard } from './core/guards/plan.guard';
 
 export const routes: Routes = [
     {
         path: 'login',
-        component: LoginComponent
+        loadComponent: () => import('./features/auth/login/login').then(m => m.LoginComponent)
     },
     {
         path: 'integrations/discord-callback',

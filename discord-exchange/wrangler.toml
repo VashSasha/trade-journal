@@ -2,6 +2,17 @@ name = "trade-journal-discord-exchange"
 main = "worker.js"
 compatibility_date = "2024-01-01"
 
-# Set secrets via CLI (never commit these):
-#   wrangler secret put DISCORD_CLIENT_ID
-#   wrangler secret put DISCORD_GUILD_ID
+# Custom domain (zone nvzn-journal.com is on this account).
+# NOTE: top-level keys must precede any [table] header in TOML.
+routes = [
+  { pattern = "discord-exchange.nvzn-journal.com", custom_domain = true }
+]
+
+# Public Discord identifiers (safe to commit — client_id is public, no client
+# secret is used; the OAuth flow is PKCE).
+[vars]
+DISCORD_CLIENT_ID = "1479580819851972801"
+DISCORD_GUILD_ID = "1127722604925558826"
+
+# Secret — set via CLI (must be the SAME value as ai-proxy's JWT_SECRET):
+#   wrangler secret put JWT_SECRET

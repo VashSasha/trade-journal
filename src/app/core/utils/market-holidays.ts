@@ -74,6 +74,21 @@ export function getUSMarketHolidays(year: number): Set<string> {
 
 const cache = new Map<number, Set<string>>();
 
+/**
+ * Returns the YYYY-MM-DD trading-session date for a trade's ISO timestamp.
+ * CME equity futures roll to the next session at 5 PM local time, so any
+ * trade at or after 17:00 local belongs to the NEXT calendar day.
+ * Used by the calendar heatmap and journal to match Tradovate's session dates.
+ */
+export function tradeSessionDateStr(isoDate: string): string {
+    const d = new Date(isoDate);
+    if (d.getHours() >= 17) {
+        const next = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+        return toDateStr(next);
+    }
+    return toDateStr(d);
+}
+
 /** Returns true if the given local date is a weekend or US market holiday */
 export function isMarketClosed(date: Date): boolean {
     const dow = date.getDay();

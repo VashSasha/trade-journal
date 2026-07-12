@@ -113,4 +113,70 @@
     [date]="date"
     context="journal">
 </app-share-pnl>
+
+@if (openAiService.hasApiKey()) {
+<div class="ds-insight">
+
+    @if (insightState().status === 'idle') {
+        <button class="ds-insight__trigger" (click)="generateInsight()">
+            ✨ Get AI insight for today
+        </button>
+    }
+
+    @if (insightState().status === 'streaming') {
+        <div class="ds-working-panel">
+            <span class="ds-working-panel__label">Analyzing</span>
+            <div class="ds-working-panel__steps">
+                @for (step of activeInsightSteps(); track step; let last = $last) {
+                    <div class="ds-working-step" [class.ds-working-step--active]="last">
+                        <span class="ds-working-step__dot"></span>
+                        <span class="ds-working-step__text">{{ step }}</span>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    @if (insightState().status === 'complete') {
+        <div class="ds-insight-panel">
+            <span class="ds-insight-panel__label">AI Insight</span>
+            <div class="ds-insight-panel__body">
+                <markdown [data]="insightState().content"></markdown>
+            </div>
+            @if (followUpInsight().status === 'idle') {
+                <div class="ds-insight-panel__chips">
+                    <button class="ds-insight-chip" (click)="generateInsight()">↺ Regenerate</button>
+                    <button class="ds-insight-chip" (click)="tellMeMore()">Tell me more about today</button>
+                </div>
+            }
+            @if (followUpInsight().status !== 'idle') {
+                <div class="ds-insight-panel__followup">
+                    @if (followUpInsight().status === 'streaming') {
+                        <div class="ds-insight-panel__followup-text">{{ followUpInsight().content }}</div>
+                    }
+                    @if (followUpInsight().status === 'complete') {
+                        <markdown [data]="followUpInsight().content"></markdown>
+                    }
+                    @if (followUpInsight().status === 'error') {
+                        <p class="ds-insight-panel__error">{{ followUpInsight().error }}</p>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @if (insightState().status === 'error') {
+        <div class="ds-insight__error-row">
+            <span class="ds-insight__error">{{ insightState().error }}</span>
+            <button class="ds-insight-chip" (click)="generateInsight()">↺ Retry</button>
+        </div>
+    }
+
+</div>
+} @else {
+<div class="ds-insight ds-insight--locked">
+    <p class="ds-insight__locked-text">✨ AI insights — add your Anthropic API key to enable.</p>
+    <a class="ds-insight__trigger" routerLink="/settings">Add API key in Settings</a>
+</div>
+}
 }
