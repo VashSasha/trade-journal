@@ -15,7 +15,7 @@ export interface MonthGroup {
     entries: TimelineEntry[];
 }
 
-export function stripHtml(html: string): string {
+function stripHtml(html: string): string {
     return html.replace(/<[^>]*>/g, '').trim();
 }
 

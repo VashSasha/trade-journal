@@ -1,12 +1,12 @@
 import { Component, Input, ViewChild, ElementRef, AfterViewInit, OnDestroy, OnChanges, SimpleChanges, inject, effect } from '@angular/core';
 
-import { Chart, ChartConfiguration, registerables } from 'chart.js';
+import { Chart, ChartConfiguration, DoughnutController, ArcElement, Legend, Tooltip } from 'chart.js';
 import { TradeStats } from '../../../../core/models/trade.model';
 import { ThemeService } from '../../../../core/services/theme.service';
 import { AccountSettingsService } from '../../../../core/services/account-settings.service';
 import { EquityCurveChartComponent } from '../../../../shared/components/equity-curve-chart/equity-curve-chart.component';
 
-Chart.register(...registerables);
+Chart.register(DoughnutController, ArcElement, Legend, Tooltip);
 
 @Component({
     selector: 'app-performance-charts',

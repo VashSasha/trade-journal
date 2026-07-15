@@ -22,7 +22,7 @@ export class OpenAiService {
      * JWT. Electron (interim): key kept in localStorage, Anthropic called directly.
      */
     private get isElectron(): boolean {
-        return !!(typeof window !== 'undefined' && (window as any).electronAPI?.isElectron);
+        return !!(typeof window !== 'undefined' && window.electronAPI?.isElectron);
     }
 
     /** Reactive "a key is configured" state — drives @if gating in templates. */

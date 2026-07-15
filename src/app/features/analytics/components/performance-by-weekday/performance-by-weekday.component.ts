@@ -1,6 +1,14 @@
 import { Component, computed, input, effect, ViewChild, ElementRef, AfterViewInit, OnDestroy } from '@angular/core';
-import { Chart, ChartConfiguration } from 'chart.js/auto';
+import {
+    Chart, ChartConfiguration,
+    BarController, LineController,
+    BarElement, LineElement, PointElement,
+    CategoryScale, LinearScale,
+    Legend, Tooltip
+} from 'chart.js';
 import { Trade } from '../../../../core/models/trade.model';
+
+Chart.register(BarController, LineController, BarElement, LineElement, PointElement, CategoryScale, LinearScale, Legend, Tooltip);
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 

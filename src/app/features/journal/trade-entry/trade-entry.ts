@@ -1,4 +1,5 @@
-import { Component, signal, inject, OnInit } from '@angular/core';
+import { Component, signal, inject, OnInit, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TitleCasePipe } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -19,6 +20,7 @@ export class TradeEntryComponent implements OnInit {
     private authService = inject(AuthService);
     private router = inject(Router);
     private route = inject(ActivatedRoute);
+    private destroyRef = inject(DestroyRef);
 
     tradeForm: FormGroup;
     isSubmitting = signal(false);
@@ -104,13 +106,13 @@ export class TradeEntryComponent implements OnInit {
         });
 
         // Subscribe to form value changes to update P&L
-        this.tradeForm.valueChanges.subscribe(() => {
+        this.tradeForm.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
             this.calculatePnL();
         });
     }
 
     ngOnInit(): void {
-        this.route.paramMap.subscribe(params => {
+        this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
             const id = params.get('id');
             if (id) {
                 this.isEditMode.set(true);
