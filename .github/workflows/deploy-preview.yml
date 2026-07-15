@@ -1,6 +1,14 @@
 name: "Deploy: Preview"
 
+# Deploys non-production branches to a Cloudflare Pages PREVIEW environment.
+# Each branch gets a stable alias URL: <branch>.trade-journal-2go.pages.dev
+# Production (the 'main' branch / trade-journal-2go.pages.dev) is never touched here
+# — use the "Deploy: Production" workflow for that.
+
 on:
+  push:
+    branches:
+      - 'release/**'
   workflow_dispatch:
 
 permissions:
@@ -8,8 +16,23 @@ permissions:
   deployments: write
 
 jobs:
+  validate-branch:
+    name: Validate branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject production branch
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          if [[ "$BRANCH" == "main" ]]; then
+            echo "❌ 'main' is the production branch. Use the 'Deploy: Production' workflow instead."
+            echo "   Deploying main here would push to production, not preview."
+            exit 1
+          fi
+          echo "✅ Branch $BRANCH will deploy to a preview environment."
+
   build-and-deploy:
     name: Build & Deploy → Preview (${{ github.ref_name }})
+    needs: validate-branch
     runs-on: ubuntu-latest
 
     steps:
@@ -29,11 +52,8 @@ jobs:
         run: npm run build
 
       - name: Deploy to Cloudflare Pages (preview)
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: trade-journal
-          directory: dist/trade-journal/browser
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ github.ref_name }}
+          command: pages deploy dist/trade-journal/browser --project-name=nvzn-journal --branch=${{ github.ref_name }}
