@@ -74,7 +74,7 @@ export class TradovateCallbackComponent implements OnInit {
                 }, 2000);
             },
             error: () => {
-                this.handleError('Failed to exchange code for token. Ensure your Client ID and Secret are correct.');
+                this.handleError('Failed to exchange code for token. Please try connecting again.');
             }
         });
     }

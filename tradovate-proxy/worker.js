@@ -14,8 +14,15 @@
  *
  * SSRF guard: only forwards to *.tradovateapi.com hosts.
  *
+ * Reserved route (not part of the pass-through):
+ *   POST /oauth/token  { code, redirect_uri, environment }
+ * Exchanges an OAuth authorization code for an access token, injecting the
+ * app's client credentials server-side so they never ship to the browser or
+ * the Electron bundle. Set them once with:
+ *   wrangler secret put TRADOVATE_CLIENT_ID
+ *   wrangler secret put TRADOVATE_CLIENT_SECRET
+ *
  * Deploy with: wrangler deploy   (run from this directory)
- * No secrets required.
  *
  * Register this Worker's origin in tradovate.service.ts → tradovateProxyOrigin.
  */
@@ -39,9 +46,9 @@ const STRIP_REQUEST_HEADERS = new Set([
 ]);
 
 export default {
-    async fetch(request) {
+    async fetch(request, env) {
         try {
-            return await handle(request);
+            return await handle(request, env);
         } catch (e) {
             // Never let an uncaught error become a CORS-less Cloudflare error page —
             // always return a response the browser can read.
@@ -50,12 +57,19 @@ export default {
     },
 };
 
-async function handle(request) {
+async function handle(request, env) {
         if (request.method === 'OPTIONS') {
             return new Response(null, { headers: CORS });
         }
 
         const url = new URL(request.url);
+
+        // Reserved route: OAuth code→token exchange with server-held credentials.
+        // Safe to reserve — the pass-through's first path segment is always a
+        // *.tradovateapi.com host, never "oauth".
+        if (url.pathname === '/oauth/token') {
+            return oauthToken(request, env);
+        }
         const rest = url.pathname.replace(/^\/+/, ''); // "<host>/<path>"
         if (!rest) {
             return text('Tradovate proxy. Usage: /<tradovate-host>/<path>', 400);
@@ -80,45 +94,95 @@ async function handle(request) {
 
         const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
 
-        // Bound the upstream call. Tradovate's demo hosts can hang on a cold/slow
-        // first hit; without this the subrequest stalls until Cloudflare returns a
-        // CORS-less edge timeout page, which the browser reports as a CORS error.
-        // A bounded fetch lets us return a readable 504 (with CORS) the app can retry.
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
-
-        let upstream;
-        try {
-            upstream = await fetch(target.toString(), {
-                method: request.method,
-                headers,
-                body: hasBody ? await request.arrayBuffer() : undefined,
-                redirect: 'follow',
-                signal: controller.signal,
-            });
-        } catch (e) {
-            const aborted = e && e.name === 'AbortError';
-            return json(
-                { error: aborted ? 'Upstream timeout' : 'Upstream fetch failed', detail: String(e) },
-                aborted ? 504 : 502,
-            );
-        } finally {
-            clearTimeout(timeout);
-        }
-
-        // Pass the upstream response through verbatim, plus CORS.
-        // Drop content-encoding/length — the runtime already decoded the body,
-        // so the original values would no longer match.
-        const respHeaders = new Headers(upstream.headers);
-        respHeaders.delete('content-encoding');
-        respHeaders.delete('content-length');
-        respHeaders.set('Access-Control-Allow-Origin', '*');
-
-        return new Response(upstream.body, {
-            status: upstream.status,
-            statusText: upstream.statusText,
-            headers: respHeaders,
+        const upstream = await boundedFetch(target.toString(), {
+            method: request.method,
+            headers,
+            body: hasBody ? await request.arrayBuffer() : undefined,
+            redirect: 'follow',
         });
+
+        return passthrough(upstream);
+}
+
+// OAuth code→token exchange. The browser/Electron client sends only
+// { code, redirect_uri, environment } — the client credentials are injected
+// here from Worker secrets and never leave the server side.
+async function oauthToken(request, env) {
+    if (request.method !== 'POST') {
+        return json({ error: 'Method not allowed' }, 405);
+    }
+    if (!env.TRADOVATE_CLIENT_ID || !env.TRADOVATE_CLIENT_SECRET) {
+        return json({ error: 'OAuth not configured: set TRADOVATE_CLIENT_ID and TRADOVATE_CLIENT_SECRET worker secrets' }, 500);
+    }
+
+    let body;
+    try {
+        body = await request.json();
+    } catch {
+        return json({ error: 'Invalid JSON body' }, 400);
+    }
+
+    const { code, redirect_uri, environment } = body || {};
+    if (!code || !redirect_uri) {
+        return json({ error: 'Missing required fields: code, redirect_uri' }, 400);
+    }
+
+    const target = environment === 'live'
+        ? 'https://live.tradovateapi.com/auth/oauthtoken'
+        : 'https://demo.tradovateapi.com/v1/auth/oauthtoken';
+
+    const upstream = await boundedFetch(target, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+            grant_type: 'authorization_code',
+            code,
+            client_id: env.TRADOVATE_CLIENT_ID,
+            client_secret: env.TRADOVATE_CLIENT_SECRET,
+            redirect_uri,
+        }),
+    });
+
+    return passthrough(upstream);
+}
+
+// Bound the upstream call. Tradovate's demo hosts can hang on a cold/slow
+// first hit; without this the subrequest stalls until Cloudflare returns a
+// CORS-less edge timeout page, which the browser reports as a CORS error.
+// A bounded fetch lets us return a readable 504 (with CORS) the app can retry.
+// On failure returns a ready-to-send JSON error Response (with CORS), which
+// passthrough() forwards unchanged.
+async function boundedFetch(target, init) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+
+    try {
+        return await fetch(target, { ...init, signal: controller.signal });
+    } catch (e) {
+        const aborted = e && e.name === 'AbortError';
+        return json(
+            { error: aborted ? 'Upstream timeout' : 'Upstream fetch failed', detail: String(e) },
+            aborted ? 504 : 502,
+        );
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+// Pass the upstream response through verbatim, plus CORS.
+// Drop content-encoding/length — the runtime already decoded the body,
+// so the original values would no longer match.
+function passthrough(upstream) {
+    const respHeaders = new Headers(upstream.headers);
+    respHeaders.delete('content-encoding');
+    respHeaders.delete('content-length');
+    respHeaders.set('Access-Control-Allow-Origin', '*');
+
+    return new Response(upstream.body, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers: respHeaders,
+    });
 }
 
 function text(body, status = 200) {

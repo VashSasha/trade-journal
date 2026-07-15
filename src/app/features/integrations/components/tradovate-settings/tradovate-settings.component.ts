@@ -46,8 +46,6 @@ export class TradovateSettingsComponent {
             connectionName: ['', Validators.required],
             authMode: ['direct'],
             environment: ['demo'],
-            apiKey: [''],
-            apiSecret: [''],
             username: ['', Validators.required],
             password: ['', Validators.required]
         });
