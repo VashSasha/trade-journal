@@ -1,4 +1,4 @@
-import { Component, signal, inject, computed } from '@angular/core';
+import { Component, signal, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -46,8 +46,6 @@ export class TradovateSettingsComponent {
             connectionName: ['', Validators.required],
             authMode: ['direct'],
             environment: ['demo'],
-            apiKey: [''],
-            apiSecret: [''],
             username: ['', Validators.required],
             password: ['', Validators.required]
         });

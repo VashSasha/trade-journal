@@ -49,7 +49,7 @@ Uses **Angular Signals** throughout (not NgRx/BehaviorSubjects). `TradeService` 
 
 | File | Exports |
 |---|---|
-| `timeline.utils.ts` | `buildTimelineEntry()`, `groupEntriesByMonth()`, `stripHtml()` |
+| `timeline.utils.ts` | `buildTimelineEntry()`, `groupEntriesByMonth()` |
 | `quill-modules.ts` | `QUILL_FULL_MODULES`, `QUILL_COMPACT_MODULES` |
 
 **Always check these utilities before writing new computation logic.**

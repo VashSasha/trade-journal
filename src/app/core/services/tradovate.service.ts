@@ -24,6 +24,22 @@ export interface TradovateAccount {
     timestamp?: string; // ISO date string from /account/list — when the account was created
 }
 
+/** Token endpoints reply either flat or wrapped in `d` (tv-* hosts) */
+interface TradovateAuthResponse {
+    access_token?: string;
+    errorText?: string;
+    d?: { access_token?: string };
+}
+
+export interface TradovateCashBalance {
+    id: number;
+    accountId: number;
+    amount: number;
+    currencyId?: number;
+    realizedPnL?: number;
+    weekRealizedPnL?: number;
+}
+
 export interface TradovateConnection {
     id: string; // UUID
     name: string; // User-friendly name (e.g., "Take Profit Trader", "Apex Funded")
@@ -32,8 +48,6 @@ export interface TradovateConnection {
         authMode: 'oauth' | 'direct';
         environment: 'demo' | 'live';
         username?: string;
-        apiKey?: string;
-        apiSecret?: string;
     };
     accounts: TradovateAccount[]; // Tradovate accounts under this connection
     selectedAccountIds?: number[]; // Selected accounts for this connection
@@ -48,7 +62,6 @@ export interface TradovateConnection {
 export class TradovateService {
     private liveBaseUrl = 'https://live.tradovateapi.com/v1';
     private demoBaseUrl = 'https://demo.tradovateapi.com/v1';
-    private demoAuthUrl = 'https://demo.tradovateapi.com/v1/auth';
 
     // Reporting API URLs
     private liveRptUrl = 'https://rpt.tradovateapi.com/v1';
@@ -98,7 +111,9 @@ export class TradovateService {
 
     hasExpiredConnections = computed(() => this.expiredConnections().length > 0);
 
-    private _init = this.init();
+    constructor() {
+        this.init();
+    }
 
     private init(): void {
         this.loadConnections();
@@ -127,7 +142,23 @@ export class TradovateService {
         if (stored) {
             try {
                 const connections = JSON.parse(stored);
+
+                // Scrub OAuth client credentials persisted by older versions —
+                // the token exchange now runs server-side (tradovate-proxy
+                // /oauth/token) and secrets must not live in localStorage.
+                let hadSecrets = false;
+                for (const c of connections) {
+                    if (c.config && ('apiKey' in c.config || 'apiSecret' in c.config)) {
+                        delete c.config.apiKey;
+                        delete c.config.apiSecret;
+                        hadSecrets = true;
+                    }
+                }
+
                 this.connections.set(connections);
+                if (hadSecrets) {
+                    this.saveConnections();
+                }
 
                 // Mark any connections whose token was previously cleared (expired) as expired on load
                 const expiredIds = connections
@@ -177,9 +208,7 @@ export class TradovateService {
                     config: {
                         authMode: config.authMode || 'oauth',
                         environment: config.environment || 'demo',
-                        username: config.username,
-                        apiKey: config.apiKey,
-                        apiSecret: config.apiSecret
+                        username: config.username
                     },
                     accounts: [],
                     selectedAccountIds: selectedAccountIds, // Migrate old selection
@@ -263,8 +292,8 @@ export class TradovateService {
 
         const headers = new HttpHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' });
 
-        return this.http.post(authUrl, { locale: 'en', login: username, password }, { headers }).pipe(
-            map((res: any) => {
+        return this.http.post<TradovateAuthResponse>(authUrl, { locale: 'en', login: username, password }, { headers }).pipe(
+            map(res => {
                 const token = res.d?.access_token || res.access_token;
                 if (!token) throw new Error(res.errorText || 'No access token received');
                 this.updateConnectionToken(connectionId, token);
@@ -367,7 +396,7 @@ export class TradovateService {
     }
 
     private get isElectron(): boolean {
-        return !!(typeof window !== 'undefined' && (window as any).electronAPI?.isElectron);
+        return !!(typeof window !== 'undefined' && window.electronAPI?.isElectron);
     }
 
     /**
@@ -455,28 +484,24 @@ export class TradovateService {
         );
     }
 
-    // Exchange OAuth code for an access token (Live/Funded)
+    // Exchange OAuth code for an access token (Live/Funded).
+    // The exchange always goes through the tradovate-proxy Worker's /oauth/token
+    // endpoint — even in Electron, which otherwise calls Tradovate directly —
+    // because the Worker injects the OAuth client credentials from its secrets;
+    // the client never sees or stores the client_secret.
     exchangeCodeForToken(code: string): Observable<any> {
         const config = this.getConfig();
         if (!config) return throwError(() => new Error('Tradovate configuration not found'));
 
-        const isDemo = config.environment === 'demo';
         const body = {
-            grant_type: 'authorization_code',
             code,
-            client_id: config.apiKey,
-            client_secret: config.apiSecret,
+            environment: config.environment === 'live' ? 'live' : 'demo',
             redirect_uri: window.location.origin + '/settings/tradovate/callback'
         };
 
-        const authUrl = this.proxify(isDemo
-            ? 'https://demo.tradovateapi.com/v1/auth/oauthtoken'
-            : 'https://live.tradovateapi.com/auth/oauthtoken');
-
-        return this.http.post(authUrl, body).pipe(
-            map((res: any) => {
+        return this.http.post<TradovateAuthResponse>(`${this.tradovateProxyOrigin}/oauth/token`, body).pipe(
+            map(res => {
                 if (res.access_token) {
-                    localStorage.setItem('tradovate_token', res.access_token);
                     return res;
                 } else if (res.errorText) {
                     throw new Error(res.errorText);
@@ -504,8 +529,8 @@ export class TradovateService {
             'Accept': 'application/json'
         });
 
-        return this.http.post(authUrl, body, { headers }).pipe(
-            map((res: any) => {
+        return this.http.post<TradovateAuthResponse>(authUrl, body, { headers }).pipe(
+            map(res => {
                 const accessToken = res.d?.access_token || res.access_token;
 
                 if (accessToken) {
@@ -553,8 +578,8 @@ export class TradovateService {
         );
     }
 
-    getCashBalances(): Observable<any[]> {
-        return this.authGet<any[]>('/cashBalance/list');
+    getCashBalances(): Observable<TradovateCashBalance[]> {
+        return this.authGet<TradovateCashBalance[]>('/cashBalance/list');
     }
 
     getAccountsForConnection(conn: TradovateConnection): Observable<TradovateAccount[]> {
@@ -563,8 +588,8 @@ export class TradovateService {
         );
     }
 
-    getCashBalancesForConnection(conn: TradovateConnection): Observable<any[]> {
-        return this.authGetFor<any[]>(conn, '/cashBalance/list');
+    getCashBalancesForConnection(conn: TradovateConnection): Observable<TradovateCashBalance[]> {
+        return this.authGetFor<TradovateCashBalance[]>(conn, '/cashBalance/list');
     }
 
     // Account selection management (per-connection)
@@ -1166,7 +1191,7 @@ export class TradovateService {
             }
 
             const trades: any[] = [];
-            (tradesTable as Element).querySelectorAll('tbody tr').forEach((row, i) => {
+            (tradesTable as Element).querySelectorAll('tbody tr').forEach((row) => {
                 const cells = row.querySelectorAll('td');
                 if (cells.length < 8) return;
 
@@ -1215,7 +1240,10 @@ export class TradovateService {
                     status: 'closed',
                     accountId: String(accountId),
                     accountName,
-                    externalId: `tradovate_perf_${accountId}_${symbol}_${entryDate}_${exitDate}`
+                    // The HTML Trades table carries no fill IDs, so disambiguate trades that
+                    // share symbol + entry/exit times with a price+pnl composite (see the CSV
+                    // parser, which keys on the more-stable fill IDs when available).
+                    externalId: `tradovate_perf_${accountId}_${symbol}_${entryDate}_${exitDate}_${entryPrice}_${exitPrice}_${pnl}`
                 });
             });
 
@@ -1223,6 +1251,101 @@ export class TradovateService {
             return trades;
         } catch (err) {
             console.error('[TradovateService] Performance report parsing failed:', err);
+          return [];
+        }
+    }
+
+    /**
+     * Parse the CSV form of the Performance report (representationType='csv').
+     * Columns: symbol,_priceFormat,_priceFormatType,_tickSize,buyFillId,sellFillId,
+     *          qty,buyPrice,sellPrice,pnl,boughtTimestamp,soldTimestamp,duration
+     *
+     * Each row is a completed, already-matched round-turn trade — the same data as the
+     * Flex.html "Trades" table, but with stable fill IDs and no DOM walking. Note the CSV
+     * form does NOT include the summary block (Gross P/L / fees / Total P/L) that the HTML
+     * template carries; fees are resolved downstream in SyncService.
+     */
+    private parsePerformanceCsv(csv: string, accountId: number, accountName: string): any[] {
+        try {
+            const lines = csv.split(/\r?\n/).filter(l => l.trim().length > 0);
+            if (lines.length < 2) return [];
+
+            const header = lines[0].split(',').map(h => h.trim());
+            // Guard against format drift — bail to empty if the columns we rely on are gone.
+            const required = ['symbol', 'qty', 'buyPrice', 'sellPrice', 'pnl', 'boughtTimestamp', 'soldTimestamp'];
+            if (!required.every(c => header.includes(c))) {
+                if (isDevMode()) { console.warn('[TradovateService] Performance CSV: unexpected columns', header); }
+                return [];
+            }
+
+            const trades: any[] = [];
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split(',');
+                if (parts.length < 13) continue;
+
+                // Leading columns and the trailing 3 (timestamps + duration) are comma-free.
+                // pnl sits in the middle and may carry a thousands separator (e.g. $1,322.00),
+                // so reconstruct it from everything between sellPrice and boughtTimestamp.
+                const symbol      = parts[0].trim();
+                const tickSize    = parseFloat(parts[3]) || 0;
+                const buyFillId   = parts[4].trim();
+                const sellFillId  = parts[5].trim();
+                const quantity    = parseFloat(parts[6]) || 0;
+                const buyPrice    = parseFloat(parts[7]) || 0;
+                const sellPrice   = parseFloat(parts[8]) || 0;
+                const soldStr     = parts[parts.length - 2].trim();
+                const boughtStr   = parts[parts.length - 3].trim();
+                const pnl         = this.parsePerformancePnl(parts.slice(9, parts.length - 3).join('').trim());
+
+                if (!symbol || !quantity || !boughtStr || !soldStr) continue;
+
+                const buyTime  = new Date(boughtStr);
+                const sellTime = new Date(soldStr);
+                if (isNaN(buyTime.getTime()) || isNaN(sellTime.getTime())) continue;
+
+                // Sell before buy → SHORT (sold to enter, bought to cover).
+                const isShort    = sellTime < buyTime;
+                const entryDate  = (isShort ? sellTime : buyTime).toISOString();
+                const exitDate   = (isShort ? buyTime  : sellTime).toISOString();
+                const entryPrice = isShort ? sellPrice : buyPrice;
+                const exitPrice  = isShort ? buyPrice  : sellPrice;
+                const pnlPercent = entryPrice
+                    ? ((isShort ? entryPrice - exitPrice : exitPrice - entryPrice) / entryPrice) * 100
+                    : 0;
+
+                trades.push({
+                    symbol,
+                    assetType: 'futures',
+                    direction: isShort ? 'short' : 'long',
+                    quantity,
+                    entryDate,
+                    exitDate,
+                    entryPrice,
+                    exitPrice,
+                    pnl,
+                    pnlPercent,
+                    fees: undefined,
+                    tickSize,
+                    buyFillId,
+                    sellFillId,
+                    status: 'closed',
+                    accountId: String(accountId),
+                    accountName,
+                    // Dedup key MUST distinguish trades that share symbol + entry/exit times
+                    // but are genuinely separate fills (e.g. two scalps closed in the same
+                    // second at different prices). buyFillId/sellFillId are globally unique
+                    // per fill, so they key the trade exactly. Fall back to a price+pnl
+                    // composite only if a CSV ever arrives without fill IDs.
+                    externalId: (buyFillId && sellFillId)
+                        ? `tradovate_perf_${accountId}_${symbol}_${buyFillId}_${sellFillId}`
+                        : `tradovate_perf_${accountId}_${symbol}_${entryDate}_${exitDate}_${entryPrice}_${exitPrice}_${pnl}`
+                });
+            }
+
+            if (isDevMode()) { console.log(`[TradovateService] Performance CSV parser extracted ${trades.length} trades`); }
+            return trades;
+        } catch (err) {
+            console.error('[TradovateService] Performance CSV parsing failed:', err);
             return [];
         }
     }
@@ -1259,7 +1382,10 @@ export class TradovateService {
         if (accountName) params.push({ name: 'account', value: accountName });
         const body = {
             name: 'Performance',
-            representationType: 'html',
+            // Trying CSV: if Tradovate honors it we get clean columnar data instead of
+            // DOM-walking Flex.html. If it ignores csv and returns HTML, the response
+            // handler below detects that and falls back to the HTML parser — no breakage.
+            representationType: 'csv',
             template: 'Flex.html',
             timezone,
             params
@@ -1277,7 +1403,13 @@ export class TradovateService {
             }),
             switchMap((res: any): Observable<any[]> => {
                 if (res.data && typeof res.data === 'string') {
-                    return of(this.parsePerformanceTrades(res.data, accountId ?? 0, accountName ?? ''));
+                    const raw = res.data;
+                    const looksHtml = raw.trim().startsWith('<') || raw.toLowerCase().includes('<table') || raw.includes('performance-chart');
+                    if (looksHtml) {
+                        // Fallback: Tradovate ignored csv and rendered the HTML template.
+                        return of(this.parsePerformanceTrades(raw, accountId ?? 0, accountName ?? ''));
+                    }
+                    return of(this.parsePerformanceCsv(raw, accountId ?? 0, accountName ?? ''));
                 }
                 if (res['p-ticket']) {
                     if (attempt >= 30) {

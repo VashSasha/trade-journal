@@ -51,7 +51,7 @@ function easterSunday(year: number): Date {
 }
 
 /** NYSE/CME observed market holidays for a given year */
-export function getUSMarketHolidays(year: number): Set<string> {
+function getUSMarketHolidays(year: number): Set<string> {
     const holidays = new Set<string>();
     const add = (d: Date) => holidays.add(toDateStr(d));
 

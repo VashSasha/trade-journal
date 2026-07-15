@@ -10,10 +10,10 @@ import {
   effect,
   inject
 } from '@angular/core';
-import { Chart, registerables } from 'chart.js';
+import { Chart, LineController, LineElement, PointElement, CategoryScale, LinearScale, Filler } from 'chart.js';
 import { ThemeService } from '../../../core/services/theme.service';
 
-Chart.register(...registerables);
+Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Filler);
 
 export interface EquityData {
   labels: string[];

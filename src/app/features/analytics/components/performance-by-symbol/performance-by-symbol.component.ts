@@ -1,6 +1,8 @@
 import { Component, computed, input, effect, ViewChild, ElementRef, AfterViewInit, OnDestroy } from '@angular/core';
-import { Chart } from 'chart.js/auto';
+import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } from 'chart.js';
 import { Trade } from '../../../../core/models/trade.model';
+
+Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
 
 interface SymbolStat {
     symbol: string;

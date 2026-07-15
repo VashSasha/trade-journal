@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { EconomicCalendarService } from '../../../../core/services/economic-calendar.service';
 import { JournalFormState } from './journal-form.state';
-import { NewsEventTag, NewsTier } from '../../../../core/models/daily-journal.model';
+import { NewsTier } from '../../../../core/models/daily-journal.model';
 
 @Injectable()
 export class JournalNewsState {

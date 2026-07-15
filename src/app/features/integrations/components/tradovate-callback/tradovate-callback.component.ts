@@ -67,14 +67,14 @@ export class TradovateCallbackComponent implements OnInit {
     private exchangeCode(code: string): void {
         this.status.set('loading');
         this.tradovateService.exchangeCodeForToken(code).subscribe({
-            next: (res) => {
+            next: () => {
                 this.status.set('success');
                 setTimeout(() => {
                     this.router.navigate(['/settings']);
                 }, 2000);
             },
-            error: (err) => {
-                this.handleError('Failed to exchange code for token. Ensure your Client ID and Secret are correct.');
+            error: () => {
+                this.handleError('Failed to exchange code for token. Please try connecting again.');
             }
         });
     }

@@ -143,6 +143,11 @@
             <div class="ds-insight-panel__body">
                 <markdown [data]="insightState().content"></markdown>
             </div>
+            @if (actionPoints().length > 0) {
+                <button class="ds-insight-copy" (click)="copyActionPoints()">
+                    {{ copiedActionPoints() ? '✓ Copied to clipboard' : '📋 Copy action points for tomorrow' }}
+                </button>
+            }
             @if (followUpInsight().status === 'idle') {
                 <div class="ds-insight-panel__chips">
                     <button class="ds-insight-chip" (click)="generateInsight()">↺ Regenerate</button>

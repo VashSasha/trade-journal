@@ -116,7 +116,7 @@ export class AccountService {
                     .then(balances => {
                         this.accountBalances.update(map => {
                             const next = new Map(map);
-                            (balances as any[]).forEach(b => {
+                            balances.forEach(b => {
                                 if (b.accountId && b.amount !== undefined) next.set(b.accountId, b.amount);
                             });
                             return next;
@@ -163,7 +163,7 @@ export class AccountService {
                         .then(balances => {
                             this.accountBalances.update(map => {
                                 const next = new Map(map);
-                                (balances as any[]).forEach(b => {
+                                balances.forEach(b => {
                                     if (b.accountId && b.amount !== undefined) next.set(b.accountId, b.amount);
                                 });
                                 return next;
