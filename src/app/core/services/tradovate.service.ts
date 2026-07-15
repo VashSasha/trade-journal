@@ -48,8 +48,6 @@ export interface TradovateConnection {
         authMode: 'oauth' | 'direct';
         environment: 'demo' | 'live';
         username?: string;
-        apiKey?: string;
-        apiSecret?: string;
     };
     accounts: TradovateAccount[]; // Tradovate accounts under this connection
     selectedAccountIds?: number[]; // Selected accounts for this connection
@@ -144,7 +142,23 @@ export class TradovateService {
         if (stored) {
             try {
                 const connections = JSON.parse(stored);
+
+                // Scrub OAuth client credentials persisted by older versions —
+                // the token exchange now runs server-side (tradovate-proxy
+                // /oauth/token) and secrets must not live in localStorage.
+                let hadSecrets = false;
+                for (const c of connections) {
+                    if (c.config && ('apiKey' in c.config || 'apiSecret' in c.config)) {
+                        delete c.config.apiKey;
+                        delete c.config.apiSecret;
+                        hadSecrets = true;
+                    }
+                }
+
                 this.connections.set(connections);
+                if (hadSecrets) {
+                    this.saveConnections();
+                }
 
                 // Mark any connections whose token was previously cleared (expired) as expired on load
                 const expiredIds = connections
@@ -194,9 +208,7 @@ export class TradovateService {
                     config: {
                         authMode: config.authMode || 'oauth',
                         environment: config.environment || 'demo',
-                        username: config.username,
-                        apiKey: config.apiKey,
-                        apiSecret: config.apiSecret
+                        username: config.username
                     },
                     accounts: [],
                     selectedAccountIds: selectedAccountIds, // Migrate old selection
@@ -472,25 +484,22 @@ export class TradovateService {
         );
     }
 
-    // Exchange OAuth code for an access token (Live/Funded)
+    // Exchange OAuth code for an access token (Live/Funded).
+    // The exchange always goes through the tradovate-proxy Worker's /oauth/token
+    // endpoint — even in Electron, which otherwise calls Tradovate directly —
+    // because the Worker injects the OAuth client credentials from its secrets;
+    // the client never sees or stores the client_secret.
     exchangeCodeForToken(code: string): Observable<any> {
         const config = this.getConfig();
         if (!config) return throwError(() => new Error('Tradovate configuration not found'));
 
-        const isDemo = config.environment === 'demo';
         const body = {
-            grant_type: 'authorization_code',
             code,
-            client_id: config.apiKey,
-            client_secret: config.apiSecret,
+            environment: config.environment === 'live' ? 'live' : 'demo',
             redirect_uri: window.location.origin + '/settings/tradovate/callback'
         };
 
-        const authUrl = this.proxify(isDemo
-            ? 'https://demo.tradovateapi.com/v1/auth/oauthtoken'
-            : 'https://live.tradovateapi.com/auth/oauthtoken');
-
-        return this.http.post<TradovateAuthResponse>(authUrl, body).pipe(
+        return this.http.post<TradovateAuthResponse>(`${this.tradovateProxyOrigin}/oauth/token`, body).pipe(
             map(res => {
                 if (res.access_token) {
                     return res;
