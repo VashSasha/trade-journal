@@ -1,0 +1,95 @@
+<section class="showcase">
+    <div class="showcase__inner">
+
+        <!-- Row 1: Calendar heatmap -->
+        <div class="showcase__row" appRevealOnScroll>
+            <div class="showcase__copy">
+                <span class="showcase__eyebrow">See the month, not just the trade</span>
+                <h2 class="showcase__title">Your P&amp;L calendar tells you when you trade well</h2>
+                <p class="showcase__text">
+                    Every trading day rendered as a heatmap. Green days, red days, streaks and
+                    revenge-trading Fridays — the patterns become impossible to ignore once you can see them.
+                </p>
+                <ul class="showcase__points">
+                    <li>Daily P&amp;L intensity at a glance</li>
+                    <li>Weekly and monthly totals</li>
+                    <li>Click any day to drill into its trades and journal entry</li>
+                </ul>
+            </div>
+
+            <div class="showcase__visual" aria-hidden="true">
+                <div class="cal">
+                    <div class="cal__header">
+                        <span class="cal__month">March 2026</span>
+                        <span class="cal__total">+$6,420</span>
+                    </div>
+                    <div class="cal__grid cal__grid--labels">
+                        @for (day of weekdays; track day) {
+                            <span class="cal__weekday">{{ day }}</span>
+                        }
+                    </div>
+                    <div class="cal__grid">
+                        @for (cell of calendarCells; track $index) {
+                            <div class="cal__cell"
+                                [class.cal__cell--pos]="cell.kind === 'pos'"
+                                [class.cal__cell--neg]="cell.kind === 'neg'"
+                                [style.--cell-alpha]="0.15 + cell.intensity * 0.65">
+                                @if (cell.label) {
+                                    <span class="cal__cell-label">{{ cell.label }}</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 2: Journal -->
+        <div class="showcase__row showcase__row--reverse" appRevealOnScroll>
+            <div class="showcase__copy">
+                <span class="showcase__eyebrow">Discipline is a habit</span>
+                <h2 class="showcase__title">Journal every day — rules, mood, and lessons</h2>
+                <p class="showcase__text">
+                    A daily journal built for traders: rule checklists you actually tick off,
+                    mood and discipline scores, reusable templates, and tags that make old
+                    lessons findable when you need them most.
+                </p>
+                <ul class="showcase__points">
+                    <li>Rich-text editor with templates and tags</li>
+                    <li>Mood &amp; discipline tracking per session</li>
+                    <li>Economic events shown alongside your notes</li>
+                </ul>
+            </div>
+
+            <div class="showcase__visual" aria-hidden="true">
+                <div class="journal">
+                    <div class="journal__header">
+                        <span class="journal__date">Tue, Mar 17</span>
+                        <div class="journal__scores">
+                            <span class="journal__score">Mood <b>8/10</b></span>
+                            <span class="journal__score journal__score--good">Discipline <b>9/10</b></span>
+                        </div>
+                    </div>
+                    <div class="journal__rules">
+                        <div class="journal__rule journal__rule--done">Waited for A+ setup only</div>
+                        <div class="journal__rule journal__rule--done">Max 3 trades per session</div>
+                        <div class="journal__rule journal__rule--done">Stopped after daily target</div>
+                    </div>
+                    <div class="journal__body">
+                        <span class="journal__line" style="width: 92%"></span>
+                        <span class="journal__line" style="width: 100%"></span>
+                        <span class="journal__line" style="width: 78%"></span>
+                        <span class="journal__line" style="width: 88%"></span>
+                        <span class="journal__line journal__line--short" style="width: 45%"></span>
+                    </div>
+                    <div class="journal__tags">
+                        <span class="journal__tag">#breakout</span>
+                        <span class="journal__tag">#patience</span>
+                        <span class="journal__tag">#MNQ</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>

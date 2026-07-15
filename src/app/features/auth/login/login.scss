@@ -16,6 +16,11 @@
     margin-bottom: 2rem;
     text-align: center;
 
+    &__link {
+        display: inline-block;
+        text-decoration: none;
+    }
+
     &__logo {
         max-width: 240px;
         height: auto;

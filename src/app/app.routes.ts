@@ -2,8 +2,23 @@ import { Routes } from '@angular/router';
 import { MainLayoutComponent } from './features/layout/main-layout/main-layout';
 import { authGuard } from './core/guards/auth.guard';
 import { planGuard } from './core/guards/plan.guard';
+import { guestMatchGuard } from './features/landing/guest-match.guard';
 
 export const routes: Routes = [
+    {
+        // Public landing page — only matches for logged-out visitors.
+        // Authenticated users fall through to the app shell below (→ /dashboard).
+        path: '',
+        pathMatch: 'full',
+        canMatch: [guestMatchGuard],
+        loadComponent: () => import('./features/landing/landing.component').then(m => m.LandingComponent)
+    },
+    {
+        // Explicit URL for the landing page — works for logged-in users too
+        // (the '' route above only matches logged-out visitors).
+        path: 'welcome',
+        loadComponent: () => import('./features/landing/landing.component').then(m => m.LandingComponent)
+    },
     {
         path: 'login',
         loadComponent: () => import('./features/auth/login/login').then(m => m.LoginComponent)

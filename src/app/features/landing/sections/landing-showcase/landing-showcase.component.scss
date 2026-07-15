@@ -1,0 +1,272 @@
+.showcase {
+    padding: 5rem 1.5rem;
+
+    &__inner {
+        max-width: 72rem;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 5.5rem;
+    }
+
+    &__row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4rem;
+        align-items: center;
+
+        &--reverse .showcase__copy { order: 2; }
+        &--reverse .showcase__visual { order: 1; }
+    }
+
+    &__eyebrow {
+        display: inline-block;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--color-accent);
+    }
+
+    &__title {
+        margin: 0.75rem 0 0.9rem;
+        font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+        color: var(--color-text-primary);
+    }
+
+    &__text {
+        font-size: 1rem;
+        line-height: 1.7;
+        color: var(--color-text-secondary);
+    }
+
+    &__points {
+        margin: 1.4rem 0 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+
+        li {
+            position: relative;
+            padding-left: 1.5rem;
+            font-size: 0.92rem;
+            color: var(--color-text-secondary);
+
+            &::before {
+                content: '';
+                position: absolute;
+                left: 0;
+                top: 0.42em;
+                width: 0.55rem;
+                height: 0.55rem;
+                border-radius: 2px;
+                background: var(--color-positive);
+                opacity: 0.85;
+            }
+        }
+    }
+
+    &__visual {
+        min-width: 0;
+    }
+}
+
+/* ---------- Calendar mockup ---------- */
+.cal {
+    padding: 1.4rem;
+    border-radius: 1rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-surface);
+    box-shadow: 0 20px 56px rgba(0, 0, 0, 0.12);
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 1rem;
+    }
+
+    &__month {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
+    }
+
+    &__total {
+        font-size: 1rem;
+        font-weight: 800;
+        color: var(--color-positive);
+    }
+
+    &__grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0.45rem;
+
+        &--labels {
+            margin-bottom: 0.45rem;
+        }
+    }
+
+    &__weekday {
+        font-size: 0.62rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        text-align: center;
+        color: var(--color-text-muted);
+    }
+
+    &__cell {
+        aspect-ratio: 1 / 0.78;
+        border-radius: 0.45rem;
+        background: var(--color-bg-surface-2);
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding-bottom: 0.3rem;
+        transition: transform 0.15s ease;
+
+        &:hover { transform: scale(1.06); }
+
+        &--pos {
+            background: rgba(var(--color-cal-positive-rgb), var(--cell-alpha, 0.4));
+
+            .cal__cell-label { color: var(--color-cal-positive-text); }
+        }
+
+        &--neg {
+            background: rgba(var(--color-cal-negative-rgb), var(--cell-alpha, 0.4));
+
+            .cal__cell-label { color: var(--color-cal-negative-text); }
+        }
+    }
+
+    &__cell-label {
+        font-size: 0.58rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+}
+
+/* ---------- Journal mockup ---------- */
+.journal {
+    padding: 1.4rem;
+    border-radius: 1rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-surface);
+    box-shadow: 0 20px 56px rgba(0, 0, 0, 0.12);
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    &__date {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
+    }
+
+    &__scores {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    &__score {
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.68rem;
+        background: var(--color-bg-surface-2);
+        color: var(--color-text-secondary);
+
+        b { color: var(--color-text-primary); }
+
+        &--good {
+            background: var(--color-positive-subtle);
+            color: var(--color-positive);
+
+            b { color: var(--color-positive); }
+        }
+    }
+
+    &__rules {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        margin-bottom: 1rem;
+    }
+
+    &__rule {
+        position: relative;
+        padding: 0.5rem 0.7rem 0.5rem 2.1rem;
+        border-radius: 0.5rem;
+        background: var(--color-bg-surface-2);
+        font-size: 0.8rem;
+        color: var(--color-text-secondary);
+
+        &--done::before {
+            content: '✓';
+            position: absolute;
+            left: 0.75rem;
+            color: var(--color-positive);
+            font-weight: 800;
+        }
+    }
+
+    &__body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        padding: 0.9rem;
+        border-radius: 0.6rem;
+        border: 1px solid var(--color-border-subtle, var(--color-border));
+        background: var(--color-bg-base);
+        margin-bottom: 1rem;
+    }
+
+    &__line {
+        height: 0.5rem;
+        border-radius: 999px;
+        background: var(--color-bg-surface-3);
+
+        &--short { opacity: 0.7; }
+    }
+
+    &__tags {
+        display: flex;
+        gap: 0.4rem;
+    }
+
+    &__tag {
+        padding: 0.2rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.68rem;
+        font-weight: 600;
+        background: var(--color-accent-subtle);
+        color: var(--color-accent);
+    }
+}
+
+@media (max-width: 900px) {
+    .showcase {
+        padding: 3.5rem 1.25rem;
+
+        &__inner { gap: 3.5rem; }
+
+        &__row {
+            grid-template-columns: 1fr;
+            gap: 2rem;
+
+            &--reverse .showcase__copy { order: 1; }
+            &--reverse .showcase__visual { order: 2; }
+        }
+    }
+}
