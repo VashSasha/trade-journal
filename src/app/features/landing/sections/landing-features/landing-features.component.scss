@@ -1,0 +1,108 @@
+.features {
+    padding: 5rem 1.5rem;
+    background: var(--color-bg-surface);
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+
+    &__inner {
+        max-width: 72rem;
+        margin: 0 auto;
+    }
+
+    &__head {
+        max-width: 42rem;
+        margin: 0 auto 3.5rem;
+        text-align: center;
+    }
+
+    &__title {
+        font-size: clamp(1.7rem, 3vw, 2.4rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+        color: var(--color-text-primary);
+    }
+
+    &__subtitle {
+        margin-top: 0.9rem;
+        font-size: 1.05rem;
+        line-height: 1.7;
+        color: var(--color-text-secondary);
+    }
+
+    &__grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.25rem;
+    }
+}
+
+.feature-card {
+    padding: 1.75rem;
+    border-radius: 0.9rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-base);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+        transform: translateY(-4px);
+        border-color: var(--color-accent);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+    }
+
+    &__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.9rem;
+        height: 2.9rem;
+        border-radius: 0.7rem;
+        background: var(--color-accent-subtle);
+        color: var(--color-accent);
+
+        svg {
+            width: 1.4rem;
+            height: 1.4rem;
+        }
+
+        &[data-icon='analytics'],
+        &[data-icon='calendar'] {
+            background: var(--color-positive-subtle);
+            color: var(--color-positive);
+        }
+
+        &[data-icon='ai'] {
+            background: rgba(124, 134, 247, 0.14);
+            color: var(--color-plan-premium, #7c86f7);
+        }
+    }
+
+    &__title {
+        margin: 1.1rem 0 0.5rem;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
+    }
+
+    &__description {
+        font-size: 0.9rem;
+        line-height: 1.65;
+        color: var(--color-text-secondary);
+    }
+}
+
+@media (max-width: 900px) {
+    .features__grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .features {
+        padding: 3.5rem 1.25rem;
+
+        &__grid {
+            grid-template-columns: 1fr;
+        }
+    }
+}

@@ -1,0 +1,102 @@
+<section class="hero">
+    <div class="hero__inner">
+        <div class="hero__copy">
+            <span class="hero__badge">
+                <span class="hero__badge-dot"></span>
+                Built for futures traders
+            </span>
+            <h1 class="hero__title">
+                Your trades tell a story.<br />
+                <span class="hero__title-accent">Start reading it.</span>
+            </h1>
+            <p class="hero__subtitle">
+                NVZN Journal automatically syncs your Tradovate fills, matches them into trades,
+                and turns your history into clear analytics — equity curves, win rates,
+                daily journaling, and AI-powered reports.
+            </p>
+            <div class="hero__actions">
+                <a class="hero__cta" routerLink="/login">Get started free</a>
+                <a class="hero__cta hero__cta--ghost" href="#features">See what's inside</a>
+            </div>
+            <ul class="hero__proof">
+                <li>Auto-sync from Tradovate</li>
+                <li>FIFO trade matching</li>
+                <li>No spreadsheets</li>
+            </ul>
+        </div>
+
+        <!-- Dashboard mockup -->
+        <div class="hero__visual" aria-hidden="true">
+            <div class="mockup">
+                <div class="mockup__titlebar">
+                    <span class="mockup__dot"></span>
+                    <span class="mockup__dot"></span>
+                    <span class="mockup__dot"></span>
+                    <span class="mockup__titlebar-label">Dashboard — NVZN Journal</span>
+                </div>
+
+                <div class="mockup__stats">
+                    <div class="mockup__stat">
+                        <span class="mockup__stat-label">Net P&amp;L</span>
+                        <span class="mockup__stat-value mockup__stat-value--positive">+$12,480</span>
+                    </div>
+                    <div class="mockup__stat">
+                        <span class="mockup__stat-label">Win rate</span>
+                        <span class="mockup__stat-value">64%</span>
+                    </div>
+                    <div class="mockup__stat">
+                        <span class="mockup__stat-label">Profit factor</span>
+                        <span class="mockup__stat-value">2.31</span>
+                    </div>
+                    <div class="mockup__stat">
+                        <span class="mockup__stat-label">Trades</span>
+                        <span class="mockup__stat-value">247</span>
+                    </div>
+                </div>
+
+                <div class="mockup__chart">
+                    <svg viewBox="0 0 560 220" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="heroCurveFill" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="var(--color-positive)" stop-opacity="0.28" />
+                                <stop offset="100%" stop-color="var(--color-positive)" stop-opacity="0" />
+                            </linearGradient>
+                        </defs>
+                        <!-- baseline -->
+                        <line class="mockup__baseline" x1="0" y1="170" x2="560" y2="170" />
+                        <!-- area fill -->
+                        <path class="mockup__area"
+                            d="M0,170 L40,178 L80,162 L120,168 L160,140 L200,148 L240,118 L280,128 L320,96 L360,104 L400,72 L440,80 L480,52 L520,58 L560,30 L560,220 L0,220 Z"
+                            fill="url(#heroCurveFill)" />
+                        <!-- equity line -->
+                        <path class="mockup__line"
+                            d="M0,170 L40,178 L80,162 L120,168 L160,140 L200,148 L240,118 L280,128 L320,96 L360,104 L400,72 L440,80 L480,52 L520,58 L560,30" />
+                    </svg>
+                </div>
+
+                <div class="mockup__rows">
+                    <div class="mockup__row">
+                        <span class="mockup__tag mockup__tag--long">LONG</span>
+                        <span class="mockup__sym">MNQ</span>
+                        <span class="mockup__bar"><span style="width: 72%"></span></span>
+                        <span class="mockup__pnl mockup__pnl--positive">+$430</span>
+                    </div>
+                    <div class="mockup__row">
+                        <span class="mockup__tag mockup__tag--short">SHORT</span>
+                        <span class="mockup__sym">ES</span>
+                        <span class="mockup__bar"><span style="width: 48%"></span></span>
+                        <span class="mockup__pnl mockup__pnl--positive">+$212</span>
+                    </div>
+                    <div class="mockup__row">
+                        <span class="mockup__tag mockup__tag--long">LONG</span>
+                        <span class="mockup__sym">NQ</span>
+                        <span class="mockup__bar"><span style="width: 26%"></span></span>
+                        <span class="mockup__pnl mockup__pnl--negative">−$118</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hero__glow"></div>
+        </div>
+    </div>
+</section>
