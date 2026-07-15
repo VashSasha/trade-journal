@@ -1,4 +1,4 @@
-import { Component, computed, ElementRef, HostListener, Input, OnDestroy, signal, ViewChild } from '@angular/core';
+import { Component, computed, ElementRef, HostListener, Input, OnDestroy, signal, ViewChild, inject, DOCUMENT } from '@angular/core';
 
 export interface SharePnlStats {
   winRate: number;
@@ -16,6 +16,8 @@ export interface SharePnlStats {
   styleUrl: './share-pnl.component.scss'
 })
 export class SharePnlComponent implements OnDestroy {
+  private document = inject(DOCUMENT);
+
   @Input({required: true}) pnl!: number;
   @Input({required: true}) stats!: SharePnlStats;
   @Input() date?: string;
@@ -59,7 +61,7 @@ export class SharePnlComponent implements OnDestroy {
     canvas.toBlob(blob => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = this.document.createElement('a');
       a.href = url;
       a.download = `nvzn-pnl-${this.date ?? 'summary'}.png`;
       a.click();

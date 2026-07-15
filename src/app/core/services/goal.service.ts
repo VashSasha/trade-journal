@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal, effect } from '@angular/core';
+import { Injectable, inject, signal, effect } from '@angular/core';
 import { Goal, GoalType } from '../models/goal.model';
 import { TradeService } from './trade.service';
 
@@ -80,7 +80,6 @@ export class GoalService {
             if (goal.status !== 'active') return goal;
 
             const deadline = new Date(goal.deadline);
-            const now = new Date();
 
             // Determine start date for the goal period
             let startDate: Date;

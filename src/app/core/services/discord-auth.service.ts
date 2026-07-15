@@ -26,7 +26,7 @@ interface DiscordLoginResult {
 export class DiscordAuthService {
 
     get isElectron(): boolean {
-        return !!(window as any).electronAPI?.isElectron;
+        return !!window.electronAPI?.isElectron;
     }
 
     /**

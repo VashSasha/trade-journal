@@ -24,6 +24,22 @@ export interface TradovateAccount {
     timestamp?: string; // ISO date string from /account/list — when the account was created
 }
 
+/** Token endpoints reply either flat or wrapped in `d` (tv-* hosts) */
+interface TradovateAuthResponse {
+    access_token?: string;
+    errorText?: string;
+    d?: { access_token?: string };
+}
+
+export interface TradovateCashBalance {
+    id: number;
+    accountId: number;
+    amount: number;
+    currencyId?: number;
+    realizedPnL?: number;
+    weekRealizedPnL?: number;
+}
+
 export interface TradovateConnection {
     id: string; // UUID
     name: string; // User-friendly name (e.g., "Take Profit Trader", "Apex Funded")
@@ -48,7 +64,6 @@ export interface TradovateConnection {
 export class TradovateService {
     private liveBaseUrl = 'https://live.tradovateapi.com/v1';
     private demoBaseUrl = 'https://demo.tradovateapi.com/v1';
-    private demoAuthUrl = 'https://demo.tradovateapi.com/v1/auth';
 
     // Reporting API URLs
     private liveRptUrl = 'https://rpt.tradovateapi.com/v1';
@@ -98,7 +113,9 @@ export class TradovateService {
 
     hasExpiredConnections = computed(() => this.expiredConnections().length > 0);
 
-    private _init = this.init();
+    constructor() {
+        this.init();
+    }
 
     private init(): void {
         this.loadConnections();
@@ -263,8 +280,8 @@ export class TradovateService {
 
         const headers = new HttpHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' });
 
-        return this.http.post(authUrl, { locale: 'en', login: username, password }, { headers }).pipe(
-            map((res: any) => {
+        return this.http.post<TradovateAuthResponse>(authUrl, { locale: 'en', login: username, password }, { headers }).pipe(
+            map(res => {
                 const token = res.d?.access_token || res.access_token;
                 if (!token) throw new Error(res.errorText || 'No access token received');
                 this.updateConnectionToken(connectionId, token);
@@ -367,7 +384,7 @@ export class TradovateService {
     }
 
     private get isElectron(): boolean {
-        return !!(typeof window !== 'undefined' && (window as any).electronAPI?.isElectron);
+        return !!(typeof window !== 'undefined' && window.electronAPI?.isElectron);
     }
 
     /**
@@ -473,10 +490,9 @@ export class TradovateService {
             ? 'https://demo.tradovateapi.com/v1/auth/oauthtoken'
             : 'https://live.tradovateapi.com/auth/oauthtoken');
 
-        return this.http.post(authUrl, body).pipe(
-            map((res: any) => {
+        return this.http.post<TradovateAuthResponse>(authUrl, body).pipe(
+            map(res => {
                 if (res.access_token) {
-                    localStorage.setItem('tradovate_token', res.access_token);
                     return res;
                 } else if (res.errorText) {
                     throw new Error(res.errorText);
@@ -504,8 +520,8 @@ export class TradovateService {
             'Accept': 'application/json'
         });
 
-        return this.http.post(authUrl, body, { headers }).pipe(
-            map((res: any) => {
+        return this.http.post<TradovateAuthResponse>(authUrl, body, { headers }).pipe(
+            map(res => {
                 const accessToken = res.d?.access_token || res.access_token;
 
                 if (accessToken) {
@@ -553,8 +569,8 @@ export class TradovateService {
         );
     }
 
-    getCashBalances(): Observable<any[]> {
-        return this.authGet<any[]>('/cashBalance/list');
+    getCashBalances(): Observable<TradovateCashBalance[]> {
+        return this.authGet<TradovateCashBalance[]>('/cashBalance/list');
     }
 
     getAccountsForConnection(conn: TradovateConnection): Observable<TradovateAccount[]> {
@@ -563,8 +579,8 @@ export class TradovateService {
         );
     }
 
-    getCashBalancesForConnection(conn: TradovateConnection): Observable<any[]> {
-        return this.authGetFor<any[]>(conn, '/cashBalance/list');
+    getCashBalancesForConnection(conn: TradovateConnection): Observable<TradovateCashBalance[]> {
+        return this.authGetFor<TradovateCashBalance[]>(conn, '/cashBalance/list');
     }
 
     // Account selection management (per-connection)
@@ -1166,7 +1182,7 @@ export class TradovateService {
             }
 
             const trades: any[] = [];
-            (tradesTable as Element).querySelectorAll('tbody tr').forEach((row, i) => {
+            (tradesTable as Element).querySelectorAll('tbody tr').forEach((row) => {
                 const cells = row.querySelectorAll('td');
                 if (cells.length < 8) return;
 

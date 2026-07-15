@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, DOCUMENT } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { TradeService } from '../../../core/services/trade.service';
@@ -21,6 +21,7 @@ export class TradeListComponent {
     private tradeService = inject(TradeService);
     private syncService = inject(SyncService);
     private filterService = inject(FilterService);
+    private document = inject(DOCUMENT);
 
     // Signals for filtering and sorting
     searchQuery = signal('');
@@ -196,7 +197,7 @@ export class TradeListComponent {
 
         const blob = new Blob([csvContent], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = this.document.createElement('a');
         a.href = url;
         a.download = `trades_export_${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
