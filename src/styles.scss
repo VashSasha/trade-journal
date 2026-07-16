@@ -129,6 +129,14 @@ html, body {
   height: 100%;
 }
 
+/* Smooth anchor scrolling, scoped to the landing page (the document is the
+   scroll container there, so this can't live in the component's SCSS). */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.landing) {
+    scroll-behavior: smooth;
+  }
+}
+
 /* ============================================================
    Scroll-reveal utility (used by RevealOnScrollDirective)
    ============================================================ */

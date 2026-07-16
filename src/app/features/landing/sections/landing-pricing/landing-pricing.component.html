@@ -1,0 +1,51 @@
+<section class="pricing" id="pricing">
+    <div class="pricing__inner">
+        <div class="pricing__head" appRevealOnScroll>
+            <h2 class="pricing__title">Simple pricing</h2>
+            <p class="pricing__subtitle">
+                One membership unlocks the full journal — and the community trading behind it.
+            </p>
+        </div>
+
+        <div class="pricing__grid">
+            <article class="pricing-card pricing-card--featured" appRevealOnScroll>
+                <span class="pricing-card__badge">Best value</span>
+                <h3 class="pricing-card__name">Journal + NVZN Discord</h3>
+                <p class="pricing-card__copy">
+                    Full journal access is included with your NVZN Trading Discord membership.
+                </p>
+                <ul class="pricing-card__features">
+                    @for (feature of journalFeatures; track feature) {
+                        <li>{{ feature }}</li>
+                    }
+                    @for (feature of communityFeatures; track feature) {
+                        <li>{{ feature }}</li>
+                    }
+                </ul>
+                <a class="pricing-card__cta" [href]="whopUrl" target="_blank" rel="noopener">
+                    Join NVZN Trading
+                </a>
+                <p class="pricing-card__note">Billed via Whop · Cancel anytime</p>
+            </article>
+
+            <article class="pricing-card pricing-card--muted" appRevealOnScroll>
+                <span class="pricing-card__badge pricing-card__badge--soon">Coming soon</span>
+                <h3 class="pricing-card__name">Journal Only</h3>
+                <p class="pricing-card__copy">
+                    A standalone journal subscription — no Discord group.
+                </p>
+                <ul class="pricing-card__features">
+                    @for (feature of journalFeatures; track feature) {
+                        <li>{{ feature }}</li>
+                    }
+                </ul>
+                <!-- When this plan launches, swap the button for:
+                     <a class="pricing-card__cta" href="<whop-url>" target="_blank" rel="noopener">…</a> -->
+                <button class="pricing-card__cta pricing-card__cta--disabled" type="button" disabled aria-disabled="true">
+                    Coming soon
+                </button>
+                <p class="pricing-card__note">Not available yet</p>
+            </article>
+        </div>
+    </div>
+</section>
