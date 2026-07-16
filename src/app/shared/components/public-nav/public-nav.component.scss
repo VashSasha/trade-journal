@@ -1,0 +1,97 @@
+.public-nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    border-bottom: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-bg-base) 82%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+
+    &__inner {
+        max-width: 72rem;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1.5rem;
+    }
+
+    &__brand {
+        display: inline-flex;
+        align-items: center;
+        text-decoration: none;
+    }
+
+    &__logo {
+        height: 2.2rem;
+        width: auto;
+        display: block;
+    }
+
+    &__links {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+    }
+
+    &__link {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--color-text-secondary);
+        text-decoration: none;
+        transition: color 0.15s ease;
+
+        &:hover { color: var(--color-text-primary); }
+    }
+
+    &__theme {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.1rem;
+        height: 2.1rem;
+        border: none;
+        border-radius: 0.5rem;
+        background: transparent;
+        color: var(--color-text-secondary);
+        cursor: pointer;
+        transition: color 0.15s ease, background 0.15s ease;
+
+        &:hover {
+            color: var(--color-text-primary);
+            background: var(--color-bg-surface-2);
+        }
+    }
+
+    &__login {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+        text-decoration: none;
+        transition: color 0.15s ease;
+
+        &:hover { color: var(--color-accent); }
+    }
+
+    &__cta {
+        padding: 0.5rem 1.1rem;
+        border-radius: 0.55rem;
+        font-size: 0.88rem;
+        font-weight: 600;
+        text-decoration: none;
+        background: var(--color-accent);
+        color: #ffffff;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+        &:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px var(--color-accent-subtle);
+        }
+    }
+}
+
+@media (max-width: 600px) {
+    .public-nav__link {
+        display: none;
+    }
+}

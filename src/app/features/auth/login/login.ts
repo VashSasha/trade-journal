@@ -1,12 +1,13 @@
-import { Component, signal, inject } from '@angular/core';
+import { Component, signal, inject, isDevMode } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { PublicNavComponent } from '../../../shared/components/public-nav/public-nav.component';
 
 @Component({
     selector: 'app-login',
     standalone: true,
-    imports: [ReactiveFormsModule, RouterLink],
+    imports: [ReactiveFormsModule, RouterLink, PublicNavComponent],
     templateUrl: './login.html',
     styleUrl: './login.scss'
 })
@@ -25,7 +26,13 @@ export class LoginComponent {
     isLoading = signal(false);
     isDiscordLoading = signal(false);
 
+    /** Mock email login only exists in dev builds; production is Discord-only. */
+    readonly emailAuthEnabled = isDevMode();
+
     constructor() {
+        if (!this.emailAuthEnabled) {
+            this.loginForm.disable();
+        }
         if (this.route.snapshot.queryParams['reason'] === 'session-expired') {
             this.errorMessage.set('You were signed out after 30 minutes of inactivity. Please sign in again.');
         }
@@ -45,6 +52,9 @@ export class LoginComponent {
     }
 
     async onSubmit(): Promise<void> {
+        if (!this.emailAuthEnabled) {
+            return;
+        }
         if (this.loginForm.invalid) {
             this.loginForm.markAllAsTouched();
             return;
