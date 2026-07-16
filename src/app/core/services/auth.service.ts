@@ -1,4 +1,4 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, signal, computed, inject, isDevMode } from '@angular/core';
 import { User, PlanTier, LoginCredentials } from '../models/user.model';
 import { DiscordAuthService } from './discord-auth.service';
 
@@ -54,6 +54,11 @@ export class AuthService {
     authToken = computed((): string | null => this.currentUserSignal()?.authToken ?? null);
 
     async login(credentials: LoginCredentials): Promise<{ success: boolean; error?: string }> {
+        // Mock email login is dev-only. In production Discord OAuth is the
+        // only way in — guarded here too, not just in the UI.
+        if (!isDevMode()) {
+            return { success: false, error: 'Email login is not available yet — use Discord.' };
+        }
         const candidate = MOCK_USERS.find(u => u.email === credentials.email);
         if (candidate) {
             const hash = await hashPassword(credentials.password ?? '');
