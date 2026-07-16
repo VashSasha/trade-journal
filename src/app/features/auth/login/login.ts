@@ -25,6 +25,12 @@ export class LoginComponent {
     isLoading = signal(false);
     isDiscordLoading = signal(false);
 
+    constructor() {
+        if (this.route.snapshot.queryParams['reason'] === 'session-expired') {
+            this.errorMessage.set('You were signed out after 30 minutes of inactivity. Please sign in again.');
+        }
+    }
+
     async loginWithDiscord(): Promise<void> {
         this.isDiscordLoading.set(true);
         this.errorMessage.set(null);
