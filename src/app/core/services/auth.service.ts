@@ -4,6 +4,9 @@ import { DiscordAuthService } from './discord-auth.service';
 
 const STORAGE_KEY = 'trade_journal_user';
 
+/** Idle window: sessions expire after this long without user activity. */
+export const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+
 // Local-only mock credentials for offline/dev use. Real auth uses Discord OAuth.
 // Passwords are stored as SHA-256 hashes — never plaintext in source.
 const MOCK_USERS: Array<User & { passwordHash: string }> = [
@@ -56,8 +59,7 @@ export class AuthService {
             const hash = await hashPassword(credentials.password ?? '');
             if (hash === candidate.passwordHash) {
                 const { passwordHash, ...userWithoutPassword } = candidate;
-                this.currentUserSignal.set(userWithoutPassword);
-                this.saveUserToStorage(userWithoutPassword);
+                this.establishSession(userWithoutPassword);
                 return { success: true };
             }
         }
@@ -66,19 +68,44 @@ export class AuthService {
 
     async loginWithDiscord(): Promise<void> {
         const user = await this.discordAuth.loginWithDiscord();
-        this.currentUserSignal.set(user);
-        this.saveUserToStorage(user);
+        this.establishSession(user);
     }
 
     async handleWebCallback(code: string): Promise<void> {
         const user = await this.discordAuth.handleWebCallback(code);
-        this.currentUserSignal.set(user);
-        this.saveUserToStorage(user);
+        this.establishSession(user);
+    }
+
+    /** Slide the idle window forward. Called by SessionTimeoutService on user activity. */
+    refreshSessionExpiry(): void {
+        const user = this.currentUserSignal();
+        if (!user) return;
+        this.establishSession(user);
+    }
+
+    /**
+     * Expiry as persisted in localStorage — the cross-tab source of truth
+     * (activity in another tab keeps this one alive). Null when logged out.
+     */
+    storedSessionExpiry(): number | null {
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (!stored) return null;
+            return (JSON.parse(stored) as User).sessionExpiry ?? null;
+        } catch {
+            return null;
+        }
     }
 
     logout(): void {
         this.currentUserSignal.set(null);
         localStorage.removeItem(STORAGE_KEY);
+    }
+
+    private establishSession(user: User): void {
+        const withExpiry: User = { ...user, sessionExpiry: Date.now() + SESSION_IDLE_TIMEOUT_MS };
+        this.currentUserSignal.set(withExpiry);
+        this.saveUserToStorage(withExpiry);
     }
 
     private loadUserFromStorage(): User | null {

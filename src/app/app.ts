@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { ThemeService } from './core/services/theme.service';
+import { SessionTimeoutService } from './core/services/session-timeout.service';
 
 @Component({
   selector: 'app-root',
@@ -15,5 +16,7 @@ export class App {
     // Instantiate at the root so the dark class is applied on public
     // pages (landing, login) too — not just inside the app shell.
     inject(ThemeService);
+    // Starts/stops idle-session tracking as auth state changes.
+    inject(SessionTimeoutService);
   }
 }
