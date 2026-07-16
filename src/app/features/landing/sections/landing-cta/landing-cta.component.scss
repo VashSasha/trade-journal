@@ -52,6 +52,20 @@
         font-size: 0.8rem;
         color: var(--color-text-muted);
     }
+
+    &__login {
+        display: inline-block;
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--color-accent);
+        text-decoration: none;
+
+        &:hover {
+            color: var(--color-accent-hover);
+            text-decoration: underline;
+        }
+    }
 }
 
 .footer {
