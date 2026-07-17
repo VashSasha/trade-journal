@@ -1,21 +1,27 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { DailyNote, DEFAULT_TRADING_RULES, JournalTemplate } from '../models/daily-journal.model';
-
-const STORAGE_KEY = 'daily_journal_notes';
-const RULES_STORAGE_KEY = 'journal_custom_rules';
-const TEMPLATES_STORAGE_KEY = 'journal_templates';
+import { UserDataRepo } from './user-data/user-data.repo';
+import { CACHE_KEYS, readCache, writeCache } from './user-data/user-data.cache';
 
 @Injectable({
     providedIn: 'root'
 })
 export class DailyJournalService {
-    private notesSignal = signal<DailyNote[]>(this.loadNotes());
+    private repo = inject(UserDataRepo);
+
+    // Signals start from the offline cache; UserDataService replaces them with
+    // the authoritative Supabase rows once the post-login fetch completes.
+    private notesSignal = signal<DailyNote[]>(readCache<DailyNote[]>(CACHE_KEYS.notes) ?? []);
     notes = this.notesSignal.asReadonly();
 
-    private customRulesSignal = signal<string[]>(this.loadCustomRules());
+    private customRulesSignal = signal<string[]>(
+        readCache<string[]>(CACHE_KEYS.rules) ?? [...DEFAULT_TRADING_RULES]
+    );
     customRules = this.customRulesSignal.asReadonly();
 
-    private templatesSignal = signal<JournalTemplate[]>(this.loadTemplates());
+    private templatesSignal = signal<JournalTemplate[]>(
+        readCache<JournalTemplate[]>(CACHE_KEYS.templates) ?? []
+    );
     templates = this.templatesSignal.asReadonly();
 
     constructor() { }
@@ -32,17 +38,18 @@ export class DailyJournalService {
         const now = new Date().toISOString();
 
         let updatedNotes: DailyNote[];
+        let savedNote: DailyNote;
 
         if (existingIndex >= 0) {
-            const updatedNote: DailyNote = {
+            savedNote = {
                 ...currentNotes[existingIndex],
                 ...data,
                 updatedAt: now
             };
             updatedNotes = [...currentNotes];
-            updatedNotes[existingIndex] = updatedNote;
+            updatedNotes[existingIndex] = savedNote;
         } else {
-            const newNote: DailyNote = {
+            savedNote = {
                 id: Date.now().toString(),
                 date,
                 content: '',
@@ -50,38 +57,39 @@ export class DailyJournalService {
                 createdAt: now,
                 updatedAt: now
             };
-            updatedNotes = [...currentNotes, newNote];
+            updatedNotes = [...currentNotes, savedNote];
         }
 
         this.notesSignal.set(updatedNotes);
         this.saveToStorage(updatedNotes);
+        this.repo.queueNoteUpsert(savedNote);
     }
 
     // ── Custom Rules ─────────────────────────────────────────
 
     addRule(text: string): void {
-        const updated = [...this.customRulesSignal(), text];
-        this.customRulesSignal.set(updated);
-        localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify(updated));
+        this.setRules([...this.customRulesSignal(), text]);
     }
 
     updateRule(index: number, text: string): void {
-        const updated = this.customRulesSignal().map((r, i) => i === index ? text : r);
-        this.customRulesSignal.set(updated);
-        localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify(updated));
+        this.setRules(this.customRulesSignal().map((r, i) => i === index ? text : r));
     }
 
     deleteRule(index: number): void {
-        const updated = this.customRulesSignal().filter((_, i) => i !== index);
-        this.customRulesSignal.set(updated);
-        localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify(updated));
+        this.setRules(this.customRulesSignal().filter((_, i) => i !== index));
     }
 
     swapRules(indexA: number, indexB: number): void {
         const rules = [...this.customRulesSignal()];
         [rules[indexA], rules[indexB]] = [rules[indexB], rules[indexA]];
+        this.setRules(rules);
+    }
+
+    private setRules(rules: string[]): void {
         this.customRulesSignal.set(rules);
-        localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify(rules));
+        writeCache(CACHE_KEYS.rules, rules);
+        // Rules live on the user's single user_settings row.
+        this.repo.queueSettingsUpsert({ customRules: rules });
     }
 
     // ── Templates ────────────────────────────────────────────
@@ -98,46 +106,53 @@ export class DailyJournalService {
         };
         const updated = [...this.templatesSignal(), template];
         this.templatesSignal.set(updated);
-        localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(updated));
+        writeCache(CACHE_KEYS.templates, updated);
+        this.repo.queueTemplateUpsert(template);
         return template;
     }
 
     updateTemplate(id: string, name: string, content: string): void {
         const now = new Date().toISOString();
-        const updated = this.templatesSignal().map(t =>
-            t.id === id ? { ...t, name, content, updatedAt: now } : t
-        );
+        let saved: JournalTemplate | undefined;
+        const updated = this.templatesSignal().map(t => {
+            if (t.id !== id) return t;
+            saved = { ...t, name, content, updatedAt: now };
+            return saved;
+        });
         this.templatesSignal.set(updated);
-        localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(updated));
+        writeCache(CACHE_KEYS.templates, updated);
+        if (saved) this.repo.queueTemplateUpsert(saved);
     }
 
     deleteTemplate(id: string): void {
         const updated = this.templatesSignal().filter(t => t.id !== id);
         this.templatesSignal.set(updated);
-        localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(updated));
+        writeCache(CACHE_KEYS.templates, updated);
+        this.repo.queueTemplateDelete(id);
+    }
+
+    // ── Hydration (UserDataService: cloud fetch / sign-out reset) ────────
+
+    hydrateNotes(notes: DailyNote[]): void {
+        this.notesSignal.set(notes);
+        this.saveToStorage(notes);
+    }
+
+    /** null → the default rule set (new user, or sign-out reset). */
+    hydrateRules(rules: string[] | null): void {
+        const value = rules ?? [...DEFAULT_TRADING_RULES];
+        this.customRulesSignal.set(value);
+        writeCache(CACHE_KEYS.rules, value);
+    }
+
+    hydrateTemplates(templates: JournalTemplate[]): void {
+        this.templatesSignal.set(templates);
+        writeCache(CACHE_KEYS.templates, templates);
     }
 
     // ── Private ──────────────────────────────────────────────
 
-    private loadNotes(): DailyNote[] {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        return stored ? JSON.parse(stored) : [];
-    }
-
-    private loadCustomRules(): string[] {
-        const stored = localStorage.getItem(RULES_STORAGE_KEY);
-        if (stored) return JSON.parse(stored);
-        // Seed from defaults on first load
-        localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify(DEFAULT_TRADING_RULES));
-        return [...DEFAULT_TRADING_RULES];
-    }
-
-    private loadTemplates(): JournalTemplate[] {
-        const stored = localStorage.getItem(TEMPLATES_STORAGE_KEY);
-        return stored ? JSON.parse(stored) : [];
-    }
-
     private saveToStorage(notes: DailyNote[]): void {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+        writeCache(CACHE_KEYS.notes, notes);
     }
 }

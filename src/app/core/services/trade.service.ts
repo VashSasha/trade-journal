@@ -1,13 +1,17 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import { Trade, TradeFormData, TradeStats, TradeStatus } from '../models/trade.model';
-
-const STORAGE_KEY = 'trade_journal_trades';
+import { UserDataRepo } from './user-data/user-data.repo';
+import { CACHE_KEYS, readCache, writeCache } from './user-data/user-data.cache';
 
 @Injectable({
     providedIn: 'root'
 })
 export class TradeService {
-    private tradesSignal = signal<Trade[]>(this.loadTradesFromStorage());
+    private repo = inject(UserDataRepo);
+
+    // Starts from the offline cache; UserDataService replaces this with the
+    // authoritative Supabase rows once the post-login fetch completes.
+    private tradesSignal = signal<Trade[]>(readCache<Trade[]>(CACHE_KEYS.trades) ?? []);
 
     trades = this.tradesSignal.asReadonly();
 
@@ -67,6 +71,7 @@ export class TradeService {
         const updatedTrades = [...this.tradesSignal(), trade];
         this.tradesSignal.set(updatedTrades);
         this.saveTradesToStorage(updatedTrades);
+        this.repo.queueTradeUpserts([trade]);
 
         return trade;
     }
@@ -112,6 +117,7 @@ export class TradeService {
 
         this.tradesSignal.set(updatedTrades);
         this.saveTradesToStorage(updatedTrades);
+        this.repo.queueTradeUpserts([updatedTrade]);
     }
 
     /**
@@ -121,17 +127,26 @@ export class TradeService {
         const updatedTrades = this.tradesSignal().filter(t => t.id !== id);
         this.tradesSignal.set(updatedTrades);
         this.saveTradesToStorage(updatedTrades);
+        this.repo.queueTradeDeletes([id]);
     }
 
     deleteTrades(ids: Set<string>): void {
         const updatedTrades = this.tradesSignal().filter(t => !ids.has(t.id));
         this.tradesSignal.set(updatedTrades);
         this.saveTradesToStorage(updatedTrades);
+        this.repo.queueTradeDeletes([...ids]);
     }
 
     clearAllTrades(): void {
         this.tradesSignal.set([]);
         this.saveTradesToStorage([]);
+        this.repo.queueClearAllTrades();
+    }
+
+    /** Replace all trades from Supabase (or reset on sign-out). Cache follows. */
+    hydrate(trades: Trade[]): void {
+        this.tradesSignal.set(trades);
+        this.saveTradesToStorage(trades);
     }
 
     /**
@@ -141,12 +156,17 @@ export class TradeService {
      */
     patchTradesFees(updates: { id: string; fees: number; netPnl: number }[]): void {
         const map = new Map(updates.map(u => [u.id, u]));
+        const changed: Trade[] = [];
         const patched = this.tradesSignal().map(t => {
             const u = map.get(t.id);
-            return u ? { ...t, fees: u.fees, netPnl: u.netPnl } : t;
+            if (!u) return t;
+            const next = { ...t, fees: u.fees, netPnl: u.netPnl };
+            changed.push(next);
+            return next;
         });
         this.tradesSignal.set(patched);
         this.saveTradesToStorage(patched);
+        this.repo.queueTradeUpserts(changed);
     }
 
     /**
@@ -156,6 +176,7 @@ export class TradeService {
     recalculateTradovateNetPnl(commissionFallback?: number): { grossPnl: number; totalFees: number; netPnl: number } {
         let grossPnl = 0;
         let totalFees = 0;
+        const changed: Trade[] = [];
         const updated = this.tradesSignal().map(t => {
             if (t.source !== 'tradovate' || t.pnl === undefined) return t;
             const storedFees = t.fees ?? 0;
@@ -165,10 +186,14 @@ export class TradeService {
             const netPnl = parseFloat((t.pnl - fees).toFixed(2));
             grossPnl += t.pnl;
             totalFees += fees;
-            return { ...t, netPnl };
+            if (netPnl === t.netPnl) return t;
+            const next = { ...t, netPnl };
+            changed.push(next);
+            return next;
         });
         this.tradesSignal.set(updated);
         this.saveTradesToStorage(updated);
+        this.repo.queueTradeUpserts(changed);
         return { grossPnl, totalFees, netPnl: grossPnl - totalFees };
     }
 
@@ -239,22 +264,10 @@ export class TradeService {
     }
 
     /**
-     * Load trades from localStorage
-     */
-    private loadTradesFromStorage(): Trade[] {
-        try {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            return stored ? JSON.parse(stored) : [];
-        } catch {
-            return [];
-        }
-    }
-
-    /**
-     * Save trades to localStorage
+     * Mirror trades to the localStorage cache (offline startup reads this)
      */
     private saveTradesToStorage(trades: Trade[]): void {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(trades));
+        writeCache(CACHE_KEYS.trades, trades);
     }
 
 }

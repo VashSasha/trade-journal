@@ -1,8 +1,9 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter, withInMemoryScrolling } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 
 import { routes } from './app.routes';
+import { UserDataService } from './core/services/user-data/user-data.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -12,6 +13,11 @@ export const appConfig: ApplicationConfig = {
       anchorScrolling: 'enabled',
       scrollPositionRestoration: 'enabled'
     })),
-    provideHttpClient()
+    provideHttpClient(),
+    // Construct eagerly (non-blocking) so cloud data loads and the legacy
+    // import runs as soon as the session is restored — not on first inject.
+    provideAppInitializer(() => {
+      inject(UserDataService);
+    })
   ]
 };
