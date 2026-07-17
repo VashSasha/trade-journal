@@ -163,7 +163,14 @@
                         <markdown [data]="followUpInsight().content"></markdown>
                     }
                     @if (followUpInsight().status === 'error') {
-                        <p class="ds-insight-panel__error">{{ followUpInsight().error }}</p>
+                        <div class="ds-insight__error-card ds-insight__error-card--inline">
+                            <svg class="ds-insight__error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                            </svg>
+                            <span class="ds-insight__error-msg">{{ followUpInsight().error }}</span>
+                            <button class="ds-insight__error-retry" (click)="tellMeMore()">Try again</button>
+                        </div>
                     }
                 </div>
             }
@@ -171,9 +178,13 @@
     }
 
     @if (insightState().status === 'error') {
-        <div class="ds-insight__error-row">
-            <span class="ds-insight__error">{{ insightState().error }}</span>
-            <button class="ds-insight-chip" (click)="generateInsight()">↺ Retry</button>
+        <div class="ds-insight__error-card">
+            <svg class="ds-insight__error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            </svg>
+            <span class="ds-insight__error-msg">{{ insightState().error }}</span>
+            <button class="ds-insight__error-retry" (click)="generateInsight()">Try again</button>
         </div>
     }
 

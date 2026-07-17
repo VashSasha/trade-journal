@@ -299,7 +299,14 @@
                                     </div>
                                 }
                                 @if (followUpState().status === 'error') {
-                                    <p class="air-follow-up__error">{{ followUpState().error }}</p>
+                                    <div class="air-error-card air-error-card--inline">
+                                        <svg class="air-error-card__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                                        </svg>
+                                        <p class="air-error-card__msg">{{ followUpState().error }}</p>
+                                        <button class="air-error-card__retry" (click)="retryFollowUp()">Try again</button>
+                                    </div>
                                 }
                             </div>
                         }
@@ -309,9 +316,13 @@
                 }
 
                 @case ('error') {
-                    <div class="air-result air-result--error">
-                        <p class="air-result__error-msg">{{ analysisState().error }}</p>
-                        <button class="air-chip" (click)="analyze()">↺ Retry</button>
+                    <div class="air-error-card">
+                        <svg class="air-error-card__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                        </svg>
+                        <p class="air-error-card__msg">{{ analysisState().error }}</p>
+                        <button class="air-error-card__retry" (click)="analyze()">Try again</button>
                     </div>
                 }
 
