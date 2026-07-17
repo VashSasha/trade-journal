@@ -38,6 +38,7 @@
     "@angular/forms": "^21.2.15",
     "@angular/platform-browser": "^21.2.15",
     "@angular/router": "^21.2.15",
+    "@supabase/supabase-js": "^2.110.7",
     "chart.js": "^4.5.1",
     "esbuild": "^0.27.7",
     "marked": "^17.0.6",
