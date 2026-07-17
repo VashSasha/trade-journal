@@ -4,11 +4,12 @@ import { RouterOutlet } from '@angular/router';
 import { Sidebar } from '../sidebar/sidebar';
 import { Header } from '../header/header';
 import { TradovateService } from '../../../core/services/tradovate.service';
+import { SyncNoticeComponent } from '../../../shared/components/sync-notice/sync-notice.component';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, FormsModule, Sidebar, Header],
+  imports: [RouterOutlet, FormsModule, Sidebar, Header, SyncNoticeComponent],
   templateUrl: './main-layout.html',
   styleUrl: './main-layout.scss'
 })
