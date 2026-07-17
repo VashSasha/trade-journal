@@ -1,0 +1,9 @@
+<div class="auth-callback">
+    @if (error()) {
+        <p class="auth-callback__error">{{ error() }}</p>
+        <a class="auth-callback__link" routerLink="/login">Back to login</a>
+    } @else {
+        <p class="auth-callback__message">Completing login...</p>
+        <div class="auth-callback__spinner"></div>
+    }
+</div>
