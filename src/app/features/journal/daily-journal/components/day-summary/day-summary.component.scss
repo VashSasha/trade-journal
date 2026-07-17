@@ -274,12 +274,50 @@
     }
 }
 
-.ds-insight__error-row {
+.ds-insight__error-card {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--color-text-muted);
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--color-negative) 35%, transparent);
+    background: color-mix(in srgb, var(--color-negative) 8%, var(--color-bg-surface));
+
+    &--inline {
+        margin-top: 10px;
+    }
+}
+
+.ds-insight__error-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--color-negative);
+}
+
+.ds-insight__error-msg {
+    flex: 1;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--color-text-primary);
+}
+
+.ds-insight__error-retry {
+    flex-shrink: 0;
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--color-negative) 40%, transparent);
+    background: transparent;
+    color: var(--color-negative);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+
+    &:hover {
+        background: var(--color-negative);
+        color: #fff;
+    }
 }
 
 /* ── Working panel (streaming) ── */

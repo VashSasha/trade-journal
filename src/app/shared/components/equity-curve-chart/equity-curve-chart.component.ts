@@ -65,6 +65,7 @@ export class EquityCurveChartComponent implements AfterViewInit, OnDestroy, OnCh
     if ((changes['equityData'] || changes['baseline']) && !changes['equityData']?.firstChange) {
       this.chart?.destroy();
       this.chart = undefined;
+
       setTimeout(() => this.createChart(), 0);
     }
   }
@@ -147,4 +148,7 @@ export class EquityCurveChartComponent implements AfterViewInit, OnDestroy, OnCh
       ] as any[]
     };
   }
+
+
+
 }
