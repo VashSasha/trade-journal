@@ -5,7 +5,7 @@ import { Subscription } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { provideMarkdown, MarkdownComponent } from 'ngx-markdown';
 import { TradovateService } from '../../core/services/tradovate.service';
-import { OpenAiService } from '../../core/services/openai.service';
+import { AI_GENERIC_ERROR, AI_STREAM_TIMEOUT_MS, OpenAiService } from '../../core/services/openai.service';
 
 type AnalysisState = { status: 'idle' | 'streaming' | 'complete' | 'error'; content: string; error: string | null };
 
@@ -78,8 +78,11 @@ export class AiReportsComponent implements OnDestroy {
     private stepsInterval: ReturnType<typeof setInterval> | null = null;
 
     private lastMessages: any[] = [];
+    private lastFollowUpMessage = '';
     private activeStream?: Subscription;
     private activeFollowUp?: Subscription;
+    private mainTimeout: ReturnType<typeof setTimeout> | null = null;
+    private followUpTimeout: ReturnType<typeof setTimeout> | null = null;
 
     // ── Image handling ───────────────────────────────────────────────────────
     onImageSelected(event: Event): void {
@@ -139,12 +142,17 @@ export class AiReportsComponent implements OnDestroy {
 
     askFollowUp(message: string): void {
         if (this.analysisState().status !== 'complete') return;
+        this.lastFollowUpMessage = message;
         const messages = [
             ...this.lastMessages,
             { role: 'assistant', content: JSON.stringify(this.verdict()) },
             { role: 'user', content: message }
         ];
         this.startStream(messages, this.followUpState, this.followUpConfidence);
+    }
+
+    retryFollowUp(): void {
+        if (this.lastFollowUpMessage) this.askFollowUp(this.lastFollowUpMessage);
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
@@ -160,15 +168,41 @@ export class AiReportsComponent implements OnDestroy {
         } else {
             this.activeFollowUp?.unsubscribe();
         }
+        this.clearStreamTimeout(isMain);
 
         stateSignal.set({ status: 'streaming', content: '', error: null });
+        let firstToken = false;
+
+        // Fail into the error state — never leave the spinner running.
+        const fail = (message: string) => {
+            if (isMain) this.clearStepsAnimation();
+            this.clearStreamTimeout(isMain);
+            stateSignal.set({ status: 'error', content: '', error: message });
+        };
+
+        // Abort + surface a timeout error if the upstream hangs before the
+        // first token instead of spinning forever.
+        const timeout = setTimeout(() => {
+            if (firstToken) return;
+            (isMain ? this.activeStream : this.activeFollowUp)?.unsubscribe();
+            fail('This is taking longer than expected. Please try again.');
+        }, AI_STREAM_TIMEOUT_MS);
+        if (isMain) this.mainTimeout = timeout;
+        else        this.followUpTimeout = timeout;
 
         const sub = this.openAiService.streamAnalysis(messages)
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe({
-                next:     token => stateSignal.update(s => ({ ...s, content: s.content + token })),
+                next:     token => {
+                    if (!firstToken) {
+                        firstToken = true;
+                        this.clearStreamTimeout(isMain);
+                    }
+                    stateSignal.update(s => ({ ...s, content: s.content + token }));
+                },
                 complete: ()    => {
                     if (isMain) this.clearStepsAnimation();
+                    this.clearStreamTimeout(isMain);
                     stateSignal.update(s => ({ ...s, status: 'complete' }));
                     if (isMain) {
                         try {
@@ -183,14 +217,19 @@ export class AiReportsComponent implements OnDestroy {
                         confidenceSignal?.set(this.deriveConfidence(stateSignal().content));
                     }
                 },
-                error:    err   => {
-                    if (isMain) this.clearStepsAnimation();
-                    stateSignal.update(s => ({ ...s, status: 'error', error: err.message || 'Stream failed.' }));
-                },
+                error:    err   => fail(err?.message || AI_GENERIC_ERROR),
             });
 
         if (isMain) this.activeStream = sub;
         else        this.activeFollowUp = sub;
+    }
+
+    private clearStreamTimeout(isMain: boolean): void {
+        const key = isMain ? 'mainTimeout' : 'followUpTimeout';
+        if (this[key] !== null) {
+            clearTimeout(this[key]!);
+            this[key] = null;
+        }
     }
 
     private extractJson(raw: string): string {
@@ -264,6 +303,8 @@ Derive all fields from the market data. Set contextChips to 2 relevant follow-up
 
     ngOnDestroy(): void {
         this.clearStepsAnimation();
+        this.clearStreamTimeout(true);
+        this.clearStreamTimeout(false);
     }
 
     private startStepsAnimation(): void {

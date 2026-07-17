@@ -1,5 +1,39 @@
 # Edge Functions
 
+## ai-report
+
+Server-side proxy for all AI features (trade analysis, chart image analysis,
+market prediction, streaming report generation). The OpenAI API key exists
+**only** as a function secret — never in the repo or the client. The function:
+
+- Rejects requests without a valid Supabase JWT (401).
+- Requires `profiles.plan = 'lifetime'` — the server-side enforcement of what
+  `planGuard('lifetime')` only enforces client-side (403 otherwise).
+- Rate-limits to 10 requests per user per day via the `ai_usage` table,
+  incremented atomically by `increment_ai_usage()` (429 when exceeded).
+- `stream-analysis` requests return Server-Sent Events. OpenAI stream chunks
+  are translated into the Anthropic wire shape (`content_block_delta` /
+  `message_stop`) the client parser reads, so the client stays unchanged.
+
+### Deploy
+
+```bash
+supabase functions deploy ai-report --project-ref elbcjsewyqptrckdydha
+```
+
+### Secrets
+
+```bash
+supabase secrets set \
+  OPENAI_API_KEY=sk-...
+```
+
+| Secret | Purpose |
+|---|---|
+| `OPENAI_API_KEY` | OpenAI API key used for every completion |
+| `SB_SECRET_KEY` | Shared with resolve-plan (see below) — validates JWTs, reads plans, writes `ai_usage` |
+| `APP_ORIGIN` | Shared with resolve-plan — production web origin allowed for CORS |
+
 ## resolve-plan
 
 Verifies the caller's Discord guild roles (using the Discord provider token

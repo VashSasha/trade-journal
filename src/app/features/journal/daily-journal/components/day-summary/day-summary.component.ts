@@ -8,7 +8,7 @@ import { MarkdownComponent, provideMarkdown } from 'ngx-markdown';
 import { Trade } from '../../../../../core/models/trade.model';
 import { buildEquityCurve, computeDayStats, DayStats } from '../../../../../core/utils/trade-stats.utils';
 import { AccountSettingsService } from '../../../../../core/services/account-settings.service';
-import { OpenAiService } from '../../../../../core/services/openai.service';
+import { AI_GENERIC_ERROR, AI_STREAM_TIMEOUT_MS, OpenAiService } from '../../../../../core/services/openai.service';
 import {
   EquityCurveChartComponent
 } from '../../../../../shared/components/equity-curve-chart/equity-curve-chart.component';
@@ -59,6 +59,8 @@ export class DaySummaryComponent implements OnDestroy {
   private insightMessages: any[] = [];
   private activeInsight?: Subscription;
   private activeFollowUp?: Subscription;
+  private insightTimeout: ReturnType<typeof setTimeout> | null = null;
+  private followUpTimeout: ReturnType<typeof setTimeout> | null = null;
 
   get stats(): DayStats {
     return computeDayStats(this.trades);
@@ -179,30 +181,64 @@ Avg trade: $${s.avgNetPnl.toFixed(2)}`
     } else {
       this.activeFollowUp?.unsubscribe();
     }
+    this.clearInsightTimeout(isMain);
 
     stateSignal.set({status: 'streaming', content: '', error: null});
+    let firstToken = false;
+
+    // Fail into the error state (never spin forever) — set on error, timeout,
+    // and used to guarantee loading always stops.
+    const fail = (message: string) => {
+      if (isMain) this.clearInsightStepsAnimation();
+      this.clearInsightTimeout(isMain);
+      stateSignal.set({status: 'error', content: '', error: message});
+    };
+
+    // If the upstream hangs and no first token arrives, abort and surface a
+    // timeout error instead of an endless spinner.
+    const timeout = setTimeout(() => {
+      if (firstToken) return;
+      (isMain ? this.activeInsight : this.activeFollowUp)?.unsubscribe();
+      fail('This is taking longer than expected. Please try again.');
+    }, AI_STREAM_TIMEOUT_MS);
+    if (isMain) this.insightTimeout = timeout;
+    else this.followUpTimeout = timeout;
 
     const sub = this.openAiService.streamAnalysis(messages, 600)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: token => stateSignal.update(s => ({...s, content: s.content + token})),
+        next: token => {
+          if (!firstToken) {
+            firstToken = true;
+            this.clearInsightTimeout(isMain);
+          }
+          stateSignal.update(s => ({...s, content: s.content + token}));
+        },
         complete: () => {
           if (isMain) this.clearInsightStepsAnimation();
+          this.clearInsightTimeout(isMain);
           stateSignal.update(s => ({...s, status: 'complete'}));
           confidenceSignal.set(this.deriveConfidence(stateSignal().content));
         },
-        error: err => {
-          if (isMain) this.clearInsightStepsAnimation();
-          stateSignal.update(s => ({...s, status: 'error', error: err.message || 'Stream failed.'}));
-        },
+        error: err => fail(err?.message || AI_GENERIC_ERROR),
       });
 
     if (isMain) this.activeInsight = sub;
     else this.activeFollowUp = sub;
   }
 
+  private clearInsightTimeout(isMain: boolean): void {
+    const key = isMain ? 'insightTimeout' : 'followUpTimeout';
+    if (this[key] !== null) {
+      clearTimeout(this[key]!);
+      this[key] = null;
+    }
+  }
+
   ngOnDestroy(): void {
     this.clearInsightStepsAnimation();
+    this.clearInsightTimeout(true);
+    this.clearInsightTimeout(false);
   }
 
   private startInsightStepsAnimation(): void {
