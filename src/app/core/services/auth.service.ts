@@ -1,134 +1,195 @@
-import { Injectable, signal, computed, inject, isDevMode } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
+import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { User, PlanTier, LoginCredentials } from '../models/user.model';
-import { DiscordAuthService } from './discord-auth.service';
-
-const STORAGE_KEY = 'trade_journal_user';
+import { SupabaseService } from './supabase.service';
 
 /** Idle window: sessions expire after this long without user activity. */
 export const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
-// Local-only mock credentials for offline/dev use. Real auth uses Discord OAuth.
-// Passwords are stored as SHA-256 hashes — never plaintext in source.
-const MOCK_USERS: Array<User & { passwordHash: string }> = [
-    {
-        id: '1',
-        email: 'admin@nvzn.local',
-        passwordHash: 'da8b81df6975c703ff93f53564a40d340e91de8e7c2389151832fc3bba79884d',
-        name: 'Sasha Vash',
-        initials: 'SV',
-        plan: 'lifetime'
-    },
-    {
-        id: '2',
-        email: 'demo@nvzn.local',
-        passwordHash: '35dc0b7ce805d5e9c91c2999b7b09240fe6d35cc7bb1613dc629e7c9efafc7b5',
-        name: 'Demo User',
-        initials: 'DU',
-        plan: 'free'
-    }
-];
+/**
+ * Idle-expiry timestamp shared across tabs. This is NOT the session itself —
+ * Supabase owns the session (tokens, refresh) — it only tracks user activity
+ * so SessionTimeoutService can sign out idle users.
+ */
+const IDLE_EXPIRY_KEY = 'trade_journal_idle_expiry';
 
-async function hashPassword(password: string): Promise<string> {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+interface Profile {
+    plan: PlanTier;
+    discordId: string | null;
 }
 
 @Injectable({
     providedIn: 'root'
 })
 export class AuthService {
-    private discordAuth = inject(DiscordAuthService);
-    private currentUserSignal = signal<User | null>(this.loadUserFromStorage());
+    private supabase = inject(SupabaseService).client;
 
-    currentUser = this.currentUserSignal.asReadonly();
-    isAuthenticated = computed(() => {
-        const user = this.currentUserSignal();
-        if (!user) return false;
-        if (user.sessionExpiry && Date.now() > user.sessionExpiry) return false;
-        return true;
+    private sessionSignal = signal<Session | null>(null);
+    private profileSignal = signal<Profile | null>(null);
+
+    /** Resolves once the initial session restore (and profile load) has settled. */
+    readonly authReady: Promise<void>;
+
+    session = this.sessionSignal.asReadonly();
+
+    currentUser = computed((): User | null => {
+        const session = this.sessionSignal();
+        if (!session) return null;
+        return this.buildUser(session.user, this.profileSignal());
     });
 
-    plan = computed((): PlanTier => this.currentUserSignal()?.plan ?? 'free');
+    isAuthenticated = computed(() => this.sessionSignal() !== null);
 
-    /** Session JWT for the ai-proxy worker (present after web Discord login). */
-    authToken = computed((): string | null => this.currentUserSignal()?.authToken ?? null);
+    /** Plan comes from the user's `profiles` row — written only server-side. */
+    plan = computed((): PlanTier => this.profileSignal()?.plan ?? 'free');
+
+    /** Supabase access token — sent as the bearer token to backend services. */
+    authToken = computed((): string | null => this.sessionSignal()?.access_token ?? null);
+
+    constructor() {
+        this.authReady = this.initialize();
+
+        this.supabase.auth.onAuthStateChange((event, session) => {
+            this.sessionSignal.set(session);
+            if (event === 'SIGNED_OUT' || !session) {
+                this.profileSignal.set(null);
+                localStorage.removeItem(IDLE_EXPIRY_KEY);
+                return;
+            }
+            if (event === 'SIGNED_IN') {
+                this.refreshSessionExpiry();
+                // Defer Supabase calls out of the auth callback (supabase-js
+                // serializes calls made inside onAuthStateChange).
+                setTimeout(() => void this.loadProfile(session.user.id));
+            }
+        });
+    }
+
+    private async initialize(): Promise<void> {
+        const { data: { session } } = await this.supabase.auth.getSession();
+        if (!session) return;
+
+        // Enforce the idle timeout across restarts: a restored session whose
+        // idle window lapsed while the app was closed is signed out, not resumed.
+        const idleExpiry = this.storedSessionExpiry();
+        if (idleExpiry !== null && Date.now() > idleExpiry) {
+            await this.supabase.auth.signOut();
+            return;
+        }
+
+        this.sessionSignal.set(session);
+        this.refreshSessionExpiry();
+        await this.loadProfile(session.user.id);
+    }
 
     async login(credentials: LoginCredentials): Promise<{ success: boolean; error?: string }> {
-        // Mock email login is dev-only. In production Discord OAuth is the
-        // only way in — guarded here too, not just in the UI.
-        if (!isDevMode()) {
-            return { success: false, error: 'Email login is not available yet — use Discord.' };
+        const { error } = await this.supabase.auth.signInWithPassword({
+            email: credentials.email,
+            password: credentials.password
+        });
+        if (error) {
+            return { success: false, error: error.message };
         }
-        const candidate = MOCK_USERS.find(u => u.email === credentials.email);
-        if (candidate) {
-            const hash = await hashPassword(credentials.password ?? '');
-            if (hash === candidate.passwordHash) {
-                const { passwordHash, ...userWithoutPassword } = candidate;
-                this.establishSession(userWithoutPassword);
-                return { success: true };
+        return { success: true };
+    }
+
+    /** Redirects to Discord OAuth — the promise resolves just before navigation. */
+    async loginWithDiscord(returnUrl?: string): Promise<void> {
+        const redirectTo = new URL('/auth/callback', window.location.origin);
+        if (returnUrl) redirectTo.searchParams.set('returnUrl', returnUrl);
+
+        const { error } = await this.supabase.auth.signInWithOAuth({
+            provider: 'discord',
+            options: {
+                scopes: 'identify email guilds.members.read',
+                redirectTo: redirectTo.toString()
             }
-        }
-        return { success: false, error: 'Invalid email or password' };
+        });
+        if (error) throw new Error(error.message);
     }
 
-    async loginWithDiscord(): Promise<void> {
-        const user = await this.discordAuth.loginWithDiscord();
-        this.establishSession(user);
+    /**
+     * Ask the resolve-plan Edge Function to verify Discord roles and update
+     * the profile. Called from the OAuth callback with the Discord provider
+     * token (only available in the session immediately after OAuth login).
+     */
+    async resolvePlan(providerToken: string): Promise<void> {
+        const { error } = await this.supabase.functions.invoke('resolve-plan', {
+            body: { provider_token: providerToken }
+        });
+        if (error) throw new Error(`Plan resolution failed: ${error.message}`);
+        await this.refreshProfile();
     }
 
-    async handleWebCallback(code: string): Promise<void> {
-        const user = await this.discordAuth.handleWebCallback(code);
-        this.establishSession(user);
+    /** Re-read the caller's profiles row (plan may have changed server-side). */
+    async refreshProfile(): Promise<void> {
+        const session = this.sessionSignal();
+        if (session) await this.loadProfile(session.user.id);
     }
 
     /** Slide the idle window forward. Called by SessionTimeoutService on user activity. */
     refreshSessionExpiry(): void {
-        const user = this.currentUserSignal();
-        if (!user) return;
-        this.establishSession(user);
+        if (!this.sessionSignal()) return;
+        localStorage.setItem(IDLE_EXPIRY_KEY, String(Date.now() + SESSION_IDLE_TIMEOUT_MS));
     }
 
     /**
-     * Expiry as persisted in localStorage — the cross-tab source of truth
+     * Idle expiry as persisted in localStorage — the cross-tab source of truth
      * (activity in another tab keeps this one alive). Null when logged out.
      */
     storedSessionExpiry(): number | null {
-        try {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            if (!stored) return null;
-            return (JSON.parse(stored) as User).sessionExpiry ?? null;
-        } catch {
-            return null;
-        }
+        const stored = localStorage.getItem(IDLE_EXPIRY_KEY);
+        if (!stored) return null;
+        const expiry = Number(stored);
+        return Number.isFinite(expiry) ? expiry : null;
     }
 
     logout(): void {
-        this.currentUserSignal.set(null);
-        localStorage.removeItem(STORAGE_KEY);
+        // Clear local state immediately so guards react without waiting on the network.
+        this.sessionSignal.set(null);
+        this.profileSignal.set(null);
+        localStorage.removeItem(IDLE_EXPIRY_KEY);
+        void this.supabase.auth.signOut();
     }
 
-    private establishSession(user: User): void {
-        const withExpiry: User = { ...user, sessionExpiry: Date.now() + SESSION_IDLE_TIMEOUT_MS };
-        this.currentUserSignal.set(withExpiry);
-        this.saveUserToStorage(withExpiry);
-    }
+    private async loadProfile(userId: string): Promise<void> {
+        const { data, error } = await this.supabase
+            .from('profiles')
+            .select('plan, discord_id')
+            .eq('id', userId)
+            .single();
 
-    private loadUserFromStorage(): User | null {
-        try {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            if (!stored) return null;
-            const user: User = JSON.parse(stored);
-            if (user.sessionExpiry && Date.now() > user.sessionExpiry) {
-                localStorage.removeItem(STORAGE_KEY);
-                return null;
-            }
-            return user;
-        } catch {
-            return null;
+        if (error || !data) {
+            // RLS guarantees at most the caller's own row; a miss means the
+            // trigger hasn't created it yet — treat as free rather than failing.
+            this.profileSignal.set(null);
+            return;
         }
+        this.profileSignal.set({
+            plan: data.plan as PlanTier,
+            discordId: data.discord_id ?? null
+        });
     }
 
-    private saveUserToStorage(user: User): void {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+    private buildUser(user: SupabaseUser, profile: Profile | null): User {
+        const meta = user.user_metadata ?? {};
+        const name: string = meta['full_name'] || meta['name'] || meta['user_name'] || user.email || 'Trader';
+        const initials = name
+            .split(/\s+/)
+            .map((w: string) => w[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+        const discordIdentity = user.identities?.find(i => i.provider === 'discord');
+
+        return {
+            id: user.id,
+            email: user.email ?? '',
+            name,
+            initials,
+            avatar: meta['avatar_url'] ?? undefined,
+            discordId: profile?.discordId ?? discordIdentity?.id,
+            plan: profile?.plan ?? 'free'
+        };
     }
 }

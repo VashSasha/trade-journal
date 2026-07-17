@@ -26,7 +26,7 @@ export class LoginComponent {
     isLoading = signal(false);
     isDiscordLoading = signal(false);
 
-    /** Mock email login only exists in dev builds; production is Discord-only. */
+    /** Email login (Supabase password auth) is dev-only; production is Discord-only. */
     readonly emailAuthEnabled = isDevMode();
 
     constructor() {
@@ -42,9 +42,10 @@ export class LoginComponent {
         this.isDiscordLoading.set(true);
         this.errorMessage.set(null);
         try {
-            await this.authService.loginWithDiscord();
-            const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
-            this.router.navigateByUrl(returnUrl);
+            // Redirects to Discord; /auth/callback handles the return trip
+            // (including navigation to returnUrl), so no navigation here.
+            const returnUrl = this.route.snapshot.queryParams['returnUrl'];
+            await this.authService.loginWithDiscord(returnUrl);
         } catch (err: any) {
             this.errorMessage.set(err.message || 'Discord login failed. Please try again.');
             this.isDiscordLoading.set(false);

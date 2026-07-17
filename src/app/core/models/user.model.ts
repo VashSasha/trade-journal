@@ -8,8 +8,6 @@ export interface User {
     plan: PlanTier;
     avatar?: string;
     discordId?: string;
-    sessionExpiry?: number; // Unix timestamp ms
-    authToken?: string;     // Signed session JWT for the ai-proxy worker (web Discord login only)
 }
 
 export interface LoginCredentials {
