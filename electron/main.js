@@ -123,12 +123,12 @@ app.whenReady().then(() => {
     // cross-origin request) and inject CORS headers on inbound responses (Chromium
     // accepts the response). This lets us keep webSecurity: true.
     //
-    // Covered APIs: Tradovate, Anthropic (Claude), Discord Cloudflare worker exchange.
+    // Covered APIs: Tradovate, Supabase Edge Functions (AI reports — the
+    // function's CORS allowlist doesn't know app://localhost), Cloudflare workers.
     const externalApiFilter = {
         urls: [
             'https://*.tradovateapi.com/*',
-            'https://api.openai.com/*',
-            'https://api.anthropic.com/*',
+            'https://*.supabase.co/functions/*',
             'https://*.workers.dev/*'
         ]
     };
@@ -153,7 +153,7 @@ app.whenReady().then(() => {
             responseHeaders: {
                 ...details.responseHeaders,
                 'access-control-allow-origin':  ['*'],
-                'access-control-allow-headers': ['Content-Type, Accept, Authorization, x-api-key, anthropic-version, anthropic-dangerous-direct-browser-access'],
+                'access-control-allow-headers': ['Content-Type, Accept, Authorization, apikey, x-client-info'],
                 'access-control-allow-methods': ['GET, POST, PUT, DELETE, OPTIONS'],
             }
         });
