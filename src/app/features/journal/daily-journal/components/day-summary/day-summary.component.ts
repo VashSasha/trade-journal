@@ -13,6 +13,7 @@ import {
   EquityCurveChartComponent
 } from '../../../../../shared/components/equity-curve-chart/equity-curve-chart.component';
 import { SharePnlComponent, SharePnlStats } from '../../../../../shared/components/share-pnl/share-pnl.component';
+import { AiAnalysisService } from '../saved-analyses/ai-analysis.service';
 
 type AnalysisState = { status: 'idle' | 'streaming' | 'complete' | 'error'; content: string; error: string | null };
 type ConfidenceTier = 'high' | 'medium' | 'low' | null;
@@ -41,6 +42,7 @@ export class DaySummaryComponent implements OnDestroy {
 
   readonly accountSettings = inject(AccountSettingsService);
   readonly openAiService = inject(OpenAiService);
+  private readonly aiAnalysis = inject(AiAnalysisService);
   private readonly destroyRef = inject(DestroyRef);
 
   // ── AI Insight State ─────────────────────────────────────────────────────
@@ -50,6 +52,18 @@ export class DaySummaryComponent implements OnDestroy {
   followUpInsightConfidence = signal<ConfidenceTier>(null);
   activeInsightSteps = signal<string[]>([]);
   copiedActionPoints = signal(false);
+
+  // ── Save-analysis state ──────────────────────────────────────────────────
+  aiSaving = signal(false);
+  aiSaveError = signal<string | null>(null);
+  /** Content of the last successfully saved insight — guards against double-saves. */
+  private savedContent = signal<string | null>(null);
+
+  /** True once the current insight text has been persisted (soften/disable Save). */
+  readonly insightSaved = computed(() => {
+    const saved = this.savedContent();
+    return saved !== null && saved === this.insightState().content;
+  });
 
   /** Task-list items extracted from the AI insight's "Action Points" section. */
   readonly actionPoints = computed(() => this.extractActionPoints(this.insightState().content));
@@ -168,6 +182,25 @@ Avg trade: $${s.avgNetPnl.toFixed(2)}`
   }
 
   // ── Private helpers ──────────────────────────────────────────────────────
+  /** Persist the current insight markdown for the active journal date. */
+  async saveInsight(): Promise<void> {
+    const content = this.insightState().content;
+    const date = this.date;
+    if (this.insightState().status !== 'complete' || !content || !date) return;
+    if (this.aiSaving() || this.insightSaved()) return;
+
+    this.aiSaving.set(true);
+    this.aiSaveError.set(null);
+    try {
+      await this.aiAnalysis.saveAnalysis(date, content);
+      this.savedContent.set(content);
+    } catch (err: any) {
+      this.aiSaveError.set(err?.message || 'Couldn\'t save analysis. Please try again.');
+    } finally {
+      this.aiSaving.set(false);
+    }
+  }
+
   private startInsightStream(
     messages: any[],
     stateSignal: WritableSignal<AnalysisState>,
@@ -177,6 +210,8 @@ Avg trade: $${s.avgNetPnl.toFixed(2)}`
     if (isMain) {
       this.activeInsight?.unsubscribe();
       this.startInsightStepsAnimation();
+      // A fresh insight is a fresh thing to save — clear any prior save state.
+      this.aiSaveError.set(null);
     } else {
       this.activeFollowUp?.unsubscribe();
     }
