@@ -12,13 +12,15 @@ import { JournalTagsState } from './state/journal-tags.state';
 import { DaySummaryComponent } from './components/day-summary/day-summary.component';
 import { DjNewsComponent } from './components/dj-news/dj-news.component';
 import { DjRulesComponent } from './components/dj-rules/dj-rules.component';
+import { SavedAnalysesComponent } from './components/saved-analyses/saved-analyses.component';
+import { AiAnalysisService } from './components/saved-analyses/ai-analysis.service';
 import { SafeHtmlPipe } from '../../../shared/pipes/safe-html.pipe';
 
 @Component({
     selector: 'app-daily-journal',
     standalone: true,
-    imports: [DatePipe, CurrencyPipe, FormsModule, RichEditorComponent, TradeTableComponent, DaySummaryComponent, DjNewsComponent, DjRulesComponent, SafeHtmlPipe],
-    providers: [JournalFormState, JournalNewsState, JournalRulesState, JournalTemplatesState, JournalTagsState],
+    imports: [DatePipe, CurrencyPipe, FormsModule, RichEditorComponent, TradeTableComponent, DaySummaryComponent, DjNewsComponent, DjRulesComponent, SavedAnalysesComponent, SafeHtmlPipe],
+    providers: [JournalFormState, JournalNewsState, JournalRulesState, JournalTemplatesState, JournalTagsState, AiAnalysisService],
     templateUrl: './daily-journal.component.html',
     styleUrl: './daily-journal.component.scss'
 })

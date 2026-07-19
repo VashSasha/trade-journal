@@ -142,6 +142,9 @@
         <!-- Day Summary Card -->
         <app-day-summary [trades]="form.dayTrades()" [startBalance]="form.priorBalance()" [date]="form.selectedDate()"></app-day-summary>
 
+        <!-- Saved AI analyses for this day -->
+        <app-saved-analyses [date]="form.selectedDate()"></app-saved-analyses>
+
         <!-- Mood, Discipline & Day Summary -->
         <div class="dj-ratings" (click)="tagsState.showTagDropdown.set(false)">
             <div>
