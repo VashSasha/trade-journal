@@ -62,6 +62,7 @@ export class AiReportsComponent implements OnDestroy {
     analysisMode  = signal<'screenshot' | 'live'>('screenshot');
     selectedImage = signal<File | null>(null);
     imagePreview  = signal<string | null>(null);
+    isDragging    = signal(false);
     symbol        = signal('');
     timeframe     = signal('15min');
     lookbackBars  = signal(100);
@@ -87,8 +88,28 @@ export class AiReportsComponent implements OnDestroy {
     // ── Image handling ───────────────────────────────────────────────────────
     onImageSelected(event: Event): void {
         const input = event.target as HTMLInputElement;
-        if (!input.files?.[0]) return;
-        const file = input.files[0];
+        this.setImage(input.files?.[0] ?? null);
+    }
+
+    onDragOver(event: DragEvent): void {
+        event.preventDefault();
+        this.isDragging.set(true);
+    }
+
+    onDragLeave(event: DragEvent): void {
+        event.preventDefault();
+        this.isDragging.set(false);
+    }
+
+    onDrop(event: DragEvent): void {
+        event.preventDefault();
+        this.isDragging.set(false);
+        this.setImage(event.dataTransfer?.files?.[0] ?? null);
+    }
+
+    /** Shared entry point for click-to-upload and drag-and-drop. */
+    private setImage(file: File | null): void {
+        if (!file || !file.type.startsWith('image/')) return;
         this.selectedImage.set(file);
         const reader = new FileReader();
         reader.onload = e => this.imagePreview.set(e.target?.result as string);
@@ -143,8 +164,18 @@ export class AiReportsComponent implements OnDestroy {
     askFollowUp(message: string): void {
         if (this.analysisState().status !== 'complete') return;
         this.lastFollowUpMessage = message;
+        // Follow-ups are a conversation, not another verdict. The original
+        // request's system prompt forces JSON-only output — if we reuse it the
+        // model streams a raw verdict object again. Swap it for a conversational
+        // prompt so replies read as plain Markdown prose, keeping the chart /
+        // market context and the prior verdict for continuity.
+        const context = this.lastMessages.filter(m => m.role !== 'system');
         const messages = [
-            ...this.lastMessages,
+            {
+                role: 'system',
+                content: `You are an expert trading analyst continuing a conversation about a chart you already analyzed. Answer the trader's follow-up question directly and conversationally in concise GitHub-flavored Markdown prose — a few sentences or short bullet points. Do NOT output JSON, code fences, or the structured verdict format again.`
+            },
+            ...context,
             { role: 'assistant', content: JSON.stringify(this.verdict()) },
             { role: 'user', content: message }
         ];
@@ -273,7 +304,7 @@ INTERNAL ANALYSIS (DO NOT OUTPUT):
             {
                 role: 'user',
                 content: [
-                    { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
+                    { type: 'image_url', image_url: { url: `data:${mediaType};base64,${b64}` } },
                     { type: 'text', text: `Analyze this chart${symbol ? ` for ${symbol}` : ''}.` }
                 ]
             }

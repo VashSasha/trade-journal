@@ -125,9 +125,14 @@
     cursor: pointer;
     transition: border-color 0.12s, background 0.12s;
 
-    &:hover {
+    &:hover,
+    &--dragging {
         border-color: var(--color-accent);
         background: var(--color-accent-subtle);
+    }
+
+    &--dragging {
+        border-style: solid;
     }
 
     &__icon {
@@ -483,6 +488,41 @@
         content: '▋';
         animation: air-blink 1s step-end infinite;
         color: var(--color-accent);
+    }
+
+    &__complete {
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: var(--color-text-secondary);
+
+        // ngx-markdown injects these elements dynamically, so they escape the
+        // component's emulated encapsulation — reach them with ::ng-deep.
+        ::ng-deep {
+            > *:first-child { margin-top: 0; }
+            > *:last-child { margin-bottom: 0; }
+
+            p { margin: 0 0 0.625rem; color: var(--color-text-secondary); }
+            strong { color: var(--color-text-primary); font-weight: 600; }
+
+            ul, ol { margin: 0 0 0.625rem; padding-left: 1.25rem; }
+            li { margin-bottom: 0.25rem; color: var(--color-text-secondary); }
+
+            h2, h3, h4 {
+                margin: 1rem 0 0.5rem;
+                font-size: 0.8125rem;
+                font-weight: 700;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                color: var(--color-text-muted);
+            }
+
+            code {
+                background: var(--color-bg-surface-2);
+                padding: 0.1em 0.35em;
+                border-radius: 4px;
+                font-size: 0.85em;
+            }
+        }
     }
 
     &__error {
