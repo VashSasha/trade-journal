@@ -2,7 +2,12 @@
     display: flex;
     height: 100vh;
     overflow: hidden;
-    background: var(--color-bg-base);
+    /* Ambient glow matching the landing hero — sits behind all content.
+       The shell doesn't scroll, so the glow stays fixed as pages scroll. */
+    background:
+        radial-gradient(45% 45% at 82% 0%, var(--color-accent-subtle) 0%, transparent 62%),
+        radial-gradient(40% 42% at 0% 100%, var(--color-positive-subtle) 0%, transparent 62%),
+        var(--color-bg-base);
 }
 
 .app-body {

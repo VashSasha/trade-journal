@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MarkdownComponent, provideMarkdown } from 'ngx-markdown';
+import { MarkdownComponent } from 'ngx-markdown';
 import { Trade } from '../../../../../core/models/trade.model';
 import { buildEquityCurve, computeDayStats, DayStats } from '../../../../../core/utils/trade-stats.utils';
 import { AccountSettingsService } from '../../../../../core/services/account-settings.service';
@@ -29,7 +29,6 @@ const INSIGHT_STEPS = [
   selector: 'app-day-summary',
   standalone: true,
   imports: [CurrencyPipe, DecimalPipe, FormsModule, EquityCurveChartComponent, SharePnlComponent, MarkdownComponent, RouterLink],
-  providers: [provideMarkdown()],
   templateUrl: './day-summary.component.html',
   styleUrl: './day-summary.component.scss'
 })
