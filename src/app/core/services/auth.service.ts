@@ -16,6 +16,7 @@ const IDLE_EXPIRY_KEY = 'trade_journal_idle_expiry';
 interface Profile {
     plan: PlanTier;
     discordId: string | null;
+    betaAccess: boolean;
 }
 
 @Injectable({
@@ -42,6 +43,13 @@ export class AuthService {
 
     /** Plan comes from the user's `profiles` row — written only server-side. */
     plan = computed((): PlanTier => this.profileSignal()?.plan ?? 'free');
+
+    /**
+     * Closed-beta access, from the user's `profiles` row (written only
+     * server-side by resolve-plan). Defaults to false until the profile
+     * loads so the beta gate fails closed. Consumed by `betaGuard`.
+     */
+    betaAccess = computed((): boolean => this.profileSignal()?.betaAccess ?? false);
 
     /** Supabase access token — sent as the bearer token to backend services. */
     authToken = computed((): string | null => this.sessionSignal()?.access_token ?? null);
@@ -155,7 +163,7 @@ export class AuthService {
     private async loadProfile(userId: string): Promise<void> {
         const { data, error } = await this.supabase
             .from('profiles')
-            .select('plan, discord_id')
+            .select('plan, discord_id, beta_access')
             .eq('id', userId)
             .single();
 
@@ -167,7 +175,8 @@ export class AuthService {
         }
         this.profileSignal.set({
             plan: data.plan as PlanTier,
-            discordId: data.discord_id ?? null
+            discordId: data.discord_id ?? null,
+            betaAccess: data.beta_access ?? false
         });
     }
 
