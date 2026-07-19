@@ -1,16 +1,7 @@
 <aside class="sidebar" [class.is-collapsed]="layout.collapsed()">
 
-    <!-- Logo / Toggle -->
+    <!-- Collapse toggle (logo now lives in the header) -->
     <div class="sidebar__logo">
-        @if (!layout.collapsed()) {
-          <img class="sidebar__logo-img" src="NVZN_Trading_logo_transparent_noshine.png" alt="NVZN" />
-<!--            <span class="sidebar__brand">NVZN Trading</span>-->
-        }
-      @if (layout.collapsed()) {
-        <img class="sidebar__logo-img" src="nvzn_logo.png" alt="NVZN" />
-
-        <!--            <span class="sidebar__brand">NVZN Trading</span>-->
-        }
         <button class="sidebar__toggle"
             (click)="layout.toggle()"
             [title]="layout.collapsed() ? 'Expand sidebar' : 'Collapse sidebar'">
