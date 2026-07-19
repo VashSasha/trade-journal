@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { provideMarkdown, MarkdownComponent } from 'ngx-markdown';
+import { MarkdownComponent } from 'ngx-markdown';
 import { TradovateService } from '../../core/services/tradovate.service';
 import { AI_GENERIC_ERROR, AI_STREAM_TIMEOUT_MS, OpenAiService } from '../../core/services/openai.service';
 
@@ -49,7 +49,6 @@ interface VerdictCard {
     selector: 'app-ai-reports',
     standalone: true,
     imports: [FormsModule, MarkdownComponent, RouterLink],
-    providers: [provideMarkdown()],
     templateUrl: './ai-reports.component.html',
     styleUrl: './ai-reports.component.scss'
 })

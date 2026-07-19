@@ -16,7 +16,11 @@ export interface MonthGroup {
 }
 
 function stripHtml(html: string): string {
-    return html.replace(/<[^>]*>/g, '').trim();
+    // Use the browser parser so tags are removed AND HTML entities are
+    // decoded (&#39; → ', &nbsp; → space) — a plain regex leaves those raw.
+    const text = new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+    // Collapse the non-breaking spaces + any run of whitespace into single spaces.
+    return text.replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 export function buildTimelineEntry(

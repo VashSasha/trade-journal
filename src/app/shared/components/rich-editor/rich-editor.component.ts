@@ -1,12 +1,13 @@
 import { Component, Input, Output, EventEmitter, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { QuillModule } from 'ngx-quill';
+import Quill from 'quill';
 
 export const QUILL_FULL_MODULES = {
     toolbar: [
         ['bold', 'italic', 'underline', 'strike'],
         [{ 'header': 1 }, { 'header': 2 }],
-        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'list': 'check' }],
         [{ 'background': [] }, { 'color': [] }],
         ['link'],
         ['clean']
@@ -17,7 +18,7 @@ export const QUILL_COMPACT_MODULES = {
     toolbar: [
         ['bold', 'italic', 'underline'],
         [{ 'header': 1 }, { 'header': 2 }],
-        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'list': 'check' }],
         ['link'],
         ['clean']
     ]
@@ -71,6 +72,7 @@ export class RichEditorComponent {
 
     onEditorCreated(quill: any): void {
         this.quillInstance.set(quill);
+        this.setupTaskListPaste(quill);
         quill.on('selection-change', (range: any) => {
             if (range && range.length > 0) {
                 this.fmt.set(quill.getFormat(range));
@@ -82,6 +84,46 @@ export class RichEditorComponent {
                 this.textColorPickerOpen.set(false);
             }
         });
+    }
+
+    /**
+     * When a Markdown task list is pasted as plain text — e.g. the AI insight's
+     * copied "action points" (`- [ ] step`) — convert it into a real Quill
+     * checklist instead of literal text, so it renders as interactive
+     * checkboxes and persists as HTML like the rest of the editor.
+     */
+    private setupTaskListPaste(quill: any): void {
+        const TASK_LINE = /^\s*[-*]\s*\[([ xX])\]\s?(.*)$/;
+
+        quill.root.addEventListener('paste', (event: ClipboardEvent) => {
+            const text = event.clipboardData?.getData('text/plain') ?? '';
+            // Only hijack the paste when it actually looks like a task list;
+            // otherwise let Quill handle it normally (preserving rich HTML).
+            if (!/^\s*[-*]\s*\[[ xX]\]/m.test(text)) return;
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+
+            const Delta = Quill.import('delta') as any;
+            const delta = new Delta();
+            for (const line of text.split(/\r?\n/)) {
+                const task = line.match(TASK_LINE);
+                if (task) {
+                    const checked = task[1].toLowerCase() === 'x';
+                    delta.insert(task[2]);
+                    delta.insert('\n', { list: checked ? 'checked' : 'unchecked' });
+                } else {
+                    delta.insert(line + '\n');
+                }
+            }
+
+            const range = quill.getSelection(true);
+            quill.updateContents(
+                new Delta().retain(range.index).delete(range.length).concat(delta),
+                'user'
+            );
+            quill.setSelection(range.index + delta.length(), 0, 'user');
+        }, true);
     }
 
     private updateToolbarPosition(): void {

@@ -167,7 +167,8 @@ html, body {
 
   /* --- Layout --- */
   .page-shell {
-    @apply min-h-full bg-slate-50 p-6 dark:bg-slate-950;
+    @apply min-h-full p-6;
+    background: transparent;
   }
 
   .page-container-xl {
@@ -359,6 +360,43 @@ html, body {
         @apply underline;
         color: var(--color-accent);
       }
+
+      /* Checklist (toolbar `list: 'check'`) — Quill renders the box as a
+         glyph in the .ql-ui element; theme it with our tokens. */
+      li[data-list='checked'] > .ql-ui::before,
+      li[data-list='unchecked'] > .ql-ui::before {
+        color: var(--color-text-secondary);
+      }
+
+      li[data-list='checked'] > .ql-ui::before {
+        color: var(--color-accent);
+      }
     }
+  }
+}
+
+/* ============================================================
+   GFM task lists rendered by ngx-markdown / marked (gfm:true)
+   marked emits:  <ul><li><input type="checkbox" disabled> text</li></ul>
+   Applies to every <markdown> surface (AI insights, reports).
+   ============================================================ */
+markdown,
+.markdown {
+  /* Drop the list bullet on rows that hold a checkbox and pull the checkbox
+     back over the bullet's indent so it aligns with the text. */
+  li:has(> input[type='checkbox']) {
+    list-style: none;
+    //margin-left: -1.25rem;
+    padding-left: 0;
+  }
+
+  /* Fallback for engines without :has() — keep the checkbox aligned even if
+     the bullet can't be removed (Electron/Chromium supports :has, so this is
+     just belt-and-suspenders for older webviews). */
+  li > input[type='checkbox'] {
+    margin: 0 0.5rem 0 0;
+    vertical-align: -0.0625rem;
+    accent-color: var(--color-accent);
+    cursor: default;
   }
 }
