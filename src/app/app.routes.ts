@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { MainLayoutComponent } from './features/layout/main-layout/main-layout';
 import { authGuard } from './core/guards/auth.guard';
 import { planGuard } from './core/guards/plan.guard';
+import { betaGuard } from './core/guards/beta.guard';
 import { guestMatchGuard } from './features/landing/guest-match.guard';
 
 export const routes: Routes = [
@@ -36,9 +37,18 @@ export const routes: Routes = [
             .then(m => m.UpgradeComponent)
     },
     {
+        // Closed-beta lock screen — logged in but not a beta tester.
+        // Only authGuard: it must stay reachable without beta access,
+        // otherwise betaGuard would redirect it to itself.
+        path: 'beta',
+        canActivate: [authGuard],
+        loadComponent: () => import('./features/beta/beta-lock.component')
+            .then(m => m.BetaLockComponent)
+    },
+    {
         path: '',
         component: MainLayoutComponent,
-        canActivate: [authGuard],
+        canActivate: [authGuard, betaGuard],
         children: [
             {
                 path: '',
