@@ -1,6 +1,8 @@
 // resolve-plan — verifies the caller's Discord guild roles and writes
-// profiles.plan. This is the ONLY writer of plan; clients have no
-// insert/update RLS policies on profiles.
+// profiles.discord_plan (one of several plan SOURCES). The effective
+// profiles.plan is derived by a DB trigger from discord_plan / billing_plan /
+// plan_override, so this function never writes plan directly and can't clobber
+// a paid billing_plan. Clients have no insert/update RLS policies on profiles.
 //
 // Secrets (set via `supabase secrets set`, never committed):
 //   SB_SECRET_KEY     — Supabase secret API key (service role equivalent)
@@ -69,14 +71,36 @@ Deno.serve(async (req) => {
   }
   const user = userData.user;
 
-  // 2. Read the Discord provider token from the body.
-  let providerToken: string | undefined;
+  // 2. Read the request body once (provider_token, or a clear request).
+  let body: {provider_token?: string; clear?: boolean} = {};
   try {
-    const body = await req.json();
-    providerToken = body?.provider_token;
+    body = await req.json();
   } catch {
-    // fall through to the check below
+    // fall through — validated below
   }
+
+  // 2a. Clear path (post-unlink): with no Discord identity left on the account,
+  // null out the Discord plan SOURCE so the DB trigger drops any Discord-derived
+  // access. This can only LOWER the caller's own plan, so it needs no provider
+  // token — just a verified JWT and the absence of a Discord identity.
+  if (body?.clear === true) {
+    const stillLinked = (user.identities ?? []).some((i) => i.provider === 'discord');
+    if (stillLinked) {
+      return json({error: 'Discord is still linked to this account'}, 409, cors);
+    }
+    const {data: cleared, error: clearError} = await admin
+      .from('profiles')
+      .update({discord_plan: null, discord_id: null, updated_at: new Date().toISOString()})
+      .eq('id', user.id)
+      .select('plan, beta_access')
+      .single();
+    if (clearError || !cleared) {
+      return json({error: 'Failed to clear Discord plan'}, 500, cors);
+    }
+    return json({plan: cleared.plan, beta_access: cleared.beta_access}, 200, cors);
+  }
+
+  const providerToken = body?.provider_token;
   if (!providerToken || typeof providerToken !== 'string') {
     return json({error: 'provider_token is required'}, 400, cors);
   }
@@ -102,7 +126,10 @@ Deno.serve(async (req) => {
     {headers: {Authorization: `Bearer ${providerToken}`}},
   );
 
-  let plan: 'free' | 'premium' | 'lifetime' = 'free';
+  // The Discord-derived plan source. null (not 'free') when the user has no
+  // qualifying role or isn't a member, so it never suppresses a paid
+  // billing_plan in the DB's effective-plan computation.
+  let discordPlan: 'premium' | 'lifetime' | null = null;
 
   // Kill switch: with no BETA_ROLE_ID configured the gate is open — every
   // authenticated Discord user (member or not) is granted beta access.
@@ -118,15 +145,16 @@ Deno.serve(async (req) => {
     }
 
     const roles: string[] = Array.isArray(member.roles) ? member.roles : [];
-    if (ROLE_ID_LIFETIME && roles.includes(ROLE_ID_LIFETIME)) plan = 'lifetime';
-    else if (ROLE_ID_MEMBER && roles.includes(ROLE_ID_MEMBER)) plan = 'premium';
+    if (ROLE_ID_LIFETIME && roles.includes(ROLE_ID_LIFETIME)) discordPlan = 'lifetime';
+    else if (ROLE_ID_MEMBER && roles.includes(ROLE_ID_MEMBER)) discordPlan = 'premium';
+    // else: member without a paid role → discordPlan stays null.
 
     // Beta gate: when a role id is configured, access requires that role.
     if (BETA_ROLE_ID) betaAccess = roles.includes(BETA_ROLE_ID);
   } else if (memberRes.status === 404) {
-    // Not a member of the guild → free, and no beta role → no access
-    // (unless the kill switch above already opened the gate).
-    plan = 'free';
+    // Not a member of the guild → no Discord-derived plan, and no beta role
+    // → no access (unless the kill switch above already opened the gate).
+    discordPlan = null;
   } else if (memberRes.status === 401 || memberRes.status === 403) {
     return json({error: 'Discord token rejected'}, 401, cors);
   } else {
@@ -136,19 +164,23 @@ Deno.serve(async (req) => {
   // 5. Privileged write — the secret-key client bypasses RLS by design here.
   // We reach this only for callers with a verified Discord identity, so we
   // never touch beta_access on manually-managed email/password rows (those
-  // have discord_id null and never invoke this function).
-  const {error: updateError} = await admin
+  // have discord_id null and never invoke this function). We write the
+  // Discord plan SOURCE and let the DB trigger derive the effective plan;
+  // reading `plan` back returns that computed value for the client.
+  const {data: updated, error: updateError} = await admin
     .from('profiles')
     .update({
-      plan,
+      discord_plan: discordPlan,
       beta_access: betaAccess,
       discord_id: expectedDiscordId,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', user.id);
-  if (updateError) {
+    .eq('id', user.id)
+    .select('plan, beta_access')
+    .single();
+  if (updateError || !updated) {
     return json({error: 'Failed to update plan'}, 500, cors);
   }
 
-  return json({plan, beta_access: betaAccess}, 200, cors);
+  return json({plan: updated.plan, beta_access: updated.beta_access}, 200, cors);
 });

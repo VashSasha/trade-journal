@@ -1,0 +1,43 @@
+<section class="acc-card">
+    <div class="acc-card__head">
+        <h2 class="acc-card__title">Plan &amp; billing</h2>
+        <p class="acc-card__desc">Your current plan and how to change it.</p>
+    </div>
+
+    <div class="plan__current">
+        <div class="plan__current-meta">
+            <span class="acc-plan-badge acc-plan-badge--{{ plan() }}">{{ plan() | titlecase }}</span>
+            @if (sourceLabel()) {
+                <span class="plan__source">via {{ sourceLabel() }}</span>
+            }
+        </div>
+    </div>
+
+    @if (!isPaid()) {
+        <!-- Free → upgrade -->
+        <div class="plan__upgrade">
+            <p class="plan__upgrade-text">Unlock analytics, the AI analyzer, and more with a paid plan.</p>
+            <div class="plan__actions">
+                <a class="acc-btn acc-btn--primary" [href]="whopUrl" target="_blank" rel="noopener">Upgrade via Whop</a>
+                <a class="acc-btn acc-btn--ghost" routerLink="/welcome" fragment="pricing">See pricing</a>
+            </div>
+        </div>
+    } @else {
+        <!-- Paid → manage -->
+        <div class="plan__manage">
+            <p class="plan__manage-text">You have full access. Manage your membership below.</p>
+            <div class="plan__actions">
+                <a class="acc-btn acc-btn--ghost" [href]="whopUrl" target="_blank" rel="noopener">Manage on Whop</a>
+            </div>
+        </div>
+    }
+
+    <!-- TODO(Phase 3 — Stripe): wire the Stripe customer portal here.
+         Replace the Whop links above with a "Manage billing" button that calls
+         a create-portal-session Edge Function and redirects to the returned
+         portal URL. Not built yet. -->
+    <div class="plan__todo">
+        <span class="plan__todo-tag">Coming soon</span>
+        <span class="plan__todo-text">Self-serve billing (Stripe customer portal) — Phase 3.</span>
+    </div>
+</section>

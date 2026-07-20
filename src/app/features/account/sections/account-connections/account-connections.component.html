@@ -1,0 +1,117 @@
+<section class="acc-card">
+    <div class="acc-card__head">
+        <h2 class="acc-card__title">Connected accounts</h2>
+        <p class="acc-card__desc">Link multiple ways to sign in to this one account.</p>
+    </div>
+
+    @if (linkError()) {
+        <p class="acc-msg acc-msg--error">{{ linkError() }}</p>
+    }
+
+    <div class="conn__list">
+
+        <!-- Discord -->
+        <div class="conn__row">
+            <div class="conn__meta">
+                <span class="conn__name">Discord</span>
+                <span class="conn__status" [class.conn__status--on]="isConnected('discord')">
+                    {{ isConnected('discord') ? 'Connected' : 'Not connected' }}
+                </span>
+            </div>
+            @if (isConnected('discord')) {
+                <button class="acc-btn acc-btn--ghost"
+                        [disabled]="isOnlyIdentity() || busyProvider() === 'discord'"
+                        [title]="isOnlyIdentity() ? 'You can\'t remove your only sign-in method' : 'Unlink Discord'"
+                        (click)="unlink('discord')">
+                    {{ busyProvider() === 'discord' ? 'Working…' : 'Unlink' }}
+                </button>
+            } @else {
+                <button class="acc-btn acc-btn--primary"
+                        [disabled]="busyProvider() === 'discord'"
+                        (click)="link('discord')">
+                    {{ busyProvider() === 'discord' ? 'Redirecting…' : 'Link Discord' }}
+                </button>
+            }
+        </div>
+
+        <!-- Google -->
+        <div class="conn__row">
+            <div class="conn__meta">
+                <span class="conn__name">Google</span>
+                <span class="conn__status" [class.conn__status--on]="isConnected('google')">
+                    {{ isConnected('google') ? 'Connected' : 'Not connected' }}
+                </span>
+            </div>
+            @if (isConnected('google')) {
+                <button class="acc-btn acc-btn--ghost"
+                        [disabled]="isOnlyIdentity() || busyProvider() === 'google'"
+                        [title]="isOnlyIdentity() ? 'You can\'t remove your only sign-in method' : 'Unlink Google'"
+                        (click)="unlink('google')">
+                    {{ busyProvider() === 'google' ? 'Working…' : 'Unlink' }}
+                </button>
+            } @else {
+                <button class="acc-btn acc-btn--primary"
+                        [disabled]="busyProvider() === 'google'"
+                        (click)="link('google')">
+                    {{ busyProvider() === 'google' ? 'Redirecting…' : 'Link Google' }}
+                </button>
+            }
+        </div>
+
+        <!-- Email / password -->
+        <div class="conn__row">
+            <div class="conn__meta">
+                <span class="conn__name">Email &amp; password</span>
+                <span class="conn__status" [class.conn__status--on]="hasEmailPassword()">
+                    {{ hasEmailPassword() ? 'Enabled' : 'Not set' }}
+                </span>
+            </div>
+            @if (hasEmailPassword()) {
+                <button class="acc-btn acc-btn--ghost"
+                        [disabled]="isOnlyIdentity() || busyProvider() === 'email'"
+                        [title]="isOnlyIdentity() ? 'You can\'t remove your only sign-in method' : 'Remove password sign-in'"
+                        (click)="unlink('email')">
+                    {{ busyProvider() === 'email' ? 'Working…' : 'Remove' }}
+                </button>
+            } @else if (!showEmailForm()) {
+                <button class="acc-btn acc-btn--ghost" (click)="showEmailForm.set(true)">
+                    Add email &amp; password
+                </button>
+            }
+        </div>
+
+        @if (emailSuccess()) {
+            <p class="acc-msg acc-msg--success">
+                Password added. If you set a new email, check your inbox to confirm it.
+            </p>
+        }
+
+        @if (showEmailForm() && !hasEmailPassword()) {
+            <div class="conn__email-form">
+                <div class="acc-field">
+                    <label class="acc-field__label" for="conn-email">Email <span class="conn__hint">(optional — keeps your current email if blank)</span></label>
+                    <input id="conn-email" class="acc-input" type="email" autocomplete="email"
+                           [ngModel]="emailInput()" (ngModelChange)="emailInput.set($event)"
+                           placeholder="you@example.com" />
+                </div>
+                <div class="acc-field">
+                    <label class="acc-field__label" for="conn-password">New password</label>
+                    <input id="conn-password" class="acc-input" type="password" autocomplete="new-password"
+                           [ngModel]="passwordInput()" (ngModelChange)="passwordInput.set($event)"
+                           placeholder="At least 8 characters" />
+                </div>
+                @if (emailError()) {
+                    <p class="acc-msg acc-msg--error">{{ emailError() }}</p>
+                }
+                <div class="conn__email-actions">
+                    <button class="acc-btn acc-btn--primary" (click)="addEmailPassword()" [disabled]="emailBusy()">
+                        {{ emailBusy() ? 'Saving…' : 'Save password' }}
+                    </button>
+                    <button class="acc-btn acc-btn--ghost" (click)="showEmailForm.set(false)" [disabled]="emailBusy()">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</section>

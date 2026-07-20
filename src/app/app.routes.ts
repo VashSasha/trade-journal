@@ -113,6 +113,12 @@ export const routes: Routes = [
                 loadChildren: () => import('./features/integrations/integrations.routes')
                     .then(m => m.INTEGRATION_ROUTES)
             },
+            {
+                // authGuard is already applied by the parent shell.
+                path: 'account',
+                loadComponent: () => import('./features/account/account.component')
+                    .then(m => m.AccountComponent)
+            },
         ]
     }
 ];

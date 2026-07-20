@@ -1,0 +1,55 @@
+@use '../account-ui';
+
+:host { display: block; }
+
+.acc-card--danger {
+    border-color: color-mix(in srgb, var(--color-negative) 35%, var(--color-border));
+}
+
+.danger {
+    &__row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    &__meta {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    &__name {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+    }
+
+    &__hint {
+        font-size: 0.8125rem;
+        color: var(--color-text-muted);
+        max-width: 42ch;
+    }
+
+    &__divider {
+        height: 1px;
+        border: none;
+        background: var(--color-border);
+        margin: 18px 0;
+    }
+
+    &__confirm {
+        margin-top: 16px;
+        padding: 16px;
+        border: 1px solid color-mix(in srgb, var(--color-negative) 35%, transparent);
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--color-negative) 6%, var(--color-bg-surface));
+    }
+
+    &__confirm-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 12px;
+    }
+}

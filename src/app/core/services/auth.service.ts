@@ -116,6 +116,18 @@ export class AuthService {
         if (error) throw new Error(error.message);
     }
 
+    /** Redirects to Google OAuth — mirrors loginWithDiscord for non-Discord signups. */
+    async loginWithGoogle(returnUrl?: string): Promise<void> {
+        const redirectTo = new URL('/auth/callback', window.location.origin);
+        if (returnUrl) redirectTo.searchParams.set('returnUrl', returnUrl);
+
+        const { error } = await this.supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: redirectTo.toString() }
+        });
+        if (error) throw new Error(error.message);
+    }
+
     /**
      * Ask the resolve-plan Edge Function to verify Discord roles and update
      * the profile. Called from the OAuth callback with the Discord provider
@@ -126,6 +138,19 @@ export class AuthService {
             body: { provider_token: providerToken }
         });
         if (error) throw new Error(`Plan resolution failed: ${error.message}`);
+        await this.refreshProfile();
+    }
+
+    /**
+     * Clear the Discord plan source after the user unlinks Discord. The Edge
+     * Function nulls discord_plan/discord_id (only if no Discord identity
+     * remains), then we refresh so the derived plan display updates.
+     */
+    async clearDiscordPlan(): Promise<void> {
+        const { error } = await this.supabase.functions.invoke('resolve-plan', {
+            body: { clear: true }
+        });
+        if (error) throw new Error(`Failed to clear Discord plan: ${error.message}`);
         await this.refreshProfile();
     }
 

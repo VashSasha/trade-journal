@@ -25,6 +25,7 @@ export class LoginComponent {
     errorMessage = signal<string | null>(null);
     isLoading = signal(false);
     isDiscordLoading = signal(false);
+    isGoogleLoading = signal(false);
 
     /** Email login (Supabase password auth) is dev-only; production is Discord-only. */
     readonly emailAuthEnabled = isDevMode();
@@ -49,6 +50,19 @@ export class LoginComponent {
         } catch (err: any) {
             this.errorMessage.set(err.message || 'Discord login failed. Please try again.');
             this.isDiscordLoading.set(false);
+        }
+    }
+
+    async loginWithGoogle(): Promise<void> {
+        this.isGoogleLoading.set(true);
+        this.errorMessage.set(null);
+        try {
+            // Redirects to Google; /auth/callback handles the return trip.
+            const returnUrl = this.route.snapshot.queryParams['returnUrl'];
+            await this.authService.loginWithGoogle(returnUrl);
+        } catch (err: any) {
+            this.errorMessage.set(err.message || 'Google login failed. Please try again.');
+            this.isGoogleLoading.set(false);
         }
     }
 

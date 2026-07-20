@@ -1,0 +1,56 @@
+<section class="acc-card acc-card--danger">
+    <div class="acc-card__head">
+        <h2 class="acc-card__title">Danger zone</h2>
+        <p class="acc-card__desc">Irreversible and destructive actions.</p>
+    </div>
+
+    <!-- Sign out everywhere -->
+    <div class="danger__row">
+        <div class="danger__meta">
+            <span class="danger__name">Sign out everywhere</span>
+            <span class="danger__hint">End every active session on all devices.</span>
+        </div>
+        <button class="acc-btn acc-btn--ghost" (click)="signOutEverywhere()" [disabled]="signingOut()">
+            {{ signingOut() ? 'Signing out…' : 'Sign out everywhere' }}
+        </button>
+    </div>
+
+    <hr class="danger__divider" />
+
+    <!-- Delete account -->
+    <div class="danger__row">
+        <div class="danger__meta">
+            <span class="danger__name">Delete account</span>
+            <span class="danger__hint">Permanently deletes your account and all your data. This cannot be undone.</span>
+        </div>
+        @if (!showDelete()) {
+            <button class="acc-btn acc-btn--danger" (click)="showDelete.set(true)">Delete account</button>
+        }
+    </div>
+
+    @if (showDelete()) {
+        <div class="danger__confirm">
+            <label class="acc-field__label" for="danger-confirm">
+                Type <strong>DELETE</strong> to confirm
+            </label>
+            <input id="danger-confirm" class="acc-input" type="text" autocomplete="off"
+                   [ngModel]="confirmText()" (ngModelChange)="confirmText.set($event)"
+                   placeholder="DELETE" />
+
+            @if (deleteError()) {
+                <p class="acc-msg acc-msg--error">{{ deleteError() }}</p>
+            }
+
+            <div class="danger__confirm-actions">
+                <button class="acc-btn acc-btn--danger"
+                        [disabled]="!canDelete() || deleting()"
+                        (click)="deleteAccount()">
+                    {{ deleting() ? 'Deleting…' : 'Permanently delete' }}
+                </button>
+                <button class="acc-btn acc-btn--ghost" (click)="showDelete.set(false)" [disabled]="deleting()">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    }
+</section>
