@@ -1,4 +1,8 @@
 <div class="account-page">
+    @if (toast(); as t) {
+        <div class="account-toast account-toast--{{ t.kind }}" role="status">{{ t.text }}</div>
+    }
+
     <header class="account-page__header">
         <h1 class="account-page__title">Account</h1>
         <p class="account-page__subtitle">Manage your profile, sign-in methods, plan, and preferences.</p>

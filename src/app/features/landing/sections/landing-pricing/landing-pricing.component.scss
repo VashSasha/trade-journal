@@ -149,6 +149,28 @@
             box-shadow: 0 12px 32px var(--color-accent-subtle);
         }
 
+        &--ghost {
+            background: transparent;
+            color: var(--color-accent);
+            border: 1px solid var(--color-accent);
+            box-shadow: none;
+
+            &:hover {
+                background: var(--color-accent-subtle);
+                box-shadow: none;
+            }
+        }
+
+        &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+
+            &:hover {
+                transform: none;
+                box-shadow: none;
+            }
+        }
+
         &--disabled {
             border: 1px solid var(--color-border);
             background: var(--color-bg-surface-2);
@@ -162,6 +184,25 @@
                 box-shadow: none;
             }
         }
+    }
+
+    &__buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+
+        // Subscribe buttons stack full-width inside the journal-only card.
+        .pricing-card__cta {
+            width: 100%;
+            cursor: pointer;
+        }
+    }
+
+    &__error {
+        margin-top: 0.75rem;
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--color-negative);
     }
 
     &__note {

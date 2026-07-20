@@ -27,6 +27,26 @@
     }
 }
 
+.account-toast {
+    margin-bottom: 20px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--color-border);
+    font-size: 0.875rem;
+    font-weight: 600;
+
+    &--success {
+        border-color: color-mix(in srgb, var(--color-positive) 45%, transparent);
+        background: var(--color-positive-subtle);
+        color: var(--color-positive);
+    }
+
+    &--info {
+        background: var(--color-bg-surface-2);
+        color: var(--color-text-secondary);
+    }
+}
+
 @media (max-width: 600px) {
     .account-page {
         padding: 24px 16px 48px;
