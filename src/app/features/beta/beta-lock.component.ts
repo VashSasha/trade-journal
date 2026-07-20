@@ -18,8 +18,8 @@ export class BetaLockComponent {
     private authService = inject(AuthService);
     private router = inject(Router);
 
-    /** Placeholder invite — replace with the real NVZN Trading Discord link. */
-    readonly discordInviteUrl = 'https://discord.gg/nvzn';
+    /** Whop membership — grants the Discord role that unlocks access. */
+    readonly whopJoinUrl = 'https://whop.com/nvzn-trading/monthly-trading-access?a=sasha-vash';
 
     logout(): void {
         this.authService.logout();

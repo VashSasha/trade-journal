@@ -14,10 +14,12 @@
                     (click)="analysisMode.set('screenshot')">
                 📸 Screenshot Analysis
             </button>
-            <button class="air-mode-toggle__btn"
-                    [class.air-mode-toggle__btn--active]="analysisMode() === 'live'"
-                    (click)="analysisMode.set('live')">
+            <button class="air-mode-toggle__btn air-mode-toggle__btn--soon"
+                    type="button"
+                    disabled
+                    title="Live data analysis is coming soon">
                 📊 Live Data
+                <span class="air-mode-toggle__badge">Soon</span>
             </button>
         </div>
 
