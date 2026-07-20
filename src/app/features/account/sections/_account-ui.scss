@@ -1,0 +1,135 @@
+// Shared chrome for the Account sections. @use-d (not imported) by each
+// section's SCSS so Angular scopes these rules per component. Tokens only.
+
+.acc-card {
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    padding: 22px 24px;
+}
+
+.acc-card__head {
+    margin-bottom: 18px;
+}
+
+.acc-card__title {
+    margin: 0 0 4px;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+}
+
+.acc-card__desc {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+}
+
+.acc-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.acc-field__label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
+.acc-input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 9px;
+    background: var(--color-bg-surface-2);
+    color: var(--color-text-primary);
+    font-size: 0.9375rem;
+
+    &:focus {
+        outline: none;
+        border-color: var(--color-accent);
+    }
+
+    &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+}
+
+.acc-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 8px 16px;
+    border-radius: 9px;
+    border: 1px solid var(--color-border);
+    background: transparent;
+    color: var(--color-text-primary);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s, opacity 0.12s;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    &--primary {
+        border-color: var(--color-accent);
+        background: var(--color-accent);
+        color: #fff;
+
+        &:hover:not(:disabled) { background: var(--color-accent-hover); }
+    }
+
+    &--ghost:hover:not(:disabled) {
+        border-color: var(--color-accent);
+        color: var(--color-accent);
+        background: var(--color-accent-subtle);
+    }
+
+    &--danger {
+        border-color: color-mix(in srgb, var(--color-negative) 45%, transparent);
+        color: var(--color-negative);
+
+        &:hover:not(:disabled) {
+            background: var(--color-negative);
+            color: #fff;
+        }
+    }
+}
+
+.acc-msg {
+    margin: 10px 0 0;
+    font-size: 0.8125rem;
+
+    &--error { color: var(--color-negative); }
+    &--success { color: var(--color-positive); }
+}
+
+.acc-plan-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--color-accent-subtle);
+    color: var(--color-accent);
+
+    &--free {
+        background: var(--color-bg-surface-3);
+        color: var(--color-text-secondary);
+    }
+
+    &--lifetime {
+        background: color-mix(in srgb, var(--color-plan-lifetime) 18%, transparent);
+        color: var(--color-plan-lifetime);
+    }
+}

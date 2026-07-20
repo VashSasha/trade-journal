@@ -1,0 +1,45 @@
+<section class="acc-card">
+    <div class="acc-card__head">
+        <h2 class="acc-card__title">Profile</h2>
+        <p class="acc-card__desc">Your name and account details.</p>
+    </div>
+
+    @if (user(); as u) {
+        <div class="prof__identity">
+            @if (u.avatar) {
+                <img class="prof__avatar prof__avatar--img" [src]="u.avatar" [alt]="u.name" />
+            } @else {
+                <div class="prof__avatar">{{ u.initials }}</div>
+            }
+            <div class="prof__identity-meta">
+                <span class="prof__name">{{ u.name }}</span>
+                <span class="acc-plan-badge acc-plan-badge--{{ u.plan }}">{{ u.plan | titlecase }}</span>
+            </div>
+        </div>
+
+        <div class="acc-field">
+            <label class="acc-field__label" for="prof-name">Display name</label>
+            <input id="prof-name" class="acc-input" type="text" maxlength="60"
+                   [ngModel]="displayName()" (ngModelChange)="displayName.set($event)"
+                   placeholder="How your name appears in the app" />
+        </div>
+
+        <div class="acc-field">
+            <label class="acc-field__label" for="prof-email">Email</label>
+            <input id="prof-email" class="acc-input" type="email" [value]="u.email" disabled />
+        </div>
+
+        <div class="prof__actions">
+            <button class="acc-btn acc-btn--primary" (click)="save()" [disabled]="saving()">
+                {{ saving() ? 'Saving…' : 'Save changes' }}
+            </button>
+            @if (saved()) {
+                <span class="acc-msg acc-msg--success">✓ Saved</span>
+            }
+        </div>
+
+        @if (saveError()) {
+            <p class="acc-msg acc-msg--error">{{ saveError() }}</p>
+        }
+    }
+</section>

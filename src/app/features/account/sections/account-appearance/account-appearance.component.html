@@ -1,0 +1,23 @@
+<section class="acc-card">
+    <div class="acc-card__head">
+        <h2 class="acc-card__title">Appearance</h2>
+        <p class="acc-card__desc">Choose how NVZN Journal looks.</p>
+    </div>
+
+    <div class="appear__row">
+        <div class="appear__meta">
+            <span class="appear__name">Dark mode</span>
+            <span class="appear__hint">{{ theme.isDark() ? 'On' : 'Off' }}</span>
+        </div>
+
+        <button class="appear__switch" role="switch" [class.is-on]="theme.isDark()"
+                [attr.aria-checked]="theme.isDark()" aria-label="Toggle dark mode"
+                (click)="theme.toggle()">
+            <span class="appear__switch-knob"></span>
+        </button>
+    </div>
+
+    <button class="acc-btn acc-btn--ghost appear__system" (click)="theme.resetToSystem()">
+        Use system preference
+    </button>
+</section>
