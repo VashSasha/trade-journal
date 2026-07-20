@@ -129,3 +129,71 @@ supabase secrets set \
 - Rejects requests without a valid Supabase JWT (401).
 - Deletes the token's own user id; cascades remove all their data.
 - Returns `{ "deleted": true }`.
+
+## Stripe billing (Phase 3)
+
+Three functions power the journal-only subscription (the `premium` tier). They
+run against Stripe **TEST mode** and use the Stripe SDK via `npm:stripe`, pinned
+to a fixed `apiVersion`. The subscription entitlement is written **only** by the
+webhook: it sets `profiles.billing_plan = 'premium'` while a subscription is
+active/trialing and back to `null` otherwise, then the `0007` trigger derives
+the effective `profiles.plan`. It never touches `plan_override` and never writes
+`plan` directly. Billing state also lives in the `billing` table (see migration
+`0009_billing.sql`) — service-role writes only, owners can SELECT their own row.
+
+### create-checkout
+
+Verifies the caller's JWT, maps `{ interval: 'monthly' | 'annual' }` to a
+server-side Stripe price id (amounts are never client-supplied), reuses/creates
+the user's Stripe customer, and returns a Checkout Session `{ url }`.
+
+### stripe-webhook
+
+Stripe's callback — **deploy with `--no-verify-jwt`** (the caller is Stripe, not
+a logged-in user). Authenticity comes from verifying the Stripe signature over
+the raw body with `constructEventAsync`; invalid signatures are rejected (400).
+Handles `checkout.session.completed`, `customer.subscription.updated`, and
+`customer.subscription.deleted`; upserts the `billing` row and flips
+`profiles.billing_plan` via the service-role client.
+
+### create-portal-session
+
+Verifies the caller's JWT, looks up their `stripe_customer_id`, and returns a
+Stripe Billing Portal `{ url }` (return_url `${APP_ORIGIN}/account`) so users can
+update or cancel their own subscription.
+
+### Deploy
+
+```bash
+supabase functions deploy create-checkout --project-ref elbcjsewyqptrckdydha
+supabase functions deploy create-portal-session --project-ref elbcjsewyqptrckdydha
+# Webhook is unauthenticated (Stripe signs it) — skip JWT verification:
+supabase functions deploy stripe-webhook --no-verify-jwt --project-ref elbcjsewyqptrckdydha
+```
+
+Then, in the Stripe dashboard, add a webhook endpoint pointing at the deployed
+`stripe-webhook` URL, subscribed to `checkout.session.completed`,
+`customer.subscription.updated`, and `customer.subscription.deleted`. Copy its
+signing secret into `STRIPE_WEBHOOK_SECRET`.
+
+### Secrets
+
+Placeholder values shown — substitute your real TEST-mode values locally, never
+commit them:
+
+```bash
+supabase secrets set \
+  STRIPE_SECRET_KEY=sk_test_... \
+  STRIPE_WEBHOOK_SECRET=whsec_... \
+  STRIPE_PRICE_MONTHLY=price_... \
+  STRIPE_PRICE_ANNUAL=price_...
+```
+
+| Secret | Purpose |
+|---|---|
+| `STRIPE_SECRET_KEY` | Stripe TEST secret key — every Stripe API call (all three functions) |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret for the webhook endpoint — verifies Stripe's signature (`stripe-webhook`) |
+| `STRIPE_PRICE_MONTHLY` | Stripe price id for the monthly plan (`create-checkout`) |
+| `STRIPE_PRICE_ANNUAL` | Stripe price id for the annual plan (`create-checkout`) |
+| `SB_SECRET_KEY` | Shared — validates JWTs and performs service-role writes to `billing` / `profiles` |
+| `APP_ORIGIN` | Shared — CORS + Checkout success/cancel and portal return URLs (localhost:4200 always allowed) |
