@@ -49,6 +49,31 @@
         border-color: var(--color-accent);
         color: var(--color-accent);
     }
+
+    &--soon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        cursor: not-allowed;
+        opacity: 0.55;
+
+        &:hover {
+            background: var(--color-bg-surface);
+            color: var(--color-text-secondary);
+        }
+    }
+}
+
+.air-mode-toggle__badge {
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    background: var(--color-accent-subtle);
+    color: var(--color-accent);
 }
 
 // ── Config Card ───────────────────────────────────────────────────────────────

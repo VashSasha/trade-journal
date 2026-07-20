@@ -182,7 +182,8 @@ Deno.serve(async (req) => {
     }
     const user = userData.user;
 
-    // 2. Server-side plan gate: AI reports are a lifetime-tier feature.
+    // 2. Server-side plan gate: AI reports are a paid feature. Premium and
+    //    lifetime share the same feature set, so both are allowed.
     const { data: profile, error: profileError } = await admin
         .from('profiles')
         .select('plan')
@@ -191,9 +192,9 @@ Deno.serve(async (req) => {
     if (profileError || !profile) {
         return json({ error: 'Profile not found' }, 404, cors);
     }
-    if (profile.plan !== 'lifetime') {
+    if (profile.plan !== 'premium' && profile.plan !== 'lifetime') {
         return json(
-            { error: 'AI reports require the Lifetime plan. Upgrade to unlock this feature.' },
+            { error: 'AI reports require a paid plan. Upgrade to unlock this feature.' },
             403,
             cors,
         );
