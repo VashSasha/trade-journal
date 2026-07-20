@@ -11,33 +11,52 @@
                 <span class="plan__source">via {{ sourceLabel() }}</span>
             }
         </div>
+        @if (hasStripeSub() && billingRecord()?.currentPeriodEnd) {
+            <p class="plan__renews">
+                @if (billingRecord()?.status === 'trialing') { Trial ends } @else { Renews }
+                on {{ billingRecord()?.currentPeriodEnd | date:'mediumDate' }}
+            </p>
+        }
     </div>
 
-    @if (!isPaid()) {
-        <!-- Free → upgrade -->
-        <div class="plan__upgrade">
-            <p class="plan__upgrade-text">Unlock analytics, the AI analyzer, and more with a paid plan.</p>
+    @if (hasStripeSub()) {
+        <!-- Active Stripe subscription → self-serve portal -->
+        <div class="plan__manage">
+            <p class="plan__manage-text">Update your payment method or cancel your subscription any time.</p>
             <div class="plan__actions">
-                <a class="acc-btn acc-btn--primary" [href]="whopUrl" target="_blank" rel="noopener">Upgrade via Whop</a>
-                <a class="acc-btn acc-btn--ghost" routerLink="/welcome" fragment="pricing">See pricing</a>
+                <button class="acc-btn acc-btn--primary" type="button"
+                        (click)="manageSubscription()" [disabled]="portalBusy()">
+                    {{ portalBusy() ? 'Opening…' : 'Manage subscription' }}
+                </button>
             </div>
         </div>
-    } @else {
-        <!-- Paid → manage -->
+    } @else if (isPaid()) {
+        <!-- Premium/lifetime via Discord or admin override → not a Stripe sub -->
         <div class="plan__manage">
             <p class="plan__manage-text">You have full access. Manage your membership below.</p>
             <div class="plan__actions">
                 <a class="acc-btn acc-btn--ghost" [href]="whopUrl" target="_blank" rel="noopener">Manage on Whop</a>
             </div>
         </div>
+    } @else {
+        <!-- Free and not premium via Discord → subscribe to the journal-only plan -->
+        <div class="plan__upgrade">
+            <p class="plan__upgrade-text">Subscribe to unlock analytics, the AI analyzer, and more.</p>
+            <div class="plan__actions">
+                <button class="acc-btn acc-btn--primary" type="button"
+                        (click)="subscribe('monthly')" [disabled]="checkoutBusy() !== null">
+                    {{ checkoutBusy() === 'monthly' ? 'Redirecting…' : 'Subscribe monthly' }}
+                </button>
+                <button class="acc-btn acc-btn--ghost" type="button"
+                        (click)="subscribe('annual')" [disabled]="checkoutBusy() !== null">
+                    {{ checkoutBusy() === 'annual' ? 'Redirecting…' : 'Subscribe annually' }}
+                </button>
+                <a class="acc-btn acc-btn--ghost" routerLink="/welcome" fragment="pricing">See pricing</a>
+            </div>
+        </div>
     }
 
-    <!-- TODO(Phase 3 — Stripe): wire the Stripe customer portal here.
-         Replace the Whop links above with a "Manage billing" button that calls
-         a create-portal-session Edge Function and redirects to the returned
-         portal URL. Not built yet. -->
-    <div class="plan__todo">
-        <span class="plan__todo-tag">Coming soon</span>
-        <span class="plan__todo-text">Self-serve billing (Stripe customer portal) — Phase 3.</span>
-    </div>
+    @if (billingError()) {
+        <p class="acc-msg acc-msg--error">{{ billingError() }}</p>
+    }
 </section>

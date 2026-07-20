@@ -18,6 +18,12 @@
         color: var(--color-text-secondary);
     }
 
+    &__renews {
+        margin: 8px 0 0;
+        font-size: 0.8125rem;
+        color: var(--color-text-secondary);
+    }
+
     &__upgrade-text,
     &__manage-text {
         margin: 0 0 12px;
@@ -32,33 +38,5 @@
 
         // Anchors styled as buttons — keep them un-underlined.
         a { text-decoration: none; }
-    }
-
-    &__todo {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-top: 18px;
-        padding: 12px 14px;
-        border: 1px dashed var(--color-border);
-        border-radius: 10px;
-        background: var(--color-bg-surface-2);
-    }
-
-    &__todo-tag {
-        flex-shrink: 0;
-        padding: 2px 9px;
-        border-radius: 999px;
-        font-size: 0.6875rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        background: color-mix(in srgb, var(--color-warning) 20%, transparent);
-        color: var(--color-warning);
-    }
-
-    &__todo-text {
-        font-size: 0.8125rem;
-        color: var(--color-text-secondary);
     }
 }

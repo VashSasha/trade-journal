@@ -28,8 +28,7 @@
                 <p class="pricing-card__note">Billed via Whop · Cancel anytime</p>
             </article>
 
-            <article class="pricing-card pricing-card--muted" appRevealOnScroll>
-                <span class="pricing-card__badge pricing-card__badge--soon">Coming soon</span>
+            <article class="pricing-card" appRevealOnScroll>
                 <h3 class="pricing-card__name">Journal Only</h3>
                 <p class="pricing-card__copy">
                     A standalone journal subscription — no Discord group.
@@ -39,12 +38,26 @@
                         <li>{{ feature }}</li>
                     }
                 </ul>
-                <!-- When this plan launches, swap the button for:
-                     <a class="pricing-card__cta" href="<whop-url>" target="_blank" rel="noopener">…</a> -->
-                <button class="pricing-card__cta pricing-card__cta--disabled" type="button" disabled aria-disabled="true">
-                    Coming soon
-                </button>
-                <p class="pricing-card__note">Not available yet</p>
+                <div class="pricing-card__buttons">
+                    <button
+                        class="pricing-card__cta"
+                        type="button"
+                        (click)="subscribe('monthly')"
+                        [disabled]="checkoutBusy() !== null">
+                        {{ checkoutBusy() === 'monthly' ? 'Redirecting…' : 'Subscribe monthly' }}
+                    </button>
+                    <button
+                        class="pricing-card__cta pricing-card__cta--ghost"
+                        type="button"
+                        (click)="subscribe('annual')"
+                        [disabled]="checkoutBusy() !== null">
+                        {{ checkoutBusy() === 'annual' ? 'Redirecting…' : 'Subscribe annually' }}
+                    </button>
+                </div>
+                @if (checkoutError()) {
+                    <p class="pricing-card__error">{{ checkoutError() }}</p>
+                }
+                <p class="pricing-card__note">Billed via Stripe · Cancel anytime</p>
             </article>
         </div>
     </div>
