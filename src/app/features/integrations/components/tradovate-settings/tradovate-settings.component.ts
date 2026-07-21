@@ -129,6 +129,7 @@ export class TradovateSettingsComponent {
                 this.isSaved.set(true);
                 this.configForm.reset();
                 this.loadAccountsForConnection(connectionId);
+                void this.fullSync();
                 setTimeout(() => this.isSaved.set(false), 3000);
             },
             error: (err) => {

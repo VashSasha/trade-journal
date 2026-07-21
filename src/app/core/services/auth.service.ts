@@ -64,7 +64,7 @@ export class AuthService {
                 localStorage.removeItem(IDLE_EXPIRY_KEY);
                 return;
             }
-            if (event === 'SIGNED_IN') {
+            if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
                 this.refreshSessionExpiry();
                 // Defer Supabase calls out of the auth callback (supabase-js
                 // serializes calls made inside onAuthStateChange).
@@ -81,7 +81,7 @@ export class AuthService {
         // idle window lapsed while the app was closed is signed out, not resumed.
         const idleExpiry = this.storedSessionExpiry();
         if (idleExpiry !== null && Date.now() > idleExpiry) {
-            await this.supabase.auth.signOut();
+            await this.supabase.auth.signOut({ scope: 'local' });
             return;
         }
 
