@@ -20,8 +20,14 @@ export const betaGuard: CanActivateFn = async () => {
 
     if (!environment.betaGate) return true;
 
-    // Profile (beta_access) loads async on session restore.
+    // Profile (beta_access, plan) loads async on session restore.
     await auth.authReady;
 
-    return auth.betaAccess() || router.createUrlTree(['/beta']);
+    // Beta testers get in via beta_access; paying customers get in via their
+    // plan (a subscription is a valid way through the gate, so the paid funnel
+    // isn't blocked). Everyone else is bounced to the /beta screen, which
+    // offers the ways to gain access (join / subscribe).
+    const hasAccess = auth.betaAccess() || auth.plan() !== 'free';
+
+    return hasAccess || router.createUrlTree(['/beta']);
 };

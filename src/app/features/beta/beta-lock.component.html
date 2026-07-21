@@ -9,10 +9,31 @@
         <h1 class="beta-lock__title">NVZN Journal is in closed beta</h1>
 
         <p class="beta-lock__copy">
-            Access is currently limited to members. Join NVZN Trading to unlock the
-            journal — membership grants your access role automatically. Once you're in,
-            log back in here.
+            Unlock the journal by subscribing directly, or join NVZN Trading —
+            membership grants your access automatically.
         </p>
+
+        <!-- Subscribe directly (Stripe) -->
+        <div class="beta-lock__subscribe">
+            <button class="beta-lock__sub-btn"
+                    type="button"
+                    [disabled]="checkoutLoading() !== null"
+                    (click)="subscribe('monthly')">
+                {{ checkoutLoading() === 'monthly' ? 'Starting…' : 'Subscribe monthly' }}
+            </button>
+            <button class="beta-lock__sub-btn beta-lock__sub-btn--ghost"
+                    type="button"
+                    [disabled]="checkoutLoading() !== null"
+                    (click)="subscribe('annual')">
+                {{ checkoutLoading() === 'annual' ? 'Starting…' : 'Subscribe yearly' }}
+            </button>
+        </div>
+
+        @if (checkoutError()) {
+            <p class="beta-lock__error">{{ checkoutError() }}</p>
+        }
+
+        <div class="beta-lock__divider"><span>or</span></div>
 
         <a class="beta-lock__discord" [href]="whopJoinUrl" target="_blank" rel="noopener">
             Join NVZN Trading
