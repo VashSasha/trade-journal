@@ -113,112 +113,126 @@
     [date]="date"
     context="journal">
 </app-share-pnl>
+}
 
-@if (openAiService.hasApiKey()) {
+<!-- AI Insight — always rendered. With trades: the hero CTA and its
+     streaming/complete/error states. Without trades: a disabled variant that
+     never calls the AI. The real plan gate is enforced server-side by the
+     ai-report Edge Function (no client key exists anymore). -->
 <div class="ds-insight">
 
-    @if (insightState().status === 'idle') {
-        <button class="ds-insight__trigger" (click)="generateInsight()">
-            ✨ Get AI insight for today
-        </button>
-    }
-
-    @if (insightState().status === 'streaming') {
-        <div class="ds-working-panel">
-            <span class="ds-working-panel__label">Analyzing</span>
-            <div class="ds-working-panel__steps">
-                @for (step of activeInsightSteps(); track step; let last = $last) {
-                    <div class="ds-working-step" [class.ds-working-step--active]="last">
-                        <span class="ds-working-step__dot"></span>
-                        <span class="ds-working-step__text">{{ step }}</span>
-                    </div>
-                }
-            </div>
+    @if (trades.length === 0) {
+        <div class="ds-ai-cta ds-ai-cta--disabled" aria-disabled="true">
+            <span class="ds-ai-cta__icon" aria-hidden="true">✨</span>
+            <span class="ds-ai-cta__text">
+                <span class="ds-ai-cta__title">Today's AI insight</span>
+                <span class="ds-ai-cta__subtitle">Log at least one trade today to unlock your AI insight.</span>
+            </span>
         </div>
-    }
+    } @else {
 
-    @if (insightState().status === 'complete') {
-        <div class="ds-insight-panel">
-            <span class="ds-insight-panel__label">AI Insight</span>
-            <div class="ds-insight-panel__body">
-                <markdown [data]="insightState().content"></markdown>
-            </div>
-            @if (actionPoints().length > 0) {
-                <button class="ds-insight-copy" (click)="copyActionPoints()">
-                    {{ copiedActionPoints() ? '✓ Copied to clipboard' : '📋 Copy action points for tomorrow' }}
-                </button>
-            }
+        @if (insightState().status === 'idle') {
+            <button class="ds-ai-cta" type="button" (click)="generateInsight()">
+                <span class="ds-ai-cta__icon" aria-hidden="true">✨</span>
+                <span class="ds-ai-cta__text">
+                    <span class="ds-ai-cta__title">Get today's AI insight</span>
+                    <span class="ds-ai-cta__subtitle">Personalized coaching on today's trades — patterns, mistakes, and what to fix tomorrow.</span>
+                </span>
+                <span class="ds-ai-cta__arrow" aria-hidden="true">→</span>
+            </button>
+        }
 
-            <!-- Save analysis -->
-            @if (aiSaveError()) {
-                <div class="ds-insight__error-card ds-insight__error-card--inline">
-                    <svg class="ds-insight__error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-                    </svg>
-                    <span class="ds-insight__error-msg">{{ aiSaveError() }}</span>
-                    <button class="ds-insight__error-retry" (click)="saveInsight()">Try again</button>
-                </div>
-            } @else {
-                <button class="ds-insight-save"
-                        [class.is-saved]="insightSaved()"
-                        [disabled]="aiSaving() || insightSaved()"
-                        (click)="saveInsight()">
-                    @if (aiSaving()) {
-                        Saving…
-                    } @else if (insightSaved()) {
-                        ✓ Saved
-                    } @else {
-                        💾 Save analysis
-                    }
-                </button>
-            }
-
-            @if (followUpInsight().status === 'idle') {
-                <div class="ds-insight-panel__chips">
-                    <button class="ds-insight-chip" (click)="generateInsight()">↺ Regenerate</button>
-                    <button class="ds-insight-chip" (click)="tellMeMore()">Tell me more about today</button>
-                </div>
-            }
-            @if (followUpInsight().status !== 'idle') {
-                <div class="ds-insight-panel__followup">
-                    @if (followUpInsight().status === 'streaming') {
-                        <div class="ds-insight-panel__followup-text">{{ followUpInsight().content }}</div>
-                    }
-                    @if (followUpInsight().status === 'complete') {
-                        <markdown [data]="followUpInsight().content"></markdown>
-                    }
-                    @if (followUpInsight().status === 'error') {
-                        <div class="ds-insight__error-card ds-insight__error-card--inline">
-                            <svg class="ds-insight__error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-                            </svg>
-                            <span class="ds-insight__error-msg">{{ followUpInsight().error }}</span>
-                            <button class="ds-insight__error-retry" (click)="tellMeMore()">Try again</button>
+        @if (insightState().status === 'streaming') {
+            <div class="ds-working-panel">
+                <span class="ds-working-panel__label">Analyzing</span>
+                <div class="ds-working-panel__steps">
+                    @for (step of activeInsightSteps(); track step; let last = $last) {
+                        <div class="ds-working-step" [class.ds-working-step--active]="last">
+                            <span class="ds-working-step__dot"></span>
+                            <span class="ds-working-step__text">{{ step }}</span>
                         </div>
                     }
                 </div>
-            }
-        </div>
-    }
+            </div>
+        }
 
-    @if (insightState().status === 'error') {
-        <div class="ds-insight__error-card">
-            <svg class="ds-insight__error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-            </svg>
-            <span class="ds-insight__error-msg">{{ insightState().error }}</span>
-            <button class="ds-insight__error-retry" (click)="generateInsight()">Try again</button>
-        </div>
+        @if (insightState().status === 'complete') {
+            <div class="ds-insight-panel">
+                <span class="ds-insight-panel__label">AI Insight</span>
+                <div class="ds-insight-panel__body">
+                    <markdown [data]="insightState().content"></markdown>
+                </div>
+                @if (actionPoints().length > 0) {
+                    <button class="ds-insight-copy" (click)="copyActionPoints()">
+                        {{ copiedActionPoints() ? '✓ Copied to clipboard' : '📋 Copy action points for tomorrow' }}
+                    </button>
+                }
+
+                <!-- Save analysis -->
+                @if (aiSaveError()) {
+                    <div class="ds-insight__error-card ds-insight__error-card--inline">
+                        <svg class="ds-insight__error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                        </svg>
+                        <span class="ds-insight__error-msg">{{ aiSaveError() }}</span>
+                        <button class="ds-insight__error-retry" (click)="saveInsight()">Try again</button>
+                    </div>
+                } @else {
+                    <button class="ds-insight-save"
+                            [class.is-saved]="insightSaved()"
+                            [disabled]="aiSaving() || insightSaved()"
+                            (click)="saveInsight()">
+                        @if (aiSaving()) {
+                            Saving…
+                        } @else if (insightSaved()) {
+                            ✓ Saved
+                        } @else {
+                            💾 Save analysis
+                        }
+                    </button>
+                }
+
+                @if (followUpInsight().status === 'idle') {
+                    <div class="ds-insight-panel__chips">
+                        <button class="ds-insight-chip" (click)="generateInsight()">↺ Regenerate</button>
+                        <button class="ds-insight-chip" (click)="tellMeMore()">Tell me more about today</button>
+                    </div>
+                }
+                @if (followUpInsight().status !== 'idle') {
+                    <div class="ds-insight-panel__followup">
+                        @if (followUpInsight().status === 'streaming') {
+                            <div class="ds-insight-panel__followup-text">{{ followUpInsight().content }}</div>
+                        }
+                        @if (followUpInsight().status === 'complete') {
+                            <markdown [data]="followUpInsight().content"></markdown>
+                        }
+                        @if (followUpInsight().status === 'error') {
+                            <div class="ds-insight__error-card ds-insight__error-card--inline">
+                                <svg class="ds-insight__error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                                </svg>
+                                <span class="ds-insight__error-msg">{{ followUpInsight().error }}</span>
+                                <button class="ds-insight__error-retry" (click)="tellMeMore()">Try again</button>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @if (insightState().status === 'error') {
+            <div class="ds-insight__error-card">
+                <svg class="ds-insight__error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                </svg>
+                <span class="ds-insight__error-msg">{{ insightState().error }}</span>
+                <button class="ds-insight__error-retry" (click)="generateInsight()">Try again</button>
+            </div>
+        }
+
     }
 
 </div>
-} @else {
-<div class="ds-insight ds-insight--locked">
-    <p class="ds-insight__locked-text">✨ AI insights — add your Anthropic API key to enable.</p>
-    <a class="ds-insight__trigger" routerLink="/settings">Add API key in Settings</a>
-</div>
-}
-}

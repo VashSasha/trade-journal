@@ -2,6 +2,8 @@ import { Injectable, signal, computed, inject, isDevMode } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, throwError, of, timer, forkJoin, from } from 'rxjs';
 import { catchError, map, switchMap, tap, takeWhile, mergeMap, filter, concatMap, reduce } from 'rxjs/operators';
+import { AuthService } from './auth.service';
+import { SupabaseService } from './supabase.service';
 
 export interface TradovateFill {
     id: number;
@@ -76,6 +78,25 @@ export class TradovateService {
     private readonly tradovateProxyOrigin = 'https://tv-proxy.nvzn-journal.com';
 
     private http = inject(HttpClient);
+    private auth = inject(AuthService);
+    private supabase = inject(SupabaseService).client;
+
+    // ── Persistence keys ──────────────────────────────────────────────────
+    // CACHE_* mirror the Supabase rows for offline use and are cleared on
+    // sign-out (Phase 2 pattern). LEGACY_* are the pre-cloud localStorage keys:
+    // read once for the one-time import, and left untouched on sign-out until
+    // that import has succeeded.
+    private static readonly CACHE_CONNECTIONS = 'tj_cache_tradovate_connections';
+    private static readonly CACHE_ACTIVE = 'tj_cache_tradovate_active';
+    private static readonly CACHE_OWNER = 'tj_cache_tradovate_owner';
+    private static readonly LEGACY_CONNECTIONS = 'tradovate_connections';
+    private static readonly LEGACY_ACTIVE = 'tradovate_active_connection';
+
+    /** The user whose rows are currently loaded; null until a cloud load lands. */
+    private loadedForUser: string | null = null;
+    /** True once this user's connections exist in the cloud (import ran, or rows were found). */
+    private importedToCloud = false;
+    private cloudPushTimer: ReturnType<typeof setTimeout> | null = null;
 
     // Multi-account support
     connections = signal<TradovateConnection[]>([]);
@@ -113,12 +134,40 @@ export class TradovateService {
 
     constructor() {
         this.init();
+
+        // Cloud roaming: fetch the signed-in user's connections and keep them in
+        // sync. The cache-hydrated signals above keep the app usable offline and
+        // until this resolves.
+        void this.initCloud();
+
+        this.supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_OUT') {
+                this.onSignOut();
+            } else if (event === 'SIGNED_IN' && session) {
+                // Defer out of the auth callback (supabase-js serializes calls
+                // made inside onAuthStateChange).
+                setTimeout(() => void this.loadForUser(session.user.id));
+            }
+        });
+
+        // A failed startup load (offline) left loadedForUser null — retry once
+        // connectivity returns.
+        window.addEventListener('online', () => {
+            const session = this.auth.session();
+            if (session && !this.loadedForUser) void this.loadForUser(session.user.id);
+        });
     }
 
     private init(): void {
         this.loadConnections();
         this.migrateOldStorage();
         this.cleanupOldKeys();
+    }
+
+    private async initCloud(): Promise<void> {
+        await this.auth.authReady;
+        const session = this.auth.session();
+        if (session) await this.loadForUser(session.user.id);
     }
 
     /**
@@ -133,59 +182,273 @@ export class TradovateService {
     }
 
     /**
-     * Load connections from localStorage
+     * Hydrate the signals from localStorage at construction (offline-first).
+     * Prefers the cloud-mirror cache; falls back to the legacy pre-cloud keys so
+     * existing users keep their setup before the first cloud load lands. The
+     * cloud load (initCloud) reconciles afterwards.
      */
     private loadConnections(): void {
-        const stored = localStorage.getItem('tradovate_connections');
-        const storedActiveId = localStorage.getItem('tradovate_active_connection');
+        const cacheRaw = localStorage.getItem(TradovateService.CACHE_CONNECTIONS);
+        const raw = cacheRaw ?? localStorage.getItem(TradovateService.LEGACY_CONNECTIONS);
+        if (!raw) return;
 
-        if (stored) {
-            try {
-                const connections = JSON.parse(stored);
+        const activeId = cacheRaw
+            ? localStorage.getItem(TradovateService.CACHE_ACTIVE)
+            : localStorage.getItem(TradovateService.LEGACY_ACTIVE);
 
-                // Scrub OAuth client credentials persisted by older versions —
-                // the token exchange now runs server-side (tradovate-proxy
-                // /oauth/token) and secrets must not live in localStorage.
-                let hadSecrets = false;
-                for (const c of connections) {
-                    if (c.config && ('apiKey' in c.config || 'apiSecret' in c.config)) {
-                        delete c.config.apiKey;
-                        delete c.config.apiSecret;
-                        hadSecrets = true;
-                    }
+        const connections = this.parseStoredConnections(raw);
+        if (!connections) return;
+        this.applyConnections(connections, activeId);
+    }
+
+    /**
+     * Parse + sanitize a stored connections array. Scrubs OAuth client
+     * credentials persisted by older versions — the token exchange now runs
+     * server-side (tradovate-proxy /oauth/token) and secrets must not live in
+     * storage. Returns null on malformed JSON.
+     */
+    private parseStoredConnections(raw: string): TradovateConnection[] | null {
+        try {
+            const connections = JSON.parse(raw) as TradovateConnection[];
+            for (const c of connections) {
+                if (c.config && ('apiKey' in c.config || 'apiSecret' in c.config)) {
+                    delete (c.config as Record<string, unknown>)['apiKey'];
+                    delete (c.config as Record<string, unknown>)['apiSecret'];
                 }
-
-                this.connections.set(connections);
-                if (hadSecrets) {
-                    this.saveConnections();
-                }
-
-                // Mark any connections whose token was previously cleared (expired) as expired on load
-                const expiredIds = connections
-                    .filter((c: TradovateConnection) => !c.token)
-                    .map((c: TradovateConnection) => c.id);
-                if (expiredIds.length > 0) {
-                    this.expiredConnectionIds.set(expiredIds);
-                }
-
-                // Load active connection ID from storage, or use first connection
-                if (storedActiveId && connections.find((c: TradovateConnection) => c.id === storedActiveId)) {
-                    this.activeConnectionId.set(storedActiveId);
-                } else if (connections.length > 0) {
-                    this.activeConnectionId.set(connections[0].id);
-                    localStorage.setItem('tradovate_active_connection', connections[0].id);
-                }
-            } catch (err) {
-                console.error('Failed to load connections:', err);
             }
+            return connections;
+        } catch (err) {
+            console.error('Failed to load connections:', err);
+            return null;
         }
     }
 
     /**
-     * Save connections to localStorage
+     * Push a connections list into the signals: sets the list, flags tokenless
+     * connections as expired, and resolves the active connection id.
+     */
+    private applyConnections(connections: TradovateConnection[], activeId: string | null): void {
+        this.connections.set(connections);
+
+        const expiredIds = connections.filter(c => !c.token).map(c => c.id);
+        this.expiredConnectionIds.set(expiredIds);
+
+        if (activeId && connections.find(c => c.id === activeId)) {
+            this.activeConnectionId.set(activeId);
+        } else if (connections.length > 0) {
+            this.activeConnectionId.set(connections[0].id);
+        } else {
+            this.activeConnectionId.set(null);
+        }
+    }
+
+    /**
+     * Persist connections: mirror to the offline cache AND schedule a cloud
+     * push. Used by every mutation that changes non-secret metadata.
      */
     private saveConnections(): void {
-        localStorage.setItem('tradovate_connections', JSON.stringify(this.connections()));
+        this.writeConnectionsCache();
+        this.scheduleCloudPush();
+    }
+
+    /** Mirror the current signals to the offline cache only (no cloud write). */
+    private writeConnectionsCache(): void {
+        localStorage.setItem(TradovateService.CACHE_CONNECTIONS, JSON.stringify(this.connections()));
+        const active = this.activeConnectionId();
+        if (active) localStorage.setItem(TradovateService.CACHE_ACTIVE, active);
+        else localStorage.removeItem(TradovateService.CACHE_ACTIVE);
+        const uid = this.auth.session()?.user.id;
+        if (uid) localStorage.setItem(TradovateService.CACHE_OWNER, uid);
+    }
+
+    // ── Cloud (Supabase) persistence ──────────────────────────────────────
+
+    /**
+     * Load the signed-in user's connections from Supabase into the signals and
+     * mirror them to the cache. On a first-time cloud (no rows yet), imports any
+     * legacy localStorage connections once. Falls back to the cache-hydrated
+     * signals if the fetch fails (offline).
+     */
+    private async loadForUser(userId: string): Promise<void> {
+        if (this.loadedForUser === userId) return;
+        this.loadedForUser = userId;
+
+        // A cache OWNED BY A DIFFERENT user is stale foreign data: wipe it before
+        // anything can read a token. A null owner means no cloud user has claimed
+        // this machine yet (the first-login/import case) — keep the cache/legacy
+        // hydrated signals so they can be imported below.
+        const cacheOwner = localStorage.getItem(TradovateService.CACHE_OWNER);
+        if (cacheOwner && cacheOwner !== userId) {
+            this.clearConnectionsCache();
+            this.applyConnections([], null);
+        }
+        localStorage.setItem(TradovateService.CACHE_OWNER, userId);
+
+        try {
+            const { data, error } = await this.supabase
+                .from('tradovate_connections')
+                .select('connection_id, data, is_active')
+                .order('updated_at', { ascending: true });
+            if (error) throw error;
+
+            const rows = (data ?? []) as { connection_id: string; data: Partial<TradovateConnection>; is_active: boolean }[];
+
+            if (rows.length === 0) {
+                // First time in the cloud for this user: one-time import. Seed from
+                // whatever the signals already hold (cache/legacy hydrated at
+                // construction), else read the legacy pre-cloud key explicitly.
+                if (this.connections().length === 0) {
+                    const legacy = this.readLegacyConnections();
+                    if (legacy.length === 0) return;
+                    this.applyConnections(legacy, localStorage.getItem(TradovateService.LEGACY_ACTIVE));
+                }
+                this.writeConnectionsCache();
+                await this.pushToCloud();
+                this.importedToCloud = true;
+                return;
+            }
+
+            // Adopt the cloud rows. Tokens are never stored server-side, so reuse
+            // the on-device cached token per connection id; a connection with no
+            // local token (e.g. a new device) loads tokenless → flagged expired →
+            // the user re-authenticates.
+            const cachedById = new Map(this.connections().map(c => [c.id, c]));
+            const conns = rows.map(r => this.rowToConnection(r.connection_id, r.data, cachedById.get(r.connection_id)));
+            const activeId = rows.find(r => r.is_active)?.connection_id ?? conns[0]?.id ?? null;
+
+            this.applyConnections(conns, activeId);
+            this.accounts.set([]);
+            this.writeConnectionsCache();
+            this.importedToCloud = true;
+        } catch (err) {
+            // Offline / Supabase unreachable — keep the cache-hydrated signals and
+            // allow a later retry (online listener / next sign-in) to re-run.
+            this.loadedForUser = null;
+            if (isDevMode()) { console.warn('[TradovateService] Cloud connections load failed — using local cache.', err); }
+        }
+    }
+
+    /** Read + sanitize the legacy pre-cloud connections (import source). */
+    private readLegacyConnections(): TradovateConnection[] {
+        const raw = localStorage.getItem(TradovateService.LEGACY_CONNECTIONS);
+        if (!raw) return [];
+        return this.parseStoredConnections(raw) ?? [];
+    }
+
+    /** Debounced full push of the current connections to Supabase. */
+    private scheduleCloudPush(): void {
+        if (!this.auth.session()) return;
+        if (this.cloudPushTimer) return;
+        this.cloudPushTimer = setTimeout(() => {
+            this.cloudPushTimer = null;
+            void this.pushToCloud();
+        }, 400);
+    }
+
+    /**
+     * Reconcile the full connections state to Supabase: upsert every current
+     * connection (token stripped) and delete cloud rows that no longer exist
+     * locally. Best-effort — failures leave the cache authoritative.
+     */
+    private async pushToCloud(): Promise<void> {
+        const uid = this.auth.session()?.user.id;
+        if (!uid) return;
+
+        const conns = this.connections();
+        const activeId = this.activeConnectionId();
+
+        try {
+            if (conns.length === 0) {
+                const { error } = await this.supabase
+                    .from('tradovate_connections').delete().eq('user_id', uid);
+                if (error) throw error;
+                return;
+            }
+
+            const rows = conns.map(c => this.connectionToRow(c, activeId));
+            const { error: upsertError } = await this.supabase
+                .from('tradovate_connections')
+                .upsert(rows, { onConflict: 'user_id,connection_id' });
+            if (upsertError) throw upsertError;
+
+            // Remove rows for connections deleted locally. Connection ids are
+            // generated slugs (no commas/quotes), safe to inline in the filter.
+            const ids = conns.map(c => c.id);
+            const { error: deleteError } = await this.supabase
+                .from('tradovate_connections')
+                .delete()
+                .eq('user_id', uid)
+                .not('connection_id', 'in', `(${ids.join(',')})`);
+            if (deleteError) throw deleteError;
+
+            this.importedToCloud = true;
+        } catch (err) {
+            if (isDevMode()) { console.warn('[TradovateService] Cloud connections sync failed — cache kept authoritative.', err); }
+        }
+    }
+
+    /**
+     * Serialize a connection to its DB row. The OAuth token is a SECRET and is
+     * deliberately stripped — only non-secret metadata is persisted (see the
+     * migration's security note).
+     */
+    private connectionToRow(conn: TradovateConnection, activeId: string | null): Record<string, unknown> {
+        // Strip the OAuth token — it is a SECRET and must never reach the DB.
+        const metadata: Record<string, unknown> = { ...conn };
+        delete metadata['token'];
+        return {
+            connection_id: conn.id,
+            data: metadata,
+            is_active: conn.id === activeId,
+            updated_at: new Date().toISOString()
+        };
+    }
+
+    /** Rebuild a connection from its DB row, reusing an on-device cached token. */
+    private rowToConnection(
+        connectionId: string,
+        data: Partial<TradovateConnection>,
+        cached: TradovateConnection | undefined
+    ): TradovateConnection {
+        return {
+            id: connectionId,
+            name: data.name ?? cached?.name ?? 'Tradovate',
+            token: cached?.token ?? '', // never stored server-side; empty → expired → re-auth
+            config: data.config ?? cached?.config ?? { authMode: 'oauth', environment: 'demo' },
+            accounts: data.accounts ?? cached?.accounts ?? [],
+            selectedAccountIds: data.selectedAccountIds ?? cached?.selectedAccountIds,
+            createdAt: data.createdAt ?? cached?.createdAt ?? new Date().toISOString(),
+            lastSyncedAt: data.lastSyncedAt ?? cached?.lastSyncedAt
+        };
+    }
+
+    /** Remove only the cloud-mirror cache keys (not the legacy pre-cloud keys). */
+    private clearConnectionsCache(): void {
+        localStorage.removeItem(TradovateService.CACHE_CONNECTIONS);
+        localStorage.removeItem(TradovateService.CACHE_ACTIVE);
+        localStorage.removeItem(TradovateService.CACHE_OWNER);
+    }
+
+    /**
+     * Sign-out: clear the cloud-mirror cache and reset the signals so the next
+     * user on this machine sees nothing. The legacy pre-cloud keys are left
+     * alone UNLESS this user's import already succeeded (then they're redundant
+     * and would otherwise be absorbed into the next user's import).
+     */
+    private onSignOut(): void {
+        if (this.cloudPushTimer) {
+            clearTimeout(this.cloudPushTimer);
+            this.cloudPushTimer = null;
+        }
+        this.clearConnectionsCache();
+        if (this.importedToCloud) {
+            localStorage.removeItem(TradovateService.LEGACY_CONNECTIONS);
+            localStorage.removeItem(TradovateService.LEGACY_ACTIVE);
+        }
+        this.loadedForUser = null;
+        this.importedToCloud = false;
+        this.applyConnections([], null);
+        this.accounts.set([]);
     }
 
     /**
@@ -252,13 +515,14 @@ export class TradovateService {
         };
 
         this.connections.update(conns => [...conns, newConnection]);
-        this.saveConnections();
 
-        // Set as active if it's the first connection
+        // Set as active if it's the first connection — before persisting, so the
+        // is_active flag is written to the cloud in the same push.
         if (this.connections().length === 1) {
             this.activeConnectionId.set(newConnection.id);
         }
 
+        this.saveConnections();
         return newConnection.id;
     }
 
@@ -271,7 +535,9 @@ export class TradovateService {
         );
         this.clearExpiredConnection(connectionId);
         this.accounts.set([]); // invalidate cached accounts
-        this.saveConnections();
+        // Token-only change: the token is never persisted server-side, so mirror
+        // to the offline cache but skip the cloud push (metadata is unchanged).
+        this.writeConnectionsCache();
     }
 
     /**
@@ -330,19 +596,16 @@ export class TradovateService {
     removeConnection(connectionId: string): void {
         this.connections.update(conns => conns.filter(c => c.id !== connectionId));
         this.clearExpiredConnection(connectionId);
-        this.saveConnections();
 
-        // If we removed the active connection, set another one as active
+        // If we removed the active connection, promote another one.
         if (this.activeConnectionId() === connectionId) {
             const remaining = this.connections();
-            const newActiveId = remaining.length > 0 ? remaining[0].id : null;
-            this.activeConnectionId.set(newActiveId);
-            if (newActiveId) {
-                localStorage.setItem('tradovate_active_connection', newActiveId);
-            } else {
-                localStorage.removeItem('tradovate_active_connection');
-            }
+            this.activeConnectionId.set(remaining.length > 0 ? remaining[0].id : null);
         }
+
+        // Persist last: the cloud push reconciles (deletes) the removed row and
+        // writes the new active flag / cache in one go.
+        this.saveConnections();
     }
 
     /**
@@ -352,8 +615,8 @@ export class TradovateService {
         const exists = this.connections().find(c => c.id === connectionId);
         if (exists) {
             this.activeConnectionId.set(connectionId);
-            localStorage.setItem('tradovate_active_connection', connectionId);
             this.accounts.set([]); // Invalidate cache on connection switch
+            this.saveConnections(); // persist active id (cache) + is_active flags (cloud)
         }
     }
 
@@ -369,7 +632,8 @@ export class TradovateService {
         this.connections.update(conns =>
             conns.map(c => c.id === connectionId ? { ...c, token: '' } : c)
         );
-        this.saveConnections();
+        // Token-only change (never stored server-side) — cache mirror only.
+        this.writeConnectionsCache();
     }
 
     /**

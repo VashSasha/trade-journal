@@ -1,7 +1,6 @@
 import { Component, computed, DestroyRef, inject, Input, OnDestroy, signal, ViewChild, WritableSignal } from '@angular/core';
 import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MarkdownComponent } from 'ngx-markdown';
@@ -29,7 +28,7 @@ const INSIGHT_STEPS = [
 @Component({
   selector: 'app-day-summary',
   standalone: true,
-  imports: [CurrencyPipe, DecimalPipe, FormsModule, EquityCurveChartComponent, SharePnlComponent, MarkdownComponent, RouterLink],
+  imports: [CurrencyPipe, DecimalPipe, FormsModule, EquityCurveChartComponent, SharePnlComponent, MarkdownComponent],
   templateUrl: './day-summary.component.html',
   styleUrl: './day-summary.component.scss'
 })
