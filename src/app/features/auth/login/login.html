@@ -1,115 +1,133 @@
 <div class="login-page">
-    <app-public-nav />
+  <app-public-nav/>
 
-    <main class="login-page__main">
-        <div class="login-page__glow" aria-hidden="true"></div>
+  <main class="login-page__main">
+    <div class="login-page__glow" aria-hidden="true"></div>
 
-        <div class="login-wrapper">
-            <!-- Login Card -->
-            <div class="login-card">
-                <h2 class="login-card__title">Welcome back</h2>
-                <p class="login-card__subtitle">Log in to your NVZN Journal.</p>
+    <div class="login-wrapper">
+      <!-- Login Card -->
+      <div class="login-card">
+        <h2 class="login-card__title">Welcome back</h2>
+        <p class="login-card__subtitle">Log in to your NVZN Journal.</p>
 
-                @if (errorMessage()) {
-                    <div class="login-error">{{ errorMessage() }}</div>
-                }
+        @if (errorMessage()) {
+          <div class="login-error">{{ errorMessage() }}</div>
+        }
 
-                <!-- Discord Login -->
-                <button class="login-discord-btn" (click)="loginWithDiscord()" [disabled]="isDiscordLoading() || isGoogleLoading() || isLoading()">
-                    @if (isDiscordLoading()) {
-                        <svg class="login-discord-btn__spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Connecting...
-                    } @else {
-                        <svg class="login-discord-btn__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 127.14 96.36">
-                            <path fill="currentColor" d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/>
-                        </svg>
-                        Continue with Discord
-                    }
-                </button>
+        <!-- Discord Login -->
+        <button class="login-discord-btn" (click)="loginWithDiscord()"
+                [disabled]="isDiscordLoading() || isGoogleLoading() || isLoading()">
+          @if (isDiscordLoading()) {
+            <svg class="login-discord-btn__spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Connecting...
+          } @else {
+            <svg class="login-discord-btn__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 127.14 96.36">
+              <path fill="currentColor"
+                    d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/>
+            </svg>
+            Continue with Discord
+          }
+        </button>
 
-                <!-- Google Login -->
-                <button class="login-google-btn" (click)="loginWithGoogle()" [disabled]="isDiscordLoading() || isGoogleLoading() || isLoading()">
-                    @if (isGoogleLoading()) {
-                        <svg class="login-google-btn__spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Connecting...
-                    } @else {
-                        <svg class="login-google-btn__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M23.52 12.27c0-.79-.07-1.54-.2-2.27H12v4.51h6.47a5.53 5.53 0 01-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.87z"/>
-                            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.94-2.91l-3.88-3c-1.08.72-2.45 1.16-4.06 1.16-3.12 0-5.76-2.11-6.71-4.94H1.29v3.09A12 12 0 0012 24z"/>
-                            <path fill="#FBBC05" d="M5.29 14.31a7.2 7.2 0 010-4.62V6.6H1.29a12 12 0 000 10.8l4-3.09z"/>
-                            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42A11.97 11.97 0 0012 0 12 12 0 001.29 6.6l4 3.09C6.24 6.86 8.88 4.75 12 4.75z"/>
-                        </svg>
-                        Continue with Google
-                    }
-                </button>
+        <!-- Google Login -->
+        <button class="login-google-btn" (click)="loginWithGoogle()"
+                [disabled]="isDiscordLoading() || isGoogleLoading() || isLoading()">
+          @if (isGoogleLoading()) {
+            <svg class="login-google-btn__spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Connecting...
+          } @else {
+            <svg class="login-google-btn__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path fill="#4285F4"
+                    d="M23.52 12.27c0-.79-.07-1.54-.2-2.27H12v4.51h6.47a5.53 5.53 0 01-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.87z"/>
+              <path fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.94-2.91l-3.88-3c-1.08.72-2.45 1.16-4.06 1.16-3.12 0-5.76-2.11-6.71-4.94H1.29v3.09A12 12 0 0012 24z"/>
+              <path fill="#FBBC05" d="M5.29 14.31a7.2 7.2 0 010-4.62V6.6H1.29a12 12 0 000 10.8l4-3.09z"/>
+              <path fill="#EA4335"
+                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42A11.97 11.97 0 0012 0 12 12 0 001.29 6.6l4 3.09C6.24 6.86 8.88 4.75 12 4.75z"/>
+            </svg>
+            Continue with Google
+          }
+        </button>
 
-                <!-- Divider -->
-                <div class="login-divider">
-                    <span class="login-divider__text">or</span>
-                </div>
-
-                @if (!emailAuthEnabled) {
-                    <div class="login-soon">
-                        <span class="login-soon__pill">Coming soon</span>
-                        <span class="login-soon__text">Email &amp; password login is on the way — use Discord for now.</span>
-                    </div>
-                }
-
-                <!-- Email / Password Form -->
-                <form class="login-form" [class.login-form--disabled]="!emailAuthEnabled"
-                    [formGroup]="loginForm" (ngSubmit)="onSubmit()">
-                    <div class="login-field">
-                        <label class="login-field__label" for="email">Email Address</label>
-                        <input class="login-field__input" id="email" type="email" formControlName="email"
-                            placeholder="you@example.com" maxlength="254" autocomplete="email" spellcheck="false"
-                            [class.login-field__input--error]="email?.invalid && emailTouched()" />
-                        @if (email?.invalid && emailTouched()) {
-                            <p class="login-field__error">
-                                @if (email?.errors?.['required']) { Email is required }
-                                @if (email?.errors?.['email']) { Please enter a valid email }
-                            </p>
-                        }
-                    </div>
-
-                    <div class="login-field">
-                        <label class="login-field__label" for="password">Password</label>
-                        <input class="login-field__input" id="password" type="password" formControlName="password"
-                            placeholder="••••••••" maxlength="128" autocomplete="current-password"
-                            [class.login-field__input--error]="password?.invalid && passwordTouched()" />
-                        @if (password?.invalid && passwordTouched()) {
-                            <p class="login-field__error">
-                                @if (password?.errors?.['required']) { Password is required }
-                                @if (password?.errors?.['minlength']) { At least 3 characters }
-                            </p>
-                        }
-                    </div>
-
-                    <button class="login-submit" type="submit"
-                        [disabled]="!emailAuthEnabled || isLoading() || isDiscordLoading()"
-                        [attr.aria-disabled]="!emailAuthEnabled">
-                        @if (isLoading()) {
-                            <svg class="login-submit__spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Signing in...
-                        } @else {
-                            {{ emailAuthEnabled ? 'Sign In' : 'Coming soon' }}
-                        }
-                    </button>
-                </form>
-            </div>
-
-            <p class="login-footer">
-                Discord members get plan-based feature access.
-                <a class="login-footer__link" routerLink="/" fragment="pricing">Not a member yet?</a>
-            </p>
+        <!-- Divider -->
+        <div class="login-divider">
+          <span class="login-divider__text">or</span>
         </div>
-    </main>
+
+        @if (!emailAuthEnabled) {
+          <div class="login-soon">
+            <span class="login-soon__pill">Coming soon</span>
+            <span class="login-soon__text">Email &amp; password login is on the way — use Discord for now.</span>
+          </div>
+        }
+
+        <!-- Email / Password Form -->
+        <form class="login-form" [class.login-form--disabled]="!emailAuthEnabled"
+              [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+          <div class="login-field">
+            <label class="login-field__label" for="email">Email Address</label>
+            <input class="login-field__input" id="email" type="email" formControlName="email"
+                   placeholder="you@example.com" maxlength="254" autocomplete="email" spellcheck="false"
+                   [class.login-field__input--error]="email?.invalid && emailTouched()"/>
+            @if (email?.invalid && emailTouched()) {
+              <p class="login-field__error">
+                @if (email?.errors?.['required']) {
+                  Email is required
+                }
+                @if (email?.errors?.['email']) {
+                  Please enter a valid email
+                }
+              </p>
+            }
+          </div>
+
+          <div class="login-field">
+            <label class="login-field__label" for="password">Password</label>
+            <input class="login-field__input" id="password" type="password" formControlName="password"
+                   placeholder="••••••••" maxlength="128" autocomplete="current-password"
+                   [class.login-field__input--error]="password?.invalid && passwordTouched()"/>
+            @if (password?.invalid && passwordTouched()) {
+              <p class="login-field__error">
+                @if (password?.errors?.['required']) {
+                  Password is required
+                }
+                @if (password?.errors?.['minlength']) {
+                  At least 3 characters
+                }
+              </p>
+            }
+          </div>
+
+          <button class="login-submit" type="submit"
+                  [disabled]="!emailAuthEnabled || isLoading() || isDiscordLoading()"
+                  [attr.aria-disabled]="!emailAuthEnabled">
+            @if (isLoading()) {
+              <svg class="login-submit__spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Signing in...
+            } @else {
+              {{ emailAuthEnabled ? 'Sign In' : 'Coming soon' }}
+            }
+          </button>
+        </form>
+      </div>
+
+      <p class="login-footer">
+        Discord members get plan-based feature access.
+        <br>
+        <a class="login-footer__link" routerLink="/" fragment="pricing">Not a member yet?</a>
+      </p>
+    </div>
+  </main>
 </div>
