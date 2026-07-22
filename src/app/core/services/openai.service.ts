@@ -73,9 +73,6 @@ export class OpenAiService {
     // ── Streaming ─────────────────────────────────────────────────────────────
 
     streamAnalysis(messages: any[], maxTokens = 1200): Observable<string> {
-        const token = this.auth.authToken();
-        if (!token) return throwError(() => new Error('Not authenticated.'));
-
         // functions.invoke() buffers the whole response; streaming needs a raw
         // fetch against the same function endpoint with the session JWT.
         const url = `${environment.supabaseUrl}/functions/v1/ai-report`;
@@ -84,19 +81,30 @@ export class OpenAiService {
             const controller = new AbortController();
             let buffer = '';
 
-            fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'apikey': environment.supabasePublishableKey,
-                },
-                body: JSON.stringify({
-                    type: 'stream-analysis',
-                    payload: { messages, maxTokens },
-                }),
-                signal: controller.signal,
-            }).then(async res => {
+            // Fetch a FRESH access token right before the request. getSession()
+            // auto-refreshes an expired token; reading the cached authToken()
+            // signal could send a stale/expired JWT ("Invalid or expired token").
+            (async () => {
+                const { data: { session } } = await this.supabase.auth.getSession();
+                const token = session?.access_token;
+                if (!token) {
+                    subscriber.error(new Error('Not authenticated.'));
+                    return;
+                }
+
+                await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                        'apikey': environment.supabasePublishableKey,
+                    },
+                    body: JSON.stringify({
+                        type: 'stream-analysis',
+                        payload: { messages, maxTokens },
+                    }),
+                    signal: controller.signal,
+                }).then(async res => {
                 if (!res.ok) {
                     // The Edge Function returns { error } as JSON on 4xx/5xx.
                     // Map it to friendly copy so raw provider/config detail never
@@ -134,12 +142,13 @@ export class OpenAiService {
                     }
                 }
                 subscriber.complete();
-            }).catch(err => {
-                // Aborts are cooperative (unsubscribe / timeout) — end quietly.
-                if (err?.name === 'AbortError') { subscriber.complete(); return; }
-                // A genuine network failure (fetch rejects) — surface friendly copy.
-                subscriber.error(new Error('Couldn\'t reach the AI service. Check your connection and try again.'));
-            });
+                }).catch(err => {
+                    // Aborts are cooperative (unsubscribe / timeout) — end quietly.
+                    if (err?.name === 'AbortError') { subscriber.complete(); return; }
+                    // A genuine network failure (fetch rejects) — surface friendly copy.
+                    subscriber.error(new Error('Couldn\'t reach the AI service. Check your connection and try again.'));
+                });
+            })();
 
             return () => controller.abort();
         });

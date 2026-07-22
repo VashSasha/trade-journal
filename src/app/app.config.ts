@@ -5,6 +5,7 @@ import { provideMarkdown, MARKED_OPTIONS, SANITIZE } from 'ngx-markdown';
 
 import { routes } from './app.routes';
 import { UserDataService } from './core/services/user-data/user-data.service';
+import { provideChunkReloadRecovery } from './core/chunk-reload';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -15,6 +16,9 @@ export const appConfig: ApplicationConfig = {
       scrollPositionRestoration: 'enabled'
     })),
     provideHttpClient(),
+    // After a deploy, tabs opened pre-deploy request old chunk hashes and get
+    // the SPA fallback (text/html) instead — auto-reload once to recover.
+    provideChunkReloadRecovery(),
     // App-wide markdown config. gfm:true makes marked render GitHub task
     // lists (`- [ ]` / `- [x]`) as <input type="checkbox" disabled> items.
     // sanitize:NONE is required because Angular's HTML sanitizer strips

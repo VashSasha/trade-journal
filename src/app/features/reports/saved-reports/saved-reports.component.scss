@@ -1,0 +1,202 @@
+// ── Section Shell ─────────────────────────────────────────────────────────────
+
+.sr-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    &__title {
+        font-size: 0.8125rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--color-text-muted);
+        margin: 0;
+    }
+
+    &__count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.375rem;
+        height: 1.375rem;
+        padding: 0 0.375rem;
+        border-radius: 9999px;
+        background: var(--color-bg-surface-2);
+        border: 1px solid var(--color-border);
+        font-size: 0.6875rem;
+        font-weight: 600;
+        color: var(--color-text-muted);
+    }
+}
+
+// ── Loading ───────────────────────────────────────────────────────────────────
+
+.sr-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 1.25rem;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+
+    &__spinner {
+        width: 1rem;
+        height: 1rem;
+        animation: sr-spin 0.8s linear infinite;
+        flex-shrink: 0;
+    }
+}
+
+@keyframes sr-spin { to { transform: rotate(360deg); } }
+
+// ── Error ─────────────────────────────────────────────────────────────────────
+
+.sr-error {
+    font-size: 0.875rem;
+    color: var(--color-negative);
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid color-mix(in srgb, var(--color-negative) 30%, transparent);
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--color-negative) 6%, transparent);
+}
+
+// ── Empty State ───────────────────────────────────────────────────────────────
+
+.sr-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 2rem 1.5rem;
+    border: 2px dashed var(--color-border);
+    border-radius: 0.75rem;
+    text-align: center;
+
+    &__icon {
+        width: 1.75rem;
+        height: 1.75rem;
+        color: var(--color-text-muted);
+        opacity: 0.6;
+    }
+
+    &__text {
+        font-size: 0.875rem;
+        color: var(--color-text-muted);
+        margin: 0;
+        max-width: 22rem;
+    }
+}
+
+// ── Report List ───────────────────────────────────────────────────────────────
+
+.sr-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+// ── Report Item ───────────────────────────────────────────────────────────────
+
+.sr-item {
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.625rem;
+    overflow: hidden;
+    transition: border-color 0.12s;
+
+    &--expanded {
+        border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+    }
+
+    &__header {
+        display: flex;
+        align-items: center;
+    }
+
+    &__toggle {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        padding: 0.75rem 0.875rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        text-align: left;
+        min-width: 0;
+
+        &:hover .sr-item__title {
+            color: var(--color-accent);
+        }
+    }
+
+    &__title {
+        flex: 1;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+        transition: color 0.12s;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__meta {
+        font-size: 0.75rem;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    &__chevron {
+        width: 0.9375rem;
+        height: 0.9375rem;
+        color: var(--color-text-muted);
+        transition: transform 0.2s ease;
+        flex-shrink: 0;
+
+        &--open { transform: rotate(180deg); }
+    }
+
+    &__delete {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.25rem;
+        height: 2.25rem;
+        margin-right: 0.375rem;
+        border-radius: 0.375rem;
+        border: none;
+        background: none;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        transition: color 0.12s, background 0.12s;
+
+        &:hover:not(:disabled) {
+            color: var(--color-negative);
+            background: color-mix(in srgb, var(--color-negative) 10%, transparent);
+        }
+
+        &:disabled { opacity: 0.4; cursor: default; }
+
+        svg { width: 1rem; height: 1rem; display: block; }
+    }
+
+    // The compact verdict card renders flush — just add a top border to separate it
+    &__body {
+        border-top: 1px solid var(--color-border);
+        overflow: hidden;
+    }
+}

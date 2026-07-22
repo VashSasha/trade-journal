@@ -1,0 +1,77 @@
+<section class="sr-section">
+
+    <div class="sr-section__header">
+        <h2 class="sr-section__title">Saved Reports</h2>
+        @if (reportService.reports().length > 0) {
+            <span class="sr-section__count">{{ reportService.reports().length }}</span>
+        }
+    </div>
+
+    @if (reportService.loading()) {
+        <div class="sr-loading">
+            <svg class="sr-loading__spinner" fill="none" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" style="opacity:.2"></circle>
+                <path fill="currentColor" style="opacity:.6"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+            </svg>
+            Loading saved reports…
+        </div>
+
+    } @else if (reportService.error()) {
+        <p class="sr-error">{{ reportService.error() }}</p>
+
+    } @else if (reportService.reports().length === 0) {
+        <div class="sr-empty">
+            <svg class="sr-empty__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <p class="sr-empty__text">No saved reports yet. Each successful analysis is auto-saved here.</p>
+        </div>
+
+    } @else {
+        <ul class="sr-list">
+            @for (report of reportService.reports(); track report.id) {
+                <li class="sr-item" [class.sr-item--expanded]="expandedId() === report.id">
+
+                    <div class="sr-item__header">
+                        <button class="sr-item__toggle" type="button" (click)="toggle(report.id)"
+                                [attr.aria-expanded]="expandedId() === report.id">
+                            <span class="sr-item__title">{{ report.title }}</span>
+                            <span class="sr-item__meta">{{ relativeTime(report.createdAt) }}</span>
+                            <svg class="sr-item__chevron" [class.sr-item__chevron--open]="expandedId() === report.id"
+                                 fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <button class="sr-item__delete" type="button"
+                                [disabled]="deletingId() === report.id"
+                                (click)="deleteReport(report.id)"
+                                aria-label="Delete report">
+                            @if (deletingId() === report.id) {
+                                <svg fill="none" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" style="opacity:.2"></circle>
+                                    <path fill="currentColor" style="opacity:.6"
+                                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                </svg>
+                            } @else {
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            }
+                        </button>
+                    </div>
+
+                    @if (expandedId() === report.id) {
+                        <div class="sr-item__body">
+                            <app-verdict-card [verdict]="report.verdict" [compact]="true"></app-verdict-card>
+                        </div>
+                    }
+
+                </li>
+            }
+        </ul>
+    }
+
+</section>
