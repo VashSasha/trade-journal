@@ -1,0 +1,288 @@
+// ── Verdict card ──────────────────────────────────────────────────────────────
+
+.air-verdict {
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+// compact mode: no card chrome — sits flush inside a parent list item
+:host(.air-vc--compact) .air-verdict {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 1.125rem;
+}
+
+.air-verdict__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.air-verdict__title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.air-verdict__symbol {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+}
+
+.air-verdict__timeframe {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+}
+
+// ── Direction badge ───────────────────────────────────────────────────────────
+
+.air-verdict__badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3125rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    white-space: nowrap;
+    flex-shrink: 0;
+
+    &--sm { font-size: 0.75rem; padding: 0.1875rem 0.625rem; }
+
+    &--long {
+        background: var(--color-direction-long-bg);
+        border-color: var(--color-direction-long-border);
+        color: var(--color-direction-long-text);
+    }
+
+    &--short {
+        background: var(--color-direction-short-bg);
+        border-color: var(--color-direction-short-border);
+        color: var(--color-direction-short-text);
+    }
+}
+
+// ── Confidence bar ────────────────────────────────────────────────────────────
+
+.air-verdict__quality {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.air-verdict__quality-label {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.air-verdict__bar {
+    flex: 1;
+    height: 4px;
+    background: var(--color-bg-surface-2);
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.air-verdict__bar-fill {
+    height: 100%;
+    background: var(--color-accent);
+    border-radius: 9999px;
+    transition: width 0.4s ease;
+}
+
+.air-verdict__quality-value {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+// ── Primary signal box ────────────────────────────────────────────────────────
+
+.air-verdict__signal {
+    background: var(--color-signal-bg);
+    border: 1px solid var(--color-signal-border);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+}
+
+.air-verdict__signal-header {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.375rem;
+}
+
+.air-verdict__signal-icon {
+    width: 1rem;
+    height: 1rem;
+    color: var(--color-direction-short-text);
+    flex-shrink: 0;
+}
+
+.air-verdict__signal-label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-direction-short-text);
+}
+
+.air-verdict__signal-text {
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+// ── Trade levels grid ─────────────────────────────────────────────────────────
+
+.air-verdict__levels {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.75rem;
+
+    @media (max-width: 560px) { grid-template-columns: 1fr; }
+}
+
+.air-verdict__level {
+    background: var(--color-bg-surface-2);
+    border-radius: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.air-verdict__level-label {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+
+.air-verdict__level-price {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-text-primary);
+
+    .air-verdict__level--entry & { color: var(--color-direction-short-text); }
+    .air-verdict__level--target & { color: var(--color-direction-long-text); }
+}
+
+.air-verdict__level-note {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    line-height: 1.4;
+    margin-top: 0.125rem;
+}
+
+// ── Confluences ───────────────────────────────────────────────────────────────
+
+.air-verdict__confluences {
+    background: var(--color-bg-surface-2);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.air-verdict__confluence {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+}
+
+.air-verdict__confluence-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    flex-shrink: 0;
+    margin-top: 0.45rem;
+}
+
+// ── Divider ───────────────────────────────────────────────────────────────────
+
+.air-verdict__divider {
+    border: none;
+    border-top: 1px solid var(--color-border);
+    margin: 0;
+}
+
+// ── Contingency plan ──────────────────────────────────────────────────────────
+
+.air-verdict__contingency {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.air-verdict__contingency-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover .air-verdict__contingency-label {
+        color: var(--color-text-primary);
+    }
+}
+
+.air-verdict__contingency-toggle-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.air-verdict__contingency-chevron {
+    width: 1rem;
+    height: 1rem;
+    color: var(--color-text-muted);
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+
+    &.is-expanded { transform: rotate(180deg); }
+}
+
+.air-verdict__contingency-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.air-verdict__condition {
+    background: var(--color-bg-surface-2);
+    border-radius: 0.5rem;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+}

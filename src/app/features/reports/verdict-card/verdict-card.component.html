@@ -1,0 +1,115 @@
+<div class="air-verdict">
+
+    <!-- 1. Header -->
+    <div class="air-verdict__header">
+        <div class="air-verdict__title-block">
+            <span class="air-verdict__symbol">{{ verdict.symbol }}</span>
+            <span class="air-verdict__timeframe">{{ verdict.timeframe }}</span>
+        </div>
+        <span class="air-verdict__badge"
+              [class.air-verdict__badge--long]="verdict.direction === 'Long'"
+              [class.air-verdict__badge--short]="verdict.direction === 'Short'">
+            {{ verdict.direction }} — {{ verdict.conviction }}
+        </span>
+    </div>
+
+    <!-- 2. Confidence bar -->
+    <div class="air-verdict__quality">
+        <span class="air-verdict__quality-label">Setup quality</span>
+        <div class="air-verdict__bar">
+            <div class="air-verdict__bar-fill" [style.width.%]="verdict.confidenceScore"></div>
+        </div>
+        <span class="air-verdict__quality-value">
+            {{ verdict.confidenceScore >= 75 ? 'Strong' : verdict.confidenceScore >= 45 ? 'Moderate' : 'Weak' }}
+            · {{ verdict.confluenceCount }} confluences
+        </span>
+    </div>
+
+    <!-- 3. Primary signal -->
+    <div class="air-verdict__signal">
+        <div class="air-verdict__signal-header">
+            <svg class="air-verdict__signal-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="air-verdict__signal-label">Primary signal</span>
+        </div>
+        <p class="air-verdict__signal-text">{{ verdict.primarySignal }}</p>
+    </div>
+
+    <!-- 4. Trade levels -->
+    <div class="air-verdict__levels">
+        <div class="air-verdict__level air-verdict__level--entry">
+            <span class="air-verdict__level-label">Entry zone</span>
+            <span class="air-verdict__level-price">{{ verdict.levels.entry.price }}</span>
+            <span class="air-verdict__level-note">{{ verdict.levels.entry.note }}</span>
+        </div>
+        <div class="air-verdict__level air-verdict__level--stop">
+            <span class="air-verdict__level-label">Stop loss</span>
+            <span class="air-verdict__level-price">{{ verdict.levels.stop.price }}</span>
+            <span class="air-verdict__level-note">{{ verdict.levels.stop.note }}</span>
+        </div>
+        <div class="air-verdict__level air-verdict__level--target">
+            <span class="air-verdict__level-label">Take profit</span>
+            <span class="air-verdict__level-price">{{ verdict.levels.target.price }}</span>
+            <span class="air-verdict__level-note">{{ verdict.levels.target.note }}</span>
+        </div>
+    </div>
+
+    <!-- 5. Confluences -->
+    <div class="air-verdict__confluences">
+        @for (item of verdict.confluences; track item) {
+            <div class="air-verdict__confluence">
+                <span class="air-verdict__confluence-dot"></span>
+                <span>{{ item }}</span>
+            </div>
+        }
+    </div>
+
+    <!-- 6. Divider -->
+    <hr class="air-verdict__divider" />
+
+    <!-- 7. Contingency (collapsed by default) -->
+    <div class="air-verdict__contingency">
+        <button class="air-verdict__contingency-toggle"
+                (click)="contingencyExpanded.set(!contingencyExpanded())">
+            <span class="air-verdict__contingency-label">Contingency plan</span>
+            <div class="air-verdict__contingency-toggle-right">
+                <span class="air-verdict__badge air-verdict__badge--sm"
+                      [class.air-verdict__badge--long]="verdict.contingency.direction === 'Long'"
+                      [class.air-verdict__badge--short]="verdict.contingency.direction === 'Short'">
+                    {{ verdict.contingency.direction }} if triggered
+                </span>
+                <svg class="air-verdict__contingency-chevron"
+                     [class.is-expanded]="contingencyExpanded()"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </div>
+        </button>
+        @if (contingencyExpanded()) {
+            <div class="air-verdict__levels">
+                <div class="air-verdict__level air-verdict__level--trigger">
+                    <span class="air-verdict__level-label">Trigger</span>
+                    <span class="air-verdict__level-price">{{ verdict.contingency.trigger.price }}</span>
+                    <span class="air-verdict__level-note">{{ verdict.contingency.trigger.note }}</span>
+                </div>
+                <div class="air-verdict__level air-verdict__level--stop">
+                    <span class="air-verdict__level-label">Stop loss</span>
+                    <span class="air-verdict__level-price">{{ verdict.contingency.stop.price }}</span>
+                    <span class="air-verdict__level-note">{{ verdict.contingency.stop.note }}</span>
+                </div>
+                <div class="air-verdict__level air-verdict__level--target">
+                    <span class="air-verdict__level-label">Take profit</span>
+                    <span class="air-verdict__level-price">{{ verdict.contingency.target.price }}</span>
+                    <span class="air-verdict__level-note">{{ verdict.contingency.target.note }}</span>
+                </div>
+            </div>
+            <div class="air-verdict__condition">{{ verdict.contingency.condition }}</div>
+        }
+    </div>
+
+    <!-- slot for chips / follow-up (live analysis only — empty in saved-reports view) -->
+    <ng-content></ng-content>
+
+</div>

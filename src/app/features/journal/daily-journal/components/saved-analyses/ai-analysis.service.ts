@@ -48,6 +48,7 @@ export class AiAnalysisService {
         const { data, error } = await this.client
             .from('ai_analyses')
             .select(COLUMNS)
+            .eq('kind', 'journal')
             .eq('date', date)
             .order('created_at', { ascending: false });
 
@@ -63,7 +64,7 @@ export class AiAnalysisService {
     async saveAnalysis(date: string, content: string): Promise<SavedAnalysis> {
         const { data, error } = await this.client
             .from('ai_analyses')
-            .insert({ date, content })
+            .insert({ kind: 'journal', date, content })
             .select(COLUMNS)
             .single();
 

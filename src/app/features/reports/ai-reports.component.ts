@@ -6,8 +6,13 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MarkdownComponent } from 'ngx-markdown';
 import { TradovateService } from '../../core/services/tradovate.service';
 import { AI_GENERIC_ERROR, AI_STREAM_TIMEOUT_MS, OpenAiService } from '../../core/services/openai.service';
+import { ReportAnalysisService } from './report-analysis.service';
+import { SavedReportsComponent } from './saved-reports/saved-reports.component';
+import { VerdictCardComponent } from './verdict-card/verdict-card.component';
+import { VerdictCard } from './verdict-card.model';
 
 type AnalysisState = { status: 'idle' | 'streaming' | 'complete' | 'error'; content: string; error: string | null };
+type ConfidenceTier = 'high' | 'medium' | 'low' | null;
 
 const ANALYSIS_STEPS = [
     'Reading chart structure',
@@ -19,42 +24,18 @@ const ANALYSIS_STEPS = [
     'Forming trade thesis',
     'Finalizing verdict',
 ] as const;
-type ConfidenceTier = 'high' | 'medium' | 'low' | null;
-
-interface VerdictCard {
-    symbol: string;
-    timeframe: string;
-    direction: 'Long' | 'Short';
-    conviction: string;
-    confidenceScore: number;
-    confluenceCount: number;
-    primarySignal: string;
-    levels: {
-        entry:  { price: string; note: string };
-        stop:   { price: string; note: string };
-        target: { price: string; note: string };
-    };
-    confluences: string[];
-    contingency: {
-        direction: 'Long' | 'Short';
-        trigger: { price: string; note: string };
-        stop:    { price: string; note: string };
-        target:  { price: string; note: string };
-        condition: string;
-    };
-    contextChips: string[];
-}
 
 @Component({
     selector: 'app-ai-reports',
     standalone: true,
-    imports: [FormsModule, MarkdownComponent, RouterLink],
+    imports: [FormsModule, MarkdownComponent, RouterLink, SavedReportsComponent, VerdictCardComponent],
     templateUrl: './ai-reports.component.html',
     styleUrl: './ai-reports.component.scss'
 })
 export class AiReportsComponent implements OnDestroy {
-    readonly tradovateService = inject(TradovateService);
-    readonly openAiService   = inject(OpenAiService);
+    readonly tradovateService  = inject(TradovateService);
+    readonly openAiService     = inject(OpenAiService);
+    readonly reportService     = inject(ReportAnalysisService);
     private readonly destroyRef = inject(DestroyRef);
 
     // ── Preserved inputs (survive regeneration) ──────────────────────────────
@@ -71,9 +52,8 @@ export class AiReportsComponent implements OnDestroy {
     confidence         = signal<ConfidenceTier>(null);
     followUpState      = signal<AnalysisState>({ status: 'idle', content: '', error: null });
     followUpConfidence = signal<ConfidenceTier>(null);
-    verdict               = signal<VerdictCard | null>(null);
-    contingencyExpanded   = signal(false);
-    activeSteps           = signal<string[]>([]);
+    verdict            = signal<VerdictCard | null>(null);
+    activeSteps        = signal<string[]>([]);
 
     private stepsInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -83,6 +63,7 @@ export class AiReportsComponent implements OnDestroy {
     private activeFollowUp?: Subscription;
     private mainTimeout: ReturnType<typeof setTimeout> | null = null;
     private followUpTimeout: ReturnType<typeof setTimeout> | null = null;
+    private lastAutoSavedKey: string | null = null;
 
     // ── Image handling ───────────────────────────────────────────────────────
     onImageSelected(event: Event): void {
@@ -106,7 +87,6 @@ export class AiReportsComponent implements OnDestroy {
         this.setImage(event.dataTransfer?.files?.[0] ?? null);
     }
 
-    /** Shared entry point for click-to-upload and drag-and-drop. */
     private setImage(file: File | null): void {
         if (!file || !file.type.startsWith('image/')) return;
         this.selectedImage.set(file);
@@ -125,6 +105,7 @@ export class AiReportsComponent implements OnDestroy {
         this.confidence.set(null);
         this.followUpState.set({ status: 'idle', content: '', error: null });
         this.followUpConfidence.set(null);
+        this.lastAutoSavedKey = null;
 
         try {
             if (this.analysisMode() === 'screenshot') {
@@ -150,9 +131,9 @@ export class AiReportsComponent implements OnDestroy {
         if (!this.lastMessages.length) return;
         this.verdict.set(null);
         this.confidence.set(null);
-        this.contingencyExpanded.set(false);
         this.followUpState.set({ status: 'idle', content: '', error: null });
         this.followUpConfidence.set(null);
+        this.lastAutoSavedKey = null;
         this.startStream(this.lastMessages, this.analysisState, this.confidence);
     }
 
@@ -163,11 +144,6 @@ export class AiReportsComponent implements OnDestroy {
     askFollowUp(message: string): void {
         if (this.analysisState().status !== 'complete') return;
         this.lastFollowUpMessage = message;
-        // Follow-ups are a conversation, not another verdict. The original
-        // request's system prompt forces JSON-only output — if we reuse it the
-        // model streams a raw verdict object again. Swap it for a conversational
-        // prompt so replies read as plain Markdown prose, keeping the chart /
-        // market context and the prior verdict for continuity.
         const context = this.lastMessages.filter(m => m.role !== 'system');
         const messages = [
             {
@@ -202,16 +178,14 @@ export class AiReportsComponent implements OnDestroy {
 
         stateSignal.set({ status: 'streaming', content: '', error: null });
         let firstToken = false;
+        let autoSaved = false;
 
-        // Fail into the error state — never leave the spinner running.
         const fail = (message: string) => {
             if (isMain) this.clearStepsAnimation();
             this.clearStreamTimeout(isMain);
             stateSignal.set({ status: 'error', content: '', error: message });
         };
 
-        // Abort + surface a timeout error if the upstream hangs before the
-        // first token instead of spinning forever.
         const timeout = setTimeout(() => {
             if (firstToken) return;
             (isMain ? this.activeStream : this.activeFollowUp)?.unsubscribe();
@@ -223,14 +197,14 @@ export class AiReportsComponent implements OnDestroy {
         const sub = this.openAiService.streamAnalysis(messages)
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe({
-                next:     token => {
+                next: token => {
                     if (!firstToken) {
                         firstToken = true;
                         this.clearStreamTimeout(isMain);
                     }
                     stateSignal.update(s => ({ ...s, content: s.content + token }));
                 },
-                complete: ()    => {
+                complete: () => {
                     if (isMain) this.clearStepsAnimation();
                     this.clearStreamTimeout(isMain);
                     stateSignal.update(s => ({ ...s, status: 'complete' }));
@@ -240,6 +214,13 @@ export class AiReportsComponent implements OnDestroy {
                             this.verdict.set(parsed);
                             const score = parsed.confidenceScore;
                             confidenceSignal?.set(score >= 75 ? 'high' : score >= 45 ? 'medium' : 'low');
+                            // Auto-save the structured verdict; guard prevents double-save per generation.
+                            const key = JSON.stringify(parsed);
+                            if (!autoSaved && key !== this.lastAutoSavedKey) {
+                                autoSaved = true;
+                                this.lastAutoSavedKey = key;
+                                void this.reportService.saveReport(this.deriveReportTitle(parsed), parsed);
+                            }
                         } catch {
                             stateSignal.set({ status: 'error', content: '', error: 'Response was not valid JSON. Try again.' });
                         }
@@ -247,7 +228,7 @@ export class AiReportsComponent implements OnDestroy {
                         confidenceSignal?.set(this.deriveConfidence(stateSignal().content));
                     }
                 },
-                error:    err   => fail(err?.message || AI_GENERIC_ERROR),
+                error: err => fail(err?.message || AI_GENERIC_ERROR),
             });
 
         if (isMain) this.activeStream = sub;
@@ -275,9 +256,17 @@ export class AiReportsComponent implements OnDestroy {
         const low    = ['unclear', 'insufficient data', 'no trade', 'cannot determine', 'limited visibility', 'no clear'];
         const high   = ['strong', 'clear', 'confirmed', 'high probability', 'definitive', 'high confidence'];
         const medium = ['likely', 'suggest', 'possible', 'may ', 'could', 'perhaps', 'might'];
-        if (low.some(s => t.includes(s)))                       return 'low';
+        if (low.some(s => t.includes(s)))                                            return 'low';
         if (high.some(s => t.includes(s)) && !medium.some(s => t.includes(s))) return 'high';
         return 'medium';
+    }
+
+    private deriveReportTitle(v: VerdictCard): string {
+        const sym = (v.symbol || this.symbol()).trim().toUpperCase();
+        if (this.analysisMode() === 'live') {
+            return sym ? `${sym} · ${this.timeframe()} · Live Data` : `${this.timeframe()} · Live Data`;
+        }
+        return sym ? `Screenshot · ${sym}` : 'Screenshot analysis';
     }
 
     private readonly verdictJsonSchema = `{"symbol":"...","timeframe":"...","direction":"Short|Long","conviction":"...","confidenceScore":0,"confluenceCount":0,"primarySignal":"...","levels":{"entry":{"price":"...","note":"..."},"stop":{"price":"...","note":"..."},"target":{"price":"...","note":"..."}},"confluences":["..."],"contingency":{"direction":"Long|Short","trigger":{"price":"...","note":"..."},"stop":{"price":"...","note":"..."},"target":{"price":"...","note":"..."},"condition":"..."},"contextChips":["...","..."]}`;
