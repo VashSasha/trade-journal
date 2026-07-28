@@ -2,11 +2,11 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RevealOnScrollDirective } from '../../reveal-on-scroll.directive';
 
 @Component({
-    selector: 'app-landing-features',
+    selector: 'app-landing-ai',
     standalone: true,
     imports: [RevealOnScrollDirective],
-    templateUrl: './landing-features.component.html',
-    styleUrl: './landing-features.component.scss',
+    templateUrl: './landing-ai.component.html',
+    styleUrl: './landing-ai.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class LandingFeaturesComponent {}
+export class LandingAiComponent {}

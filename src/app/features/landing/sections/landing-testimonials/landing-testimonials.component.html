@@ -1,0 +1,20 @@
+<section class="testimonials">
+    <div class="testimonials__inner">
+        <div class="testimonials__head" appRevealOnScroll>
+            <h2 class="testimonials__title">What NVZN traders say</h2>
+        </div>
+
+        <div class="testimonials__grid">
+            @for (t of testimonials; track $index) {
+                <figure class="quote-card" appRevealOnScroll>
+                    <span class="quote-card__mark">"</span>
+                    <blockquote class="quote-card__quote">{{ t.quote }}</blockquote>
+                    <figcaption class="quote-card__by">
+                        <span class="quote-card__name">{{ t.name }}</span>
+                        <span class="quote-card__role">{{ t.role }}</span>
+                    </figcaption>
+                </figure>
+            }
+        </div>
+    </div>
+</section>
