@@ -1,0 +1,73 @@
+.audience {
+    padding: 5rem 1.5rem;
+    background: var(--color-bg-surface);
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+
+    &__inner {
+        max-width: 72rem;
+        margin: 0 auto;
+    }
+
+    &__head {
+        max-width: 42rem;
+        margin: 0 auto 3rem;
+        text-align: center;
+    }
+
+    &__title {
+        font-size: clamp(1.7rem, 3vw, 2.4rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+        color: var(--color-text-primary);
+    }
+
+    &__grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.25rem;
+    }
+}
+
+.audience-card {
+    padding: 1.75rem;
+    border-radius: 0.9rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-base);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+
+    &:hover {
+        transform: translateY(-4px);
+        border-color: var(--color-accent);
+    }
+
+    &__icon {
+        font-size: 1.6rem;
+        line-height: 1;
+    }
+
+    &__title {
+        margin: 1rem 0 0.5rem;
+        font-size: 1.08rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
+    }
+
+    &__text {
+        margin: 0;
+        font-size: 0.92rem;
+        line-height: 1.65;
+        color: var(--color-text-secondary);
+    }
+}
+
+@media (max-width: 900px) {
+    .audience {
+        padding: 4rem 1.25rem;
+
+        &__grid {
+            grid-template-columns: 1fr;
+        }
+    }
+}

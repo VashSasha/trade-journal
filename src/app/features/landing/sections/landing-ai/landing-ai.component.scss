@@ -1,0 +1,404 @@
+// ── Flagship AI section — the largest block on the page ─────────────────────
+
+.ai {
+    scroll-margin-top: 4.5rem;
+    padding: 6rem 1.5rem;
+    background:
+        radial-gradient(60% 40% at 50% 0%, var(--color-accent-subtle) 0%, transparent 70%),
+        var(--color-bg-base);
+
+    &__inner {
+        max-width: 72rem;
+        margin: 0 auto;
+    }
+
+    &__head {
+        max-width: 46rem;
+        margin: 0 auto 4.5rem;
+        text-align: center;
+    }
+
+    &__eyebrow {
+        display: inline-block;
+        padding: 0.35rem 0.9rem;
+        border-radius: 999px;
+        border: 1px solid color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+        background: var(--color-accent-subtle);
+        color: var(--color-accent);
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+    }
+
+    &__title {
+        margin: 1.25rem 0 0;
+        font-size: clamp(1.9rem, 3.6vw, 2.8rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+        color: var(--color-text-primary);
+    }
+
+    &__subtitle {
+        margin-top: 1rem;
+        font-size: 1.08rem;
+        line-height: 1.7;
+        color: var(--color-text-secondary);
+    }
+
+    // ── Honesty card ────────────────────────────────────────────────────
+    &__honesty {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        max-width: 46rem;
+        margin: 4rem auto 0;
+        padding: 1.5rem 1.75rem;
+        border-radius: 1rem;
+        border: 1px solid color-mix(in srgb, var(--color-positive) 35%, var(--color-border));
+        background: color-mix(in srgb, var(--color-positive) 5%, var(--color-bg-surface));
+    }
+
+    &__honesty-icon {
+        flex-shrink: 0;
+        font-size: 1.4rem;
+        line-height: 1;
+        margin-top: 0.15rem;
+    }
+
+    &__honesty-title {
+        margin: 0 0 0.35rem;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
+    }
+
+    &__honesty-text {
+        margin: 0;
+        font-size: 0.95rem;
+        line-height: 1.65;
+        color: var(--color-text-secondary);
+    }
+
+    // ── Inline CTA ──────────────────────────────────────────────────────
+    &__inline-cta {
+        margin-top: 2.5rem;
+        text-align: center;
+    }
+
+    &__inline-cta-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--color-accent);
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
+
+// ── Alternating sub-blocks ───────────────────────────────────────────────────
+
+.ai-block {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+    padding: 2.5rem 0;
+
+    &--flip .ai-block__copy { order: 2; }
+    &--flip .ai-block__visual { order: 1; }
+
+    &__kicker {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        color: var(--color-accent);
+    }
+
+    &__heading {
+        margin: 0.75rem 0 1rem;
+        font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+        font-weight: 800;
+        letter-spacing: -0.015em;
+        line-height: 1.2;
+        color: var(--color-text-primary);
+    }
+
+    &__list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+
+        li {
+            position: relative;
+            padding-left: 1.6rem;
+            font-size: 0.98rem;
+            line-height: 1.6;
+            color: var(--color-text-secondary);
+
+            &::before {
+                content: '✓';
+                position: absolute;
+                left: 0;
+                top: 0;
+                color: var(--color-positive);
+                font-weight: 700;
+            }
+        }
+    }
+
+    &__visual {
+        display: flex;
+        justify-content: center;
+    }
+}
+
+// ── Visual: daily-insight card mockup ────────────────────────────────────────
+
+.ai-card {
+    width: 100%;
+    max-width: 24rem;
+    padding: 1.25rem 1.4rem;
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+    background: var(--color-bg-surface);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.12);
+
+    &__header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    &__spark {
+        font-size: 1rem;
+        filter: drop-shadow(0 0 8px var(--color-accent-subtle));
+    }
+
+    &__label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--color-accent);
+    }
+
+    &__line {
+        height: 0.5rem;
+        border-radius: 999px;
+        background: var(--color-bg-surface-3);
+        margin-bottom: 0.55rem;
+
+        &--w80 { width: 80%; }
+        &--w95 { width: 95%; }
+        &--w60 { width: 60%; }
+    }
+
+    &__section {
+        margin: 1rem 0 0.6rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-text-muted);
+    }
+
+    &__task {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        padding: 0.4rem 0;
+        font-size: 0.85rem;
+        color: var(--color-text-secondary);
+    }
+
+    &__box {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 0.25rem;
+        border: 1.5px solid var(--color-border);
+        font-size: 0.65rem;
+        color: #fff;
+
+        &--checked {
+            background: var(--color-positive);
+            border-color: var(--color-positive);
+        }
+    }
+}
+
+// ── Visual: chart-verdict mini mockup ────────────────────────────────────────
+
+.ai-verdict-mini {
+    width: 100%;
+    max-width: 24rem;
+    padding: 1.25rem 1.4rem;
+    border-radius: 1rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-surface);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.12);
+
+    &__top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    &__sym {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: var(--color-text-primary);
+    }
+
+    &__tf {
+        margin-left: 0.35rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--color-text-muted);
+    }
+
+    &__badge {
+        padding: 0.25rem 0.7rem;
+        border-radius: 999px;
+        background: var(--color-positive-subtle);
+        color: var(--color-positive);
+        font-size: 0.72rem;
+        font-weight: 700;
+    }
+
+    &__quality {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 1rem;
+    }
+
+    &__quality-label,
+    &__quality-value {
+        flex-shrink: 0;
+        font-size: 0.7rem;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+    }
+
+    &__bar {
+        flex: 1;
+        height: 4px;
+        border-radius: 999px;
+        background: var(--color-bg-surface-3);
+        overflow: hidden;
+
+        span {
+            display: block;
+            width: 76%;
+            height: 100%;
+            border-radius: 999px;
+            background: var(--color-accent);
+        }
+    }
+
+    &__levels {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    &__level {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        padding: 0.55rem 0.6rem;
+        border-radius: 0.55rem;
+        background: var(--color-bg-surface-2);
+
+        span {
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--color-text-muted);
+        }
+
+        strong {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--color-text-primary);
+        }
+    }
+
+    &__chip {
+        display: inline-block;
+        padding: 0.35rem 0.8rem;
+        border-radius: 999px;
+        border: 1px solid var(--color-border);
+        font-size: 0.78rem;
+        color: var(--color-text-secondary);
+        font-style: italic;
+    }
+}
+
+// ── Visual: saved-reports mini mockup ────────────────────────────────────────
+
+.ai-reports-mini {
+    width: 100%;
+    max-width: 24rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+
+    &__row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.85rem 1.1rem;
+        border-radius: 0.7rem;
+        border: 1px solid var(--color-border);
+        background: var(--color-bg-surface);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+
+        &--faded { opacity: 0.55; }
+    }
+
+    &__title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+    }
+
+    &__time {
+        font-size: 0.72rem;
+        color: var(--color-text-muted);
+    }
+}
+
+// ── Responsive ───────────────────────────────────────────────────────────────
+
+@media (max-width: 900px) {
+    .ai {
+        padding: 4rem 1.25rem;
+    }
+
+    .ai-block {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        padding: 2rem 0;
+
+        &--flip .ai-block__copy { order: 1; }
+        &--flip .ai-block__visual { order: 2; }
+    }
+}

@@ -1,59 +1,134 @@
 <section class="features" id="features">
     <div class="features__inner">
+
         <div class="features__head" appRevealOnScroll>
             <h2 class="features__title">Everything a serious trader journals — in one place</h2>
             <p class="features__subtitle">
-                Stop guessing why your account looks the way it does. NVZN turns raw fills into insight.
+                The AI coach sits on top of a complete journal. Here's the foundation.
             </p>
         </div>
 
-        <div class="features__grid">
-            @for (feature of features; track feature.title) {
-                <article class="feature-card" appRevealOnScroll>
-                    <div class="feature-card__icon" [attr.data-icon]="feature.icon">
-                        @switch (feature.icon) {
-                            @case ('sync') {
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 12a9 9 0 0 1-15.5 6.2M3 12a9 9 0 0 1 15.5-6.2" />
-                                    <path d="M21 4v5h-5M3 20v-5h5" />
-                                </svg>
-                            }
-                            @case ('journal') {
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M4 4h13a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3V4Z" />
-                                    <path d="M8 8h8M8 12h8M8 16h5" />
-                                </svg>
-                            }
-                            @case ('analytics') {
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M3 20h18" />
-                                    <path d="M5 16l4-6 4 3 6-8" />
-                                </svg>
-                            }
-                            @case ('calendar') {
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="3" y="5" width="18" height="16" rx="2" />
-                                    <path d="M8 3v4M16 3v4M3 10h18" />
-                                </svg>
-                            }
-                            @case ('ai') {
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M12 3l1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8L12 3Z" />
-                                    <path d="M18.5 15l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1Z" />
-                                </svg>
-                            }
-                            @case ('news') {
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="9" />
-                                    <path d="M3 12h18M12 3c2.5 2.5 3.5 5.5 3.5 9s-1 6.5-3.5 9c-2.5-2.5-3.5-5.5-3.5-9s1-6.5 3.5-9Z" />
-                                </svg>
-                            }
-                        }
+        <!-- ── Automated journal ──────────────────────────────────────── -->
+        <div class="feature-dive" appRevealOnScroll>
+            <div class="feature-dive__copy">
+                <span class="feature-dive__kicker">Automated journal</span>
+                <h3 class="feature-dive__heading">From raw fills to a finished journal — automatically</h3>
+                <ul class="feature-dive__list">
+                    <li>Connect your broker once; fills sync without manual entry or CSV wrangling</li>
+                    <li>FIFO matching turns fills into complete round-trip trades</li>
+                    <li>Real commissions and fees from broker reports — net P&amp;L you can trust</li>
+                    <li>Multiple accounts and prop-firm accounts tracked side by side</li>
+                </ul>
+                <a class="feature-dive__cta" href="#integrations">See supported brokers →</a>
+            </div>
+            <div class="feature-dive__visual" aria-hidden="true">
+                <div class="fv-sync">
+                    <div class="fv-sync__source">
+                        <span class="fv-sync__source-label">Broker</span>
+                        <span class="fv-sync__source-rows">
+                            <span></span><span></span><span></span>
+                        </span>
                     </div>
-                    <h3 class="feature-card__title">{{ feature.title }}</h3>
-                    <p class="feature-card__description">{{ feature.description }}</p>
-                </article>
-            }
+                    <div class="fv-sync__arrow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14M13 6l6 6-6 6" />
+                        </svg>
+                        <span>auto-sync</span>
+                    </div>
+                    <div class="fv-sync__result">
+                        <div class="fv-sync__trade">
+                            <span class="fv-sync__tag fv-sync__tag--long">LONG</span>
+                            <span class="fv-sync__sym">MNQ</span>
+                            <span class="fv-sync__pnl fv-sync__pnl--positive">+$430</span>
+                        </div>
+                        <div class="fv-sync__trade">
+                            <span class="fv-sync__tag fv-sync__tag--short">SHORT</span>
+                            <span class="fv-sync__sym">ES</span>
+                            <span class="fv-sync__pnl fv-sync__pnl--positive">+$212</span>
+                        </div>
+                        <div class="fv-sync__trade">
+                            <span class="fv-sync__tag fv-sync__tag--long">LONG</span>
+                            <span class="fv-sync__sym">NQ</span>
+                            <span class="fv-sync__pnl fv-sync__pnl--negative">−$118</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
+
+        <!-- ── Daily journal ──────────────────────────────────────────── -->
+        <div class="feature-dive feature-dive--flip" appRevealOnScroll>
+            <div class="feature-dive__copy">
+                <span class="feature-dive__kicker">Daily journal</span>
+                <h3 class="feature-dive__heading">Build the review habit that compounds</h3>
+                <ul class="feature-dive__list">
+                    <li>Rich-text notes with reusable templates for pre-market plans and reviews</li>
+                    <li>Mood and discipline tracking on every session</li>
+                    <li>Your own rules checklist — see which ones you actually followed</li>
+                    <li>Tags and a timeline to find any day in seconds</li>
+                </ul>
+                <a class="feature-dive__cta" href="#pricing">Start journaling →</a>
+            </div>
+            <div class="feature-dive__visual" aria-hidden="true">
+                <div class="fv-journal">
+                    <div class="fv-journal__date">Tuesday — session review</div>
+                    <div class="fv-journal__row">
+                        <span class="fv-journal__label">Mood</span>
+                        <span class="fv-journal__dots">
+                            <span class="is-on"></span><span class="is-on"></span><span class="is-on"></span><span class="is-on"></span><span></span>
+                        </span>
+                    </div>
+                    <div class="fv-journal__row">
+                        <span class="fv-journal__label">Discipline</span>
+                        <span class="fv-journal__dots">
+                            <span class="is-on"></span><span class="is-on"></span><span class="is-on"></span><span></span><span></span>
+                        </span>
+                    </div>
+                    <div class="fv-journal__rule"><span class="fv-journal__check">✓</span>Waited for confirmation</div>
+                    <div class="fv-journal__rule"><span class="fv-journal__check">✓</span>Respected max daily loss</div>
+                    <div class="fv-journal__rule fv-journal__rule--missed"><span class="fv-journal__check fv-journal__check--missed">✕</span>No trades during news</div>
+                    <div class="fv-journal__tags">
+                        <span>#breakout</span><span>#NQ</span><span>#CPI-day</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Analytics ──────────────────────────────────────────────── -->
+        <div class="feature-dive" appRevealOnScroll>
+            <div class="feature-dive__copy">
+                <span class="feature-dive__kicker">Analytics</span>
+                <h3 class="feature-dive__heading">Know your numbers cold</h3>
+                <ul class="feature-dive__list">
+                    <li>Equity curve built from your real balances and trade history</li>
+                    <li>Win rate, profit factor, and average trade at a glance</li>
+                    <li>P&amp;L calendar heatmap — spot your best and worst days instantly</li>
+                    <li>Filter everything by account, symbol, or date range</li>
+                </ul>
+                <a class="feature-dive__cta" href="#pricing">See your real edge →</a>
+            </div>
+            <div class="feature-dive__visual" aria-hidden="true">
+                <div class="fv-analytics">
+                    <div class="fv-analytics__chips">
+                        <span class="fv-analytics__chip">Win rate <strong>64%</strong></span>
+                        <span class="fv-analytics__chip">Profit factor <strong>2.31</strong></span>
+                    </div>
+                    <svg class="fv-analytics__curve" viewBox="0 0 320 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                        <line class="fv-analytics__baseline" x1="0" y1="88" x2="320" y2="88" />
+                        <path class="fv-analytics__line"
+                            d="M0,88 L30,94 L60,80 L90,84 L120,66 L150,72 L180,52 L210,58 L240,38 L270,44 L300,24 L320,18" />
+                    </svg>
+                    <div class="fv-analytics__cal">
+                        <span class="is-pos"></span><span class="is-pos"></span><span class="is-neg"></span><span></span><span class="is-pos"></span>
+                        <span class="is-pos"></span><span class="is-neg"></span><span class="is-pos"></span><span class="is-pos"></span><span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="features__inline-cta" appRevealOnScroll>
+            <a class="features__inline-cta-link" href="#pricing">Get the full journal →</a>
+        </div>
+
     </div>
 </section>

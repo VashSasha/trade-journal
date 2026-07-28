@@ -1,0 +1,62 @@
+<section class="compare">
+    <div class="compare__inner">
+        <div class="compare__head" appRevealOnScroll>
+            <h2 class="compare__title">Spreadsheets track. NVZN coaches.</h2>
+            <p class="compare__subtitle">
+                Plenty of tools store your trades. Only one of these reviews them with you.
+            </p>
+        </div>
+
+        <div class="compare__table-wrap" appRevealOnScroll>
+            <table class="compare__table">
+                <thead>
+                    <tr>
+                        <th class="compare__feature-col"></th>
+                        <th>Spreadsheet</th>
+                        <th>Generic journals</th>
+                        <th class="compare__nvzn-col">NVZN Journal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (row of rows; track row.label) {
+                        <tr [class.compare__row--star]="row.star">
+                            <td class="compare__feature-col">{{ row.label }}</td>
+                            <td>
+                                @if (isMark(row.spreadsheet)) {
+                                    <span class="compare__mark compare__mark--{{ row.spreadsheet }}">
+                                        {{ row.spreadsheet === 'yes' ? '✓' : row.spreadsheet === 'partial' ? '～' : '✕' }}
+                                    </span>
+                                } @else {
+                                    <span class="compare__text">{{ row.spreadsheet }}</span>
+                                }
+                            </td>
+                            <td>
+                                @if (isMark(row.generic)) {
+                                    <span class="compare__mark compare__mark--{{ row.generic }}">
+                                        {{ row.generic === 'yes' ? '✓' : row.generic === 'partial' ? '～' : '✕' }}
+                                    </span>
+                                } @else {
+                                    <span class="compare__text">{{ row.generic }}</span>
+                                }
+                            </td>
+                            <td class="compare__nvzn-col">
+                                @if (isMark(row.nvzn)) {
+                                    <span class="compare__mark compare__mark--{{ row.nvzn }}">
+                                        {{ row.nvzn === 'yes' ? '✓' : row.nvzn === 'partial' ? '～' : '✕' }}
+                                    </span>
+                                } @else {
+                                    <span class="compare__text compare__text--strong">{{ row.nvzn }}</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="compare__legend" appRevealOnScroll>～ = varies by product</p>
+
+        <div class="compare__inline-cta" appRevealOnScroll>
+            <a class="compare__inline-cta-link" href="#pricing">Pick your plan →</a>
+        </div>
+    </div>
+</section>
