@@ -78,9 +78,18 @@ export class DaySummaryComponent implements OnDestroy {
     return computeDayStats(this.trades);
   }
 
+  /**
+   * Starting point shared by the curve AND the chart's dashed baseline. They
+   * must be the same value — a baseline decoupled from the curve start (e.g.
+   * the raw account-size setting vs a ~$0 balance) paints the whole chart as
+   * one giant red fill on a flat day.
+   */
+  get chartBase(): number {
+    return this.startBalance ?? this.accountSettings.startingBalance();
+  }
+
   get equityData() {
-    const base = this.startBalance ?? this.accountSettings.startingBalance();
-    return buildEquityCurve(this.trades, base);
+    return buildEquityCurve(this.trades, this.chartBase);
   }
 
   get sharePnlStats(): SharePnlStats {

@@ -121,6 +121,28 @@ export class TradeService {
     }
 
     /**
+     * Stamp connectionId onto stored trades that predate connection tracking:
+     * any trade with a null connectionId whose accountId belongs to the given
+     * connection gets linked to it. Returns how many trades were patched.
+     */
+    backfillConnectionIds(connectionId: string, accountIds: Set<string>): number {
+        const now = new Date().toISOString();
+        const patched: Trade[] = [];
+        const updatedTrades = this.tradesSignal().map(t => {
+            if (t.connectionId || !t.accountId || !accountIds.has(t.accountId)) return t;
+            const linked = { ...t, connectionId, updatedAt: now };
+            patched.push(linked);
+            return linked;
+        });
+        if (patched.length === 0) return 0;
+
+        this.tradesSignal.set(updatedTrades);
+        this.saveTradesToStorage(updatedTrades);
+        this.repo.queueTradeUpserts(patched);
+        return patched.length;
+    }
+
+    /**
      * Delete trade
      */
     deleteTrade(id: string): void {

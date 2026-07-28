@@ -96,6 +96,15 @@ export class SyncService {
 
             this.log(`Syncing ${conns.length} connection(s): ${conns.map(c => c.name).join(', ')}`);
 
+            // Link legacy trades (imported before connection tracking) to the
+            // connection that owns their account, so per-connection features
+            // keep working even after other connections are removed.
+            for (const conn of conns) {
+                const accountIds = new Set(conn.accounts.map(a => String(a.id)));
+                const linked = this.tradeService.backfillConnectionIds(conn.id, accountIds);
+                if (linked > 0) this.log(`Linked ${linked} existing trade(s) to ${conn.name}.`);
+            }
+
             // Fetch pre-matched trades from Performance report
             this.log('Fetching trades from Tradovate Performance Report...');
             const rawTrades = await firstValueFrom(

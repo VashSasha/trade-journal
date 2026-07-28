@@ -3,22 +3,24 @@ import { SupabaseService } from '../supabase.service';
 import { Trade } from '../../models/trade.model';
 import { DailyNote, JournalTemplate } from '../../models/daily-journal.model';
 import {
-    UserSettings,
+    UserSettings, StoredTradingAccount,
     tradeToRow, rowToTrade,
     noteToRow, rowToNote,
     templateToRow, rowToTemplate,
-    settingsToRow, rowToSettings
+    settingsToRow, rowToSettings,
+    tradingAccountToRow, rowToTradingAccount
 } from './user-data.mappers';
 import { CACHE_KEYS, readCache, writeCache } from './user-data.cache';
 
 type Row = Record<string, unknown>;
-type UserTable = 'trades' | 'journal_entries' | 'journal_templates';
+type UserTable = 'trades' | 'journal_entries' | 'journal_templates' | 'trading_accounts';
 
 /** Composite-PK conflict targets for upserts (user_id fills from its default). */
 const CONFLICT: Record<UserTable, string> = {
     trades: 'user_id,id',
     journal_entries: 'user_id,id',
-    journal_templates: 'user_id,id'
+    journal_templates: 'user_id,id',
+    trading_accounts: 'user_id,account_id'
 };
 
 type PendingWrite =
@@ -88,6 +90,13 @@ export class UserDataRepo {
         return data ? rowToSettings(data as Row) : null;
     }
 
+    async fetchTradingAccounts(): Promise<StoredTradingAccount[]> {
+        const { data, error } = await this.client
+            .from('trading_accounts').select('*').order('account_id', { ascending: true });
+        if (error) throw error;
+        return (data as Row[]).map(rowToTradingAccount);
+    }
+
     // ── fire-and-forget writes (batched) ─────────────────────────────────
 
     queueTradeUpserts(trades: Trade[]): void {
@@ -122,6 +131,16 @@ export class UserDataRepo {
     queueSettingsUpsert(settings: Partial<UserSettings>): void {
         this.batchedSettings = { ...(this.batchedSettings ?? {}), ...settingsToRow(settings) };
         this.scheduleFlush();
+    }
+
+    /**
+     * Rows arrive pre-merged (full column set) from TradingAccountsService, so
+     * plain last-write-wins coalescing by account id is safe here. This table
+     * is append/update only — nothing ever queues a delete for it.
+     */
+    queueTradingAccountUpserts(accounts: StoredTradingAccount[]): void {
+        this.addUpserts('trading_accounts',
+            accounts.map(a => [String(a.accountId), tradingAccountToRow(a)]));
     }
 
     // ── direct writes (awaited — used by the one-time import) ────────────

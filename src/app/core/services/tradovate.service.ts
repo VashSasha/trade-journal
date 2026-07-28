@@ -4,6 +4,7 @@ import { Observable, throwError, of, timer, forkJoin, from } from 'rxjs';
 import { catchError, map, switchMap, tap, takeWhile, mergeMap, filter, concatMap, reduce } from 'rxjs/operators';
 import { AuthService } from './auth.service';
 import { SupabaseService } from './supabase.service';
+import { TradingAccountsService } from './trading-accounts.service';
 
 export interface TradovateFill {
     id: number;
@@ -80,6 +81,7 @@ export class TradovateService {
     private http = inject(HttpClient);
     private auth = inject(AuthService);
     private supabase = inject(SupabaseService).client;
+    private tradingAccounts = inject(TradingAccountsService);
 
     // ── Persistence keys ──────────────────────────────────────────────────
     // CACHE_* mirror the Supabase rows for offline use and are cleared on
@@ -848,12 +850,19 @@ export class TradovateService {
 
     getAccountsForConnection(conn: TradovateConnection): Observable<TradovateAccount[]> {
         return this.authGetFor<TradovateAccount[]>(conn, '/account/list').pipe(
-            tap(accounts => this.updateConnectionAccounts(conn.id, accounts))
+            tap(accounts => {
+                this.updateConnectionAccounts(conn.id, accounts);
+                // Persist to trading_accounts so these keep working after the
+                // connection is removed (rows are never deleted).
+                this.tradingAccounts.recordAccounts(conn.id, accounts);
+            })
         );
     }
 
     getCashBalancesForConnection(conn: TradovateConnection): Observable<TradovateCashBalance[]> {
-        return this.authGetFor<TradovateCashBalance[]>(conn, '/cashBalance/list');
+        return this.authGetFor<TradovateCashBalance[]>(conn, '/cashBalance/list').pipe(
+            tap(balances => this.tradingAccounts.recordBalances(conn.id, balances))
+        );
     }
 
     // Account selection management (per-connection)

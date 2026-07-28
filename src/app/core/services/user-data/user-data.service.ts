@@ -4,6 +4,7 @@ import { SupabaseService } from '../supabase.service';
 import { TradeService } from '../trade.service';
 import { DailyJournalService } from '../daily-journal.service';
 import { AccountSettingsService } from '../account-settings.service';
+import { TradingAccountsService } from '../trading-accounts.service';
 import { UserDataRepo } from './user-data.repo';
 import { Trade } from '../../models/trade.model';
 import { DailyNote, JournalTemplate } from '../../models/daily-journal.model';
@@ -34,6 +35,7 @@ export class UserDataService {
     private tradeService = inject(TradeService);
     private journalService = inject(DailyJournalService);
     private settingsService = inject(AccountSettingsService);
+    private tradingAccounts = inject(TradingAccountsService);
 
     /** True while the one-time legacy upload runs — drives the sync notice. */
     readonly importing = signal(false);
@@ -92,14 +94,16 @@ export class UserDataService {
                 this.journalService.hydrateRules(settings.customRules);
             }
 
-            const [trades, notes, templates] = await Promise.all([
+            const [trades, notes, templates, tradingAccounts] = await Promise.all([
                 this.repo.fetchTrades(),
                 this.repo.fetchNotes(),
-                this.repo.fetchTemplates()
+                this.repo.fetchTemplates(),
+                this.repo.fetchTradingAccounts()
             ]);
             this.tradeService.hydrate(trades);
             this.journalService.hydrateNotes(notes);
             this.journalService.hydrateTemplates(templates);
+            this.tradingAccounts.hydrate(tradingAccounts);
 
             // Now that we're demonstrably online, retry anything queued.
             await this.repo.flushQueue();
@@ -166,5 +170,6 @@ export class UserDataService {
         this.journalService.hydrateRules(null);
         this.journalService.hydrateTemplates([]);
         this.settingsService.hydrate(null);
+        this.tradingAccounts.hydrate([]);
     }
 }

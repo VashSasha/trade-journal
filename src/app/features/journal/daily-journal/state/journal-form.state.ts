@@ -3,6 +3,8 @@ import { DailyJournalService } from '../../../../core/services/daily-journal.ser
 import { TradeService } from '../../../../core/services/trade.service';
 import { EconomicCalendarService } from '../../../../core/services/economic-calendar.service';
 import { AccountService } from '../../../../core/services/account.service';
+import { AccountSettingsService } from '../../../../core/services/account-settings.service';
+import { FilterService } from '../../../../core/services/filter.service';
 import { buildTimelineEntry, groupEntriesByMonth, MonthGroup, TimelineEntry } from '../utils/timeline.utils';
 import { tradeSessionDateStr } from '../../../../core/utils/market-holidays';
 import { NewsEventTag } from '../../../../core/models/daily-journal.model';
@@ -20,6 +22,8 @@ export class JournalFormState {
     tradeService = inject(TradeService);
     private economicCalendarService = inject(EconomicCalendarService);
     private accountService = inject(AccountService);
+    private accountSettings = inject(AccountSettingsService);
+    private filterService = inject(FilterService);
 
     selectedDate = signal(localDateStr(new Date()));
     lastSaved = signal<Date | null>(null);
@@ -40,18 +44,19 @@ export class JournalFormState {
 
     notesExpanded = signal(false);
 
+    // Trades scoped to the header account selection — same FilterService
+    // source of truth as every other page (the calendar-heatmap pattern:
+    // account/symbol filters apply, date navigation is our own).
+    private filteredTrades = computed(() =>
+        this.filterService.filterTradesIgnoreDateRange(this.tradeService.trades())
+    );
+
     dayTrades = computed(() => {
         const date = this.selectedDate();
-        const selectedIds = this.accountService.selectedIds();
-        const total = this.accountService.accounts().length;
-        return this.tradeService.trades()
+        return this.filteredTrades()
             .filter(t => {
                 const dateKey = (t.status === 'closed' && t.exitDate) ? t.exitDate : t.entryDate;
-                if (!dateKey || tradeSessionDateStr(dateKey) !== date) return false;
-                if (selectedIds.length > 0 && selectedIds.length < total && t.accountId && t.accountId !== '0') {
-                    return selectedIds.includes(+t.accountId);
-                }
-                return true;
+                return !!dateKey && tradeSessionDateStr(dateKey) === date;
             })
             .sort((a, b) => (b.entryDate ?? '').localeCompare(a.entryDate ?? ''));
     });
@@ -60,8 +65,22 @@ export class JournalFormState {
         this.dayTrades().reduce((sum, t) => sum + (t.netPnl ?? t.pnl ?? 0), 0)
     );
 
+    /**
+     * Combined balance of the selected accounts. Per account: live API
+     * balance → stored last_balance (both merged in accountBalances()) →
+     * the account-size setting as the final fallback, so a selection of
+     * historical accounts never collapses the chart baseline to ~$0.
+     */
+    private selectedBalance = computed(() => {
+        const selected = this.accountService.selectedIds();
+        const fallback = this.accountSettings.startingBalance();
+        if (selected.length === 0) return fallback;
+        const balances = this.accountService.accountBalances();
+        return selected.reduce((sum, id) => sum + (balances.get(id) ?? fallback), 0);
+    });
+
     priorBalance = computed(() =>
-        this.accountService.aggregatedBalance() - this.dayPnl()
+        this.selectedBalance() - this.dayPnl()
     );
 
     displayDate = computed(() =>
@@ -73,9 +92,7 @@ export class JournalFormState {
     timelineEntries = computed((): TimelineEntry[] => {
         const today = new Date();
         const todayStr = localDateStr(today);
-        const trades = this.tradeService.trades();
-        const selectedIds = this.accountService.selectedIds();
-        const total = this.accountService.accounts().length;
+        const trades = this.filteredTrades();
         const entries: TimelineEntry[] = [];
 
         for (let i = 0; i < 60; i++) {
@@ -86,11 +103,7 @@ export class JournalFormState {
             const note = this.journalService.getNoteForDate(dateStr);
             const dayTrades = trades.filter(t => {
                 const dateKey = (t.status === 'closed' && t.exitDate) ? t.exitDate : t.entryDate;
-                if (!dateKey || tradeSessionDateStr(dateKey) !== dateStr) return false;
-                if (selectedIds.length > 0 && selectedIds.length < total && t.accountId && t.accountId !== '0') {
-                    return selectedIds.includes(+t.accountId);
-                }
-                return true;
+                return !!dateKey && tradeSessionDateStr(dateKey) === dateStr;
             });
             const pnl = dayTrades.reduce((sum, t) => sum + (t.netPnl ?? t.pnl ?? 0), 0);
 

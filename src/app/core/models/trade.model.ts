@@ -82,6 +82,7 @@ export interface TradeFormData {
     // Integration Fields
     source?: 'manual' | 'tradovate';
     externalId?: string; // ID from external broker (e.g. Fill ID)
+    connectionId?: string; // Tradovate connection ID (stamped on every synced trade)
     accountId?: string; // Tradovate account ID
     accountName?: string; // Display name for the account
 

@@ -93,7 +93,11 @@
                             <div class="acct-dropdown__item-id">ID: {{ account.id }}</div>
                         </div>
                     </div>
-                    <div class="acct-dropdown__item-balance acct-dropdown__item-balance--na">—</div>
+                    @if (accountService.accountBalances().has(account.id)) {
+                        <div class="acct-dropdown__item-balance">{{ accountService.accountBalances().get(account.id) | currency }}</div>
+                    } @else {
+                        <div class="acct-dropdown__item-balance acct-dropdown__item-balance--na">—</div>
+                    }
                 </label>
                 }
                 }
@@ -114,7 +118,11 @@
                             <div class="acct-dropdown__item-id">ID: {{ account.id }}</div>
                         </div>
                     </div>
-                    <div class="acct-dropdown__item-balance acct-dropdown__item-balance--na">—</div>
+                    @if (accountService.accountBalances().has(account.id)) {
+                        <div class="acct-dropdown__item-balance">{{ accountService.accountBalances().get(account.id) | currency }}</div>
+                    } @else {
+                        <div class="acct-dropdown__item-balance acct-dropdown__item-balance--na">—</div>
+                    }
                 </label>
                 }
                 }

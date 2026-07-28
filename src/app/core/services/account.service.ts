@@ -4,6 +4,7 @@ import { TradovateService, TradovateAccount } from './tradovate.service';
 import { FilterService } from './filter.service';
 import { SyncService } from './sync.service';
 import { TradeService } from './trade.service';
+import { TradingAccountsService } from './trading-accounts.service';
 
 const STORAGE_KEY = 'tradovate_selected_account_ids';
 
@@ -13,31 +14,59 @@ export class AccountService {
     private filterService = inject(FilterService);
     private syncService = inject(SyncService);
     private tradeService = inject(TradeService);
+    private tradingAccounts = inject(TradingAccountsService);
 
     accounts = signal<TradovateAccount[]>([]);
     inactiveAccounts = computed(() => this.tradovateService.inactiveAccounts());
 
-    // Accounts derived from trade history that are not in active or inactive Tradovate connection lists.
-    // Covers accounts that were removed from all connections but still have saved trades.
+    // Accounts that are NOT part of any live connection but still exist for
+    // this user. Primary source: the persisted trading_accounts store (kept
+    // on disconnect, with stored name/type). Fallback: skeletons rebuilt from
+    // trade rows, for trades whose account never got a stored row.
     historicalAccounts = computed((): TradovateAccount[] => {
-        const knownIds = new Set([
+        const liveIds = new Set([
             ...this.accounts().map(a => a.id),
             ...this.inactiveAccounts().map(a => a.id)
         ]);
         const seen = new Set<number>();
         const result: TradovateAccount[] = [];
+
+        for (const acc of this.tradingAccounts.all()) {
+            if (liveIds.has(acc.accountId) || seen.has(acc.accountId)) continue;
+            seen.add(acc.accountId);
+            result.push({
+                id: acc.accountId,
+                name: acc.name || String(acc.accountId),
+                userId: 0,
+                accountType: acc.accountType,
+                active: false
+            });
+        }
+
         for (const t of this.tradeService.trades()) {
             if (!t.accountId || t.accountId === '0') continue;
             const id = Number(t.accountId);
-            if (isNaN(id) || knownIds.has(id) || seen.has(id)) continue;
+            if (isNaN(id) || liveIds.has(id) || seen.has(id)) continue;
             seen.add(id);
             result.push({ id, name: t.accountName || t.accountId, userId: 0, accountType: '', active: false });
         }
         return result;
     });
     selectedIds = signal<number[]>(this.loadSelectedIds());
-    accountBalances = signal<Map<number, number>>(new Map());
+    /** Balances fetched from the API this session (live connections only). */
+    private liveBalances = signal<Map<number, number>>(new Map());
     isRefreshing = signal(false);
+
+    /**
+     * accountId → balance for every known account: stored last-known balances
+     * as the base, overlaid by fresh API balances. Historical/disconnected
+     * accounts keep contributing their last_balance instead of dropping to 0.
+     */
+    accountBalances = computed(() => {
+        const merged = new Map(this.tradingAccounts.storedBalances());
+        for (const [id, amount] of this.liveBalances()) merged.set(id, amount);
+        return merged;
+    });
 
     isConnected = computed(() => this.tradovateService.isConnected());
 
@@ -51,7 +80,13 @@ export class AccountService {
         // Reactively sync accounts from all connections whenever any connection's accounts change.
         effect(() => {
             const accounts = this.tradovateService.allAccounts();
-            if (accounts.length === 0) return;
+            if (accounts.length === 0) {
+                // No live accounts. If connections are gone entirely (e.g. the
+                // last one was removed), clear the live list so those accounts
+                // re-surface as historical instead of appearing still active.
+                if (this.tradovateService.connections().length === 0) this.accounts.set([]);
+                return;
+            }
             this.accounts.set(accounts);
 
             // Default to ALL accounts only when no selection has ever been made.
@@ -114,7 +149,7 @@ export class AccountService {
             conns.map(conn =>
                 firstValueFrom(this.tradovateService.getCashBalancesForConnection(conn))
                     .then(balances => {
-                        this.accountBalances.update(map => {
+                        this.liveBalances.update(map => {
                             const next = new Map(map);
                             balances.forEach(b => {
                                 if (b.accountId && b.amount !== undefined) next.set(b.accountId, b.amount);
@@ -161,7 +196,7 @@ export class AccountService {
                 ...conns.map(conn =>
                     firstValueFrom(this.tradovateService.getCashBalancesForConnection(conn))
                         .then(balances => {
-                            this.accountBalances.update(map => {
+                            this.liveBalances.update(map => {
                                 const next = new Map(map);
                                 balances.forEach(b => {
                                     if (b.accountId && b.amount !== undefined) next.set(b.accountId, b.amount);
