@@ -77,6 +77,25 @@ export class AiAnalysisService {
         return saved;
     }
 
+    /**
+     * The most recent saved analysis strictly BEFORE `date` — used by the
+     * coach to check yesterday's commitment. Null when none exists.
+     */
+    async latestAnalysisBefore(date: string): Promise<SavedAnalysis | null> {
+        const { data, error } = await this.client
+            .from('ai_analyses')
+            .select(COLUMNS)
+            .eq('kind', 'journal')
+            .lt('date', date)
+            .order('date', { ascending: false })
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error || !data) return null;
+        return rowToAnalysis(data);
+    }
+
     /** Delete a saved analysis and drop it from the `analyses` signal. */
     async deleteAnalysis(id: string): Promise<void> {
         const { error } = await this.client
