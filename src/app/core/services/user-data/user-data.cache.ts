@@ -16,6 +16,7 @@ export const CACHE_KEYS = {
     rules: 'tj_cache_journal_rules',
     templates: 'tj_cache_journal_templates',
     settings: 'tj_cache_settings',
+    tradingAccounts: 'tj_cache_trading_accounts',
     queue: 'tj_cache_pending_writes'
 } as const;
 

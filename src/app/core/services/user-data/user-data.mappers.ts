@@ -174,6 +174,53 @@ export function rowToTemplate(r: Row): JournalTemplate {
     };
 }
 
+// ── trading_accounts ─────────────────────────────────────────────────────
+
+/**
+ * A persisted trading account (row of public.trading_accounts). Survives
+ * connection removal — this is what "historical" accounts render from.
+ */
+export interface StoredTradingAccount {
+    accountId: number;
+    connectionId: string | null;
+    name: string;
+    accountType: string;
+    active: boolean;
+    lastBalance: number | null;
+    balanceUpdatedAt: string | null;
+}
+
+/**
+ * Always emits the FULL column set. Rows are merged client-side before
+ * queueing (TradingAccountsService), so a partial fetch (accounts without
+ * balances, or vice versa) can never null out stored columns on upsert.
+ */
+export function tradingAccountToRow(a: StoredTradingAccount): Row {
+    return {
+        account_id: a.accountId,
+        connection_id: a.connectionId,
+        name: a.name || null,
+        account_type: a.accountType || null,
+        active: a.active,
+        last_balance: a.lastBalance,
+        balance_updated_at: a.balanceUpdatedAt,
+        updated_at: new Date().toISOString()
+    };
+}
+
+export function rowToTradingAccount(r: Row): StoredTradingAccount {
+    return {
+        accountId: Number(r['account_id']),
+        connectionId: (r['connection_id'] as string | null) ?? null,
+        name: (r['name'] as string | null) ?? '',
+        accountType: (r['account_type'] as string | null) ?? '',
+        active: (r['active'] as boolean | null) ?? true,
+        lastBalance: r['last_balance'] === null || r['last_balance'] === undefined
+            ? null : Number(r['last_balance']),
+        balanceUpdatedAt: (r['balance_updated_at'] as string | null) ?? null
+    };
+}
+
 // ── user_settings ────────────────────────────────────────────────────────
 
 export function settingsToRow(s: Partial<UserSettings>): Row {
