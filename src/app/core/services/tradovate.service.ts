@@ -56,6 +56,13 @@ export interface TradovateConnection {
     selectedAccountIds?: number[]; // Selected accounts for this connection
     createdAt: string;
     lastSyncedAt?: string;
+    /**
+     * Soft-removal flag. A "removed" connection is hidden from every list and
+     * sync loop but its row is NEVER deleted from the DB — its accounts and
+     * trades stay intact (accounts surface as historical). Re-connecting with
+     * matching credentials flips this back instead of creating a duplicate.
+     */
+    removed?: boolean;
 }
 
 
@@ -100,8 +107,12 @@ export class TradovateService {
     private importedToCloud = false;
     private cloudPushTimer: ReturnType<typeof setTimeout> | null = null;
 
-    // Multi-account support
-    connections = signal<TradovateConnection[]>([]);
+    // Multi-account support. allConnections holds EVERY row including
+    // soft-removed ones (they must survive locally so pushes never resurrect
+    // or drop them); the public `connections` hides removed entries from all
+    // consumers — header, settings, sync loops, account fetching.
+    private allConnections = signal<TradovateConnection[]>([]);
+    connections = computed(() => this.allConnections().filter(c => !c.removed));
     activeConnectionId = signal<string | null>(null);
 
     // Cached accounts for active connection
@@ -226,19 +237,21 @@ export class TradovateService {
     }
 
     /**
-     * Push a connections list into the signals: sets the list, flags tokenless
-     * connections as expired, and resolves the active connection id.
+     * Push a connections list (INCLUDING soft-removed rows) into the signals:
+     * sets the list, flags tokenless visible connections as expired, and
+     * resolves the active connection id against the visible (non-removed) set.
      */
     private applyConnections(connections: TradovateConnection[], activeId: string | null): void {
-        this.connections.set(connections);
+        this.allConnections.set(connections);
 
-        const expiredIds = connections.filter(c => !c.token).map(c => c.id);
+        const visible = connections.filter(c => !c.removed);
+        const expiredIds = visible.filter(c => !c.token).map(c => c.id);
         this.expiredConnectionIds.set(expiredIds);
 
-        if (activeId && connections.find(c => c.id === activeId)) {
+        if (activeId && visible.find(c => c.id === activeId)) {
             this.activeConnectionId.set(activeId);
-        } else if (connections.length > 0) {
-            this.activeConnectionId.set(connections[0].id);
+        } else if (visible.length > 0) {
+            this.activeConnectionId.set(visible[0].id);
         } else {
             this.activeConnectionId.set(null);
         }
@@ -253,9 +266,11 @@ export class TradovateService {
         this.scheduleCloudPush();
     }
 
-    /** Mirror the current signals to the offline cache only (no cloud write). */
+    /** Mirror the current signals to the offline cache only (no cloud write).
+     *  Serializes ALL rows including soft-removed ones so re-add matching and
+     *  cloud pushes stay correct across reloads. */
     private writeConnectionsCache(): void {
-        localStorage.setItem(TradovateService.CACHE_CONNECTIONS, JSON.stringify(this.connections()));
+        localStorage.setItem(TradovateService.CACHE_CONNECTIONS, JSON.stringify(this.allConnections()));
         const active = this.activeConnectionId();
         if (active) localStorage.setItem(TradovateService.CACHE_ACTIVE, active);
         else localStorage.removeItem(TradovateService.CACHE_ACTIVE);
@@ -299,7 +314,7 @@ export class TradovateService {
                 // First time in the cloud for this user: one-time import. Seed from
                 // whatever the signals already hold (cache/legacy hydrated at
                 // construction), else read the legacy pre-cloud key explicitly.
-                if (this.connections().length === 0) {
+                if (this.allConnections().length === 0) {
                     const legacy = this.readLegacyConnections();
                     if (legacy.length === 0) return;
                     this.applyConnections(legacy, localStorage.getItem(TradovateService.LEGACY_ACTIVE));
@@ -310,18 +325,27 @@ export class TradovateService {
                 return;
             }
 
-            // Adopt the cloud rows. Tokens are never stored server-side, so reuse
-            // the on-device cached token per connection id; a connection with no
-            // local token (e.g. a new device) loads tokenless → flagged expired →
-            // the user re-authenticates.
-            const cachedById = new Map(this.connections().map(c => [c.id, c]));
+            // MERGE cloud rows into local state — never treat local absence as
+            // deletion. Cloud metadata (including the removed flag) is
+            // authoritative per row; tokens are never stored server-side, so
+            // reuse the on-device cached token per connection id (a new device
+            // loads tokenless → flagged expired → the user re-authenticates).
+            // Local-only connections (created offline / push pending) are kept
+            // and re-pushed.
+            const cachedById = new Map(this.allConnections().map(c => [c.id, c]));
+            const cloudIds = new Set(rows.map(r => r.connection_id));
             const conns = rows.map(r => this.rowToConnection(r.connection_id, r.data, cachedById.get(r.connection_id)));
-            const activeId = rows.find(r => r.is_active)?.connection_id ?? conns[0]?.id ?? null;
+            const localOnly = this.allConnections().filter(c => !cloudIds.has(c.id));
+            const merged = [...conns, ...localOnly];
 
-            this.applyConnections(conns, activeId);
+            const activeRowId = rows.find(r => r.is_active)?.connection_id ?? null;
+            this.applyConnections(merged, activeRowId);
             this.accounts.set([]);
             this.writeConnectionsCache();
             this.importedToCloud = true;
+
+            // Anything the cloud didn't know about yet gets upserted.
+            if (localOnly.length > 0) this.scheduleCloudPush();
         } catch (err) {
             // Offline / Supabase unreachable — keep the cache-hydrated signals and
             // allow a later retry (online listener / next sign-in) to re-run.
@@ -348,40 +372,27 @@ export class TradovateService {
     }
 
     /**
-     * Reconcile the full connections state to Supabase: upsert every current
-     * connection (token stripped) and delete cloud rows that no longer exist
-     * locally. Best-effort — failures leave the cache authoritative.
+     * Push the full connections state (INCLUDING soft-removed rows) to
+     * Supabase as upserts ONLY. Rows are never deleted from
+     * tradovate_connections — removal is the `removed` flag inside `data`;
+     * a dedicated Settings flow may offer true deletion later. Best-effort —
+     * failures leave the cache authoritative.
      */
     private async pushToCloud(): Promise<void> {
         const uid = this.auth.session()?.user.id;
         if (!uid) return;
 
-        const conns = this.connections();
+        const conns = this.allConnections();
+        if (conns.length === 0) return;
+
         const activeId = this.activeConnectionId();
 
         try {
-            if (conns.length === 0) {
-                const { error } = await this.supabase
-                    .from('tradovate_connections').delete().eq('user_id', uid);
-                if (error) throw error;
-                return;
-            }
-
             const rows = conns.map(c => this.connectionToRow(c, activeId));
-            const { error: upsertError } = await this.supabase
+            const { error } = await this.supabase
                 .from('tradovate_connections')
                 .upsert(rows, { onConflict: 'user_id,connection_id' });
-            if (upsertError) throw upsertError;
-
-            // Remove rows for connections deleted locally. Connection ids are
-            // generated slugs (no commas/quotes), safe to inline in the filter.
-            const ids = conns.map(c => c.id);
-            const { error: deleteError } = await this.supabase
-                .from('tradovate_connections')
-                .delete()
-                .eq('user_id', uid)
-                .not('connection_id', 'in', `(${ids.join(',')})`);
-            if (deleteError) throw deleteError;
+            if (error) throw error;
 
             this.importedToCloud = true;
         } catch (err) {
@@ -420,7 +431,8 @@ export class TradovateService {
             accounts: data.accounts ?? cached?.accounts ?? [],
             selectedAccountIds: data.selectedAccountIds ?? cached?.selectedAccountIds,
             createdAt: data.createdAt ?? cached?.createdAt ?? new Date().toISOString(),
-            lastSyncedAt: data.lastSyncedAt ?? cached?.lastSyncedAt
+            lastSyncedAt: data.lastSyncedAt ?? cached?.lastSyncedAt,
+            removed: data.removed ?? false // cloud metadata is authoritative for soft-removal
         };
     }
 
@@ -461,7 +473,7 @@ export class TradovateService {
         const oldConfig = localStorage.getItem('tradovate_config');
         const oldSelectedAccounts = localStorage.getItem('tradovate_selected_accounts');
 
-        if (oldToken && oldConfig && this.connections().length === 0) {
+        if (oldToken && oldConfig && this.allConnections().length === 0) {
             try {
                 const config = JSON.parse(oldConfig);
                 const selectedAccountIds = oldSelectedAccounts ? JSON.parse(oldSelectedAccounts) : [];
@@ -480,7 +492,7 @@ export class TradovateService {
                     createdAt: new Date().toISOString()
                 };
 
-                this.connections.set([migrationConnection]);
+                this.allConnections.set([migrationConnection]);
                 this.activeConnectionId.set(migrationConnection.id);
                 this.saveConnections();
 
@@ -504,9 +516,34 @@ export class TradovateService {
     }
 
     /**
-     * Add a new connection
+     * Add a new connection. If a soft-removed connection matches the same
+     * credentials (direct auth: username + environment; otherwise: name +
+     * environment), it is REVIVED — removed flips back to false and its row,
+     * accounts, and history are reused instead of creating a duplicate.
      */
     addConnection(name: string, token: string, config: TradovateConnection['config']): string {
+        const revivable = this.allConnections().find(c =>
+            c.removed &&
+            c.config.environment === config.environment &&
+            (config.username
+                ? c.config.username === config.username
+                : c.name === name)
+        );
+
+        if (revivable) {
+            this.allConnections.update(conns =>
+                conns.map(c => c.id === revivable.id
+                    ? { ...c, removed: false, name, token, config }
+                    : c)
+            );
+            this.clearExpiredConnection(revivable.id);
+            if (this.connections().length === 1) {
+                this.activeConnectionId.set(revivable.id);
+            }
+            this.saveConnections();
+            return revivable.id;
+        }
+
         const newConnection: TradovateConnection = {
             id: this.generateId(),
             name,
@@ -516,10 +553,10 @@ export class TradovateService {
             createdAt: new Date().toISOString()
         };
 
-        this.connections.update(conns => [...conns, newConnection]);
+        this.allConnections.update(conns => [...conns, newConnection]);
 
-        // Set as active if it's the first connection — before persisting, so the
-        // is_active flag is written to the cloud in the same push.
+        // Set as active if it's the only visible connection — before persisting,
+        // so the is_active flag is written to the cloud in the same push.
         if (this.connections().length === 1) {
             this.activeConnectionId.set(newConnection.id);
         }
@@ -532,7 +569,7 @@ export class TradovateService {
      * Update the token for an existing connection in-place (used on re-auth)
      */
     updateConnectionToken(connectionId: string, token: string): void {
-        this.connections.update(conns =>
+        this.allConnections.update(conns =>
             conns.map(c => c.id === connectionId ? { ...c, token } : c)
         );
         this.clearExpiredConnection(connectionId);
@@ -547,7 +584,7 @@ export class TradovateService {
      * Password must be supplied by the user (it is never stored).
      */
     reconnectConnection(connectionId: string, password: string): Observable<void> {
-        const conn = this.connections().find(c => c.id === connectionId);
+        const conn = this.allConnections().find(c => c.id === connectionId);
         if (!conn) return throwError(() => new Error('Connection not found'));
         if (conn.config.authMode !== 'direct' || !conn.config.username) {
             return throwError(() => new Error('Cannot auto-reconnect OAuth connections'));
@@ -576,7 +613,7 @@ export class TradovateService {
      * Update connection accounts (after fetching from API)
      */
     updateConnectionAccounts(connectionId: string, accounts: TradovateAccount[]): void {
-        this.connections.update(conns =>
+        this.allConnections.update(conns =>
             conns.map(c => c.id === connectionId ? { ...c, accounts } : c)
         );
         this.saveConnections();
@@ -586,27 +623,32 @@ export class TradovateService {
      * Update connection last synced time
      */
     updateConnectionSyncTime(connectionId: string): void {
-        this.connections.update(conns =>
+        this.allConnections.update(conns =>
             conns.map(c => c.id === connectionId ? { ...c, lastSyncedAt: new Date().toISOString() } : c)
         );
         this.saveConnections();
     }
 
     /**
-     * Remove a connection
+     * Soft-remove a connection: flag it removed=true and clear the in-memory
+     * token. The row is NEVER deleted — it (and its accounts and trades) stays
+     * in the DB; the accounts simply surface as historical. Re-connecting with
+     * matching credentials revives the same row (see addConnection).
      */
     removeConnection(connectionId: string): void {
-        this.connections.update(conns => conns.filter(c => c.id !== connectionId));
+        this.allConnections.update(conns =>
+            conns.map(c => c.id === connectionId ? { ...c, removed: true, token: '' } : c)
+        );
         this.clearExpiredConnection(connectionId);
 
-        // If we removed the active connection, promote another one.
+        // If we removed the active connection, promote another visible one.
         if (this.activeConnectionId() === connectionId) {
             const remaining = this.connections();
             this.activeConnectionId.set(remaining.length > 0 ? remaining[0].id : null);
         }
 
-        // Persist last: the cloud push reconciles (deletes) the removed row and
-        // writes the new active flag / cache in one go.
+        // Persist last: the cloud push UPSERTS the removed flag (no deletes)
+        // and writes the new active flag / cache in one go.
         this.saveConnections();
     }
 
@@ -631,7 +673,7 @@ export class TradovateService {
             ids.includes(connectionId) ? ids : [...ids, connectionId]
         );
         // Clear the stale token from storage so the app doesn't try to use it after restart
-        this.connections.update(conns =>
+        this.allConnections.update(conns =>
             conns.map(c => c.id === connectionId ? { ...c, token: '' } : c)
         );
         // Token-only change (never stored server-side) — cache mirror only.
@@ -879,7 +921,7 @@ export class TradovateService {
         if (!activeConnId) return;
 
         // Update selected accounts for active connection
-        this.connections.update(conns =>
+        this.allConnections.update(conns =>
             conns.map(c => c.id === activeConnId ? { ...c, selectedAccountIds: accountIds } : c)
         );
         this.saveConnections();

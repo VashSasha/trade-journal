@@ -144,7 +144,7 @@
 
         @if (insightState().status === 'streaming') {
             <div class="ds-working-panel">
-                <span class="ds-working-panel__label">Analyzing</span>
+                <span class="ds-working-panel__label">Your coach is reviewing</span>
                 <div class="ds-working-panel__steps">
                     @for (step of activeInsightSteps(); track step; let last = $last) {
                         <div class="ds-working-step" [class.ds-working-step--active]="last">
@@ -153,19 +153,69 @@
                         </div>
                     }
                 </div>
+                @if (insightState().content) {
+                    <div class="ds-working-panel__stream">{{ insightState().content }}</div>
+                }
             </div>
         }
 
         @if (insightState().status === 'complete') {
             <div class="ds-insight-panel">
-                <span class="ds-insight-panel__label">AI Insight</span>
-                <div class="ds-insight-panel__body">
-                    <markdown [data]="insightState().content"></markdown>
-                </div>
-                @if (actionPoints().length > 0) {
-                    <button class="ds-insight-copy" (click)="copyActionPoints()">
-                        {{ copiedActionPoints() ? '✓ Copied to clipboard' : '📋 Copy action points for tomorrow' }}
-                    </button>
+
+                @if (coach(); as c) {
+                    <!-- Structured coach card -->
+                    <div class="ds-coach">
+                        <div class="ds-coach__head">
+                            <span class="ds-coach__label">Coach's verdict</span>
+                            @if (c.grade) {
+                                <span class="ds-coach__grade ds-coach__grade--{{ gradeTone(c.grade) }}">{{ c.grade }}</span>
+                            }
+                        </div>
+                        <div class="ds-coach__verdict">
+                            <markdown [data]="c.verdict"></markdown>
+                        </div>
+
+                        @if (c.worked) {
+                            <div class="ds-coach__section">
+                                <span class="ds-coach__section-title ds-coach__section-title--worked">What worked</span>
+                                <div class="ds-coach__section-body">
+                                    <markdown [data]="c.worked"></markdown>
+                                </div>
+                            </div>
+                        }
+                        @if (c.cost) {
+                            <div class="ds-coach__section">
+                                <span class="ds-coach__section-title ds-coach__section-title--cost">What cost you</span>
+                                <div class="ds-coach__section-body">
+                                    <markdown [data]="c.cost"></markdown>
+                                </div>
+                            </div>
+                        }
+
+                        @if (focusText(); as focus) {
+                            <div class="ds-coach__focus">
+                                <span class="ds-coach__focus-label">Tomorrow's focus</span>
+                                <div class="ds-coach__focus-row">
+                                    <span class="ds-coach__focus-box" aria-hidden="true"></span>
+                                    <span class="ds-coach__focus-text">{{ focus }}</span>
+                                    <button class="ds-coach__focus-copy" (click)="copyFocus()">
+                                        {{ copiedFocus() ? '✓ Copied' : '📋 Copy' }}
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                } @else {
+                    <!-- Fallback: reply didn't match the coach contract — show raw markdown -->
+                    <span class="ds-insight-panel__label">AI Insight</span>
+                    <div class="ds-insight-panel__body">
+                        <markdown [data]="insightState().content"></markdown>
+                    </div>
+                    @if (focusItem()) {
+                        <button class="ds-insight-copy" (click)="copyFocus()">
+                            {{ copiedFocus() ? '✓ Copied to clipboard' : "📋 Copy tomorrow's focus" }}
+                        </button>
+                    }
                 }
 
                 <!-- Save analysis -->
