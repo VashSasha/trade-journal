@@ -3,23 +3,23 @@
         <div class="hero__copy">
             <span class="hero__badge">
                 <span class="hero__badge-dot"></span>
-                The trading journal with a built-in AI coach
+                Built for the NVZN Trading community
             </span>
             <h1 class="hero__title">
-                Meet your <span class="hero__title-accent">AI trading&nbsp;coach.</span>
+                The journal that <span class="hero__title-accent">coaches&nbsp;you&nbsp;back.</span>
             </h1>
             <p class="hero__subtitle">
                 Your broker fills sync automatically, and AI reviews every session —
                 the patterns, the mistakes, and what to fix tomorrow. You trade;
-                your journal writes itself and talks back.
+                your journal handles everything else.
             </p>
             <div class="hero__actions">
                 <a class="hero__cta" href="#pricing">Get started</a>
                 <a class="hero__cta hero__cta--ghost" href="#ai">See the AI coach</a>
             </div>
             <ul class="hero__proof">
-<!--                <li>{{ membersPlaceholder }} traders in the NVZN Discord</li>-->
-                <li>Broker auto-sync — no manual entry</li>
+                <!-- Update this number periodically as trades_synced grows -->
+                <li>20,000+ trades synced</li>
                 <li>Daily AI insights on your real trades</li>
             </ul>
         </div>
@@ -57,22 +57,28 @@
                     </div>
 
                     <div class="mockup__chart">
+                        <!-- Equity curve — mirrors real EquityCurveChartComponent:
+                             red/maroon segment below baseline (early dip), green above (recovery).
+                             Hex values match the chart component exactly (dark-mode palette). -->
                         <svg viewBox="0 0 560 220" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-                            <defs>
-                                <linearGradient id="heroCurveFill" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stop-color="var(--color-positive)" stop-opacity="0.28" />
-                                    <stop offset="100%" stop-color="var(--color-positive)" stop-opacity="0" />
-                                </linearGradient>
-                            </defs>
-                            <!-- baseline -->
-                            <line class="mockup__baseline" x1="0" y1="170" x2="560" y2="170" />
-                            <!-- area fill -->
-                            <path class="mockup__area"
-                                d="M0,170 L40,178 L80,162 L120,168 L160,140 L200,148 L240,118 L280,128 L320,96 L360,104 L400,72 L440,80 L480,52 L520,58 L560,30 L560,220 L0,220 Z"
-                                fill="url(#heroCurveFill)" />
-                            <!-- equity line -->
-                            <path class="mockup__line"
-                                d="M0,170 L40,178 L80,162 L120,168 L160,140 L200,148 L240,118 L280,128 L320,96 L360,104 L400,72 L440,80 L480,52 L520,58 L560,30" />
+                            <line class="mockup__gridline" x1="0" y1="50"  x2="560" y2="50" />
+                            <line class="mockup__gridline" x1="0" y1="110" x2="560" y2="110" />
+                            <!-- Dashed baseline — rgba(148,163,184,0.6) from EquityCurveChartComponent -->
+                            <line class="mockup__baseline" x1="0" y1="155" x2="560" y2="155" />
+
+                            <!-- Fill below baseline (early dip — maroon) -->
+                            <path class="mockup__equity-fill mockup__equity-fill--neg"
+                                  d="M0,155 C50,163 90,175 130,179 C165,179 195,167 225,155 L0,155 Z" />
+                            <!-- Fill above baseline (recovery — green) -->
+                            <path class="mockup__equity-fill mockup__equity-fill--pos"
+                                  d="M225,155 C265,142 315,118 375,96 C430,78 490,68 560,60 L560,155 L225,155 Z" />
+
+                            <!-- Curve stroke — below-baseline segment (maroon #6B1F2A) -->
+                            <path class="mockup__equity-line mockup__equity-line--neg"
+                                  d="M0,155 C50,163 90,175 130,179 C165,179 195,167 225,155" />
+                            <!-- Curve stroke — above-baseline segment (green #10b981) -->
+                            <path class="mockup__equity-line mockup__equity-line--pos"
+                                  d="M225,155 C265,142 315,118 375,96 C430,78 490,68 560,60" />
                         </svg>
                     </div>
 

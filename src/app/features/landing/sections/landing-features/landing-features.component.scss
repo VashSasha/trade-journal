@@ -335,7 +335,7 @@
 
 .fv-analytics {
     width: 100%;
-    max-width: 24rem;
+    max-width: 26rem;
     padding: 1.25rem 1.4rem;
     border-radius: 1rem;
     border: 1px solid var(--color-border);
@@ -362,40 +362,115 @@
         }
     }
 
-    &__curve {
-        display: block;
-        width: 100%;
-        height: auto;
+    // Row holding the equity curve + the win/loss donut side-by-side,
+    // matching the real "Performance Overview" panel layout.
+    &__panels {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
         margin-bottom: 1rem;
     }
 
-    &__baseline {
-        stroke: var(--color-text-muted);
-        stroke-width: 1;
-        stroke-dasharray: 4 5;
-        opacity: 0.4;
+    &__curve {
+        flex: 1;
+        display: block;
+        height: auto;
     }
 
-    &__line {
+    &__baseline {
+        // rgba(148,163,184,0.6) — exact baseline color from EquityCurveChartComponent
+        stroke: rgba(148, 163, 184, 0.6);
+        stroke-width: 1;
+        stroke-dasharray: 5 4;
+    }
+
+    // Fill areas below/above baseline — exact opacity values from the real chart.
+    &__fill {
+        &--neg { fill: rgba(107, 31, 42, 0.40); }
+        &--pos { fill: rgba(16, 185, 129, 0.25); }
+    }
+
+    // Segment strokes — exact hex colors from EquityCurveChartComponent (dark mode).
+    &__segment {
         fill: none;
-        stroke: var(--color-positive);
         stroke-width: 2.5;
         stroke-linecap: round;
         stroke-linejoin: round;
+
+        &--neg { stroke: #6B1F2A; }
+        &--pos { stroke: #10b981; }
     }
 
+    // Win/loss donut — mirrors the real Distribution ring chart.
+    &__donut-wrap {
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    &__donut {
+        width: 4rem;
+        height: 4rem;
+    }
+
+    &__donut-legend {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    &__donut-item {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.62rem;
+        color: var(--color-text-muted);
+
+        &::before {
+            content: '';
+            display: inline-block;
+            width: 0.45rem;
+            height: 0.45rem;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        &--win::before  { background: #10b981; }
+        &--loss::before { background: #6B1F2A; }
+    }
+
+    // P&L calendar — cells with visible dollar amounts, today highlighted.
     &__cal {
         display: grid;
         grid-template-columns: repeat(5, 1fr);
         gap: 0.35rem;
+    }
 
-        span {
-            height: 1.35rem;
-            border-radius: 0.3rem;
-            background: var(--color-bg-surface-3);
+    &__cal-cell {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 2rem;
+        border-radius: 0.3rem;
+        background: var(--color-bg-surface-3);
+        font-size: 0.52rem;
+        font-weight: 700;
+        color: transparent;
 
-            &.is-pos { background: var(--color-positive-subtle); }
-            &.is-neg { background: var(--color-negative-subtle); }
+        &.is-pos {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+        }
+
+        &.is-neg {
+            background: rgba(107, 31, 42, 0.18);
+            color: #8B2635;
+        }
+
+        &.is-today {
+            outline: 1.5px solid var(--color-accent);
         }
     }
 }

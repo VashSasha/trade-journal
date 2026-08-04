@@ -9,18 +9,19 @@
 
         <div class="compare__table-wrap" appRevealOnScroll>
             <table class="compare__table">
+                <caption class="visually-hidden">Feature comparison: NVZN Journal vs spreadsheets and generic trading journals</caption>
                 <thead>
                     <tr>
-                        <th class="compare__feature-col"></th>
-                        <th>Spreadsheet</th>
-                        <th>Generic journals</th>
-                        <th class="compare__nvzn-col">NVZN Journal</th>
+                        <th class="compare__feature-col" scope="col"><span class="visually-hidden">Feature</span></th>
+                        <th scope="col">Spreadsheet</th>
+                        <th scope="col">Generic journals</th>
+                        <th class="compare__nvzn-col" scope="col">NVZN Journal</th>
                     </tr>
                 </thead>
                 <tbody>
                     @for (row of rows; track row.label) {
                         <tr [class.compare__row--star]="row.star">
-                            <td class="compare__feature-col">{{ row.label }}</td>
+                            <th scope="row" class="compare__feature-col">{{ row.label }}</th>
                             <td>
                                 @if (isMark(row.spreadsheet)) {
                                     <span class="compare__mark compare__mark--{{ row.spreadsheet }}">
@@ -54,9 +55,5 @@
             </table>
         </div>
         <p class="compare__legend" appRevealOnScroll>～ = varies by product</p>
-
-        <div class="compare__inline-cta" appRevealOnScroll>
-            <a class="compare__inline-cta-link" href="#pricing">Pick your plan →</a>
-        </div>
     </div>
 </section>

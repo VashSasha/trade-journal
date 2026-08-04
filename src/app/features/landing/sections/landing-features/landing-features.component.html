@@ -19,7 +19,6 @@
                     <li>Real commissions and fees from broker reports — net P&amp;L you can trust</li>
                     <li>Multiple accounts and prop-firm accounts tracked side by side</li>
                 </ul>
-                <a class="feature-dive__cta" href="#integrations">See supported brokers →</a>
             </div>
             <div class="feature-dive__visual" aria-hidden="true">
                 <div class="fv-sync">
@@ -113,14 +112,53 @@
                         <span class="fv-analytics__chip">Win rate <strong>64%</strong></span>
                         <span class="fv-analytics__chip">Profit factor <strong>2.31</strong></span>
                     </div>
-                    <svg class="fv-analytics__curve" viewBox="0 0 320 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-                        <line class="fv-analytics__baseline" x1="0" y1="88" x2="320" y2="88" />
-                        <path class="fv-analytics__line"
-                            d="M0,88 L30,94 L60,80 L90,84 L120,66 L150,72 L180,52 L210,58 L240,38 L270,44 L300,24 L320,18" />
-                    </svg>
+
+                    <!-- Performance Overview: equity curve + win/loss donut, mirroring the real panel -->
+                    <div class="fv-analytics__panels">
+                        <!-- Split-color equity curve — red below baseline, green above -->
+                        <svg class="fv-analytics__curve" viewBox="0 0 200 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                            <line class="fv-analytics__baseline" x1="0" y1="88" x2="200" y2="88" />
+                            <path class="fv-analytics__fill fv-analytics__fill--neg"
+                                  d="M0,88 C25,93 55,98 85,100 C100,99 110,93 120,88 L0,88 Z" />
+                            <path class="fv-analytics__fill fv-analytics__fill--pos"
+                                  d="M120,88 C132,82 155,68 170,50 C182,37 192,26 200,18 L200,88 L120,88 Z" />
+                            <path class="fv-analytics__segment fv-analytics__segment--neg"
+                                  d="M0,88 C25,93 55,98 85,100 C100,99 110,93 120,88" />
+                            <path class="fv-analytics__segment fv-analytics__segment--pos"
+                                  d="M120,88 C132,82 155,68 170,50 C182,37 192,26 200,18" />
+                        </svg>
+
+                        <!-- Win/loss donut — mirrors the real Distribution chart -->
+                        <div class="fv-analytics__donut-wrap">
+                            <svg class="fv-analytics__donut" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+                                <!-- Full ring in loss color (36% remains visible after green overlaps) -->
+                                <circle cx="40" cy="40" r="28" fill="none"
+                                    stroke="#6B1F2A" stroke-width="10" />
+                                <!-- 64% win arc starting from 12 o'clock -->
+                                <circle cx="40" cy="40" r="28" fill="none"
+                                    stroke="#10b981" stroke-width="10"
+                                    stroke-dasharray="112.6 63.3"
+                                    transform="rotate(-90 40 40)" />
+                            </svg>
+                            <div class="fv-analytics__donut-legend">
+                                <span class="fv-analytics__donut-item fv-analytics__donut-item--win">Wins 64%</span>
+                                <span class="fv-analytics__donut-item fv-analytics__donut-item--loss">Losses 36%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- P&L calendar — green cells with dollar amounts, one "today" cell -->
                     <div class="fv-analytics__cal">
-                        <span class="is-pos"></span><span class="is-pos"></span><span class="is-neg"></span><span></span><span class="is-pos"></span>
-                        <span class="is-pos"></span><span class="is-neg"></span><span class="is-pos"></span><span class="is-pos"></span><span></span>
+                        <span class="fv-analytics__cal-cell is-pos">+$780</span>
+                        <span class="fv-analytics__cal-cell is-pos">+$430</span>
+                        <span class="fv-analytics__cal-cell is-neg">−$150</span>
+                        <span class="fv-analytics__cal-cell"></span>
+                        <span class="fv-analytics__cal-cell is-pos">+$340</span>
+                        <span class="fv-analytics__cal-cell is-pos">+$210</span>
+                        <span class="fv-analytics__cal-cell is-neg">−$280</span>
+                        <span class="fv-analytics__cal-cell is-pos">+$612</span>
+                        <span class="fv-analytics__cal-cell is-pos is-today">+$520</span>
+                        <span class="fv-analytics__cal-cell"></span>
                     </div>
                 </div>
             </div>

@@ -1,0 +1,200 @@
+// Discord's official brand blurple — a deliberate, scoped exception to the
+// app's --color-* theme tokens, same rationale as the hardcoded brand hex
+// values in share-pnl's canvas: it's a fixed third-party brand color, not a
+// light/dark app color, so it stays constant regardless of theme.
+$discord-blurple: #5865f2;
+$discord-blurple-hover: #4752c4;
+
+.discord {
+    padding: 5rem 1.5rem;
+    background: var(--color-bg-base);
+
+    &__inner {
+        max-width: 72rem;
+        margin: 0 auto;
+    }
+
+    &__head {
+        max-width: 42rem;
+        margin: 0 auto 3rem;
+        text-align: center;
+    }
+
+    &__kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: $discord-blurple;
+        margin-bottom: 0.75rem;
+    }
+
+    &__kicker-logo {
+        width: 1rem;
+        height: 1rem;
+        color: $discord-blurple;
+    }
+
+    &__title {
+        font-size: clamp(1.7rem, 3vw, 2.4rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+        color: var(--color-text-primary);
+    }
+
+    &__subtitle {
+        margin-top: 0.9rem;
+        font-size: 1.05rem;
+        line-height: 1.7;
+        color: var(--color-text-secondary);
+    }
+
+    &__grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.25rem;
+        margin-bottom: 2rem;
+    }
+
+    &__cta-strip {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+        padding: 1.75rem 2rem;
+        border-radius: 1rem;
+        border: 1px solid rgba($discord-blurple, 0.4);
+        background: rgba($discord-blurple, 0.1);
+    }
+
+    &__cta-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    &__cta-price {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: var(--color-text-primary);
+    }
+
+    &__cta-period {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--color-text-secondary);
+        margin-left: 0.15rem;
+    }
+
+    &__cta-label {
+        font-size: 0.88rem;
+        color: var(--color-text-secondary);
+    }
+
+    &__cta-actions {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        flex-wrap: wrap;
+    }
+
+    &__cta-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.55rem;
+        padding: 0.8rem 1.6rem;
+        border-radius: 0.65rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        text-decoration: none;
+        background: $discord-blurple;
+        color: #ffffff;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        box-shadow: 0 8px 24px rgba($discord-blurple, 0.35);
+
+        &:hover {
+            background: $discord-blurple-hover;
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba($discord-blurple, 0.4);
+        }
+    }
+
+    &__cta-btn-logo {
+        width: 1.1rem;
+        height: 1.1rem;
+        flex-shrink: 0;
+    }
+
+    &__cta-link {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: $discord-blurple;
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
+
+.discord-card {
+    padding: 1.75rem;
+    border-radius: 0.9rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-surface);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+
+    &:hover {
+        transform: translateY(-4px);
+        border-color: $discord-blurple;
+    }
+
+    &__icon-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.75rem;
+        height: 2.75rem;
+        border-radius: 0.7rem;
+        background: rgba($discord-blurple, 0.12);
+    }
+
+    &__icon {
+        font-size: 1.4rem;
+        line-height: 1;
+    }
+
+    &__title {
+        margin: 1rem 0 0.5rem;
+        font-size: 1.08rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
+    }
+
+    &__text {
+        margin: 0;
+        font-size: 0.92rem;
+        line-height: 1.65;
+        color: var(--color-text-secondary);
+    }
+}
+
+@media (max-width: 900px) {
+    .discord {
+        padding: 4rem 1.25rem;
+
+        &__grid {
+            grid-template-columns: 1fr;
+        }
+
+        &__cta-strip {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+}

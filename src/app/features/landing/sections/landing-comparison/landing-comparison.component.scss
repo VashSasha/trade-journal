@@ -58,7 +58,8 @@
             background: var(--color-bg-surface-2);
         }
 
-        tbody tr:last-child td {
+        tbody tr:last-child td,
+        tbody tr:last-child th {
             border-bottom: none;
         }
     }
@@ -80,7 +81,7 @@
 
     // The AI row is the star of the table.
     &__row--star {
-        td {
+        td, th {
             background: color-mix(in srgb, var(--color-accent) 4%, transparent);
         }
 
