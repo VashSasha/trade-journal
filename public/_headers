@@ -1,15 +1,25 @@
-# Never cache the HTML entry point, so every visitor always gets an
+# Never cache the SPA-fallback HTML, so every visitor always gets an
 # index.html that references the current (hashed) JS/CSS chunk names.
 # Prevents "Failed to load module script ... MIME type text/html" after
-# a new deploy, where a cached index.html points at chunk hashes that
+# a new deploy, where a cached HTML shell points at chunk hashes that
 # no longer exist.
-/index.html
-  Cache-Control: no-cache
-/
+#
+# IMPORTANT: this must be a catch-all (/*), not just /index.html and /.
+# Cloudflare Pages serves index.html via SPA fallback for EVERY unmatched
+# path — /auth/callback, /dashboard, /journal/trades, etc. — not only the
+# literal root. A hard navigation to any of those (e.g. the full-page
+# redirect an OAuth login performs to /auth/callback) happens before
+# Angular's router even exists, so a stale cached shell for one of those
+# paths fails at the very first <script type="module"> tag, with nothing
+# yet running client-side to recover from it. Only /index.html and / were
+# covered before, leaving every other route exposed to exactly that.
+/*
   Cache-Control: no-cache
 
 # Hashed build assets are content-addressed (name changes when content
-# changes), so they're safe to cache forever.
+# changes), so they're safe to cache forever. Cloudflare Pages merges
+# per-path header rules, so these override the /* no-cache above for
+# anything matching *.js / *.css specifically.
 /*.js
   Cache-Control: public, max-age=31536000, immutable
 /*.css
