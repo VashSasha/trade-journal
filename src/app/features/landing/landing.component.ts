@@ -5,7 +5,8 @@ import { LandingAiComponent } from './sections/landing-ai/landing-ai.component';
 import { LandingIntegrationsComponent } from './sections/landing-integrations/landing-integrations.component';
 import { LandingFeaturesComponent } from './sections/landing-features/landing-features.component';
 import { LandingAudienceComponent } from './sections/landing-audience/landing-audience.component';
-import { LandingTestimonialsComponent } from './sections/landing-testimonials/landing-testimonials.component';
+import { LandingDiscordComponent } from './sections/landing-discord/landing-discord.component';
+// LandingTestimonialsComponent intentionally not imported — see landing.component.html.
 import { LandingComparisonComponent } from './sections/landing-comparison/landing-comparison.component';
 import { LandingPricingComponent } from './sections/landing-pricing/landing-pricing.component';
 import { LandingFaqComponent } from './sections/landing-faq/landing-faq.component';
@@ -21,7 +22,7 @@ import { LandingCtaComponent } from './sections/landing-cta/landing-cta.componen
         LandingIntegrationsComponent,
         LandingFeaturesComponent,
         LandingAudienceComponent,
-        LandingTestimonialsComponent,
+        LandingDiscordComponent,
         LandingComparisonComponent,
         LandingPricingComponent,
         LandingFaqComponent,

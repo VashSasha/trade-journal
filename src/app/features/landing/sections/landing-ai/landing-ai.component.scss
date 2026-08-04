@@ -162,27 +162,23 @@
     }
 }
 
-// ── Visual: daily-insight card mockup ────────────────────────────────────────
+// ── Visual: Coach's Verdict card mockup ──────────────────────────────────────
+// Matches the real ds-coach card structure in day-summary.component.html/scss.
 
-.ai-card {
+.ai-coach-card {
     width: 100%;
-    max-width: 24rem;
+    max-width: 26rem;
     padding: 1.25rem 1.4rem;
     border-radius: 1rem;
     border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
     background: var(--color-bg-surface);
     box-shadow: 0 20px 48px rgba(0, 0, 0, 0.12);
 
-    &__header {
+    &__head {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-    }
-
-    &__spark {
-        font-size: 1rem;
-        filter: drop-shadow(0 0 8px var(--color-accent-subtle));
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
     }
 
     &__label {
@@ -190,54 +186,112 @@
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.07em;
-        color: var(--color-accent);
+        color: var(--color-text-muted);
     }
 
-    &__line {
-        height: 0.5rem;
-        border-radius: 999px;
-        background: var(--color-bg-surface-3);
-        margin-bottom: 0.55rem;
+    // Circular grade badge — A=green, B=blue, C=amber, D/F=maroon
+    &__grade {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.1rem;
+        height: 2.1rem;
+        border-radius: 50%;
+        font-size: 0.78rem;
+        font-weight: 800;
+        color: #fff;
 
-        &--w80 { width: 80%; }
-        &--w95 { width: 95%; }
-        &--w60 { width: 60%; }
+        &--a { background: #10b981; }
+        &--b { background: #3b82f6; }
+        &--c { background: #f59e0b; }
+        &--d, &--f { background: #6B1F2A; }
+    }
+
+    &__verdict {
+        margin: 0 0 0.9rem;
+        font-size: 0.83rem;
+        line-height: 1.55;
+        color: var(--color-text-secondary);
     }
 
     &__section {
-        margin: 1rem 0 0.6rem;
-        font-size: 0.72rem;
+        margin-bottom: 0.65rem;
+    }
+
+    &__section-title {
+        display: block;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.3rem;
+
+        // Exact hex colors from the real ds-coach__section-title--worked / --cost
+        &--worked { color: #10b981; }
+        &--cost   { color: #6B1F2A; }
+    }
+
+    &__bullets {
+        margin: 0;
+        padding: 0 0 0 0.9rem;
+        list-style: disc;
+        display: flex;
+        flex-direction: column;
+        gap: 0.18rem;
+
+        li {
+            font-size: 0.78rem;
+            line-height: 1.5;
+            color: var(--color-text-secondary);
+        }
+    }
+
+    // "Tomorrow's focus" row — highlighted container matching ds-coach__focus
+    &__focus {
+        margin-top: 0.85rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 0.6rem;
+        background: var(--color-bg-surface-2);
+        border: 1px solid var(--color-border);
+    }
+
+    &__focus-label {
+        display: block;
+        font-size: 0.6rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.06em;
         color: var(--color-text-muted);
+        margin-bottom: 0.4rem;
     }
 
-    &__task {
+    &__focus-row {
         display: flex;
         align-items: center;
-        gap: 0.55rem;
-        padding: 0.4rem 0;
-        font-size: 0.85rem;
+        gap: 0.5rem;
+    }
+
+    &__focus-box {
+        flex-shrink: 0;
+        width: 0.9rem;
+        height: 0.9rem;
+        border-radius: 0.2rem;
+        border: 1.5px solid var(--color-border);
+    }
+
+    &__focus-text {
+        flex: 1;
+        font-size: 0.78rem;
+        line-height: 1.4;
         color: var(--color-text-secondary);
     }
 
-    &__box {
+    &__focus-copy {
         flex-shrink: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 1rem;
-        height: 1rem;
-        border-radius: 0.25rem;
-        border: 1.5px solid var(--color-border);
-        font-size: 0.65rem;
-        color: #fff;
-
-        &--checked {
-            background: var(--color-positive);
-            border-color: var(--color-positive);
-        }
+        font-size: 0.72rem;
+        color: var(--color-text-muted);
+        cursor: default;
+        user-select: none;
     }
 }
 

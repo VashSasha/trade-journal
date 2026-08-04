@@ -114,6 +114,16 @@
         }
     }
 
+    &__broker-icon {
+        display: flex;
+
+        img, svg {
+            width: 2.5rem;
+            height: 2.5rem;
+            object-fit: contain;
+        }
+    }
+
     &__broker-name {
         font-size: 1.15rem;
         font-weight: 800;

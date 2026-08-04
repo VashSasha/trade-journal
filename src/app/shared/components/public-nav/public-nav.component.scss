@@ -94,4 +94,13 @@
     .public-nav__link {
         display: none;
     }
+
+    .public-nav__cta,
+    .public-nav__login {
+        min-height: 2.75rem;
+        display: inline-flex;
+        align-items: center;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
 }

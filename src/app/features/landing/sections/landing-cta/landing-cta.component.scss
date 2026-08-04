@@ -53,16 +53,26 @@
         color: var(--color-text-muted);
     }
 
-    &__login {
-        display: inline-block;
-        margin-top: 0.5rem;
-        font-size: 0.85rem;
+    &__journal-link {
+        display: block;
+        margin-top: 0.85rem;
+        font-size: 0.88rem;
         font-weight: 600;
         color: var(--color-accent);
         text-decoration: none;
 
+        &:hover { text-decoration: underline; }
+    }
+
+    &__login {
+        display: inline-block;
+        margin-top: 1.25rem;
+        font-size: 0.82rem;
+        color: var(--color-text-muted);
+        text-decoration: none;
+
         &:hover {
-            color: var(--color-accent-hover);
+            color: var(--color-text-primary);
             text-decoration: underline;
         }
     }

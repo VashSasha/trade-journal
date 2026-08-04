@@ -14,6 +14,12 @@
                 <p class="pricing-card__copy">
                     Full journal access is included with your NVZN Trading Discord membership.
                 </p>
+
+                <div class="pricing-card__price">
+                    <span class="pricing-card__amount">${{ bundlePrice.toFixed(2) }}</span>
+                    <span class="pricing-card__period">/mo</span>
+                </div>
+
                 <ul class="pricing-card__features">
                     @for (feature of journalFeatures; track feature) {
                         <li>{{ feature }}</li>
@@ -33,27 +39,50 @@
                 <p class="pricing-card__copy">
                     A standalone journal subscription — no Discord group.
                 </p>
+
+                <!-- Billing cycle toggle — drives both the price shown and the
+                     Stripe Checkout interval Subscribe starts. -->
+                <div class="pricing-card__cycle">
+                    <button
+                        type="button"
+                        class="pricing-card__cycle-btn"
+                        [class.pricing-card__cycle-btn--active]="billingCycle() === 'monthly'"
+                        (click)="selectCycle('monthly')">
+                        Monthly
+                    </button>
+                    <button
+                        type="button"
+                        class="pricing-card__cycle-btn"
+                        [class.pricing-card__cycle-btn--active]="billingCycle() === 'annual'"
+                        (click)="selectCycle('annual')">
+                        Annual
+                        <span class="pricing-card__save-chip">Save {{ annualSavingsPct }}%</span>
+                    </button>
+                </div>
+
+                <div class="pricing-card__price">
+                    <span class="pricing-card__amount">${{ journalPrice().toFixed(2) }}</span>
+                    <span class="pricing-card__period">/mo</span>
+                </div>
+                <p class="pricing-card__per-day">
+                    That's just {{ journalPerDay() | currency:'USD':'symbol':'1.2-2' }}/day
+                    @if (billingCycle() === 'annual') {
+                        — billed {{ journalAnnualPrice | currency:'USD':'symbol':'1.2-2' }} once a year
+                    }
+                </p>
+
                 <ul class="pricing-card__features">
                     @for (feature of journalFeatures; track feature) {
                         <li>{{ feature }}</li>
                     }
                 </ul>
-                <div class="pricing-card__buttons">
-                    <button
-                        class="pricing-card__cta"
-                        type="button"
-                        (click)="subscribe('monthly')"
-                        [disabled]="checkoutBusy() !== null">
-                        {{ checkoutBusy() === 'monthly' ? 'Redirecting…' : 'Subscribe monthly' }}
-                    </button>
-                    <button
-                        class="pricing-card__cta pricing-card__cta--ghost"
-                        type="button"
-                        (click)="subscribe('annual')"
-                        [disabled]="checkoutBusy() !== null">
-                        {{ checkoutBusy() === 'annual' ? 'Redirecting…' : 'Subscribe annually' }}
-                    </button>
-                </div>
+                <button
+                    class="pricing-card__cta"
+                    type="button"
+                    (click)="subscribe()"
+                    [disabled]="checkoutBusy() !== null">
+                    {{ checkoutBusy() ? 'Redirecting…' : 'Subscribe ' + (billingCycle() === 'monthly' ? 'monthly' : 'annually') }}
+                </button>
                 @if (checkoutError()) {
                     <p class="pricing-card__error">{{ checkoutError() }}</p>
                 }

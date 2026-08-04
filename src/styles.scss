@@ -400,3 +400,26 @@ markdown,
     cursor: default;
   }
 }
+
+/* ============================================================
+   Keyboard navigation — visible focus rings
+   Applies globally across the app. Components may override.
+   ============================================================ */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Screen-reader-only utility — use for visually hidden but accessible text */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

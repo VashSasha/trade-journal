@@ -22,18 +22,36 @@
                 </ul>
             </div>
             <div class="ai-block__visual" aria-hidden="true">
-                <div class="ai-card">
-                    <div class="ai-card__header">
-                        <span class="ai-card__spark">✨</span>
-                        <span class="ai-card__label">AI Insight — today's session</span>
+                <!-- Coach's Verdict card — matches the real ds-coach card structure in day-summary.component -->
+                <div class="ai-coach-card">
+                    <div class="ai-coach-card__head">
+                        <span class="ai-coach-card__label">Coach's verdict</span>
+                        <span class="ai-coach-card__grade ai-coach-card__grade--b">B+</span>
                     </div>
-                    <div class="ai-card__line ai-card__line--w80"></div>
-                    <div class="ai-card__line ai-card__line--w95"></div>
-                    <div class="ai-card__line ai-card__line--w60"></div>
-                    <div class="ai-card__section">Action points for tomorrow</div>
-                    <div class="ai-card__task"><span class="ai-card__box"></span>Cut size after two consecutive losses</div>
-                    <div class="ai-card__task"><span class="ai-card__box"></span>Skip the first 5 minutes after the open</div>
-                    <div class="ai-card__task"><span class="ai-card__box ai-card__box--checked">✓</span>Journal the A+ setup you passed on</div>
+                    <p class="ai-coach-card__verdict">
+                        Solid discipline today — good size management, but revenge-trading in the last hour gave back meaningful edge.
+                    </p>
+                    <div class="ai-coach-card__section">
+                        <span class="ai-coach-card__section-title ai-coach-card__section-title--worked">What worked</span>
+                        <ul class="ai-coach-card__bullets">
+                            <li>Entered clean breakouts, waited for confirmation</li>
+                            <li>Respected daily loss limit when approached</li>
+                        </ul>
+                    </div>
+                    <div class="ai-coach-card__section">
+                        <span class="ai-coach-card__section-title ai-coach-card__section-title--cost">What cost you</span>
+                        <ul class="ai-coach-card__bullets">
+                            <li>3 trades after 2 pm — all losses, −$148 combined</li>
+                        </ul>
+                    </div>
+                    <div class="ai-coach-card__focus">
+                        <span class="ai-coach-card__focus-label">Tomorrow's focus</span>
+                        <div class="ai-coach-card__focus-row">
+                            <span class="ai-coach-card__focus-box"></span>
+                            <span class="ai-coach-card__focus-text">No new trades after 2 pm if already down on the day</span>
+                            <span class="ai-coach-card__focus-copy">📋</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
