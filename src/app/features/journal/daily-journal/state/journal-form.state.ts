@@ -90,13 +90,25 @@ export class JournalFormState {
     );
 
     timelineEntries = computed((): TimelineEntry[] => {
-        const today = new Date();
-        const todayStr = localDateStr(today);
+        // Anchor on the current trading SESSION date, not the raw wall-clock
+        // date. CME futures roll to the next session at 5 PM local, so a trade
+        // taken during tonight's Asia session is session-dated tomorrow. A loop
+        // anchored on today's calendar date would only ever walk backward and
+        // could never produce that "tomorrow" entry — the session's trades
+        // would have nowhere to attach in the timeline. Anchoring on the
+        // session date shifts the whole window forward by (at most) one day
+        // exactly when the current session already belongs to tomorrow, so
+        // "Today" in the timeline always matches the session trades are
+        // grouped under everywhere else in the app.
+        const now = new Date();
+        const anchorStr = tradeSessionDateStr(now.toISOString());
+        const anchor = new Date(anchorStr + 'T12:00:00');
+        const todayStr = anchorStr;
         const trades = this.filteredTrades();
         const entries: TimelineEntry[] = [];
 
         for (let i = 0; i < 60; i++) {
-            const date = new Date(today);
+            const date = new Date(anchor);
             date.setDate(date.getDate() - i);
             const dateStr = localDateStr(date);
 
