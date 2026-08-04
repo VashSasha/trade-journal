@@ -44,6 +44,9 @@ export class TradingAccountsService {
         return map;
     });
 
+    /** accountId → full record, for fast lookups. */
+    readonly byId = computed(() => new Map(this.accountsMap()));
+
     /** Replace the store with the authoritative cloud rows (or [] on sign-out). */
     hydrate(rows: StoredTradingAccount[]): void {
         this.accountsMap.set(TradingAccountsService.toMap(rows));

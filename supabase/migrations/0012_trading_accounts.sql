@@ -18,8 +18,8 @@ create table public.trading_accounts (
     user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
     account_id bigint not null,             -- Tradovate account id
 
-    connection_id text,                     -- owning connection (may no longer exist)
-    name text,                              -- display name (e.g. "APEX-123456")
+    connection_id text,               -- owning tradovate_connections id, if still connected
+    name text not null,
     account_type text,
     active boolean not null default true,   -- broker-side active flag at last fetch
 
@@ -30,6 +30,9 @@ create table public.trading_accounts (
 
     primary key (user_id, account_id)
 );
+
+-- List a user's accounts.
+create index trading_accounts_user_idx on public.trading_accounts (user_id);
 
 alter table public.trading_accounts enable row level security;
 
@@ -43,4 +46,4 @@ create policy "Users delete own trading accounts" on public.trading_accounts
     for delete to authenticated using (user_id = auth.uid());
 
 comment on table public.trading_accounts is
-    'Every account a user has synced, with last-known balance. Rows survive connection removal so historical accounts keep powering charts.';
+    'Per-account metadata and last known balance, used as a stale-while-revalidate fallback when the Tradovate API is unavailable.';

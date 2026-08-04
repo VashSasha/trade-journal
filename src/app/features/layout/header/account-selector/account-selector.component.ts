@@ -33,4 +33,14 @@ export class AccountSelectorComponent implements OnInit {
             this.dropdownOpen.set(false);
         }
     }
+
+    relativeTime(iso: string | null): string {
+        if (!iso) return '';
+        const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
+        if (m < 2) return 'just now';
+        if (m < 60) return `${m}m ago`;
+        const h = Math.floor(m / 60);
+        if (h < 24) return `${h}h ago`;
+        return `${Math.floor(h / 24)}d ago`;
+    }
 }

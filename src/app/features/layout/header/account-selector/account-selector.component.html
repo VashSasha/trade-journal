@@ -16,6 +16,9 @@
                 {{ accountService.aggregatedBalance() | currency }}
             }
         </span>
+        @if (accountService.staleAsOf(); as ts) {
+            <span class="acct-widget__stale-hint">as of {{ relativeTime(ts) }}</span>
+        }
     </div>
 
     <div class="acct-widget__divider"></div>

@@ -3,6 +3,7 @@ import { TradeService } from '../../core/services/trade.service';
 import { SyncService } from '../../core/services/sync.service';
 import { FilterService } from '../../core/services/filter.service';
 import { AccountSettingsService } from '../../core/services/account-settings.service';
+import { AccountService } from '../../core/services/account.service';
 import { tradeSessionDateStr } from '../../core/utils/market-holidays';
 
 function toDateStr(date: Date): string {
@@ -37,6 +38,7 @@ export class DashboardComponent implements OnInit {
     private syncService = inject(SyncService);
     private filterService = inject(FilterService);
     private accountSettings = inject(AccountSettingsService);
+    private accountService = inject(AccountService);
 
     equityView = signal<'trade' | 'hour' | 'day'>('hour');
 
@@ -124,7 +126,7 @@ export class DashboardComponent implements OnInit {
             }).sort((a, b) => a.timestamp - b.timestamp);
         }
 
-        const startingBalance = this.accountSettings.startingBalance();
+        const startingBalance = this.accountService.currentBalance() ?? this.accountSettings.startingBalance();
 
         // If a date range is active, offset the starting point by all P&L realised before it
         const dateRangeStart = this.filterService.filters().dateRange.start;

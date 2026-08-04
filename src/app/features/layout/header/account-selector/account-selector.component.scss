@@ -7,6 +7,11 @@
     border: 1px solid var(--color-chrome-border);
     background: var(--color-chrome-widget-bg);
     position: relative;
+
+  &.__stale-hint {
+    font-size: 0.75rem;
+    color: var(--color-chrome-text);
+  }
 }
 
 .acct-widget__balance {
