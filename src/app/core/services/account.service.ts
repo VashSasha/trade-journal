@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal, effect, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { TradovateService, TradovateAccount } from './tradovate.service';
+import { TradovateService, TradovateAccount, TradovateConnection } from './tradovate.service';
 import { FilterService } from './filter.service';
 import { SyncService } from './sync.service';
 import { TradeService } from './trade.service';
@@ -52,28 +52,68 @@ export class AccountService {
         }
         return result;
     });
+
     selectedIds = signal<number[]>(this.loadSelectedIds());
-    /** Balances fetched from the API this session (live connections only). */
+
+    // Balances fetched from the Tradovate API this session.
     private liveBalances = signal<Map<number, number>>(new Map());
+
+    // Connections whose last balance fetch failed — used to surface staleness hints.
+    balanceFailedConnectionIds = signal<Set<string>>(new Set());
+
     isRefreshing = signal(false);
+    isConnected = computed(() => this.tradovateService.isConnected());
 
     /**
      * accountId → balance for every known account: stored last-known balances
      * as the base, overlaid by fresh API balances. Historical/disconnected
      * accounts keep contributing their last_balance instead of dropping to 0.
      */
-    accountBalances = computed(() => {
+    accountBalances = computed((): Map<number, number> => {
         const merged = new Map(this.tradingAccounts.storedBalances());
         for (const [id, amount] of this.liveBalances()) merged.set(id, amount);
         return merged;
     });
 
-    isConnected = computed(() => this.tradovateService.isConnected());
+    // Accounts whose balance is from the DB, not refreshed live this session.
+    staleBalanceIds = computed((): Set<number> => {
+        const live = this.liveBalances();
+        const stale = new Set<number>();
+        for (const id of this.selectedIds()) {
+            if (!live.has(id)) stale.add(id);
+        }
+        return stale;
+    });
 
-    aggregatedBalance = computed(() => {
+    // Aggregated balance for selected accounts; null if no data exists for any of them.
+    currentBalance = computed((): number | null => {
         const selected = this.selectedIds();
+        if (selected.length === 0) return null;
         const balances = this.accountBalances();
-        return selected.reduce((total, id) => total + (balances.get(id) || 0), 0);
+        let total = 0;
+        let hasAny = false;
+        for (const id of selected) {
+            const b = balances.get(id);
+            if (b !== undefined) { total += b; hasAny = true; }
+        }
+        return hasAny ? total : null;
+    });
+
+    // 0-fallback alias for components that always want a number.
+    aggregatedBalance = computed((): number => this.currentBalance() ?? 0);
+
+    // ISO timestamp of the oldest stale balance among selected accounts — for "as of" hint.
+    staleAsOf = computed((): string | null => {
+        const stale = this.staleBalanceIds();
+        if (stale.size === 0) return null;
+        const stored = this.tradingAccounts.byId();
+        let oldest: string | null = null;
+        for (const id of stale) {
+            const ts = stored.get(id)?.balanceUpdatedAt;
+            if (!ts) continue;
+            if (!oldest || ts < oldest) oldest = ts;
+        }
+        return oldest;
     });
 
     constructor() {
@@ -113,9 +153,6 @@ export class AccountService {
         });
 
         // Push account selection into FilterService whenever it changes.
-        // Always pass explicit IDs so trades from inactive/old accounts are never shown
-        // when only specific accounts are selected. Only skip the filter when no accounts
-        // are loaded yet or none are selected (show all / manual trades fall through).
         effect(() => {
             const ids = this.selectedIds();
             const totalKnown = this.accounts().length + this.inactiveAccounts().length + this.historicalAccounts().length;
@@ -128,37 +165,60 @@ export class AccountService {
     }
 
     init(): void {
+        // Stored balances from TradingAccountsService already render via accountBalances —
+        // no need to wait for the API. Just kick off the live refresh.
         if (!this.isConnected()) return;
         const cached = this.tradovateService.allAccounts();
         if (cached.length === 0) {
-            // Accounts not cached yet — fetch from API, then load balances
             Promise.all(
                 this.tradovateService.connections().map(conn =>
                     firstValueFrom(this.tradovateService.getAccountsForConnection(conn)).catch(() => null)
                 )
-            ).then(() => this.fetchBalances());
+            ).then(() => void this.fetchBalances());
         } else {
-            // Accounts already in cache — just load balances
-            this.fetchBalances();
+            void this.fetchBalances();
         }
     }
 
     private async fetchBalances(): Promise<void> {
-        const conns = this.tradovateService.connections();
         await Promise.all(
-            conns.map(conn =>
-                firstValueFrom(this.tradovateService.getCashBalancesForConnection(conn))
-                    .then(balances => {
-                        this.liveBalances.update(map => {
-                            const next = new Map(map);
-                            balances.forEach(b => {
-                                if (b.accountId && b.amount !== undefined) next.set(b.accountId, b.amount);
-                            });
-                            return next;
-                        });
-                    }).catch(() => {})
-            )
+            this.tradovateService.connections().map(conn => this.fetchBalancesForConnection(conn))
         );
+    }
+
+    private async fetchBalancesForConnection(conn: TradovateConnection): Promise<void> {
+        try {
+            const balances = await firstValueFrom(
+                this.tradovateService.getCashBalancesForConnection(conn)
+            );
+            this.liveBalances.update(map => {
+                const next = new Map(map);
+                for (const b of balances) {
+                    if (b.accountId && b.amount !== undefined) next.set(b.accountId, b.amount);
+                }
+                return next;
+            });
+            this.balanceFailedConnectionIds.update(s => {
+                if (!s.has(conn.id)) return s;
+                const next = new Set(s);
+                next.delete(conn.id);
+                return next;
+            });
+        } catch (err) {
+            console.error('[AccountService] Failed to fetch balances for', conn.name, err);
+            this.balanceFailedConnectionIds.update(s => {
+                if (s.has(conn.id)) return s;
+                const next = new Set(s);
+                next.add(conn.id);
+                return next;
+            });
+        }
+    }
+
+    /** ISO timestamp of the last known balance for an account. */
+    balanceUpdatedAt(accountId: number): string | undefined {
+        if (this.liveBalances().has(accountId)) return new Date().toISOString();
+        return this.tradingAccounts.byId().get(accountId)?.balanceUpdatedAt ?? undefined;
     }
 
     toggle(id: number): void {
@@ -193,18 +253,7 @@ export class AccountService {
                     firstValueFrom(this.tradovateService.getAccountsForConnection(conn))
                         .catch(err => console.error('[AccountService] Failed to refresh accounts for', conn.name, err))
                 ),
-                ...conns.map(conn =>
-                    firstValueFrom(this.tradovateService.getCashBalancesForConnection(conn))
-                        .then(balances => {
-                            this.liveBalances.update(map => {
-                                const next = new Map(map);
-                                balances.forEach(b => {
-                                    if (b.accountId && b.amount !== undefined) next.set(b.accountId, b.amount);
-                                });
-                                return next;
-                            });
-                        }).catch((err) => console.error('[AccountService] Failed to fetch balances for', conn.name, err))
-                ),
+                ...conns.map(conn => this.fetchBalancesForConnection(conn)),
                 this.syncService.syncFrom(today)
             ]);
         } catch (err) {
@@ -214,7 +263,6 @@ export class AccountService {
         }
     }
 
-    /** True once the user has made (and persisted) any account selection. */
     private hasStoredSelection(): boolean {
         return localStorage.getItem(STORAGE_KEY) !== null;
     }

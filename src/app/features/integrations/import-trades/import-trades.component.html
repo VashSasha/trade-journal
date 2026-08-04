@@ -1,0 +1,125 @@
+<section class="import-trades">
+  <h2 class="import-trades__title">Import trades from CSV</h2>
+  <p class="import-trades__desc">
+    Upload a Performance report exported from Tradovate. Trades already in your
+    journal (from a previous sync or import) are detected and skipped.
+  </p>
+
+  <div class="import-trades__field">
+    <label class="import-trades__label" for="import-account">Account</label>
+    <select
+      id="import-account"
+      class="import-trades__select"
+      (change)="onAccountChange($event)">
+      <option value="" [selected]="!state.selectedAccountKey()">Select the account this export belongs to…</option>
+      @for (group of state.accountGroups(); track group.label) {
+        <optgroup [label]="group.label">
+          @for (acc of group.accounts; track acc.id) {
+            <option
+              [value]="acc.id"
+              [selected]="state.selectedAccountKey() === acc.id.toString()">{{ acc.name }}</option>
+          }
+        </optgroup>
+      }
+      <option [value]="CUSTOM_ACCOUNT" [selected]="state.selectedAccountKey() === CUSTOM_ACCOUNT">Other account (enter name)…</option>
+    </select>
+  </div>
+
+  @if (state.selectedAccountKey() === CUSTOM_ACCOUNT) {
+    <div class="import-trades__field">
+      <label class="import-trades__label" for="import-account-name">Account name</label>
+      <input
+        id="import-account-name"
+        class="import-trades__input"
+        type="text"
+        placeholder="e.g. Apex Eval 50K"
+        [value]="state.customAccountName()"
+        (input)="onCustomNameInput($event)" />
+      <p class="import-trades__hint">
+        This creates a new account entry — the same name will match on future imports.
+      </p>
+    </div>
+  }
+
+  <div
+    class="import-trades__dropzone"
+    [class.import-trades__dropzone--active]="state.isDragOver()"
+    (dragover)="onDragOver($event)"
+    (dragleave)="onDragLeave()"
+    (drop)="onDrop($event)"
+    (click)="fileInput.click()">
+    <input
+      #fileInput
+      class="import-trades__file-input"
+      type="file"
+      accept=".csv,text/csv"
+      (change)="onFileSelected($event)" />
+    @if (state.fileName(); as name) {
+      <span class="import-trades__file-name">{{ name }}</span>
+      <button
+        type="button"
+        class="import-trades__clear"
+        (click)="state.clearFile(); $event.stopPropagation()">Remove</button>
+    } @else {
+      <span class="import-trades__drop-text">Drop your .csv here or click to browse</span>
+    }
+  </div>
+
+  @if (state.fileError(); as error) {
+    <p class="import-trades__error">{{ error }}</p>
+  }
+
+  @if (state.fileName() && !state.targetAccount()) {
+    <p class="import-trades__hint">Choose an account above to preview the import.</p>
+  }
+
+  @if (state.preview(); as p) {
+    @if (p.total === 0) {
+      <p class="import-trades__error">
+        No trades found in this file — is it a Tradovate Performance CSV export?
+      </p>
+    } @else {
+      <div class="import-trades__preview">
+        <p class="import-trades__summary">
+          {{ p.total }} trade{{ p.total === 1 ? '' : 's' }} found —
+          <strong>{{ p.newTrades.length }} new</strong>,
+          {{ p.duplicateCount }} already in your journal
+        </p>
+        <dl class="import-trades__meta">
+          <div class="import-trades__meta-row">
+            <dt class="import-trades__meta-label">Date range</dt>
+            <dd class="import-trades__meta-value">
+              {{ p.firstDate | date: 'MMM d, y' }} – {{ p.lastDate | date: 'MMM d, y' }}
+            </dd>
+          </div>
+          <div class="import-trades__meta-row">
+            <dt class="import-trades__meta-label">Symbols</dt>
+            <dd class="import-trades__meta-value">{{ p.symbols.join(', ') }}</dd>
+          </div>
+        </dl>
+        <button
+          type="button"
+          class="import-trades__import-btn"
+          [disabled]="p.newTrades.length === 0 || state.isImporting()"
+          (click)="state.import()">
+          @if (state.isImporting()) {
+            Importing…
+          } @else if (p.newTrades.length === 0) {
+            Nothing new to import
+          } @else {
+            Import {{ p.newTrades.length }} trade{{ p.newTrades.length === 1 ? '' : 's' }}
+          }
+        </button>
+      </div>
+    }
+  }
+
+  @if (state.importResult(); as result) {
+    <p class="import-trades__result">
+      Imported {{ result.imported }} trade{{ result.imported === 1 ? '' : 's' }}.
+      @if (result.skipped > 0) {
+        Skipped {{ result.skipped }} duplicate{{ result.skipped === 1 ? '' : 's' }}.
+      }
+    </p>
+  }
+</section>

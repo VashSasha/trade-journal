@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { TradovateSettingsComponent } from '../components/tradovate-settings/tradovate-settings.component';
+import { ImportTradesComponent } from '../import-trades/import-trades.component';
 
 /**
  * Settings page shell. Owns the page layout and stacks self-contained settings
@@ -9,7 +10,7 @@ import { TradovateSettingsComponent } from '../components/tradovate-settings/tra
 @Component({
     selector: 'app-settings-page',
     standalone: true,
-    imports: [TradovateSettingsComponent],
+    imports: [TradovateSettingsComponent, ImportTradesComponent],
     templateUrl: './settings-page.component.html',
     styleUrl: './settings-page.component.scss'
 })
