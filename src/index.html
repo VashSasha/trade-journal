@@ -9,20 +9,52 @@
   <meta name="description"
         content="The trading journal with a built-in AI coach. Broker fills sync automatically, FIFO-matched with real fees — and AI reviews every session: patterns, mistakes, and what to fix tomorrow.">
 
+  <!-- Canonical — the app is a client-rendered SPA with two URLs serving the
+       identical public landing page ('/' for logged-out visitors, '/welcome'
+       as a stable link for everyone else). This tells crawlers to treat them
+       as one page instead of indexing duplicate content. -->
+  <link rel="canonical" href="https://nvzn-journal.com/">
+
   <!-- Open Graph -->
   <meta property="og:type" content="website">
+  <meta property="og:url" content="https://nvzn-journal.com/">
   <meta property="og:site_name" content="NVZN Journal">
   <meta property="og:title" content="NVZN Journal | AI Trading Coach + Automated Trading Journal">
   <meta property="og:description"
         content="Broker fills sync automatically, and AI reviews every session — patterns, mistakes, and what to fix tomorrow.">
+  <meta property="og:image" content="https://nvzn-journal.com/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="NVZN Journal — the trading journal that coaches you back">
 
   <!-- Twitter -->
-  <meta name="twitter:card" content="summary">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="NVZN Journal | AI Trading Coach + Automated Trading Journal">
   <meta name="twitter:description"
         content="Broker fills sync automatically, and AI reviews every session — patterns, mistakes, and what to fix tomorrow.">
+  <meta name="twitter:image" content="https://nvzn-journal.com/og-image.png">
 
   <link rel="icon" type="image/x-icon" href="nvzn_logo.png">
+
+  <!-- Structured data — lets search engines render a richer result (app
+       category, pricing) instead of a plain blue link. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "NVZN Journal",
+    "url": "https://nvzn-journal.com/",
+    "description": "The trading journal with a built-in AI coach. Broker fills sync automatically, FIFO-matched with real fees, and AI reviews every session.",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Web, macOS",
+    "offers": {
+      "@type": "Offer",
+      "price": "24.99",
+      "priceCurrency": "USD",
+      "priceValidUntil": "2026-12-31"
+    }
+  }
+  </script>
 </head>
 
 <body>
