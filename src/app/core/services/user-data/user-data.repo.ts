@@ -10,7 +10,7 @@ import {
     settingsToRow, rowToSettings,
     tradingAccountToRow, rowToTradingAccount
 } from './user-data.mappers';
-import { CACHE_KEYS, readCache, writeCache } from './user-data.cache';
+import { CACHE_KEYS, readCache, writeCache, isCacheSuspended } from './user-data.cache';
 
 type Row = Record<string, unknown>;
 type UserTable = 'trades' | 'journal_entries' | 'journal_templates' | 'trading_accounts';
@@ -100,14 +100,17 @@ export class UserDataRepo {
     // ── fire-and-forget writes (batched) ─────────────────────────────────
 
     queueTradeUpserts(trades: Trade[]): void {
+        if (isCacheSuspended()) return;
         this.addUpserts('trades', trades.map(t => [t.id, tradeToRow(t)]));
     }
 
     queueTradeDeletes(ids: string[]): void {
+        if (isCacheSuspended()) return;
         this.addDeletes('trades', ids);
     }
 
     queueClearAllTrades(): void {
+        if (isCacheSuspended()) return;
         // Supersedes anything queued for the table.
         this.batchedUpserts.delete('trades');
         this.batchedDeletes.delete('trades');
@@ -117,18 +120,22 @@ export class UserDataRepo {
     }
 
     queueNoteUpsert(note: DailyNote): void {
+        if (isCacheSuspended()) return;
         this.addUpserts('journal_entries', [[note.id, noteToRow(note)]]);
     }
 
     queueTemplateUpsert(template: JournalTemplate): void {
+        if (isCacheSuspended()) return;
         this.addUpserts('journal_templates', [[template.id, templateToRow(template)]]);
     }
 
     queueTemplateDelete(id: string): void {
+        if (isCacheSuspended()) return;
         this.addDeletes('journal_templates', [id]);
     }
 
     queueSettingsUpsert(settings: Partial<UserSettings>): void {
+        if (isCacheSuspended()) return;
         this.batchedSettings = { ...(this.batchedSettings ?? {}), ...settingsToRow(settings) };
         this.scheduleFlush();
     }
@@ -139,6 +146,7 @@ export class UserDataRepo {
      * is append/update only — nothing ever queues a delete for it.
      */
     queueTradingAccountUpserts(accounts: StoredTradingAccount[]): void {
+        if (isCacheSuspended()) return;
         this.addUpserts('trading_accounts',
             accounts.map(a => [String(a.accountId), tradingAccountToRow(a)]));
     }
@@ -236,7 +244,7 @@ export class UserDataRepo {
     }
 
     async flushQueue(): Promise<void> {
-        if (this.flushing || !this.queue.length || !navigator.onLine) return;
+        if (isCacheSuspended() || this.flushing || !this.queue.length || !navigator.onLine) return;
         this.flushing = true;
         try {
             while (this.queue.length) {

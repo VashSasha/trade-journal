@@ -3,6 +3,7 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { TitleCasePipe } from '@angular/common';
 import { AuthService } from '../../../core/services/auth.service';
 import { LayoutService } from '../../../core/services/layout.service';
+import { DemoModeService } from '../../../core/services/demo-mode.service';
 
 @Component({
   selector: 'app-sidebar',
@@ -14,6 +15,7 @@ export class Sidebar {
   authService = inject(AuthService);
   layout = inject(LayoutService);
   router = inject(Router);
+  demo = inject(DemoModeService);
 
   plan = this.authService.plan;
 

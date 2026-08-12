@@ -3,6 +3,10 @@
     <div class="app-body">
         <app-header />
 
+        @if (demo.active()) {
+        <app-demo-banner />
+        }
+
         @if (tradovate.hasExpiredConnections() && !bannerDismissed()) {
         <div class="expired-banner">
             <svg class="expired-banner__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -60,3 +64,5 @@
         <app-sync-notice />
     </div>
 </div>
+
+<app-post-signup-modal />

@@ -21,6 +21,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/landing/landing.component').then(m => m.LandingComponent)
     },
     {
+        path: 'demo',
+        loadComponent: () => import('./features/demo/demo-redirect/demo-redirect.component')
+            .then(m => m.DemoRedirectComponent)
+    },
+    {
         path: 'login',
         loadComponent: () => import('./features/auth/login/login').then(m => m.LoginComponent)
     },

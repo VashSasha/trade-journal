@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { PlanTier } from '../models/user.model';
+import { DemoModeService } from '../services/demo-mode.service';
 
 /**
  * Route guard for plan-gated features.
@@ -11,6 +12,8 @@ import { PlanTier } from '../models/user.model';
  */
 export const planGuard = (requiredPlan: 'premium' | 'lifetime'): CanActivateFn =>
     async () => {
+        if (inject(DemoModeService).active()) return true;
+
         const auth = inject(AuthService);
         const router = inject(Router);
 
