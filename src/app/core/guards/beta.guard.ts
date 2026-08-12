@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { environment } from '../../../environments/environment';
+import { DemoModeService } from '../services/demo-mode.service';
 
 /**
  * Closed-beta gate for the main app shell.
@@ -15,6 +16,8 @@ import { environment } from '../../../environments/environment';
  * authReady to be safe on a hard refresh of a protected route.
  */
 export const betaGuard: CanActivateFn = async () => {
+    if (inject(DemoModeService).active()) return true;
+
     const auth = inject(AuthService);
     const router = inject(Router);
 

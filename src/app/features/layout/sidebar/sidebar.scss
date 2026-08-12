@@ -142,6 +142,29 @@
     flex-shrink: 0;
 }
 
+// ── Demo toggle ──────────────────────────────────────────────
+.nav-link--demo {
+    margin-top: auto; // push to the bottom of the nav column
+    cursor: pointer;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    opacity: 0.55;
+    font-family: inherit;
+
+    &:hover {
+        opacity: 1;
+    }
+
+    &.nav-link--demo-active {
+        opacity: 1;
+        color: var(--color-accent);
+
+        .nav-icon { color: var(--color-accent); }
+    }
+}
+
 // ── Footer / User ────────────────────────────────────────────
 .sidebar__footer {
     display: flex;

@@ -5,6 +5,7 @@ import { FilterService } from './filter.service';
 import { SyncService } from './sync.service';
 import { TradeService } from './trade.service';
 import { TradingAccountsService } from './trading-accounts.service';
+import { isCacheSuspended } from './user-data/user-data.cache';
 
 const STORAGE_KEY = 'tradovate_selected_account_ids';
 
@@ -221,23 +222,46 @@ export class AccountService {
         return this.tradingAccounts.byId().get(accountId)?.balanceUpdatedAt ?? undefined;
     }
 
+    /** Put a synthetic account into the Active slot — used by demo mode so the
+     *  header dropdown shows a live-looking account without touching TradovateService. */
+    setDemoLiveAccount(id: number, name: string, accountType: string): void {
+        this.accounts.set([{ id, name, userId: 0, accountType, active: true }]);
+    }
+
+    /** Re-sync the live accounts list from TradovateService (which was never
+     *  touched during demo, so its value is still the real user's data). */
+    resetLiveAccounts(): void {
+        this.accounts.set(this.tradovateService.allAccounts());
+    }
+
+    /** Override selection in-memory without persisting to localStorage.
+     *  Used by demo mode so the real user's stored selection is never touched. */
+    setSelectionTransient(ids: number[]): void {
+        this.selectedIds.set(ids);
+    }
+
+    /** Restore selection from localStorage. Called when demo mode exits. */
+    restorePersistedSelection(): void {
+        this.selectedIds.set(this.loadSelectedIds());
+    }
+
     toggle(id: number): void {
         const next = this.selectedIds().includes(id)
             ? this.selectedIds().filter(x => x !== id)
             : [...this.selectedIds(), id];
         this.selectedIds.set(next);
-        this.saveSelectedIds(next);
+        if (!isCacheSuspended()) this.saveSelectedIds(next);
     }
 
     selectAll(): void {
         const all = this.accounts().map(a => a.id);
         this.selectedIds.set(all);
-        this.saveSelectedIds(all);
+        if (!isCacheSuspended()) this.saveSelectedIds(all);
     }
 
     deselectAll(): void {
         this.selectedIds.set([]);
-        this.saveSelectedIds([]);
+        if (!isCacheSuspended()) this.saveSelectedIds([]);
     }
 
     async refreshBalances(): Promise<void> {

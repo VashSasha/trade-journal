@@ -5,16 +5,20 @@ import { Sidebar } from '../sidebar/sidebar';
 import { Header } from '../header/header';
 import { TradovateService } from '../../../core/services/tradovate.service';
 import { SyncNoticeComponent } from '../../../shared/components/sync-notice/sync-notice.component';
+import { DemoModeService } from '../../../core/services/demo-mode.service';
+import { DemoBannerComponent } from '../../demo/demo-banner/demo-banner.component';
+import { PostSignupModalComponent } from '../../demo/post-signup-modal/post-signup-modal.component';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, FormsModule, Sidebar, Header, SyncNoticeComponent],
+  imports: [RouterOutlet, FormsModule, Sidebar, Header, SyncNoticeComponent, DemoBannerComponent, PostSignupModalComponent],
   templateUrl: './main-layout.html',
   styleUrl: './main-layout.scss'
 })
 export class MainLayoutComponent {
     readonly tradovate = inject(TradovateService);
+    readonly demo = inject(DemoModeService);
 
     readonly bannerDismissed  = signal(false);
     readonly reconnectingId   = signal<string | null>(null);

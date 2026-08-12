@@ -10,7 +10,7 @@ import { Trade } from '../../models/trade.model';
 import { DailyNote, JournalTemplate } from '../../models/daily-journal.model';
 import {
     CACHE_KEYS, LEGACY_KEYS,
-    readCache, clearUserCache, hasLegacyData, clearLegacyData
+    readCache, clearUserCache, hasLegacyData, clearLegacyData, isCacheSuspended
 } from './user-data.cache';
 
 /**
@@ -70,7 +70,16 @@ export class UserDataService {
         if (session) await this.loadForUser(session.user.id);
     }
 
+    /** Allow DemoModeService to trigger a fresh cloud fetch after demo exit. */
+    async reload(): Promise<void> {
+        const session = this.auth.session();
+        if (!session) return;
+        this.loadedForUser = null;
+        await this.loadForUser(session.user.id);
+    }
+
     private async loadForUser(userId: string): Promise<void> {
+        if (isCacheSuspended()) return;
         if (this.loadedForUser === userId) return;
         this.loadedForUser = userId;
 
@@ -152,6 +161,7 @@ export class UserDataService {
     }
 
     private onSignOut(): void {
+        if (isCacheSuspended()) return; // demo mode active — don't wipe demo data
         clearUserCache();
         this.repo.clearQueue();
         // Once the legacy data lives in this user's account, the local copy is

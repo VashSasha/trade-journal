@@ -7,7 +7,22 @@
  * - LEGACY_KEYS: the pre-backend app's storage. Read exactly once by the
  *   one-time import and never written again. Left untouched on sign-out
  *   until the import has succeeded.
+ *
+ * Demo mode guard — module-level (not DI) to avoid import cycles:
+ *   DemoModeService calls setCacheSuspended(true) before hydrating demo data.
+ *   While suspended, writeCache and clearUserCache are no-ops so demo data
+ *   never reaches localStorage and the real user's data stays intact.
  */
+
+let _cacheSuspended = false;
+
+export function setCacheSuspended(suspended: boolean): void {
+    _cacheSuspended = suspended;
+}
+
+export function isCacheSuspended(): boolean {
+    return _cacheSuspended;
+}
 
 export const CACHE_KEYS = {
     owner: 'tj_cache_owner',
@@ -39,6 +54,7 @@ export function readCache<T>(key: string): T | null {
 }
 
 export function writeCache(key: string, value: unknown): void {
+    if (_cacheSuspended) return;
     try {
         localStorage.setItem(key, JSON.stringify(value));
     } catch {
@@ -47,6 +63,7 @@ export function writeCache(key: string, value: unknown): void {
 }
 
 export function clearUserCache(): void {
+    if (_cacheSuspended) return;
     Object.values(CACHE_KEYS).forEach(key => localStorage.removeItem(key));
 }
 

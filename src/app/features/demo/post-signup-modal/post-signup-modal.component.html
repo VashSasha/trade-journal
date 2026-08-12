@@ -1,0 +1,25 @@
+@if (visible()) {
+<div class="psm-backdrop" (click)="dismiss()">
+    <div class="psm" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="psm-title">
+        <div class="psm__icon-wrap" aria-hidden="true">
+            <svg class="psm__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+        </div>
+        <h2 class="psm__title" id="psm-title">Your workspace is ready</h2>
+        <p class="psm__body">
+            Connect your Tradovate account to start syncing real trades and get AI-powered coaching on your actual performance.
+        </p>
+
+        <div class="psm__actions">
+            <a class="psm__btn psm__btn--primary" routerLink="/settings" (click)="dismiss()">
+                Connect Trading Account
+            </a>
+            <button class="psm__btn psm__btn--secondary" type="button" (click)="exploreDemo()">
+                Explore demo data
+            </button>
+            <button class="psm__skip" type="button" (click)="dismiss()">Skip for now</button>
+        </div>
+    </div>
+</div>
+}

@@ -1,0 +1,20 @@
+<div class="demo-banner">
+    <div class="demo-banner__left">
+        <svg class="demo-banner__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm1 4.5a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 012 0v4a1 1 0 11-2 0V9z"/>
+        </svg>
+        <span class="demo-banner__text">
+            <strong class="demo-banner__label">Demo workspace</strong>
+            — you're exploring sample data. Nothing is saved.
+        </span>
+    </div>
+
+    <div class="demo-banner__actions">
+        @if (auth.isAuthenticated()) {
+            <a class="demo-banner__cta" routerLink="/settings" (click)="exitDemo()">Connect your broker</a>
+        } @else {
+            <a class="demo-banner__cta" routerLink="/login" (click)="exitDemo()">Get started free</a>
+        }
+        <button class="demo-banner__exit" type="button" (click)="exitDemo()">Exit demo</button>
+    </div>
+</div>
