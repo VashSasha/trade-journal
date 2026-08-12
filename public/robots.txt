@@ -1,0 +1,16 @@
+# NVZN Journal — public marketing pages are indexable; everything behind
+# login is not (it requires auth anyway, so crawling it wastes budget and
+# would only expose route structure with nothing renderable behind it).
+
+User-agent: *
+Disallow: /dashboard
+Disallow: /analytics
+Disallow: /reports
+Disallow: /journal
+Disallow: /settings
+Disallow: /account
+Disallow: /upgrade
+Disallow: /beta
+Disallow: /auth/
+
+Sitemap: https://nvzn-journal.com/sitemap.xml
