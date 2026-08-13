@@ -4,6 +4,7 @@ import { TradovateService, TradovateAccount } from '../../../core/services/trado
 import { AccountService } from '../../../core/services/account.service';
 import { AccountSettingsService } from '../../../core/services/account-settings.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { DemoModeService } from '../../../core/services/demo-mode.service';
 import { parsePerformanceCsv, PerformanceCsvTrade } from '../../../core/utils/tradovate-performance.utils';
 import { splitByExisting, stableAccountIdFromName } from './import-trades.utils';
 
@@ -31,6 +32,7 @@ export class ImportTradesState {
     private accountService = inject(AccountService);
     private accountSettings = inject(AccountSettingsService);
     private authService = inject(AuthService);
+    private demo = inject(DemoModeService);
 
     fileName = signal<string | null>(null);
     private csvText = signal<string | null>(null);
@@ -135,6 +137,7 @@ export class ImportTradesState {
      * sync), then recalculateTradovateNetPnl for fee reconciliation.
      */
     import(): void {
+        if (!this.demo.requireAccount('sync')) return;
         const preview = this.preview();
         const acc = this.targetAccount();
         const user = this.authService.currentUser();
