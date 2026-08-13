@@ -25,5 +25,8 @@ export const planGuard = (requiredPlan: 'premium' | 'lifetime'): CanActivateFn =
         const tierRank: Record<PlanTier, number> = { free: 0, premium: 1, lifetime: 2, admin: 3 };
         const allowed = tierRank[plan] >= tierRank[requiredPlan];
 
-        return allowed || router.createUrlTree(['/upgrade']);
+        // Free users are routed into the demo workspace so they see a populated
+        // app rather than a blank paywall. /upgrade is still reachable from
+        // the demo banner and the upgrade prompt.
+        return allowed || router.createUrlTree(['/demo']);
     };

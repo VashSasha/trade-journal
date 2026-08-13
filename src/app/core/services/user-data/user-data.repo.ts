@@ -278,6 +278,10 @@ export class UserDataRepo {
     // ── execution ────────────────────────────────────────────────────────
 
     private async execute(write: PendingWrite): Promise<void> {
+        // Single choke point: blocks all Supabase writes during demo mode.
+        // The queue* methods also return early, but this guards direct callers
+        // (importTrades/Notes/Templates/Settings) and timer-triggered flushes.
+        if (isCacheSuspended()) return;
         if (write.op === 'delete-all') {
             const { error } = await this.client.from('trades').delete().neq('id', '');
             if (error) throw error;

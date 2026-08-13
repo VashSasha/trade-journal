@@ -8,11 +8,12 @@ import { SyncNoticeComponent } from '../../../shared/components/sync-notice/sync
 import { DemoModeService } from '../../../core/services/demo-mode.service';
 import { DemoBannerComponent } from '../../demo/demo-banner/demo-banner.component';
 import { PostSignupModalComponent } from '../../demo/post-signup-modal/post-signup-modal.component';
+import { UpgradePromptComponent } from '../../demo/upgrade-prompt/upgrade-prompt.component';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, FormsModule, Sidebar, Header, SyncNoticeComponent, DemoBannerComponent, PostSignupModalComponent],
+  imports: [RouterOutlet, FormsModule, Sidebar, Header, SyncNoticeComponent, DemoBannerComponent, PostSignupModalComponent, UpgradePromptComponent],
   templateUrl: './main-layout.html',
   styleUrl: './main-layout.scss'
 })

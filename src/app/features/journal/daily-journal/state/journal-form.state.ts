@@ -5,6 +5,7 @@ import { EconomicCalendarService } from '../../../../core/services/economic-cale
 import { AccountService } from '../../../../core/services/account.service';
 import { AccountSettingsService } from '../../../../core/services/account-settings.service';
 import { FilterService } from '../../../../core/services/filter.service';
+import { DemoModeService } from '../../../../core/services/demo-mode.service';
 import { buildTimelineEntry, groupEntriesByMonth, MonthGroup, TimelineEntry } from '../utils/timeline.utils';
 import { tradeSessionDateStr } from '../../../../core/utils/market-holidays';
 import { NewsEventTag } from '../../../../core/models/daily-journal.model';
@@ -19,6 +20,7 @@ function localDateStr(date: Date): string {
 @Injectable()
 export class JournalFormState {
     private journalService = inject(DailyJournalService);
+    private demo = inject(DemoModeService);
     tradeService = inject(TradeService);
     private economicCalendarService = inject(EconomicCalendarService);
     private accountService = inject(AccountService);
@@ -197,6 +199,7 @@ export class JournalFormState {
     }
 
     saveNote(): void {
+        if (!this.demo.requireAccount('save')) return;
         this.journalService.saveNote(this.selectedDate(), {
             content: this.noteContent(),
             preMarketPlan: this.preMarketPlan(),

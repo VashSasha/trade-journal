@@ -1,0 +1,32 @@
+@if (visible() && copy(); as c) {
+<div class="up-backdrop" (click)="dismiss()">
+    <div class="up" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="up-title">
+        <div class="up__icon-wrap" aria-hidden="true">
+            <svg class="up__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+        </div>
+
+        <h2 class="up__title" id="up-title">{{ c.title }}</h2>
+        <p class="up__body">{{ c.body }}</p>
+
+        <div class="up__actions">
+            @if (isSignedIn()) {
+            <button class="up__btn up__btn--primary" type="button" (click)="subscribe()">
+                Subscribe — $24.99/mo
+            </button>
+            } @else {
+            <a class="up__btn up__btn--primary" routerLink="/login" (click)="dismiss()">
+                Subscribe — $24.99/mo
+            </a>
+            }
+
+            <a class="up__btn up__btn--secondary" [href]="whopUrl" target="_blank" rel="noopener" (click)="dismiss()">
+                Join NVZN Trading
+            </a>
+
+            <button class="up__skip" type="button" (click)="dismiss()">Stay in demo</button>
+        </div>
+    </div>
+</div>
+}
