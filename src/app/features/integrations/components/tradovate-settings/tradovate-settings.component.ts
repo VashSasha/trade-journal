@@ -6,6 +6,7 @@ import { TradovateService, TradovateConnection } from '../../../../core/services
 import { SyncService } from '../../../../core/services/sync.service';
 import { AccountSettingsService } from '../../../../core/services/account-settings.service';
 import { TradeService } from '../../../../core/services/trade.service';
+import { DemoModeService } from '../../../../core/services/demo-mode.service';
 
 @Component({
     selector: 'app-tradovate-settings',
@@ -17,6 +18,7 @@ import { TradeService } from '../../../../core/services/trade.service';
 export class TradovateSettingsComponent {
     private fb = inject(FormBuilder);
     private router = inject(Router);
+    private demo = inject(DemoModeService);
     tradovateService = inject(TradovateService);
     syncService = inject(SyncService);
     accountSettings = inject(AccountSettingsService);
@@ -65,6 +67,7 @@ export class TradovateSettingsComponent {
     }
 
     async startSync(): Promise<void> {
+        if (!this.demo.requireAccount('sync')) return;
         this.syncError.set(null);
         this.syncResult.set(null);
         const fromDate = new Date(this.customFromDate() + 'T00:00:00');
@@ -77,6 +80,7 @@ export class TradovateSettingsComponent {
     }
 
     async fullSync(): Promise<void> {
+        if (!this.demo.requireAccount('sync')) return;
         this.syncError.set(null);
         this.syncResult.set(null);
         try {
@@ -107,6 +111,7 @@ export class TradovateSettingsComponent {
     }
 
     connect(): void {
+        if (!this.demo.requireAccount('connect')) return;
         if (!this.configForm.valid) return;
         this.isConnecting.set(true);
         const values = this.configForm.value;

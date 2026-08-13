@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, effect } from '@angular/core';
 import { Router } from '@angular/router';
 import { TradeService } from './trade.service';
 import { DailyJournalService } from './daily-journal.service';
@@ -39,11 +39,35 @@ export class DemoModeService {
 
     readonly active = signal(false);
 
+    /** Non-null while an upgrade prompt is open; drives UpgradePromptComponent. */
+    readonly promptReason = signal<'connect' | 'save' | 'sync' | 'ai' | null>(null);
+
+    /** Set after the user explicitly exits demo to prevent immediate re-entry. */
+    private demoOptedOut = false;
+
     constructor() {
         // Restore demo state across page reloads (same tab session only).
         if (sessionStorage.getItem(SESSION_KEY) === 'true') {
             this.activateDemo();
         }
+
+        // Auto-enter demo for signed-in free users who have no data yet, so
+        // they see a populated app instead of an empty one. Uses dataLoaded as
+        // a gate so the effect never fires before the Supabase fetch settles.
+        effect(() => {
+            if (this.active() || this.demoOptedOut) return;
+            if (!this.userData.dataLoaded()) return;
+            const user = this.auth.currentUser();
+            if (!user) {
+                this.demoOptedOut = false; // reset when signed out so next user gets a fresh check
+                return;
+            }
+            if (this.auth.plan() !== 'free') return;
+            if (this.trades.trades().length > 0) return;
+            if (this.accounts.all().length > 0) return;
+            this.demoOptedOut = true; // prevent re-entry after this auto-enter
+            this.enter();
+        }, { allowSignalWrites: true });
     }
 
     enter(): void {
@@ -51,7 +75,22 @@ export class DemoModeService {
         sessionStorage.setItem(SESSION_KEY, 'true');
     }
 
+    /**
+     * Call before any write/connect action. Returns true and proceeds normally
+     * when not in demo; returns false and opens the upgrade prompt when in demo.
+     */
+    requireAccount(reason: 'connect' | 'save' | 'sync' | 'ai'): boolean {
+        if (!this.active()) return true;
+        this.promptReason.set(reason);
+        return false;
+    }
+
+    dismissPrompt(): void {
+        this.promptReason.set(null);
+    }
+
     exit(): void {
+        this.demoOptedOut = true; // user chose to leave demo — don't auto-re-enter
         setCacheSuspended(false);
         sessionStorage.removeItem(SESSION_KEY);
         this.active.set(false);

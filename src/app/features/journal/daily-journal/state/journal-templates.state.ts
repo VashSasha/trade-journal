@@ -3,11 +3,13 @@ import { DailyJournalService } from '../../../../core/services/daily-journal.ser
 import { JournalTemplate } from '../../../../core/models/daily-journal.model';
 import { JournalFormState } from './journal-form.state';
 import { RECOMMENDED_TEMPLATES, RecommendedTemplate } from './recommended-templates.data';
+import { DemoModeService } from '../../../../core/services/demo-mode.service';
 
 @Injectable()
 export class JournalTemplatesState {
     private journalService = inject(DailyJournalService);
     private form = inject(JournalFormState);
+    private demo = inject(DemoModeService);
 
     templates = this.journalService.templates;
 
@@ -71,6 +73,7 @@ export class JournalTemplatesState {
     }
 
     addRecommendedToMine(): void {
+        if (!this.demo.requireAccount('save')) return;
         const tpl = this.selectedRecommended();
         const ctx = this.templatePanelContext();
         if (!tpl || !ctx) return;
@@ -117,6 +120,7 @@ export class JournalTemplatesState {
     }
 
     saveEdit(): void {
+        if (!this.demo.requireAccount('save')) return;
         const tpl = this.selectedTemplate();
         const name = this.editTemplateName().trim();
         const content = this.editTemplateContent();
@@ -148,6 +152,7 @@ export class JournalTemplatesState {
     }
 
     confirmCreate(): void {
+        if (!this.demo.requireAccount('save')) return;
         const name = this.editTemplateName().trim();
         const content = this.editTemplateContent();
         const ctx = this.templatePanelContext();

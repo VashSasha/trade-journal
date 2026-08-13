@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { SupabaseService } from '../../../../../core/services/supabase.service';
+import { DemoModeService } from '../../../../../core/services/demo-mode.service';
 
 /** A persisted AI day-analysis (row of public.ai_analyses). */
 export interface SavedAnalysis {
@@ -30,6 +31,7 @@ function rowToAnalysis(row: any): SavedAnalysis {
 @Injectable()
 export class AiAnalysisService {
     private client = inject(SupabaseService).client;
+    private demo = inject(DemoModeService);
 
     /** Saved analyses for the most recently loaded date, newest first. */
     readonly analyses = signal<SavedAnalysis[]>([]);
@@ -62,6 +64,7 @@ export class AiAnalysisService {
 
     /** Persist a new analysis for `date`; prepends to `analyses` if it's loaded. */
     async saveAnalysis(date: string, content: string): Promise<SavedAnalysis> {
+        if (!this.demo.requireAccount('ai')) throw new Error('demo');
         const { data, error } = await this.client
             .from('ai_analyses')
             .insert({ kind: 'journal', date, content })

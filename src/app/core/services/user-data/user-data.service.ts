@@ -40,6 +40,9 @@ export class UserDataService {
     /** True while the one-time legacy upload runs — drives the sync notice. */
     readonly importing = signal(false);
 
+    /** Flips to true once the first cloud fetch for the current user completes. */
+    readonly dataLoaded = signal(false);
+
     private loadedForUser: string | null = null;
     private importedAt: string | null = null;
 
@@ -116,6 +119,7 @@ export class UserDataService {
 
             // Now that we're demonstrably online, retry anything queued.
             await this.repo.flushQueue();
+            this.dataLoaded.set(true);
         } catch (err) {
             // Offline (or Supabase unreachable) — the cache-hydrated signals
             // keep the app usable; queued writes retry automatically.
@@ -162,6 +166,7 @@ export class UserDataService {
 
     private onSignOut(): void {
         if (isCacheSuspended()) return; // demo mode active — don't wipe demo data
+        this.dataLoaded.set(false);
         clearUserCache();
         this.repo.clearQueue();
         // Once the legacy data lives in this user's account, the local copy is

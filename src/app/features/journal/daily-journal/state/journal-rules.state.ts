@@ -1,11 +1,13 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { DailyJournalService } from '../../../../core/services/daily-journal.service';
 import { JournalFormState } from './journal-form.state';
+import { DemoModeService } from '../../../../core/services/demo-mode.service';
 
 @Injectable()
 export class JournalRulesState {
     private journalService = inject(DailyJournalService);
     private form = inject(JournalFormState);
+    private demo = inject(DemoModeService);
 
     customRules = this.journalService.customRules;
 
@@ -27,6 +29,7 @@ export class JournalRulesState {
     }
 
     saveEdit(): void {
+        if (!this.demo.requireAccount('save')) return;
         const index = this.editingRuleIndex();
         const text = this.editingRuleText().trim();
         if (index !== null && text) {
@@ -42,6 +45,7 @@ export class JournalRulesState {
     }
 
     deleteRule(index: number): void {
+        if (!this.demo.requireAccount('save')) return;
         const rule = this.customRules()[index];
         const checked = new Set(this.form.checkedRules());
         checked.delete(rule);
@@ -50,6 +54,7 @@ export class JournalRulesState {
     }
 
     addRule(): void {
+        if (!this.demo.requireAccount('save')) return;
         const text = this.newRuleText().trim();
         if (!text) return;
         this.journalService.addRule(text);
