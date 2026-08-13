@@ -11,9 +11,12 @@ const NEW_USER_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
  * Shown once per user after signup when no trades exist yet.
  * Presents three options: connect broker, explore demo, or skip.
  *
- * Only shows for accounts created within the last 7 days so it never
- * surfaces for existing users who happen to have no trades right now
- * (e.g. a hard refresh before the cloud fetch completes).
+ * Two separate effects intentionally:
+ *  1. Decides whether to show based on account age + dismissed state — no
+ *     dependency on when trade data loads, which avoids a timing race during
+ *     in-browser account switches (SIGNED_OUT drops trades from the dependency
+ *     list before SIGNED_IN fires, so a single effect misses the re-run).
+ *  2. Hides reactively once Supabase confirms the user already has trades.
  */
 @Component({
     selector: 'app-post-signup-modal',
@@ -31,35 +34,34 @@ export class PostSignupModalComponent {
     readonly visible = signal(false);
 
     constructor() {
-        // React to signals so trades loading from Supabase can hide the modal
-        // if the user already has data (prevents a brief flash for existing users).
+        // Effect 1: show/hide based on who's logged in. Never reads trades so
+        // the timing of Supabase data loading doesn't affect this decision.
         effect(() => {
             const user = this.auth.currentUser();
 
-            // Hide immediately if demo is active or user is logged out.
             if (!user || this.demo.active()) {
                 this.visible.set(false);
                 return;
             }
 
-            // Already dismissed — don't re-show.
-            if (localStorage.getItem(DISMISSED_KEY_PREFIX + user.id)) return;
-
-            // Only show for recently created accounts; existing users know the app.
-            const session = this.auth.session();
-            const createdAt = session?.user?.created_at;
-            if (createdAt) {
-                const ageMs = Date.now() - new Date(createdAt).getTime();
-                if (ageMs > NEW_USER_THRESHOLD_MS) return;
+            if (localStorage.getItem(DISMISSED_KEY_PREFIX + user.id)) {
+                this.visible.set(false);
+                return;
             }
 
-            // Once trades load the modal hides itself — no flash for existing users.
-            if (this.trades.trades().length > 0) {
+            const session = this.auth.session();
+            const createdAt = session?.user?.created_at;
+            if (createdAt && Date.now() - new Date(createdAt).getTime() > NEW_USER_THRESHOLD_MS) {
                 this.visible.set(false);
                 return;
             }
 
             this.visible.set(true);
+        });
+
+        // Effect 2: once real trades arrive, the user has connected — hide.
+        effect(() => {
+            if (this.trades.trades().length > 0) this.visible.set(false);
         });
     }
 
