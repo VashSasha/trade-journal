@@ -9,10 +9,6 @@
 //   DISCORD_GUILD_ID  — guild whose roles gate the plans
 //   ROLE_ID_MEMBER    — Discord role id → 'premium'
 //   ROLE_ID_LIFETIME  — Discord role id → 'lifetime'
-//   BETA_ROLE_ID      — Discord role id that grants closed-beta access.
-//                       Optional: when unset/empty every guild member is
-//                       granted access (kill switch — unset the secret to
-//                       open the app without a re-deployment).
 //   APP_ORIGIN        — production web origin allowed for CORS
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -22,7 +18,6 @@ const SB_SECRET_KEY = Deno.env.get('SB_SECRET_KEY')!;
 const DISCORD_GUILD_ID = Deno.env.get('DISCORD_GUILD_ID')!;
 const ROLE_ID_MEMBER = Deno.env.get('ROLE_ID_MEMBER') ?? '';
 const ROLE_ID_LIFETIME = Deno.env.get('ROLE_ID_LIFETIME') ?? '';
-const BETA_ROLE_ID = Deno.env.get('BETA_ROLE_ID') ?? '';
 const APP_ORIGIN = Deno.env.get('APP_ORIGIN') ?? '';
 
 const ALLOWED_ORIGINS = new Set(['http://localhost:4200', APP_ORIGIN].filter(Boolean));
@@ -92,12 +87,12 @@ Deno.serve(async (req) => {
       .from('profiles')
       .update({discord_plan: null, discord_id: null, updated_at: new Date().toISOString()})
       .eq('id', user.id)
-      .select('plan, beta_access')
+      .select('plan')
       .single();
     if (clearError || !cleared) {
       return json({error: 'Failed to clear Discord plan'}, 500, cors);
     }
-    return json({plan: cleared.plan, beta_access: cleared.beta_access}, 200, cors);
+    return json({plan: cleared.plan}, 200, cors);
   }
 
   const providerToken = body?.provider_token;
@@ -131,10 +126,6 @@ Deno.serve(async (req) => {
   // billing_plan in the DB's effective-plan computation.
   let discordPlan: 'premium' | 'lifetime' | null = null;
 
-  // Kill switch: with no BETA_ROLE_ID configured the gate is open — every
-  // authenticated Discord user (member or not) is granted beta access.
-  let betaAccess = BETA_ROLE_ID === '';
-
   if (memberRes.ok) {
     const member = await memberRes.json();
 
@@ -148,12 +139,8 @@ Deno.serve(async (req) => {
     if (ROLE_ID_LIFETIME && roles.includes(ROLE_ID_LIFETIME)) discordPlan = 'lifetime';
     else if (ROLE_ID_MEMBER && roles.includes(ROLE_ID_MEMBER)) discordPlan = 'premium';
     // else: member without a paid role → discordPlan stays null.
-
-    // Beta gate: when a role id is configured, access requires that role.
-    if (BETA_ROLE_ID) betaAccess = roles.includes(BETA_ROLE_ID);
   } else if (memberRes.status === 404) {
-    // Not a member of the guild → no Discord-derived plan, and no beta role
-    // → no access (unless the kill switch above already opened the gate).
+    // Not a member of the guild → no Discord-derived plan.
     discordPlan = null;
   } else if (memberRes.status === 401 || memberRes.status === 403) {
     return json({error: 'Discord token rejected'}, 401, cors);
@@ -171,16 +158,15 @@ Deno.serve(async (req) => {
     .from('profiles')
     .update({
       discord_plan: discordPlan,
-      beta_access: betaAccess,
       discord_id: expectedDiscordId,
       updated_at: new Date().toISOString(),
     })
     .eq('id', user.id)
-    .select('plan, beta_access')
+    .select('plan')
     .single();
   if (updateError || !updated) {
     return json({error: 'Failed to update plan'}, 500, cors);
   }
 
-  return json({plan: updated.plan, beta_access: updated.beta_access}, 200, cors);
+  return json({plan: updated.plan}, 200, cors);
 });

@@ -2,7 +2,6 @@ import { Routes } from '@angular/router';
 import { MainLayoutComponent } from './features/layout/main-layout/main-layout';
 import { authGuard } from './core/guards/auth.guard';
 import { planGuard } from './core/guards/plan.guard';
-import { betaGuard } from './core/guards/beta.guard';
 import { guestMatchGuard } from './features/landing/guest-match.guard';
 
 export const routes: Routes = [
@@ -53,7 +52,7 @@ export const routes: Routes = [
     {
         path: '',
         component: MainLayoutComponent,
-        canActivate: [authGuard, betaGuard],
+        canActivate: [authGuard],
         children: [
             {
                 path: '',
