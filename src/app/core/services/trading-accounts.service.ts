@@ -44,6 +44,15 @@ export class TradingAccountsService {
         return map;
     });
 
+    /** accountId → stored opening balance, for accounts where it has been set. */
+    readonly storedStartingBalances = computed(() => {
+        const map = new Map<number, number>();
+        for (const acc of this.accountsMap().values()) {
+            if (acc.startingBalance !== null) map.set(acc.accountId, acc.startingBalance);
+        }
+        return map;
+    });
+
     /** accountId → full record, for fast lookups. */
     readonly byId = computed(() => new Map(this.accountsMap()));
 
@@ -53,7 +62,7 @@ export class TradingAccountsService {
         writeCache(CACHE_KEYS.tradingAccounts, rows);
     }
 
-    /** Persist account metadata from an /account/list fetch. Balance fields are preserved. */
+    /** Persist account metadata from an /account/list fetch. Balance and starting_balance fields are preserved. */
     recordAccounts(connectionId: string, accounts: TradovateAccount[]): void {
         if (accounts.length === 0) return;
         this.merge(accounts.map(a => {
@@ -65,7 +74,8 @@ export class TradingAccountsService {
                 accountType: a.accountType ?? '',
                 active: a.active !== false,
                 lastBalance: prev?.lastBalance ?? null,
-                balanceUpdatedAt: prev?.balanceUpdatedAt ?? null
+                balanceUpdatedAt: prev?.balanceUpdatedAt ?? null,
+                startingBalance: prev?.startingBalance ?? null
             };
         }));
     }
@@ -84,7 +94,8 @@ export class TradingAccountsService {
                 accountType: prev?.accountType ?? '',
                 active: prev?.active ?? true,
                 lastBalance: b.amount,
-                balanceUpdatedAt: now
+                balanceUpdatedAt: now,
+                startingBalance: prev?.startingBalance ?? null
             });
         }
         this.merge(updates);

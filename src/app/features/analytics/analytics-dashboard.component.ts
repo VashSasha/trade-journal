@@ -1,7 +1,6 @@
 import { Component, inject, computed } from '@angular/core';
 import { FilterService } from '../../core/services/filter.service';
 import { TradeService } from '../../core/services/trade.service';
-import { AccountSettingsService } from '../../core/services/account-settings.service';
 import { AccountService } from '../../core/services/account.service';
 import { FilterToolbarComponent } from '../dashboard/components/filter-toolbar/filter-toolbar.component';
 import { EquityCurveChartComponent } from '../../shared/components/equity-curve-chart/equity-curve-chart.component';
@@ -32,7 +31,6 @@ import { buildEquityCurve } from '../../core/utils/trade-stats.utils';
 export class AnalyticsDashboardComponent {
     private filterService = inject(FilterService);
     private tradeService = inject(TradeService);
-    private accountSettings = inject(AccountSettingsService);
     private accountService = inject(AccountService);
 
     filteredTrades = computed(() =>
@@ -58,12 +56,9 @@ export class AnalyticsDashboardComponent {
             .filter(t => new Date(t.entryDate).getTime() < firstDate)
             .reduce((sum, t) => sum + (t.netPnl ?? 0), 0);
 
-        const baseBalance = this.accountService.currentBalance() ?? this.accountSettings.startingBalance();
-        const adjustedStart = baseBalance + priorPnl;
+        const adjustedStart = this.accountService.openingBalance() + priorPnl;
         return buildEquityCurve(filtered, adjustedStart);
     });
 
-    equityBaseline = computed(() =>
-        this.accountService.currentBalance() ?? this.accountSettings.startingBalance()
-    );
+    equityBaseline = computed(() => this.accountService.openingBalance());
 }

@@ -188,6 +188,8 @@ export interface StoredTradingAccount {
     active: boolean;
     lastBalance: number | null;
     balanceUpdatedAt: string | null;
+    /** Account opening balance at the time of funding. NULL until explicitly set. */
+    startingBalance: number | null;
 }
 
 /**
@@ -204,6 +206,7 @@ export function tradingAccountToRow(a: StoredTradingAccount): Row {
         active: a.active,
         last_balance: a.lastBalance,
         balance_updated_at: a.balanceUpdatedAt,
+        starting_balance: a.startingBalance,
         updated_at: new Date().toISOString()
     };
 }
@@ -217,7 +220,9 @@ export function rowToTradingAccount(r: Row): StoredTradingAccount {
         active: (r['active'] as boolean | null) ?? true,
         lastBalance: r['last_balance'] === null || r['last_balance'] === undefined
             ? null : Number(r['last_balance']),
-        balanceUpdatedAt: (r['balance_updated_at'] as string | null) ?? null
+        balanceUpdatedAt: (r['balance_updated_at'] as string | null) ?? null,
+        startingBalance: r['starting_balance'] === null || r['starting_balance'] === undefined
+            ? null : Number(r['starting_balance'])
     };
 }
 

@@ -273,6 +273,7 @@ export function generateDemoData(): DemoDataset {
             active: true,
             lastBalance: liveBalance,
             balanceUpdatedAt: new Date().toISOString(),
+            startingBalance: null,
         },
         {
             accountId: HIST_ACCOUNT_ID,
@@ -282,6 +283,7 @@ export function generateDemoData(): DemoDataset {
             active: false,
             lastBalance: histBalance,
             balanceUpdatedAt: new Date(Date.now() - 55 * 86400_000).toISOString(),
+            startingBalance: null,
         },
     ];
 
