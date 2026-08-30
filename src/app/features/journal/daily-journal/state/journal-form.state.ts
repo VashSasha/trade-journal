@@ -3,11 +3,11 @@ import { DailyJournalService } from '../../../../core/services/daily-journal.ser
 import { TradeService } from '../../../../core/services/trade.service';
 import { EconomicCalendarService } from '../../../../core/services/economic-calendar.service';
 import { AccountService } from '../../../../core/services/account.service';
-import { AccountSettingsService } from '../../../../core/services/account-settings.service';
 import { FilterService } from '../../../../core/services/filter.service';
 import { DemoModeService } from '../../../../core/services/demo-mode.service';
 import { buildTimelineEntry, groupEntriesByMonth, MonthGroup, TimelineEntry } from '../utils/timeline.utils';
 import { tradeSessionDateStr } from '../../../../core/utils/market-holidays';
+import { computeWindowedBalance } from '../../../../core/utils/trade-stats.utils';
 import { NewsEventTag } from '../../../../core/models/daily-journal.model';
 
 function localDateStr(date: Date): string {
@@ -24,7 +24,6 @@ export class JournalFormState {
     tradeService = inject(TradeService);
     private economicCalendarService = inject(EconomicCalendarService);
     private accountService = inject(AccountService);
-    private accountSettings = inject(AccountSettingsService);
     private filterService = inject(FilterService);
 
     selectedDate = signal(localDateStr(new Date()));
@@ -68,21 +67,22 @@ export class JournalFormState {
     );
 
     /**
-     * Combined balance of the selected accounts. Per account: live API
-     * balance → stored last_balance (both merged in accountBalances()) →
-     * the account-size setting as the final fallback, so a selection of
-     * historical accounts never collapses the chart baseline to ~$0.
+     * Balance at the START of the selected trading day — what the equity curve
+     * must anchor on so the chart is correct for both today and any past date.
+     *
+     * = openingBalance (funded amount, never includes P&L) +
+     *   Σ netPnl for all closed trades in the selected accounts whose session
+     *   date is STRICTLY BEFORE the selected day.
+     *
+     * This never touches the current balance, so navigating to an earlier day
+     * does not inflate the baseline by trades realised after that day.
      */
-    private selectedBalance = computed(() => {
-        const selected = this.accountService.selectedIds();
-        const fallback = this.accountSettings.startingBalance();
-        if (selected.length === 0) return fallback;
-        const balances = this.accountService.accountBalances();
-        return selected.reduce((sum, id) => sum + (balances.get(id) ?? fallback), 0);
-    });
-
     priorBalance = computed(() =>
-        this.selectedBalance() - this.dayPnl()
+        computeWindowedBalance(
+            this.accountService.openingBalance(),
+            this.filteredTrades(),
+            this.selectedDate()
+        )
     );
 
     displayDate = computed(() =>

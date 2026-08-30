@@ -1,6 +1,6 @@
 import { Injectable, signal, computed, inject, isDevMode } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, throwError, of, timer, forkJoin, from } from 'rxjs';
+import { Observable, throwError, of, timer, forkJoin, from, firstValueFrom } from 'rxjs';
 import { catchError, map, switchMap, tap, takeWhile, mergeMap, filter, concatMap, reduce } from 'rxjs/operators';
 import { AuthService } from './auth.service';
 import { SupabaseService } from './supabase.service';
@@ -31,7 +31,11 @@ export interface TradovateAccount {
 interface TradovateAuthResponse {
     access_token?: string;
     errorText?: string;
-    d?: { access_token?: string };
+    /** Epoch-millisecond timestamp when this token expires (direct-auth endpoints). */
+    expirationTime?: number;
+    /** Seconds until expiry (OAuth endpoints). */
+    expiresIn?: number;
+    d?: { access_token?: string; expirationTime?: number };
 }
 
 export interface TradovateCashBalance {
@@ -47,6 +51,12 @@ export interface TradovateConnection {
     id: string; // UUID
     name: string; // User-friendly name (e.g., "Take Profit Trader", "Apex Funded")
     token: string;
+    /**
+     * ISO timestamp when the current token expires. Stored only in localStorage —
+     * never sent to Supabase (connectionToRow strips it). Drives the auto-renewal
+     * scheduler so connections stay live without manual re-auth.
+     */
+    tokenExpiresAt?: string;
     config: {
         authMode: 'oauth' | 'direct';
         environment: 'demo' | 'live';
@@ -106,6 +116,8 @@ export class TradovateService {
     /** True once this user's connections exist in the cloud (import ran, or rows were found). */
     private importedToCloud = false;
     private cloudPushTimer: ReturnType<typeof setTimeout> | null = null;
+    /** Per-connection renewal timers. Keyed by connectionId. */
+    private renewalTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
     // Multi-account support. allConnections holds EVERY row including
     // soft-removed ones (they must survive locally so pushes never resurrect
@@ -212,6 +224,7 @@ export class TradovateService {
         const connections = this.parseStoredConnections(raw);
         if (!connections) return;
         this.applyConnections(connections, activeId);
+        this.scheduleAllRenewals();
     }
 
     /**
@@ -344,6 +357,9 @@ export class TradovateService {
             this.writeConnectionsCache();
             this.importedToCloud = true;
 
+            // Schedule renewal timers for connections that have a cached token + expiry.
+            this.scheduleAllRenewals();
+
             // Anything the cloud didn't know about yet gets upserted.
             if (localOnly.length > 0) this.scheduleCloudPush();
         } catch (err) {
@@ -406,9 +422,10 @@ export class TradovateService {
      * migration's security note).
      */
     private connectionToRow(conn: TradovateConnection, activeId: string | null): Record<string, unknown> {
-        // Strip the OAuth token — it is a SECRET and must never reach the DB.
+        // Strip client-only fields — token is a secret; tokenExpiresAt is local state.
         const metadata: Record<string, unknown> = { ...conn };
         delete metadata['token'];
+        delete metadata['tokenExpiresAt'];
         return {
             connection_id: conn.id,
             data: metadata,
@@ -427,6 +444,7 @@ export class TradovateService {
             id: connectionId,
             name: data.name ?? cached?.name ?? 'Tradovate',
             token: cached?.token ?? '', // never stored server-side; empty → expired → re-auth
+            tokenExpiresAt: cached?.tokenExpiresAt, // client-only; restored from cache
             config: data.config ?? cached?.config ?? { authMode: 'oauth', environment: 'demo' },
             accounts: data.accounts ?? cached?.accounts ?? [],
             selectedAccountIds: data.selectedAccountIds ?? cached?.selectedAccountIds,
@@ -454,6 +472,8 @@ export class TradovateService {
             clearTimeout(this.cloudPushTimer);
             this.cloudPushTimer = null;
         }
+        for (const t of this.renewalTimers.values()) clearTimeout(t);
+        this.renewalTimers.clear();
         this.clearConnectionsCache();
         if (this.importedToCloud) {
             localStorage.removeItem(TradovateService.LEGACY_CONNECTIONS);
@@ -521,7 +541,7 @@ export class TradovateService {
      * environment), it is REVIVED — removed flips back to false and its row,
      * accounts, and history are reused instead of creating a duplicate.
      */
-    addConnection(name: string, token: string, config: TradovateConnection['config']): string {
+    addConnection(name: string, token: string, config: TradovateConnection['config'], tokenExpiresAt?: string): string {
         const revivable = this.allConnections().find(c =>
             c.removed &&
             c.config.environment === config.environment &&
@@ -533,7 +553,7 @@ export class TradovateService {
         if (revivable) {
             this.allConnections.update(conns =>
                 conns.map(c => c.id === revivable.id
-                    ? { ...c, removed: false, name, token, config }
+                    ? { ...c, removed: false, name, token, config, ...(tokenExpiresAt ? { tokenExpiresAt } : {}) }
                     : c)
             );
             this.clearExpiredConnection(revivable.id);
@@ -541,6 +561,7 @@ export class TradovateService {
                 this.activeConnectionId.set(revivable.id);
             }
             this.saveConnections();
+            if (tokenExpiresAt) this.scheduleRenewal(revivable.id);
             return revivable.id;
         }
 
@@ -548,6 +569,7 @@ export class TradovateService {
             id: this.generateId(),
             name,
             token,
+            ...(tokenExpiresAt ? { tokenExpiresAt } : {}),
             config,
             accounts: [],
             createdAt: new Date().toISOString()
@@ -562,21 +584,26 @@ export class TradovateService {
         }
 
         this.saveConnections();
+        if (tokenExpiresAt) this.scheduleRenewal(newConnection.id);
         return newConnection.id;
     }
 
     /**
-     * Update the token for an existing connection in-place (used on re-auth)
+     * Update the token for an existing connection in-place (used on re-auth / renewal).
+     * Pass tokenExpiresAt to reschedule the renewal timer.
      */
-    updateConnectionToken(connectionId: string, token: string): void {
+    updateConnectionToken(connectionId: string, token: string, tokenExpiresAt?: string): void {
         this.allConnections.update(conns =>
-            conns.map(c => c.id === connectionId ? { ...c, token } : c)
+            conns.map(c => c.id === connectionId
+                ? { ...c, token, ...(tokenExpiresAt !== undefined ? { tokenExpiresAt } : {}) }
+                : c)
         );
         this.clearExpiredConnection(connectionId);
         this.accounts.set([]); // invalidate cached accounts
         // Token-only change: the token is never persisted server-side, so mirror
         // to the offline cache but skip the cloud push (metadata is unchanged).
         this.writeConnectionsCache();
+        if (tokenExpiresAt) this.scheduleRenewal(connectionId);
     }
 
     /**
@@ -601,7 +628,7 @@ export class TradovateService {
             map(res => {
                 const token = res.d?.access_token || res.access_token;
                 if (!token) throw new Error(res.errorText || 'No access token received');
-                this.updateConnectionToken(connectionId, token);
+                this.updateConnectionToken(connectionId, token, this.parseExpiresAt(res));
             }),
             catchError(err => throwError(() => new Error(
                 err.error?.errorText || err.message || 'Reconnection failed'
@@ -636,8 +663,9 @@ export class TradovateService {
      * matching credentials revives the same row (see addConnection).
      */
     removeConnection(connectionId: string): void {
+        this.clearRenewalTimer(connectionId);
         this.allConnections.update(conns =>
-            conns.map(c => c.id === connectionId ? { ...c, removed: true, token: '' } : c)
+            conns.map(c => c.id === connectionId ? { ...c, removed: true, token: '', tokenExpiresAt: undefined } : c)
         );
         this.clearExpiredConnection(connectionId);
 
@@ -685,6 +713,99 @@ export class TradovateService {
      */
     clearExpiredConnection(connectionId: string): void {
         this.expiredConnectionIds.update(ids => ids.filter(id => id !== connectionId));
+    }
+
+    // ── Token renewal ──────────────────────────────────────────────────────
+
+    /** Extract an absolute ISO expiry timestamp from an auth response. */
+    private parseExpiresAt(res: TradovateAuthResponse): string | undefined {
+        // Direct-auth: expirationTime is epoch ms (possibly in the `d` wrapper)
+        const epochMs = res.d?.expirationTime ?? res.expirationTime;
+        if (typeof epochMs === 'number' && epochMs > 0) {
+            return new Date(epochMs).toISOString();
+        }
+        // OAuth: expiresIn is seconds from now
+        if (typeof res.expiresIn === 'number' && res.expiresIn > 0) {
+            return new Date(Date.now() + res.expiresIn * 1000).toISOString();
+        }
+        return undefined;
+    }
+
+    private clearRenewalTimer(connectionId: string): void {
+        const t = this.renewalTimers.get(connectionId);
+        if (t !== undefined) { clearTimeout(t); this.renewalTimers.delete(connectionId); }
+    }
+
+    /**
+     * Schedule automatic renewal for a connection at ~75% of its remaining
+     * token lifetime (minimum 60 s). Cancels any existing timer for the same id.
+     * If the token is already past expiry, marks the connection expired immediately.
+     */
+    private scheduleRenewal(connectionId: string): void {
+        this.clearRenewalTimer(connectionId);
+        const conn = this.allConnections().find(c => c.id === connectionId);
+        if (!conn || !conn.token || !conn.tokenExpiresAt) return;
+
+        const remaining = new Date(conn.tokenExpiresAt).getTime() - Date.now();
+        if (remaining <= 0) {
+            this.markConnectionExpired(connectionId);
+            return;
+        }
+
+        const renewIn = Math.max(remaining * 0.75, 60_000);
+        if (isDevMode()) {
+            console.log(`[TradovateService] ${conn.name}: renewal in ${Math.round(renewIn / 60_000)} min`);
+        }
+        this.renewalTimers.set(connectionId, setTimeout(() => void this.renewToken(connectionId), renewIn));
+    }
+
+    /** Renew the token for one connection via /auth/renewAccessToken. */
+    private async renewToken(connectionId: string): Promise<void> {
+        const conn = this.allConnections().find(c => c.id === connectionId);
+        if (!conn || !conn.token || conn.removed) return;
+
+        const renewUrl = this.proxify(
+            (conn.config.environment === 'live' ? this.liveBaseUrl : this.demoBaseUrl) + '/auth/renewAccessToken'
+        );
+        const headers = new HttpHeaders({ 'Authorization': `Bearer ${conn.token}`, 'Accept': 'application/json' });
+
+        try {
+            const res = await firstValueFrom(
+                this.http.post<TradovateAuthResponse>(renewUrl, {}, { headers })
+            );
+            const token = res.d?.access_token || res.access_token;
+            if (!token) throw new Error('No access token in renewal response');
+            this.updateConnectionToken(connectionId, token, this.parseExpiresAt(res));
+            if (isDevMode()) console.log(`[TradovateService] Token renewed for ${conn.name}`);
+        } catch (err: any) {
+            if (err?.status === 401 || err?.status === 403) this.markConnectionExpired(connectionId);
+            if (isDevMode()) console.warn(`[TradovateService] Token renewal failed for ${conn.name}:`, err);
+        }
+    }
+
+    /**
+     * Ensure the token for a connection is fresh before long-running work.
+     * Renews immediately if the token is within 5 minutes of expiry.
+     */
+    async ensureFreshToken(connectionId: string): Promise<void> {
+        const conn = this.allConnections().find(c => c.id === connectionId);
+        if (!conn || !conn.token || !conn.tokenExpiresAt) return;
+
+        const remaining = new Date(conn.tokenExpiresAt).getTime() - Date.now();
+        if (remaining <= 0) {
+            this.markConnectionExpired(connectionId);
+            return;
+        }
+        if (remaining < 5 * 60_000) {
+            await this.renewToken(connectionId);
+        }
+    }
+
+    /** Schedule renewals for all connections that have a valid token + expiry. */
+    private scheduleAllRenewals(): void {
+        for (const conn of this.connections()) {
+            if (conn.token && conn.tokenExpiresAt) this.scheduleRenewal(conn.id);
+        }
     }
 
     /**
@@ -842,15 +963,11 @@ export class TradovateService {
                 const accessToken = res.d?.access_token || res.access_token;
 
                 if (accessToken) {
-                    // Create new connection
                     const connectionId = this.addConnection(
                         connectionName,
                         accessToken,
-                        {
-                            authMode: 'direct',
-                            environment,
-                            username
-                        }
+                        { authMode: 'direct', environment, username },
+                        this.parseExpiresAt(res)
                     );
                     return { connectionId };
                 } else if (res.errorText) {

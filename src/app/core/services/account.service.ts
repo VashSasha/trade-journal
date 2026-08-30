@@ -5,6 +5,7 @@ import { FilterService } from './filter.service';
 import { SyncService } from './sync.service';
 import { TradeService } from './trade.service';
 import { TradingAccountsService } from './trading-accounts.service';
+import { AccountSettingsService } from './account-settings.service';
 import { isCacheSuspended } from './user-data/user-data.cache';
 
 const STORAGE_KEY = 'tradovate_selected_account_ids';
@@ -16,6 +17,7 @@ export class AccountService {
     private syncService = inject(SyncService);
     private tradeService = inject(TradeService);
     private tradingAccounts = inject(TradingAccountsService);
+    private accountSettings = inject(AccountSettingsService);
 
     accounts = signal<TradovateAccount[]>([]);
     inactiveAccounts = computed(() => this.tradovateService.inactiveAccounts());
@@ -102,6 +104,49 @@ export class AccountService {
 
     // 0-fallback alias for components that always want a number.
     aggregatedBalance = computed((): number => this.currentBalance() ?? 0);
+
+    /**
+     * The account's OPENING balance — the funded amount before any P&L was realised.
+     * This is what equity-curve charts must start from so the curve spans
+     * [openingBalance … currentBalance] rather than starting at currentBalance.
+     *
+     * Resolution order (summed across selected accounts):
+     *   a) stored starting_balance from trading_accounts (when every selected
+     *      account has one — requires the 0013 migration to be applied and the
+     *      value to be explicitly set per account)
+     *   b) currentBalance − ΣP&L of ALL closed trades for selected accounts
+     *      (correct only when no deposits/withdrawals occurred — prop resets and
+     *      payouts will skew this)
+     *   c) accountSettings.startingBalance() — the user-configured account size
+     */
+    openingBalance = computed((): number => {
+        const selected = this.selectedIds();
+
+        // (a) Stored per-account starting balances.
+        // Only use if ALL selected accounts have one — a partial sum would silently
+        // drop accounts and understate the baseline.
+        const storedStarts = this.tradingAccounts.storedStartingBalances();
+        if (selected.length > 0 && selected.every(id => storedStarts.has(id))) {
+            return selected.reduce((sum, id) => sum + storedStarts.get(id)!, 0);
+        }
+
+        // (b) Derive from current balance minus all-time P&L.
+        const current = this.currentBalance();
+        if (current !== null) {
+            const selectedSet = new Set(selected.map(id => String(id)));
+            const totalPnl = this.tradeService.trades()
+                .filter(t =>
+                    t.status === 'closed' &&
+                    t.netPnl !== undefined &&
+                    (selected.length === 0 || (t.accountId != null && selectedSet.has(t.accountId)))
+                )
+                .reduce((sum, t) => sum + (t.netPnl ?? 0), 0);
+            return current - totalPnl;
+        }
+
+        // (c) Configured account size.
+        return this.accountSettings.startingBalance();
+    });
 
     // ISO timestamp of the oldest stale balance among selected accounts — for "as of" hint.
     staleAsOf = computed((): string | null => {

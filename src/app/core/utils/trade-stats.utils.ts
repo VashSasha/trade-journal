@@ -1,4 +1,5 @@
 import { Trade } from '../models/trade.model';
+import { tradeSessionDateStr } from './market-holidays';
 
 export interface DayStats {
     totalTrades: number;
@@ -30,6 +31,27 @@ export function computeDayStats(trades: Trade[]): DayStats {
     const winRate = closed.length > 0 ? (winners / closed.length) * 100 : 0;
     const avgNetPnl = closed.length > 0 ? netPnl / closed.length : 0;
     return { totalTrades: closed.length, netPnl, grossPnl, commissions, winners, losers, breakeven, winRate, totalVolume, avgNetPnl };
+}
+
+/**
+ * Balance at the start of a given trading day.
+ *
+ * = base (opening/funded balance) + Σ netPnl of closed trades whose CME
+ *   session date is STRICTLY BEFORE cutoffDate (YYYY-MM-DD).
+ *
+ * Used by the journal day-view and anywhere else a windowed equity anchor
+ * is needed. Pre-filters to closed trades with netPnl; callers are
+ * responsible for scoping `trades` to the relevant accounts first.
+ */
+export function computeWindowedBalance(base: number, trades: Trade[], cutoffDate: string): number {
+    return base + trades
+        .filter(t => {
+            if (t.status !== 'closed' || t.netPnl === undefined) return false;
+            const dateKey = t.exitDate ?? t.entryDate;
+            if (!dateKey) return false;
+            return tradeSessionDateStr(dateKey) < cutoffDate;
+        })
+        .reduce((sum, t) => sum + (t.netPnl ?? 0), 0);
 }
 
 export function buildEquityCurve(trades: Trade[], startingBalance = 0): EquityCurve {

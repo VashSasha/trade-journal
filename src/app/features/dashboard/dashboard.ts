@@ -126,9 +126,12 @@ export class DashboardComponent implements OnInit {
             }).sort((a, b) => a.timestamp - b.timestamp);
         }
 
-        const startingBalance = this.accountService.currentBalance() ?? this.accountSettings.startingBalance();
+        // Opening balance: account funded amount, before any P&L.
+        // See AccountService.openingBalance for the derivation / resolution order.
+        const openingBalance = this.accountService.openingBalance();
 
-        // If a date range is active, offset the starting point by all P&L realised before it
+        // If a date range is active, offset the starting point by all P&L
+        // realised before the range so the curve anchors at the correct position.
         const dateRangeStart = this.filterService.filters().dateRange.start;
         let priorPnl = 0;
         if (dateRangeStart) {
@@ -139,7 +142,7 @@ export class DashboardComponent implements OnInit {
                 .reduce((sum, t) => sum + (t.netPnl || 0), 0);
         }
 
-        let cumulative = startingBalance + priorPnl;
+        let cumulative = openingBalance + priorPnl;
         const labels: string[] = ['Start'];
         const values: number[] = [Math.round(cumulative * 100) / 100];
 

@@ -96,6 +96,12 @@ export class SyncService {
 
             this.log(`Syncing ${conns.length} connection(s): ${conns.map(c => c.name).join(', ')}`);
 
+            // Renew tokens that are close to expiry before starting a long sync
+            // so the session can't die halfway through.
+            for (const conn of conns) {
+                await this.tradovateService.ensureFreshToken(conn.id);
+            }
+
             // Link legacy trades (imported before connection tracking) to the
             // connection that owns their account, so per-connection features
             // keep working even after other connections are removed.
