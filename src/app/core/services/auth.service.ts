@@ -3,13 +3,18 @@ import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { User, PlanTier, LoginCredentials } from '../models/user.model';
 import { SupabaseService } from './supabase.service';
 
-/** Idle window: sessions expire after this long without user activity. */
-export const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+/**
+ * Long-inactivity backstop: sign out after 7 days with no user input.
+ * This is intentionally generous so the journal open in a background tab
+ * during a trading session is never interrupted. It is not a security
+ * timeout — it exists solely to reclaim sessions on shared/abandoned machines.
+ */
+export const SESSION_IDLE_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Idle-expiry timestamp shared across tabs. This is NOT the session itself —
  * Supabase owns the session (tokens, refresh) — it only tracks user activity
- * so SessionTimeoutService can sign out idle users.
+ * so SessionTimeoutService can sign out after prolonged inactivity.
  */
 const IDLE_EXPIRY_KEY = 'trade_journal_idle_expiry';
 
