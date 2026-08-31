@@ -57,20 +57,16 @@
           }
         </button>
 
+        <!-- Email / password sign-in is hidden for now — OAuth only. Flip
+             emailAuthEnabled in login.ts to bring the whole block back. -->
+        @if (emailAuthEnabled) {
         <!-- Divider -->
         <div class="login-divider">
           <span class="login-divider__text">or</span>
         </div>
 
-        @if (!emailAuthEnabled) {
-          <div class="login-soon">
-            <span class="login-soon__pill">Coming soon</span>
-            <span class="login-soon__text">Email &amp; password login is on the way — use Discord for now.</span>
-          </div>
-        }
-
         <!-- Email / Password Form -->
-        <form class="login-form" [class.login-form--disabled]="!emailAuthEnabled"
+        <form class="login-form"
               [formGroup]="loginForm" (ngSubmit)="onSubmit()">
           <div class="login-field">
             <label class="login-field__label" for="email">Email Address</label>
@@ -107,8 +103,7 @@
           </div>
 
           <button class="login-submit" type="submit"
-                  [disabled]="!emailAuthEnabled || isLoading() || isDiscordLoading()"
-                  [attr.aria-disabled]="!emailAuthEnabled">
+                  [disabled]="isLoading() || isDiscordLoading() || isGoogleLoading()">
             @if (isLoading()) {
               <svg class="login-submit__spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -117,10 +112,11 @@
               </svg>
               Signing in...
             } @else {
-              {{ emailAuthEnabled ? 'Sign In' : 'Coming soon' }}
+              Sign In
             }
           </button>
         </form>
+        }
       </div>
 
       <p class="login-footer">

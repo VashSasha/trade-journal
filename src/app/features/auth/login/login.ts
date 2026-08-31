@@ -1,4 +1,4 @@
-import { Component, signal, inject, isDevMode } from '@angular/core';
+import { Component, signal, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
@@ -27,8 +27,16 @@ export class LoginComponent {
     isDiscordLoading = signal(false);
     isGoogleLoading = signal(false);
 
-    /** Email login (Supabase password auth) is dev-only; production is Discord-only. */
-    readonly emailAuthEnabled = isDevMode();
+    /**
+     * Email/password sign-in is hidden for now — the login page offers Discord
+     * and Google only. The form, validators and onSubmit() are all still wired
+     * up, so flipping this back to `isDevMode()` (or `true`) restores the whole
+     * block with no other changes.
+     *
+     * NOTE: Supabase password auth itself is untouched — identities linked from
+     * the Account page keep working, this only hides the sign-in form.
+     */
+    readonly emailAuthEnabled = false;
 
     constructor() {
         if (!this.emailAuthEnabled) {
