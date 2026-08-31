@@ -11,11 +11,14 @@ const REFRESH_THROTTLE_MS = 30_000;
 const CHECK_INTERVAL_MS = 30_000;
 
 /**
- * Logs the user out after SESSION_IDLE_TIMEOUT_MS without activity.
+ * Signs the user out after SESSION_IDLE_TIMEOUT_MS (7 days) without activity.
+ * This is a long-inactivity backstop for shared/abandoned machines, not a
+ * short security timeout — the journal is expected to sit in a background tab
+ * during trading sessions without triggering a sign-out.
  *
  * Activity in any tab slides the expiry persisted by AuthService; every tab
  * checks that shared expiry on an interval (and when its tab becomes visible,
- * so a woken laptop logs out immediately instead of waiting a tick).
+ * so a woken laptop signs out immediately instead of waiting a tick).
  */
 @Injectable({ providedIn: 'root' })
 export class SessionTimeoutService {
