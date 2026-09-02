@@ -3,9 +3,8 @@
   <div class="page-container-md">
 
     <!-- Back Link -->
-    <a routerLink="/journal"
-      class="mb-6 inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
-      <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <a routerLink="/journal" class="trade-detail__back-link">
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
       </svg>
       Back to Journal
@@ -16,7 +15,7 @@
       <div>
         <div class="trade-detail__header-badges">
           <h1 class="page-title">{{ t.symbol }}</h1>
-          <span class="trade-badge rounded-lg px-3 py-1 text-sm"
+          <span class="trade-badge"
             [class.badge-long]="t.direction === 'long'"
             [class.badge-short]="t.direction === 'short'">
             {{ t.direction | titlecase }}
@@ -38,7 +37,7 @@
     <div class="trade-detail__overview">
       <!-- P&L Card -->
       <div class="card trade-detail__pnl-card">
-        <h3 class="mb-4 text-sm font-medium text-slate-500 dark:text-slate-400">Total P&L</h3>
+        <h3 class="trade-detail__card-label">Total P&L</h3>
 
         @if (t.netPnl !== undefined) {
         <div class="trade-detail__pnl-value"
@@ -66,7 +65,7 @@
 
       <!-- Trade Details Grid -->
       <div class="card trade-detail__details-card">
-        <h3 class="mb-4 text-sm font-medium text-slate-500 dark:text-slate-400">Trade Details</h3>
+        <h3 class="trade-detail__card-label">Trade Details</h3>
         <div class="trade-detail__details-grid">
           <div>
             <div class="detail-label">Entry Price</div>
@@ -112,15 +111,15 @@
       @if (t.wentWell || t.toImprove) {
       <div class="card">
         @if (t.wentWell) {
-        <div class="mb-4">
+        <div class="trade-detail__reflection">
           <h4 class="detail-label">What Went Well</h4>
-          <p class="mt-1 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">{{ t.wentWell }}</p>
+          <p class="trade-detail__text">{{ t.wentWell }}</p>
         </div>
         }
         @if (t.toImprove) {
         <div>
           <h4 class="detail-label">What to Improve</h4>
-          <p class="mt-1 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">{{ t.toImprove }}</p>
+          <p class="trade-detail__text">{{ t.toImprove }}</p>
         </div>
         }
       </div>
@@ -129,7 +128,7 @@
       <!-- Mistakes -->
       @if (t.mistakes?.length) {
       <div class="card">
-        <h4 class="detail-label mb-3">Mistakes Made</h4>
+        <h4 class="detail-label trade-detail__mistakes-title">Mistakes Made</h4>
         <div class="trade-detail__mistakes">
           @for (mistake of t.mistakes; track mistake) {
           <span class="mistake-tag">{{ mistake }}</span>
@@ -144,11 +143,11 @@
     <div class="card">
       <h3 class="section-title">Analysis & Notes</h3>
       @if (t.notes) {
-      <div class="prose prose-slate dark:prose-invert max-w-none">
-        <p class="whitespace-pre-wrap text-slate-600 dark:text-slate-300">{{ t.notes }}</p>
+      <div class="trade-detail__notes">
+        <p class="trade-detail__notes-text">{{ t.notes }}</p>
       </div>
       } @else {
-      <p class="text-slate-500 italic">No notes added for this trade.</p>
+      <p class="trade-detail__notes-empty">No notes added for this trade.</p>
       }
     </div>
 

@@ -1,9 +1,9 @@
 <div class="tv-settings">
 
     <!-- Header -->
-    <div class="mb-8 flex items-center gap-4">
+    <div class="tv-settings__header">
       <button (click)="back()" class="btn-icon">
-        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="tv-settings__nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
         </svg>
       </button>
@@ -15,30 +15,27 @@
 
     <!-- Connected Accounts -->
     @if (connections().length > 0) {
-      <div class="mb-6 space-y-4">
-        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-          Your Connections
-        </h2>
+      <div class="tv-settings__section">
+        <h2 class="tv-settings__section-title">Your Connections</h2>
 
         @for (conn of connections(); track conn.id) {
           <div class="card">
-            <div class="flex items-start justify-between">
-              <div class="flex items-center gap-4">
-                <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-blue-600 text-xl font-bold text-white">
+            <div class="tv-settings__conn-row">
+              <div class="tv-settings__conn-info">
+                <div class="tv-settings__avatar">
                   {{ conn.name.charAt(0).toUpperCase() }}
                 </div>
                 <div>
-                  <h3 class="text-lg font-bold text-slate-900 dark:text-white">{{ conn.name }}</h3>
-                  <div class="mt-1 flex items-center gap-2 text-sm">
-                    <span class="trade-badge rounded-full"
+                  <h3 class="tv-settings__conn-name">{{ conn.name }}</h3>
+                  <div class="tv-settings__conn-meta">
+                    <span class="trade-badge tv-settings__badge"
                           [class.badge-open]="conn.config.environment === 'demo'"
-                          [class.bg-orange-100]="conn.config.environment === 'live'"
-                          [class.text-orange-700]="conn.config.environment === 'live'">
+                          [class.tv-settings__badge--live]="conn.config.environment === 'live'">
                       {{ getConnectionEnvironment(conn) }}
                     </span>
                   </div>
                   @if (conn.accounts.length > 0) {
-                    <p class="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <p class="tv-settings__conn-accounts">
                       {{ activeAccountCount(conn) }} account{{ activeAccountCount(conn) !== 1 ? 's' : '' }}
                       &bull;
                       Last synced: {{ conn.lastSyncedAt ? formatDate(conn.lastSyncedAt) : 'Never' }}
@@ -46,7 +43,7 @@
                   }
                 </div>
               </div>
-              <button (click)="disconnectConnection(conn.id)" class="btn-danger text-sm px-3 py-1.5">
+              <button (click)="disconnectConnection(conn.id)" class="btn-danger tv-settings__remove-btn">
                 Remove
               </button>
             </div>
@@ -55,37 +52,35 @@
       </div>
 
       <!-- Global Sync Panel — applies to all connections -->
-      <div class="mb-6 card space-y-4">
-        <div class="flex items-center gap-2">
-          <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="card tv-settings__sync-panel">
+        <div class="tv-settings__sync-head">
+          <svg class="tv-settings__head-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
-          <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">Import Trades</span>
-          <span class="text-xs text-slate-400">— syncs all {{ connections().length > 1 ? connections().length + ' connections' : 'connection' }}</span>
+          <span class="tv-settings__sync-title">Import Trades</span>
+          <span class="tv-settings__sync-note">— syncs all {{ connections().length > 1 ? connections().length + ' connections' : 'connection' }}</span>
         </div>
 
         <!-- Commission setting -->
-        <div class="flex items-center gap-3">
-          <label class="text-xs font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">
-            Commission per contract
-          </label>
-          <div class="flex items-center gap-1">
-            <span class="text-xs text-slate-500">$</span>
+        <div class="tv-settings__field-row">
+          <label class="tv-settings__field-label">Commission per contract</label>
+          <div class="tv-settings__commission-input">
+            <span class="tv-settings__prefix">$</span>
             <input type="number" min="0" step="0.01"
                    [ngModel]="accountSettings.commissionPerContract()"
                    (ngModelChange)="accountSettings.setCommission(+$event)"
-                   class="form-input py-1 text-sm w-24" />
+                   class="form-input tv-settings__commission-field" />
           </div>
-          <span class="text-xs text-slate-400">per side (applied both entry & exit)</span>
+          <span class="tv-settings__field-hint">per side (applied both entry &amp; exit)</span>
         </div>
 
         <!-- Presets -->
         <div>
-          <p class="mb-2 text-xs text-slate-500 dark:text-slate-400">Quick range:</p>
-          <div class="flex flex-wrap gap-2">
-            <button (click)="setPreset(30)" class="preset-btn" [class.preset-btn--active]="activePreset() === 30">Last 30 days</button>
-            <button (click)="setPreset(90)" class="preset-btn" [class.preset-btn--active]="activePreset() === 90">Last 90 days</button>
+          <p class="tv-settings__preset-label">Quick range:</p>
+          <div class="tv-settings__preset-row">
+            <button (click)="setPreset(30)"  class="preset-btn" [class.preset-btn--active]="activePreset() === 30">Last 30 days</button>
+            <button (click)="setPreset(90)"  class="preset-btn" [class.preset-btn--active]="activePreset() === 90">Last 90 days</button>
             <button (click)="setPreset(180)" class="preset-btn" [class.preset-btn--active]="activePreset() === 180">Last 6 months</button>
             <button (click)="setPreset(365)" class="preset-btn" [class.preset-btn--active]="activePreset() === 365">Last year</button>
             <button (click)="setPreset(null)" class="preset-btn preset-btn--full" [class.preset-btn--active]="activePreset() === null">All time</button>
@@ -93,20 +88,17 @@
         </div>
 
         <!-- Custom date + sync button -->
-        <div class="flex items-end gap-3">
-          <div class="flex-1">
-            <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-              Import from date
-            </label>
+        <div class="tv-settings__sync-actions">
+          <div class="tv-settings__field-grow">
+            <label class="tv-settings__field-label-block">Import from date</label>
             <input type="date" [ngModel]="customFromDate()" (ngModelChange)="customFromDate.set($event)"
-                   class="form-input py-2 text-sm" [disabled]="isSyncing()" />
+                   class="form-input tv-settings__date-field" [disabled]="isSyncing()" />
           </div>
-          <button (click)="startSync()" [disabled]="isSyncing()"
-                  class="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 whitespace-nowrap">
+          <button (click)="startSync()" [disabled]="isSyncing()" class="tv-settings__sync-btn">
             @if (isSyncing()) {
-              <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              <svg class="tv-settings__spinner animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="tv-settings__spinner-track" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="tv-settings__spinner-head" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
               Syncing...
             } @else {
@@ -114,22 +106,19 @@
             }
           </button>
           @if (isSyncing()) {
-            <button (click)="syncService.cancelSync()"
-                    class="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 whitespace-nowrap">
-              Cancel
-            </button>
+            <button (click)="syncService.cancelSync()" class="tv-settings__cancel-btn">Cancel</button>
           }
         </div>
 
         <!-- Progress bar -->
         @if (syncProgress() && isSyncing()) {
           <div>
-            <div class="mb-1 flex justify-between text-xs text-slate-500">
+            <div class="tv-settings__progress-head">
               <span>Progress</span>
               <span>{{ syncProgress()!.current }} / {{ syncProgress()!.total }}</span>
             </div>
-            <div class="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-700">
-              <div class="h-1.5 rounded-full bg-blue-500 transition-all"
+            <div class="tv-settings__progress-track">
+              <div class="tv-settings__progress-fill"
                    [style.width.%]="syncProgress()!.total > 0 ? (syncProgress()!.current / syncProgress()!.total * 100) : 0">
               </div>
             </div>
@@ -138,23 +127,21 @@
 
         <!-- Sync log -->
         @if (syncLog().length > 0) {
-          <div class="rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 overflow-hidden">
-            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-3 py-2">
-              <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">Sync Log</span>
+          <div class="tv-settings__log">
+            <div class="tv-settings__log-head">
+              <span class="tv-settings__log-title">Sync Log</span>
               @if (!isSyncing()) {
-                <button (click)="syncService.clearLog()" class="text-xs text-slate-400 hover:text-slate-600">
-                  Clear
-                </button>
+                <button (click)="syncService.clearLog()" class="tv-settings__log-clear">Clear</button>
               }
             </div>
-            <div class="max-h-48 overflow-y-auto p-3 space-y-1 font-mono text-xs">
+            <div class="tv-settings__log-body">
               @for (entry of syncLog(); track $index) {
-                <div class="flex gap-2"
-                     [class.text-slate-500]="entry.type === 'info'"
-                     [style.color]="entry.type === 'success' ? 'var(--color-accent)' : null"
-                     [class.text-amber-600]="entry.type === 'warn'"
-                     [class.text-red-600]="entry.type === 'error'">
-                  <span class="flex-shrink-0 text-slate-400">{{ entry.time }}</span>
+                <div class="tv-settings__log-entry"
+                     [class.tv-settings__log-entry--info]="entry.type === 'info'"
+                     [class.tv-settings__log-entry--success]="entry.type === 'success'"
+                     [class.tv-settings__log-entry--warn]="entry.type === 'warn'"
+                     [class.tv-settings__log-entry--error]="entry.type === 'error'">
+                  <span class="tv-settings__log-time">{{ entry.time }}</span>
                   <span>{{ entry.message }}</span>
                 </div>
               }
@@ -164,13 +151,9 @@
 
         <!-- Result banner -->
         @if (!isSyncing() && syncResult() !== null) {
-          <div class="rounded-lg border px-4 py-3 text-sm font-medium"
-               [style.borderColor]="syncResult()! > 0 ? 'var(--color-accent)' : null"
-               [style.backgroundColor]="syncResult()! > 0 ? 'var(--color-accent-subtle)' : null"
-               [style.color]="syncResult()! > 0 ? 'var(--color-accent)' : null"
-               [class.border-slate-200]="syncResult() === 0"
-               [class.bg-slate-50]="syncResult() === 0"
-               [class.text-slate-600]="syncResult() === 0">
+          <div class="tv-settings__banner"
+               [class.tv-settings__banner--success]="syncResult()! > 0"
+               [class.tv-settings__banner--neutral]="syncResult() === 0">
             @if (syncResult()! > 0) {
               {{ syncResult() }} new trade{{ syncResult() !== 1 ? 's' : '' }} imported successfully.
             } @else {
@@ -180,9 +163,7 @@
         }
 
         @if (syncError()) {
-          <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-900/20 dark:text-red-400">
-            {{ syncError() }}
-          </div>
+          <div class="tv-settings__banner tv-settings__banner--error">{{ syncError() }}</div>
         }
       </div>
     }
@@ -191,38 +172,35 @@
     <div class="danger-zone">
       <h2 class="danger-zone__title">Danger Zone</h2>
       <p class="danger-zone__desc">Permanently deletes all trade data. Use before re-syncing to fix incorrect data.</p>
-    <button (click)="resetAllTrades()" class="btn-danger">
-        Reset All Trades
-      </button>
+      <button (click)="resetAllTrades()" class="btn-danger">Reset All Trades</button>
     </div>
 
     <!-- Add Connection -->
     @if (!showAddConnection()) {
-      <button (click)="toggleAddConnection()"
-              class="w-full rounded-xl border-2 border-dashed border-slate-300 bg-white p-8 text-center transition-colors hover:border-blue-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-600 dark:hover:bg-slate-800">
-        <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <button (click)="toggleAddConnection()" class="tv-settings__add-btn">
+        <svg class="tv-settings__add-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
         </svg>
-        <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">Add New Connection</p>
-        <p class="mt-1 text-xs text-slate-500">Connect a Tradovate account to import your trades</p>
+        <p class="tv-settings__add-title">Add New Connection</p>
+        <p class="tv-settings__add-subtitle">Connect a Tradovate account to import your trades</p>
       </button>
     } @else {
       <div class="card">
-        <div class="mb-6 flex items-center justify-between">
-          <h2 class="text-xl font-bold text-slate-900 dark:text-white">Add Tradovate Connection</h2>
-          <button (click)="toggleAddConnection()" class="text-slate-400 hover:text-slate-600">
-            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div class="tv-settings__form-head">
+          <h2 class="tv-settings__form-title">Add Tradovate Connection</h2>
+          <button (click)="toggleAddConnection()" class="tv-settings__form-close">
+            <svg class="tv-settings__toggle-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
           </button>
         </div>
 
-        <form [formGroup]="configForm" (ngSubmit)="connect()" class="space-y-5">
+        <form [formGroup]="configForm" (ngSubmit)="connect()" class="tv-settings__form">
           <div>
             <label for="connectionName" class="form-label">Connection Name</label>
             <input type="text" id="connectionName" formControlName="connectionName" class="form-input"
                    placeholder="e.g. Apex Funded, Take Profit Trader">
-            <p class="mt-1 text-xs text-slate-500">Helps you identify which account this is</p>
+            <p class="tv-settings__field-hint tv-settings__field-hint--block">Helps you identify which account this is</p>
           </div>
 
           <div>
@@ -241,18 +219,17 @@
 
           <div>
             <label for="password" class="form-label">Password</label>
-            <div class="relative">
+            <div class="tv-settings__password-wrap">
               <input [type]="showSecret() ? 'text' : 'password'" id="password" formControlName="password"
-                     class="form-input pr-10" placeholder="Enter your password">
-              <button type="button" (click)="toggleSecret()"
-                      class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600">
+                     class="form-input tv-settings__password-input" placeholder="Enter your password">
+              <button type="button" (click)="toggleSecret()" class="tv-settings__password-toggle">
                 @if (showSecret()) {
-                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
                   </svg>
                 } @else {
-                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -263,14 +240,13 @@
             </div>
           </div>
 
-          <div class="flex gap-3 pt-2">
-            <button type="button" (click)="toggleAddConnection()" class="btn-secondary flex-1 py-3">Cancel</button>
-            <button type="submit" [disabled]="!configForm.valid || isConnecting()"
-                    class="flex-1 rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
+          <div class="tv-settings__form-actions">
+            <button type="button" (click)="toggleAddConnection()" class="btn-secondary tv-settings__form-cancel">Cancel</button>
+            <button type="submit" [disabled]="!configForm.valid || isConnecting()" class="tv-settings__form-submit">
               @if (isConnecting()) {
-                <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg class="tv-settings__spinner animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="tv-settings__spinner-track" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="tv-settings__spinner-head" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
                 Connecting...
               } @else {

@@ -1,7 +1,7 @@
 <div class="page-shell">
     <div class="page-container-md">
         <!-- Header -->
-        <div class="mb-8">
+        <div class="te-header">
             <h1 class="page-title">
                 {{ isEditMode() ? 'Edit Trade' : 'Log New Trade' }}
             </h1>
@@ -14,27 +14,27 @@
         <form [formGroup]="tradeForm" (ngSubmit)="onSubmit()" class="card">
 
             <!-- Basic Info Section -->
-            <div class="mb-8">
+            <div class="te-section">
                 <h2 class="section-title">Basic Information</h2>
 
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div class="te-grid te-grid--3">
                     <!-- Symbol -->
                     <div>
                         <label for="symbol" class="form-label">
-                            Symbol <span class="text-red-500">*</span>
+                            Symbol <span class="form-required">*</span>
                         </label>
                         <input id="symbol" type="text" formControlName="symbol" (input)="onSymbolInput($event)"
                             placeholder="AAPL" class="form-input"
-                            [class.border-red-500]="tradeForm.get('symbol')?.invalid && tradeForm.get('symbol')?.touched" />
+                            [class.form-input--error]="tradeForm.get('symbol')?.invalid && tradeForm.get('symbol')?.touched" />
                         @if (tradeForm.get('symbol')?.invalid && tradeForm.get('symbol')?.touched) {
-                        <p class="mt-1 text-sm text-red-500">Valid symbol required (1-5 letters)</p>
+                        <p class="form-error">Valid symbol required (1-5 letters)</p>
                         }
                     </div>
 
                     <!-- Asset Type -->
                     <div>
                         <label for="assetType" class="form-label">
-                            Asset Type <span class="text-red-500">*</span>
+                            Asset Type <span class="form-required">*</span>
                         </label>
                         <select id="assetType" formControlName="assetType" class="form-input">
                             @for (type of assetTypes; track type) {
@@ -46,9 +46,9 @@
                     <!-- Direction -->
                     <div>
                         <label class="form-label">
-                            Direction <span class="text-red-500">*</span>
+                            Direction <span class="form-required">*</span>
                         </label>
-                        <div class="flex gap-2">
+                        <div class="te-dir-row">
                             <button type="button" (click)="tradeForm.patchValue({ direction: 'long' })"
                                 [class.active-long]="tradeForm.get('direction')?.value === 'long'"
                                 class="direction-btn">
@@ -65,13 +65,13 @@
             </div>
 
             <!-- Entry Details -->
-            <div class="mb-8">
+            <div class="te-section">
                 <h2 class="section-title">Entry Details</h2>
 
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div class="te-grid te-grid--4">
                     <div>
                         <label for="entryDate" class="form-label">
-                            Entry Date <span class="text-red-500">*</span>
+                            Entry Date <span class="form-required">*</span>
                         </label>
                         <input id="entryDate" type="date" formControlName="entryDate" class="form-input" />
                     </div>
@@ -83,32 +83,31 @@
 
                     <div>
                         <label for="entryPrice" class="form-label">
-                            Entry Price <span class="text-red-500">*</span>
+                            Entry Price <span class="form-required">*</span>
                         </label>
                         <input id="entryPrice" type="number" step="0.01" formControlName="entryPrice" placeholder="0.00"
                             class="form-input"
-                            [class.border-red-500]="tradeForm.get('entryPrice')?.invalid && tradeForm.get('entryPrice')?.touched" />
+                            [class.form-input--error]="tradeForm.get('entryPrice')?.invalid && tradeForm.get('entryPrice')?.touched" />
                     </div>
 
                     <div>
                         <label for="quantity" class="form-label">
-                            Quantity <span class="text-red-500">*</span>
+                            Quantity <span class="form-required">*</span>
                         </label>
                         <input id="quantity" type="number" formControlName="quantity" placeholder="0"
                             class="form-input"
-                            [class.border-red-500]="tradeForm.get('quantity')?.invalid && tradeForm.get('quantity')?.touched" />
+                            [class.form-input--error]="tradeForm.get('quantity')?.invalid && tradeForm.get('quantity')?.touched" />
                     </div>
                 </div>
             </div>
 
             <!-- Exit Details (Optional) -->
-            <div class="mb-8">
+            <div class="te-section">
                 <h2 class="section-title">
-                    Exit Details <span class="text-sm font-normal text-slate-500">(Optional - leave empty for open
-                        trades)</span>
+                    Exit Details <span class="te-section-note">(Optional - leave empty for open trades)</span>
                 </h2>
 
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div class="te-grid te-grid--4">
                     <div>
                         <label for="exitDate" class="form-label">Exit Date</label>
                         <input id="exitDate" type="date" formControlName="exitDate" class="form-input" />
@@ -137,9 +136,9 @@
                 <div class="pnl-preview"
                     [class.positive]="estimatedPnL()!.net > 0"
                     [class.negative]="estimatedPnL()!.net < 0">
-                    <div class="flex items-center justify-between">
+                    <div class="te-pnl-row">
                         <span class="pnl-preview-label">Estimated P&L:</span>
-                        <div class="text-right">
+                        <div class="te-pnl-values">
                             <div class="pnl-preview-value">
                                 {{ estimatedPnL()!.net >= 0 ? '+' : '' }}${{ estimatedPnL()!.net.toFixed(2) }}
                             </div>
@@ -153,27 +152,23 @@
             </div>
 
             <!-- Strategy & Notes -->
-            <div class="mb-8">
+            <div class="te-section">
                 <h2 class="section-title">Strategy & Psychology</h2>
 
-                <div class="space-y-6">
+                <div class="te-stack">
                     <!-- Missed Trade Toggle -->
-                    <div class="flex items-center gap-4 rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-                        <div class="flex-1">
-                            <label class="text-sm font-medium text-slate-900 dark:text-white">Missed Trade</label>
-                            <p class="text-xs text-slate-500">Log a trade you planned but didn't take.</p>
+                    <div class="te-toggle-row">
+                        <div class="te-toggle-text">
+                            <label class="te-toggle-label">Missed Trade</label>
+                            <p class="te-toggle-desc">Log a trade you planned but didn't take.</p>
                         </div>
                         <button type="button"
                             (click)="tradeForm.patchValue({ status: tradeForm.get('status')?.value === 'missed' ? 'open' : 'missed' })"
-                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
-                            [style.backgroundColor]="tradeForm.get('status')?.value === 'missed' ? 'var(--color-accent)' : null"
-                            [class.bg-slate-200]="tradeForm.get('status')?.value !== 'missed'"
-                            [class.dark:bg-slate-700]="tradeForm.get('status')?.value !== 'missed'">
-                            <span class="sr-only">Use setting</span>
-                            <span aria-hidden="true"
-                                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                                [class.translate-x-5]="tradeForm.get('status')?.value === 'missed'"
-                                [class.translate-x-0]="tradeForm.get('status')?.value !== 'missed'"></span>
+                            class="te-toggle-btn"
+                            [class.te-toggle-btn--on]="tradeForm.get('status')?.value === 'missed'">
+                            <span class="visually-hidden">Toggle missed trade</span>
+                            <span class="te-toggle-thumb"
+                                [class.te-toggle-thumb--on]="tradeForm.get('status')?.value === 'missed'"></span>
                         </button>
                     </div>
 
@@ -189,7 +184,7 @@
 
                     <div>
                         <label class="form-label">Emotions</label>
-                        <div class="flex flex-wrap gap-2">
+                        <div class="te-chip-row">
                             @for (emotion of commonEmotions; track emotion) {
                             <button type="button" (click)="toggleEmotion(emotion)"
                                 [class.selected]="isEmotionSelected(emotion)"
@@ -203,7 +198,7 @@
                     <!-- Trade Grade -->
                     <div>
                         <label class="form-label">Trade Grade</label>
-                        <div class="flex gap-2">
+                        <div class="te-grade-row">
                             @for (grade of grades; track grade) {
                             <button type="button" (click)="setGrade(grade)"
                                 class="grade-btn"
@@ -213,13 +208,13 @@
                             </button>
                             }
                         </div>
-                        <p class="mt-1.5 text-xs text-slate-500">How well did you execute this trade?</p>
+                        <p class="te-grade-hint">How well did you execute this trade?</p>
                     </div>
 
                     <!-- Mistakes -->
                     <div>
                         <label class="form-label">Mistakes Made</label>
-                        <div class="flex flex-wrap gap-2">
+                        <div class="te-chip-row">
                             @for (mistake of commonMistakes; track mistake) {
                             <button type="button" (click)="toggleMistake(mistake)"
                                 [class.selected]="isMistakeSelected(mistake)"
@@ -231,7 +226,7 @@
                     </div>
 
                     <!-- What went well / to improve -->
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div class="te-grid te-grid--2">
                         <div>
                             <label for="wentWell" class="form-label">What Went Well</label>
                             <textarea id="wentWell" formControlName="wentWell" rows="3"
@@ -256,24 +251,21 @@
             </div>
 
             <!-- Form Actions -->
-            <div class="flex items-center justify-end gap-3 border-t border-slate-200 pt-6 dark:border-slate-800">
-                <button type="button" (click)="cancel()" class="btn-secondary px-6 py-2.5">
+            <div class="te-form-actions">
+                <button type="button" (click)="cancel()" class="btn-secondary">
                     Cancel
                 </button>
-                <button type="submit" [disabled]="tradeForm.invalid || isSubmitting()"
-                    class="btn-primary px-6 py-2.5 disabled:cursor-not-allowed disabled:opacity-50">
+                <button type="submit" [disabled]="tradeForm.invalid || isSubmitting()" class="btn-primary">
                     @if (isSubmitting()) {
-                    <span class="flex items-center gap-2">
-                        <svg class="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none"
-                            viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
-                            </circle>
-                            <path class="opacity-75" fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                            </path>
-                        </svg>
-                        Saving...
-                    </span>
+                    <svg class="te-spinner animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none"
+                        viewBox="0 0 24 24">
+                        <circle style="opacity:0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                        </circle>
+                        <path style="opacity:0.75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                        </path>
+                    </svg>
+                    Saving...
                     } @else {
                     Save Trade
                     }

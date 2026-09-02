@@ -1,4 +1,53 @@
 .trade-detail {
+    &__back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--color-text-muted);
+        transition: color 0.15s;
+
+        &:hover { color: var(--color-text-primary); }
+    }
+
+    &__card-label {
+        margin-bottom: 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--color-text-muted);
+    }
+
+    &__text {
+        margin-top: 0.25rem;
+        white-space: pre-wrap;
+        font-size: 0.875rem;
+        color: var(--color-text-secondary);
+    }
+
+    &__reflection {
+        margin-bottom: 1rem;
+    }
+
+    &__mistakes-title {
+        margin-bottom: 0.75rem;
+    }
+
+    &__notes {
+        // notes body container
+    }
+
+    &__notes-text {
+        white-space: pre-wrap;
+        color: var(--color-text-secondary);
+    }
+
+    &__notes-empty {
+        color: var(--color-text-muted);
+        font-style: italic;
+    }
+
     &__header {
         display: flex;
         align-items: flex-start;
