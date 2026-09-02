@@ -131,6 +131,24 @@
     }
 }
 
+.trade-list {
+    &__empty-title {
+        margin-top: 0.75rem;
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+    }
+
+    &__empty-desc {
+        margin-top: 0.25rem;
+        color: var(--color-text-secondary);
+    }
+
+    &__empty-cta {
+        margin-top: 1rem;
+    }
+}
+
 .trade-grade-badge {
     display: inline-flex;
     align-items: center;

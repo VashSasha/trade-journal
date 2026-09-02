@@ -12,7 +12,8 @@ Chart.register(DoughnutController, ArcElement, Legend, Tooltip);
     selector: 'app-performance-charts',
     standalone: true,
     imports: [EquityCurveChartComponent],
-    templateUrl: './performance-charts.component.html'
+    templateUrl: './performance-charts.component.html',
+    styleUrls: ['./performance-charts.component.scss']
 })
 export class PerformanceChartsComponent implements AfterViewInit, OnDestroy, OnChanges {
     @Input({ required: true }) equityData!: { labels: string[], values: number[] };

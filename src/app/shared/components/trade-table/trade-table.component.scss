@@ -5,80 +5,120 @@
 }
 
 .tt-wrap {
-    @apply overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-surface);
 }
 
 .tt-scroll {
-    @apply overflow-x-auto;
+    overflow-x: auto;
 }
 
 .tt-empty {
-    @apply flex flex-col items-center gap-2 py-12 text-sm text-slate-400;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 3rem 0;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--color-text-muted);
 
-    &__icon { @apply h-8 w-8; }
+    &__icon {
+        height: 2rem;
+        width: 2rem;
+    }
 }
 
 // ── Table structure ───────────────────────────────────────────────────────────
 
 .tt-table {
-    @apply w-full;
+    width: 100%;
 }
 
 .tt-th {
-    @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider
-           text-slate-500 dark:text-slate-400
-           border-b border-slate-200 bg-slate-50
-           dark:border-slate-800 dark:bg-slate-800/50;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg-surface-2);
 
-    &--right  { @apply text-right; }
-    &--center { @apply text-center; }
-    &--check  { @apply w-8; }
+    &--right  { text-align: right; }
+    &--center { text-align: center; }
+    &--check  { width: 2rem; }
 }
 
 .tt-row {
-    @apply border-b border-slate-100 transition-colors
-           hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40;
+    border-bottom: 1px solid var(--color-border-subtle);
+    transition: background-color 0.15s ease;
 
-    &:last-child { @apply border-b-0; }
+    &:hover      { background: var(--color-bg-surface-2); }
+    &:last-child { border-bottom: none; }
     &--selected  { background-color: var(--color-accent-subtle); }
-    &--missed    { @apply opacity-60; }
+    &--missed    { opacity: 0.6; }
 }
 
 .tt-td {
-    @apply px-4 py-3 text-sm text-slate-900 dark:text-white;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--color-text-primary);
 
-    &--right   { @apply text-right; }
-    &--center  { @apply text-center; }
-    &--muted   { @apply text-slate-500 dark:text-slate-400; }
-    &--num     { @apply font-mono; }
-    &--check   { @apply w-8; }
+    &--right   { text-align: right; }
+    &--center  { text-align: center; }
+    &--muted   { color: var(--color-text-muted); }
+    &--num     { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    &--check   { width: 2rem; }
 }
 
 .tt-checkbox {
-    @apply h-4 w-4 rounded border-slate-300 dark:border-slate-700;
+    height: 1rem;
+    width: 1rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--color-border);
     accent-color: var(--color-accent);
     color: var(--color-accent);
+}
+
+// ── Status badge ──────────────────────────────────────────────────────────────
+
+.tt-status-badge {
+    border-radius: 9999px;
+    padding: 0.125rem 0.625rem;
 }
 
 // ── Symbol cell ───────────────────────────────────────────────────────────────
 
 .tt-symbol-cell {
-    @apply flex items-center gap-2;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .tt-symbol-link {
-    @apply font-semibold hover:underline;
+    font-weight: 600;
     color: var(--color-text-primary);
-    &:hover { color: var(--color-accent-hover); }
+
+    &:hover {
+        color: var(--color-accent-hover);
+        text-decoration: underline;
+    }
 }
 
 // ── P&L ───────────────────────────────────────────────────────────────────────
 
 .tt-pnl {
-    @apply font-semibold;
+    font-weight: 600;
+
     &--pos     { color: var(--color-accent); }
-    &--neg     { @apply text-red-600 dark:text-red-400; }
-    &--neutral { @apply text-slate-400; }
+    &--neg     { color: #dc2626; }
+    &--neutral { color: var(--color-text-muted); }
 }
 
 // ── Grade picker ──────────────────────────────────────────────────────────────
@@ -89,11 +129,18 @@
 }
 
 .tt-grade-btn {
-    @apply inline-flex items-center justify-center rounded-md border text-xs font-bold
-           cursor-pointer transition-colors;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.375rem;
+    border: 1px solid #e2e8f0;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease;
     width: 2rem;
     height: 1.75rem;
-    border-color: #e2e8f0;
     background: #f8fafc;
     color: #94a3b8;
 
@@ -114,19 +161,24 @@
     align-items: center;
     gap: 4px;
     padding: 6px;
-    background: white;
-    border: 1px solid #e2e8f0;
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
     border-radius: 10px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
     z-index: 10;
     white-space: nowrap;
-
-    @apply dark:bg-slate-800 dark:border-slate-700;
 }
 
 .tt-grade-opt {
-    @apply inline-flex items-center justify-center rounded-md text-xs font-bold
-           cursor-pointer transition-all;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
     width: 2rem;
     height: 2rem;
     background: #f1f5f9;
@@ -142,21 +194,67 @@
 }
 
 .tt-grade-clear {
-    @apply inline-flex items-center justify-center rounded text-[10px] text-slate-400
-           hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.25rem;
+    font-size: 10px;
+    color: var(--color-text-muted);
+    cursor: pointer;
     width: 1.5rem;
     height: 2rem;
     margin-left: 2px;
+
+    &:hover {
+        color: #ef4444;
+        background: #fef2f2;
+    }
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
 
 .tt-actions {
-    @apply flex items-center justify-center gap-1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
 }
 
 .tt-delete-btn {
-    @apply rounded-lg p-1.5 text-slate-400 transition-colors
-           hover:bg-red-50 hover:text-red-600
-           dark:hover:bg-red-950/30 dark:hover:text-red-400;
+    border-radius: 0.5rem;
+    padding: 0.375rem;
+    color: var(--color-text-muted);
+    transition: color 0.15s ease, background-color 0.15s ease;
+
+    &:hover {
+        background: #fef2f2;
+        color: #dc2626;
+    }
+}
+
+// ── Dark mode overrides ───────────────────────────────────────────────────────
+
+:root.dark {
+    .tt-pnl--neg { color: #f87171; }
+
+    .tt-grade-btn {
+        border-color: #334155;
+        background: #1e293b;
+        color: #64748b;
+    }
+
+    .tt-grade-opt {
+        background: #1e293b;
+        color: #94a3b8;
+    }
+
+    .tt-grade-clear:hover {
+        background: rgba(239, 68, 68, 0.2);
+        color: #f87171;
+    }
+
+    .tt-delete-btn:hover {
+        background: rgba(239, 68, 68, 0.3);
+        color: #f87171;
+    }
 }

@@ -337,9 +337,10 @@
         display: flex;
         gap: 0.5rem;
 
-        &--info { color: var(--color-text-muted); }
-        &--warn { color: var(--color-warning); }
-        &--error { color: var(--color-negative); }
+        &--info    { color: var(--color-text-muted); }
+        &--success { color: var(--color-positive); }
+        &--warn    { color: var(--color-warning); }
+        &--error   { color: var(--color-negative); }
     }
 
     &__log-time {
@@ -353,6 +354,12 @@
         border-radius: 0.5rem;
         font-size: 0.875rem;
         font-weight: 500;
+
+        &--success {
+            border-color: var(--color-accent);
+            background-color: var(--color-accent-subtle);
+            color: var(--color-accent);
+        }
 
         &--neutral {
             border-color: var(--color-border);

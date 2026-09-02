@@ -1,7 +1,3 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* Quill Editor Styles */
 @import 'quill/dist/quill.snow.css';
 
@@ -125,8 +121,77 @@
 
 
 /* Custom Global Styles */
-html, body {
+*, ::before, ::after {
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+}
+
+html {
   height: 100%;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  tab-size: 4;
+}
+
+body {
+  height: 100%;
+  margin: 0;
+  line-height: inherit;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+button, input, optgroup, select, textarea {
+  font-family: inherit;
+  font-size: 100%;
+  font-weight: inherit;
+  line-height: inherit;
+  color: inherit;
+  margin: 0;
+  padding: 0;
+}
+
+button, select {
+  text-transform: none;
+}
+
+button, [type='button'], [type='reset'], [type='submit'] {
+  -webkit-appearance: button;
+  background-color: transparent;
+  background-image: none;
+}
+
+img, svg, video, canvas, audio, iframe, embed, object {
+  display: block;
+  vertical-align: middle;
+}
+
+img, video {
+  max-width: 100%;
+  height: auto;
+}
+
+p, ul, ol, pre {
+  margin: 0;
+}
+
+ul, ol {
+  list-style: none;
+  padding: 0;
+}
+
+table {
+  border-collapse: collapse;
 }
 
 /* Smooth anchor scrolling, scoped to the landing page (the document is the
@@ -163,206 +228,320 @@ html, body {
    Global Component Classes
    ============================================================ */
 
-@layer components {
+/* --- Layout --- */
+.page-shell {
+  min-height: 100%;
+  padding: 1.5rem;
+  background: transparent;
+}
 
-  /* --- Layout --- */
-  .page-shell {
-    @apply min-h-full p-6;
-    background: transparent;
-  }
+.page-container-xl {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 80rem;
+}
 
-  .page-container-xl {
-    @apply mx-auto max-w-7xl;
-  }
+.page-container-md {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 56rem;
+}
 
-  .page-container-md {
-    @apply mx-auto max-w-4xl;
-  }
+/* --- Typography --- */
+.page-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
 
-  /* --- Typography --- */
-  .page-title {
-    @apply text-3xl font-bold text-slate-900 dark:text-white;
-  }
+.page-subtitle {
+  margin-top: 0.25rem;
+  color: var(--color-text-secondary);
+}
 
-  .page-subtitle {
-    @apply mt-1 text-slate-600 dark:text-slate-400;
-  }
+.section-title {
+  margin-bottom: 1rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
 
-  .section-title {
-    @apply mb-4 text-lg font-semibold text-slate-900 dark:text-white;
-  }
+/* --- Cards --- */
+.card {
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  padding: 1.5rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
 
-  /* --- Cards --- */
-  .card {
-    @apply rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900;
-  }
+.card-sm {
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  padding: 1rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
 
-  .card-sm {
-    @apply rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900;
-  }
+/* --- Buttons --- */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #fff;
+  transition: background-color 0.15s;
+  background-color: var(--color-accent);
+  cursor: pointer;
+  white-space: nowrap;
 
-  /* --- Buttons --- */
-  .btn-primary {
-    @apply rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors;
-    background-color: var(--color-accent);
+  &:hover { background-color: var(--color-accent-hover); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
 
-    &:hover {
-      background-color: var(--color-accent-hover);
-    }
-  }
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: background-color 0.15s, border-color 0.15s;
+  cursor: pointer;
+  white-space: nowrap;
 
-  .btn-secondary {
-    @apply rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700;
-  }
+  &:hover { background: var(--color-bg-surface-2); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
 
-  .btn-danger {
-    @apply rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-red-900/20;
-  }
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--color-negative) 35%, transparent);
+  background: var(--color-bg-surface);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-negative);
+  transition: background-color 0.15s;
+  cursor: pointer;
 
-  .btn-icon {
-    @apply rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300;
-  }
+  &:hover { background: color-mix(in srgb, var(--color-negative) 10%, transparent); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
 
-  /* --- Form Controls --- */
-  .form-label {
-    @apply mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300;
-  }
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  color: var(--color-text-muted);
+  transition: background-color 0.15s, color 0.15s;
+  cursor: pointer;
+  background: transparent;
+  border: none;
 
-  .form-input {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-900 placeholder-slate-400 transition-colors focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500;
-    &:focus {
-      border-color: var(--color-accent);
-      box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent);
-    }
-  }
-
-  /* --- Badges --- */
-  .trade-badge {
-    @apply rounded px-2 py-0.5 text-xs font-medium;
-  }
-
-  .badge-long {
-    background-color: var(--color-positive-subtle);
-    color: var(--color-positive);
-  }
-
-  .badge-short {
-    background-color: #F5E6E8;
-    color: #6B1F2A;
-  }
-
-  .badge-open {
-    @apply bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400;
-  }
-
-  .badge-closed {
-    @apply bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300;
-  }
-
-  .badge-missed {
-    @apply bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400;
-  }
-
-  /* --- P&L Colors --- */
-  .pnl-positive {
-    color: var(--color-positive);
-  }
-
-  .pnl-negative {
-    color: var(--color-negative);
-  }
-
-  /* --- Table --- */
-  .th-cell {
-    @apply px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400;
-  }
-
-  /* --- Empty State --- */
-  .empty-state {
-    @apply p-12 text-center;
-  }
-
-  .empty-state-icon {
-    @apply mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800;
+  &:hover {
+    background: var(--color-bg-surface-2);
+    color: var(--color-text-secondary);
   }
 }
 
-/* Badge dark-mode overrides (outside @layer to ensure specificity) */
+/* --- Form Controls --- */
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.form-input {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &::placeholder { color: var(--color-text-muted); }
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent);
+  }
+
+  &--error { border-color: var(--color-negative); }
+}
+
+/* --- Badges --- */
+.trade-badge {
+  display: inline-block;
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-long {
+  background-color: var(--color-positive-subtle);
+  color: var(--color-positive);
+}
+
+.badge-short {
+  background-color: #F5E6E8;
+  color: #6B1F2A;
+}
+
+.badge-open {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.badge-closed {
+  background-color: var(--color-bg-surface-2);
+  color: var(--color-text-secondary);
+}
+
+.badge-missed {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+/* --- P&L Colors --- */
+.pnl-positive { color: var(--color-positive); }
+.pnl-negative { color: var(--color-negative); }
+
+/* --- Table --- */
+.th-cell {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+/* --- Empty State --- */
+.empty-state {
+  padding: 3rem;
+  text-align: center;
+}
+
+.empty-state-icon {
+  margin: 0 auto 1rem;
+  display: flex;
+  width: 4rem;
+  height: 4rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--color-bg-surface-2);
+}
+
+/* --- Spinner utility --- */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Badge & state dark-mode overrides */
 :root.dark .badge-short {
   background-color: #3D1018;
   color: #F4A0A8;
 }
 
+:root.dark .badge-open {
+  background-color: rgba(30, 58, 138, 0.3);
+  color: #60a5fa;
+}
+
+:root.dark .badge-missed {
+  background-color: rgba(120, 53, 15, 0.3);
+  color: #fbbf24;
+}
+
 /* Quill Editor Custom Styling */
 .quill-editor-custom {
   .ql-toolbar {
-    @apply border-slate-200 bg-slate-50 rounded-t-lg dark:border-slate-700 dark:bg-slate-800;
+    border-color: var(--color-border);
+    background: var(--color-bg-surface-2);
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
 
-    .ql-stroke {
-      @apply stroke-slate-700 dark:stroke-slate-300;
-    }
-
-    .ql-fill {
-      @apply fill-slate-700 dark:fill-slate-300;
-    }
-
-    .ql-picker-label {
-      @apply text-slate-700 dark:text-slate-300;
-    }
+    .ql-stroke { stroke: var(--color-text-secondary); }
+    .ql-fill   { fill:   var(--color-text-secondary); }
+    .ql-picker-label { color: var(--color-text-secondary); }
 
     button:hover,
     button.ql-active {
-      .ql-stroke {
-        stroke: var(--color-accent);
-      }
-
-      .ql-fill {
-        fill: var(--color-accent);
-      }
+      .ql-stroke { stroke: var(--color-accent); }
+      .ql-fill   { fill:   var(--color-accent); }
     }
   }
 
   .ql-container {
-    @apply border-slate-200 bg-white rounded-b-lg dark:border-slate-700 dark:bg-slate-900;
+    border-color: var(--color-border);
+    background: var(--color-bg-surface);
+    border-bottom-left-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
     font-family: inherit;
 
     .ql-editor {
-      @apply text-slate-900 dark:text-white;
+      color: var(--color-text-primary);
       min-height: 500px;
       font-size: 1rem;
       line-height: 1.75;
 
       &.ql-blank::before {
-        @apply text-slate-400 dark:text-slate-500 italic;
+        color: var(--color-text-muted);
+        font-style: italic;
       }
 
-      h1 {
-        @apply text-3xl font-bold mb-4 text-slate-900 dark:text-white;
-      }
-
-      h2 {
-        @apply text-2xl font-bold mb-3 text-slate-900 dark:text-white;
-      }
+      h1 { font-size: 1.875rem; font-weight: 700; margin-bottom: 1rem;    color: var(--color-text-primary); }
+      h2 { font-size: 1.5rem;   font-weight: 700; margin-bottom: 0.75rem; color: var(--color-text-primary); }
 
       blockquote {
-        @apply border-l-4 border-slate-300 pl-4 italic text-slate-600 dark:border-slate-600 dark:text-slate-400;
+        border-left: 4px solid var(--color-border);
+        padding-left: 1rem;
+        font-style: italic;
+        color: var(--color-text-secondary);
       }
 
       code {
-        @apply bg-slate-100 px-1.5 py-0.5 rounded text-sm dark:bg-slate-800;
+        background: var(--color-bg-surface-2);
+        padding: 0.125rem 0.375rem;
+        border-radius: 0.25rem;
+        font-size: 0.875rem;
       }
 
       pre {
-        @apply bg-slate-100 p-4 rounded-lg dark:bg-slate-800;
+        background: var(--color-bg-surface-2);
+        padding: 1rem;
+        border-radius: 0.5rem;
       }
 
       a {
-        @apply underline;
+        text-decoration: underline;
         color: var(--color-accent);
       }
 
-      /* Checklist (toolbar `list: 'check'`) — Quill renders the box as a
-         glyph in the .ql-ui element; theme it with our tokens. */
       li[data-list='checked'] > .ql-ui::before,
       li[data-list='unchecked'] > .ql-ui::before {
         color: var(--color-text-secondary);

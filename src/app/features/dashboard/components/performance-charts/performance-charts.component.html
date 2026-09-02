@@ -1,8 +1,8 @@
-<div class="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+<div class="perf-charts">
     <!-- Equity Curve -->
-    <div class="rounded-lg border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-        <h3 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Equity Curve</h3>
-        <div class="h-64">
+    <div class="perf-charts__card">
+        <h3 class="perf-charts__title">Equity Curve</h3>
+        <div class="perf-charts__canvas-wrap">
             <app-equity-curve-chart
                 [equityData]="equityData"
                 [baseline]="accountSettings.startingBalance()">
@@ -11,9 +11,9 @@
     </div>
 
     <!-- Win/Loss Distribution -->
-    <div class="rounded-lg border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-        <h3 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Win/Loss Distribution</h3>
-        <div class="h-64">
+    <div class="perf-charts__card">
+        <h3 class="perf-charts__title">Win/Loss Distribution</h3>
+        <div class="perf-charts__canvas-wrap">
             <canvas #winLossChart></canvas>
         </div>
     </div>

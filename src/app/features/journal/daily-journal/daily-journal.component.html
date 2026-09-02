@@ -6,7 +6,7 @@
         <!-- Tags Panel -->
         <div class="dj-sidebar__card dj-sidebar-tags">
             <button class="dj-sidebar-tags__header" (click)="tagsState.sidebarTagsOpen.set(!tagsState.sidebarTagsOpen())">
-                <svg class="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg class="dj-sidebar-tags__icon" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
                 </svg>
@@ -14,7 +14,7 @@
                 @if (tagsState.allTags().length > 0) {
                 <span class="dj-sidebar-tags__count">{{ tagsState.allTags().length }}</span>
                 }
-                <svg class="dj-sidebar-tags__chevron h-3 w-3 ml-auto"
+                <svg class="dj-sidebar-tags__chevron"
                     [class.is-open]="tagsState.sidebarTagsOpen()"
                     fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
@@ -105,14 +105,14 @@
         <div class="dj-header">
             <div class="dj-header__nav">
                 <button (click)="form.changeDate(-1)" class="dj-header__nav-btn">
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
                 <input type="date" [ngModel]="form.selectedDate()" (change)="form.onDateChange($event)"
                     class="dj-header__date-input" />
                 <button (click)="form.changeDate(1)" class="dj-header__nav-btn">
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                     </svg>
                 </button>
@@ -126,7 +126,7 @@
                 </span>
                 } @else if (form.lastSaved()) {
                 <span class="dj-header__saved">
-                    <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                     </svg>
                     Saved {{ form.lastSaved() | date:'shortTime' }}
@@ -204,7 +204,7 @@
                           @if (tagsState.inputIsNewTag()) {
                           <button class="dj-tag-dropdown__item dj-tag-dropdown__item--new" type="button"
                               (click)="tagsState.addFromInput()">
-                              <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg class="dj-tag-dropdown__icon" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                               </svg>
                               Create "{{ tagsState.tagInput().trim() }}"
@@ -236,12 +236,12 @@
                     <h3>Pre-Market Plan</h3>
                     <div class="tpl-trigger-wrap">
                         <button class="tpl-trigger-btn" (click)="templates.toggleDropdown('pre-market'); $event.stopPropagation()">
-                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                             </svg>
                             Templates
-                            <svg class="h-3 w-3 tpl-trigger-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            <svg class="tpl-trigger-chevron" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"
                                 [class.is-open]="templates.openDropdown() === 'pre-market'">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                             </svg>
@@ -252,7 +252,7 @@
                                 @if (templates.recentTemplates('pre-market').length > 0) {
                                     @for (tpl of templates.recentTemplates('pre-market'); track tpl.id) {
                                     <button class="tpl-hover-dropdown__item" (click)="templates.loadTemplate(tpl, 'pre-market')">
-                                        <svg class="h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg width="14" height="14" style="flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                         </svg>
@@ -283,12 +283,12 @@
                     <h3>Post-Market Review</h3>
                     <div class="tpl-trigger-wrap">
                         <button class="tpl-trigger-btn" (click)="templates.toggleDropdown('post-market'); $event.stopPropagation()">
-                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                             </svg>
                             Templates
-                            <svg class="h-3 w-3 tpl-trigger-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            <svg class="tpl-trigger-chevron" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"
                                 [class.is-open]="templates.openDropdown() === 'post-market'">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                             </svg>
@@ -299,7 +299,7 @@
                                 @if (templates.recentTemplates('post-market').length > 0) {
                                     @for (tpl of templates.recentTemplates('post-market'); track tpl.id) {
                                     <button class="tpl-hover-dropdown__item" (click)="templates.loadTemplate(tpl, 'post-market')">
-                                        <svg class="h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg width="14" height="14" style="flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                         </svg>
@@ -357,12 +357,12 @@
                 <div class="dj-notes__header-actions">
                     <div class="tpl-trigger-wrap">
                         <button class="tpl-trigger-btn" (click)="templates.toggleDropdown('notes'); $event.stopPropagation()">
-                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                             </svg>
                             Templates
-                            <svg class="h-3 w-3 tpl-trigger-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            <svg class="tpl-trigger-chevron" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"
                                 [class.is-open]="templates.openDropdown() === 'notes'">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                             </svg>
@@ -373,7 +373,7 @@
                                 @if (templates.recentTemplates('notes').length > 0) {
                                     @for (tpl of templates.recentTemplates('notes'); track tpl.id) {
                                     <button class="tpl-hover-dropdown__item" (click)="templates.loadTemplate(tpl, 'notes')">
-                                        <svg class="h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg width="14" height="14" style="flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                         </svg>
@@ -392,12 +392,12 @@
                     <button class="dj-notes__expand-btn" (click)="form.notesExpanded.set(!form.notesExpanded())"
                         [title]="form.notesExpanded() ? 'Collapse' : 'Expand'">
                         @if (form.notesExpanded()) {
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M15 9h4.5M15 9V4.5M15 9l5.25-5.25M9 15H4.5M9 15v4.5M9 15l-5.25 5.25M15 15h4.5M15 15v4.5M15 15l5.25 5.25"/>
                         </svg>
                         } @else {
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/>
                         </svg>
@@ -434,7 +434,7 @@
     <!-- Panel Header -->
     <div class="tpl-panel__header">
         <div class="tpl-panel__title-row">
-            <svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="tpl-panel__title-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
@@ -442,7 +442,7 @@
             <span class="tpl-panel__context-badge">{{ templates.typeLabel(templates.templatePanelContext()!) }}</span>
         </div>
         <button class="tpl-panel__close" (click)="templates.closePanel()">
-            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
         </button>
@@ -454,7 +454,7 @@
         <!-- Left: Template List -->
         <div class="tpl-panel__sidebar">
             <button class="tpl-panel__create-btn" (click)="templates.startCreate()">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
                 Create new template
@@ -467,7 +467,7 @@
                 <button class="tpl-panel__list-item"
                     [class.is-selected]="templates.selectedTemplate()?.id === tpl.id"
                     (click)="templates.selectTemplate(tpl)">
-                    <svg class="h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg width="14" height="14" style="flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
@@ -483,7 +483,7 @@
             }
 
             <div class="tpl-panel__section-label tpl-panel__section-label--rec">
-                <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                <svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
                 </svg>
                 Recommended
@@ -493,7 +493,7 @@
                 <button class="tpl-panel__list-item tpl-panel__list-item--rec"
                     [class.is-selected]="templates.selectedRecommended()?.id === tpl.id"
                     (click)="templates.selectRecommended(tpl)">
-                    <svg class="h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg width="14" height="14" style="flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
@@ -557,14 +557,14 @@
                     <h3 class="tpl-preview__name">{{ templates.selectedTemplate()!.name }}</h3>
                     <div class="tpl-preview__actions">
                         <button class="tpl-preview__edit-btn" (click)="templates.startEdit()">
-                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                             </svg>
                             Edit
                         </button>
                         <button class="tpl-preview__delete-btn" (click)="templates.deleteSelected()" title="Delete template">
-                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                             </svg>
@@ -586,7 +586,7 @@
                     <div class="tpl-preview__name-wrap">
                         <h3 class="tpl-preview__name">{{ templates.selectedRecommended()!.name }}</h3>
                         <span class="tpl-rec-badge">
-                            <svg class="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 20 20">
+                            <svg width="10" height="10" fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
                             </svg>
                             Recommended
@@ -594,7 +594,7 @@
                     </div>
                     <div class="tpl-preview__actions">
                         <button class="tpl-preview__add-btn" (click)="templates.addRecommendedToMine()" title="Save a copy to My Templates">
-                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                             </svg>
                             Add to My Templates
@@ -613,7 +613,7 @@
             <!-- Empty state -->
             } @else {
             <div class="tpl-panel__placeholder">
-                <svg class="h-10 w-10 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg class="tpl-panel__placeholder-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                         d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
