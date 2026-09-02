@@ -27,4 +27,26 @@
         <span class="stats-bar__label">Worst Streak</span>
         <span class="stats-bar__value stats-bar__value--negative">{{ stats().worstStreak }}L</span>
     </div>
+    <div class="stats-bar__card">
+        <span class="stats-bar__label">Best Trade</span>
+        @if (stats().bestTrade; as t) {
+        <span class="stats-bar__value stats-bar__value--positive">
+            {{ (t.netPnl ?? t.pnl ?? 0) >= 0 ? '+' : '' }}{{ (t.netPnl ?? t.pnl ?? 0) | currency:'USD':'symbol':'1.0-0' }}
+        </span>
+        <span class="stats-bar__sub">{{ t.symbol }}</span>
+        } @else {
+        <span class="stats-bar__value">—</span>
+        }
+    </div>
+    <div class="stats-bar__card">
+        <span class="stats-bar__label">Worst Trade</span>
+        @if (stats().worstTrade; as t) {
+        <span class="stats-bar__value" [class.stats-bar__value--negative]="(t.netPnl ?? t.pnl ?? 0) < 0" [class.stats-bar__value--positive]="(t.netPnl ?? t.pnl ?? 0) >= 0">
+            {{ (t.netPnl ?? t.pnl ?? 0) >= 0 ? '+' : '' }}{{ (t.netPnl ?? t.pnl ?? 0) | currency:'USD':'symbol':'1.0-0' }}
+        </span>
+        <span class="stats-bar__sub">{{ t.symbol }}</span>
+        } @else {
+        <span class="stats-bar__value">—</span>
+        }
+    </div>
 </div>

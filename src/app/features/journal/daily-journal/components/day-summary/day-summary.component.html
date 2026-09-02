@@ -49,6 +49,28 @@
                 </div>
                 <div class="ds-stat__label">Commissions</div>
             </div>
+            <div class="ds-stat">
+                @if (stats.bestTrade) {
+                <div class="ds-stat__value positive">
+                    {{ (stats.bestTrade.netPnl ?? stats.bestTrade.pnl ?? 0) >= 0 ? '+' : '' }}{{ (stats.bestTrade.netPnl ?? stats.bestTrade.pnl ?? 0) | currency:'USD':'symbol':'1.2-2' }}
+                </div>
+                <div class="ds-stat__sub">{{ stats.bestTrade.symbol }}</div>
+                } @else {
+                <div class="ds-stat__value">—</div>
+                }
+                <div class="ds-stat__label">Best Trade</div>
+            </div>
+            <div class="ds-stat">
+                @if (stats.worstTrade) {
+                <div class="ds-stat__value" [class.negative]="(stats.worstTrade.netPnl ?? stats.worstTrade.pnl ?? 0) < 0" [class.positive]="(stats.worstTrade.netPnl ?? stats.worstTrade.pnl ?? 0) >= 0">
+                    {{ (stats.worstTrade.netPnl ?? stats.worstTrade.pnl ?? 0) >= 0 ? '+' : '' }}{{ (stats.worstTrade.netPnl ?? stats.worstTrade.pnl ?? 0) | currency:'USD':'symbol':'1.2-2' }}
+                </div>
+                <div class="ds-stat__sub">{{ stats.worstTrade.symbol }}</div>
+                } @else {
+                <div class="ds-stat__value">—</div>
+                }
+                <div class="ds-stat__label">Worst Trade</div>
+            </div>
         </div>
 
     </div>

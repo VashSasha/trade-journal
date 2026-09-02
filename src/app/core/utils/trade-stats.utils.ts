@@ -12,6 +12,8 @@ export interface DayStats {
     winRate: number;
     totalVolume: number;
     avgNetPnl: number;
+    bestTrade: Trade | null;
+    worstTrade: Trade | null;
 }
 
 export interface EquityCurve {
@@ -30,7 +32,15 @@ export function computeDayStats(trades: Trade[]): DayStats {
     const breakeven = closed.length - winners - losers;
     const winRate = closed.length > 0 ? (winners / closed.length) * 100 : 0;
     const avgNetPnl = closed.length > 0 ? netPnl / closed.length : 0;
-    return { totalTrades: closed.length, netPnl, grossPnl, commissions, winners, losers, breakeven, winRate, totalVolume, avgNetPnl };
+
+    let bestTrade: Trade | null = null;
+    let worstTrade: Trade | null = null;
+    if (closed.length > 0) {
+        bestTrade  = closed.reduce((best, t)  => (t.netPnl ?? t.pnl ?? 0) > (best.netPnl ?? best.pnl ?? 0) ? t : best, closed[0]);
+        worstTrade = closed.reduce((worst, t) => (t.netPnl ?? t.pnl ?? 0) < (worst.netPnl ?? worst.pnl ?? 0) ? t : worst, closed[0]);
+    }
+
+    return { totalTrades: closed.length, netPnl, grossPnl, commissions, winners, losers, breakeven, winRate, totalVolume, avgNetPnl, bestTrade, worstTrade };
 }
 
 /**
