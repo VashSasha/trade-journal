@@ -1,6 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { Trade } from '../../../../core/models/trade.model';
+import { computeDayStats } from '../../../../core/utils/trade-stats.utils';
 
 @Component({
     selector: 'app-advanced-stats-bar',
@@ -55,6 +56,8 @@ export class AdvancedStatsBarComponent {
             }
         });
 
-        return { profitFactor, pfInfinite, maxDrawdown, avgWin, avgLoss, bestStreak, worstStreak };
+        const { bestTrade, worstTrade } = computeDayStats(this.trades());
+
+        return { profitFactor, pfInfinite, maxDrawdown, avgWin, avgLoss, bestStreak, worstStreak, bestTrade, worstTrade };
     });
 }
