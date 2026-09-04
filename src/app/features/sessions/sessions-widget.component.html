@@ -1,0 +1,77 @@
+<button #trigger type="button" class="sessions__trigger" [attr.popovertarget]="panelId"
+    [attr.aria-controls]="panelId" [attr.aria-expanded]="opened()" [attr.aria-label]="triggerLabel()"
+    (click)="positionPanel()">
+    <span class="sessions__caption">
+        <span>Sessions</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" />
+        </svg>
+    </span>
+    <span class="sessions__summary">{{ title() }}</span>
+    <span class="sessions__countdown">{{ detail() }}</span>
+    <span class="sessions__strips" aria-hidden="true">
+        @for (session of snapshot()?.active; track session.definition.id) {
+            <span class="sessions__strip"><span [style.width.%]="session.progress"></span></span>
+        } @empty {
+            <span class="sessions__strip"></span>
+        }
+    </span>
+</button>
+
+<section #panel [id]="panelId" popover="auto" class="sessions__panel" role="region"
+    [attr.aria-labelledby]="panelId + '-title'" (toggle)="onToggle($event)"
+    [style.left.px]="left()" [style.top.px]="top()" [style.max-height.px]="maxHeight()">
+    <header class="sessions__head">
+        <div>
+            <h2 [id]="panelId + '-title'">Sessions</h2>
+            <p>Reference trading windows</p>
+        </div>
+        <button type="button" class="sessions__close" [attr.popovertarget]="panelId" popovertargetaction="hide"
+            aria-label="Close sessions" autofocus>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="m6 6 12 12M6 18 18 6" />
+            </svg>
+        </button>
+    </header>
+
+    @if (clock.state().error; as error) {
+        <p class="sessions__notice" role="status">{{ error }}</p>
+    } @else if (snapshot(); as state) {
+        <label class="sessions__zone">
+            Display times in
+            <select [value]="displayZone()" (change)="changeZone($event)">
+                @for (zone of zones; track zone) { <option [value]="zone">{{ zone.replaceAll('_', ' ') }}</option> }
+            </select>
+        </label>
+
+        <p class="sessions__status">
+            {{ state.active.length > 1 ? 'Overlapping now: ' : state.active.length ? 'Running now: ' : '' }}{{ title() }}
+        </p>
+
+        <div class="sessions__schedule">
+            @for (session of state.sessions; track session.definition.id) {
+                <article class="sessions__row" [class.sessions__row--active]="session.current">
+                    <div class="sessions__row-head">
+                        <h3>{{ session.definition.name }} @if (session.definition.id === 'asia') { <span>(Tokyo)</span> }</h3>
+                        <span class="sessions__badge">{{ session.current ? 'Running' : 'Upcoming' }}</span>
+                    </div>
+                    <p class="sessions__timing">{{ timing(session) }}</p>
+                    @if (session.current ?? session.next; as window) {
+                        <p class="sessions__range">{{ formatWindow(window) }}</p>
+                    }
+                    <div class="sessions__progress" role="progressbar" [attr.aria-label]="session.definition.name + ' reference window progress'"
+                        aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="session.current ? session.progress.toFixed(0) : 0"
+                        [attr.aria-valuetext]="session.current ? session.progress.toFixed(0) + '% complete' : 'Not started'">
+                        <span [style.width.%]="session.progress"></span>
+                    </div>
+                    <p class="sessions__reference">Mon–Fri · {{ wallTime(session.definition.openMinute) }}–{{ wallTime(session.definition.closeMinute) }} · {{ session.definition.timeZone }}</p>
+                </article>
+            }
+        </div>
+    }
+
+    <footer class="sessions__foot">
+        <p>Scheduled windows, not live exchange status. Daylight saving is included; holidays, maintenance and early closes are not.</p>
+        <a href="https://www.cmegroup.com/trading-hours.html" target="_blank" rel="noopener noreferrer">Check CME product hours <span aria-hidden="true">↗</span></a>
+    </footer>
+</section>
