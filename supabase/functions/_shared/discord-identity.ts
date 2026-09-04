@@ -22,3 +22,30 @@ export async function discordRoles(token: string, expectedId: string, guild: str
     }
     return member.roles;
 }
+
+/**
+ * Server-side membership lookup for silent lease renewal. The bot token never
+ * leaves the Edge Function; the member id still comes from verified Auth
+ * identities rather than request data or editable metadata.
+ */
+export async function discordBotRoles(token: string, expectedId: string, guild: string, signal: AbortSignal, request = fetch): Promise<string[]> {
+    const response = await request(`https://discord.com/api/v10/guilds/${guild}/members/${expectedId}`, {
+        headers: { Authorization: `Bot ${token}` }, signal,
+    });
+    if (response.status === 404) {
+        let code: unknown;
+        try { code = (await response.json() as { code?: unknown }).code; } catch { /* invalid upstream body */ }
+        if (code === 10007) return []; // Unknown member: verified absence.
+        throw new RequestError('Discord membership verification is not configured correctly.', 503);
+    }
+    if (response.status === 401 || response.status === 403) {
+        throw new RequestError('Discord membership verification is not configured correctly.', 503);
+    }
+    if (!response.ok) throw new RequestError('Discord is unavailable. Please try again shortly.', 502);
+    const member = await response.json();
+    if (member.user?.id !== expectedId || !Array.isArray(member.roles) ||
+        !member.roles.every((role: unknown) => typeof role === 'string')) {
+        throw new RequestError('Discord membership could not be verified.', 502);
+    }
+    return member.roles;
+}
