@@ -71,11 +71,11 @@ export class AccountService {
         if (!uid) return { discord: null, billing: null, override: null };
         const { data } = await this.supabase
             .from('profiles')
-            .select('discord_plan, billing_plan, plan_override')
+            .select('discord_plan, discord_plan_expires_at, billing_plan, plan_override')
             .eq('id', uid)
             .single();
         return {
-            discord: data?.discord_plan ?? null,
+            discord: data?.discord_plan_expires_at && Date.parse(data.discord_plan_expires_at) > Date.now() ? data.discord_plan : null,
             billing: data?.billing_plan ?? null,
             override: data?.plan_override ?? null,
         };

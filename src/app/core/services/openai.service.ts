@@ -9,9 +9,9 @@ import { UserSessionService } from './user-session.service';
 
 /**
  * All AI calls go through the ai-report Supabase Edge Function — the
- * Anthropic key exists only as a function secret and never reaches the
+ * OpenAI key exists only as a function secret and never reaches the
  * client (web or Electron). The function verifies the caller's JWT,
- * enforces the lifetime plan server-side, and rate-limits per user.
+ * enforces paid access server-side, and rate-limits per user.
  */
 @Injectable({
     providedIn: 'root'
@@ -34,7 +34,7 @@ export class OpenAiService {
      * mirroring the Edge Function's server-side plan gate.
      */
     hasApiKey(): boolean {
-        return this.auth.plan() === 'lifetime';
+        return this.auth.plan() === 'premium' || this.auth.plan() === 'lifetime';
     }
 
     // ── Non-streaming helpers ─────────────────────────────────────────────────
@@ -63,6 +63,7 @@ export class OpenAiService {
 
     private async callFunction(type: string, payload: unknown): Promise<string> {
         const scope = this.userSession.capture();
+        await this.auth.refreshProfile();
         const { data: { session } } = await this.supabase.auth.getSession();
         this.userSession.assertCurrent(scope);
         if (!session || session.user.id !== scope.userId) throw new Error('Please sign in again.');
@@ -102,10 +103,11 @@ export class OpenAiService {
             // signal could send a stale/expired JWT ("Invalid or expired token").
             (async () => {
                 this.userSession.assertCurrent(scope);
+                await this.auth.refreshProfile();
                 const { data: { session } } = await this.supabase.auth.getSession();
                 this.userSession.assertCurrent(scope);
                 const token = session?.access_token;
-                if (!token) {
+                if (!token || session?.user.id !== scope.userId) {
                     subscriber.error(new Error('Not authenticated.'));
                     return;
                 }
@@ -156,11 +158,14 @@ export class OpenAiService {
                             } else if (parsed.type === 'message_stop') {
                                 subscriber.complete();
                                 return;
+                            } else if (parsed.type === 'error') {
+                                subscriber.error(new Error(parsed.error || 'Analysis was interrupted. Please try again.'));
+                                return;
                             }
                         } catch { /* skip malformed chunks */ }
                     }
                 }
-                subscriber.complete();
+                subscriber.error(new Error('Analysis ended unexpectedly. Please try again.'));
                 }).catch(err => {
                     // Aborts are cooperative (unsubscribe / timeout) — end quietly.
                     if (err?.name === 'AbortError') { subscriber.complete(); return; }

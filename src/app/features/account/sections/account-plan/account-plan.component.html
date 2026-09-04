@@ -19,6 +19,13 @@
         }
     </div>
 
+    @if (discordReauthRequired()) {
+        <div class="plan__manage" role="status">
+            <p class="plan__manage-text">Your Discord membership needs to be verified again. Your accounts and trading history are safe.</p>
+            <button class="acc-btn acc-btn--primary" type="button" (click)="refreshDiscord()">Verify Discord membership</button>
+        </div>
+    }
+
     @if (hasStripeSub()) {
         <!-- Active Stripe subscription → self-serve portal -->
         <div class="plan__manage">

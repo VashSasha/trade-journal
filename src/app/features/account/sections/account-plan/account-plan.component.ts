@@ -21,6 +21,12 @@ export class AccountPlanComponent implements OnInit {
     private billing = inject(BillingService);
 
     readonly plan = this.auth.plan;
+    readonly discordReauthRequired = this.auth.discordReauthRequired;
+
+    async refreshDiscord(): Promise<void> {
+        try { await this.auth.loginWithDiscord('/account'); }
+        catch { this.billingError.set('Could not open Discord sign-in. Please try again.'); }
+    }
     readonly whopUrl = WHOP_URL;
 
     /** True for premium or lifetime. */

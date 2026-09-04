@@ -8,6 +8,7 @@ import { TradingAccountsService } from '../trading-accounts.service';
 import { UserDataRepo } from './user-data.repo';
 import { UserSessionService, UserOperation } from '../user-session.service';
 import { Trade } from '../../models/trade.model';
+import { GoalService } from '../goal.service';
 import { DailyNote, JournalTemplate } from '../../models/daily-journal.model';
 import {
     CACHE_KEYS, LEGACY_KEYS,
@@ -38,6 +39,7 @@ export class UserDataService {
     private journalService = inject(DailyJournalService);
     private settingsService = inject(AccountSettingsService);
     private tradingAccounts = inject(TradingAccountsService);
+    private goals = inject(GoalService);
 
     /** True while the one-time legacy upload runs — drives the sync notice. */
     readonly importing = signal(false);
@@ -118,11 +120,12 @@ export class UserDataService {
                 this.journalService.hydrateRules(settings.customRules);
             }
 
-            const [trades, notes, templates, tradingAccounts] = await Promise.all([
+            const [trades, notes, templates, tradingAccounts, goals] = await Promise.all([
                 this.repo.fetchTrades(),
                 this.repo.fetchNotes(),
                 this.repo.fetchTemplates(),
-                this.repo.fetchTradingAccounts()
+                this.repo.fetchTradingAccounts(),
+                this.repo.fetchGoals()
             ]);
             this.userSession.assertCurrent(scope);
             if (isCacheSuspended()) return;
@@ -134,6 +137,7 @@ export class UserDataService {
             this.journalService.hydrateNotes(notes);
             this.journalService.hydrateTemplates(templates);
             this.tradingAccounts.hydrate(tradingAccounts);
+            this.goals.hydrate(goals, userId);
 
             // Now that we're demonstrably online, retry anything queued.
             await this.repo.flushQueue();
@@ -210,5 +214,6 @@ export class UserDataService {
         this.journalService.hydrateTemplates([]);
         this.settingsService.hydrate(null);
         this.tradingAccounts.hydrate([]);
+        this.goals.hydrate([], null);
     }
 }

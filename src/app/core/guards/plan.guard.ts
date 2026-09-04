@@ -19,10 +19,13 @@ export const planGuard = (requiredPlan: 'premium' | 'lifetime'): CanActivateFn =
 
         // Session restore + profile (plan) load happen async on hard refresh.
         await auth.authReady;
+        await auth.refreshProfile();
+
+        if (auth.discordReauthRequired()) return router.createUrlTree(['/account']);
 
         const plan: PlanTier = auth.plan();
 
-        const tierRank: Record<PlanTier, number> = { free: 0, premium: 1, lifetime: 2, admin: 3 };
+        const tierRank: Record<PlanTier, number> = { free: 0, premium: 1, lifetime: 1, admin: 2 };
         const allowed = tierRank[plan] >= tierRank[requiredPlan];
 
         // Free users are routed into the demo workspace so they see a populated
