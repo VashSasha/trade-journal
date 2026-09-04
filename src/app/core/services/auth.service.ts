@@ -19,6 +19,7 @@ export const SESSION_IDLE_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
  */
 const IDLE_EXPIRY_KEY = 'trade_journal_idle_expiry';
 const PROFILE_CACHE_MS = 30_000;
+const DISCORD_RENEWAL_RETRY_MS = 5 * 60_000;
 const OAUTH_PROVIDER_KEY = 'nvzn_pending_oauth_provider';
 
 interface Profile {
@@ -186,14 +187,13 @@ export class AuthService {
             return;
         }
         const providerToken = this.sessionSignal()?.provider_token;
-        if (!providerToken) return;
         const scope = this.userSession.capture();
         const { error } = await this.supabase.functions.invoke('resolve-plan', {
-            body: { provider_token: providerToken }, signal: scope.signal
+            body: providerToken ? { provider_token: providerToken } : {}, signal: scope.signal
         });
         if (!this.userSession.isCurrent(scope)) return;
         if (error) throw new Error(`Plan resolution failed: ${error.message}`);
-        this.discordCredential = { userId: scope.userId, token: providerToken };
+        this.discordCredential = providerToken ? { userId: scope.userId, token: providerToken } : null;
         await this.refreshProfile({ force: true });
     }
 
@@ -270,25 +270,27 @@ export class AuthService {
         if (!current()) return;
         const token = this.discordCredential?.userId === userId ? this.discordCredential.token : null;
         const expiry = data?.discord_plan_expires_at ? Date.parse(data.discord_plan_expires_at) : 0;
-        // Renew opportunistically without persisting additional provider tokens.
-        // Missing/expired provider credentials require a new Discord sign-in;
-        // they never extend the previous role grant.
-        if (data?.discord_id && token && expiry < Date.now() + 15 * 60 * 1000) {
+        // Renew near expiry. A configured server-side Discord bot performs this
+        // silently; a verified callback token is retained only as a fallback.
+        let renewalFailed = false;
+        if (data?.discord_id && expiry < Date.now() + 15 * 60 * 1000) {
             const renewed = await this.supabase.functions.invoke('resolve-plan', {
-                body: { provider_token: token }, signal: scope.signal
+                body: token ? { provider_token: token } : {}, signal: scope.signal
             });
             if (!current()) return;
             if (!renewed.error) ({ data, error } = await read());
-            else this.discordCredential = null; // Don't repeatedly retry a rejected credential.
+            else {
+                renewalFailed = true;
+                if (token) this.discordCredential = null;
+            }
         }
 
         if (!current()) return;
 
         if (error || !data) {
-            // RLS guarantees at most the caller's own row; a miss means the
-            // trigger hasn't created it yet — treat as free rather than failing.
-            this.profileSignal.set(null);
-            this.discordReauthRequired.set(false);
+            // Initial load still fails closed, but a temporary RPC failure must
+            // not erase an already loaded paid profile from the UI.
+            this.profileFreshUntil = Date.now() + DISCORD_RENEWAL_RETRY_MS;
             return;
         }
         this.profileSignal.set({
@@ -299,8 +301,10 @@ export class AuthService {
         this.discordReauthRequired.set(!!data.discord_id && data.plan === 'free' &&
             (!data.discord_plan_expires_at || Date.parse(data.discord_plan_expires_at) <= Date.now()));
         const verifiedUntil = data.discord_plan_expires_at ? Date.parse(data.discord_plan_expires_at) : 0;
-        this.profileFreshUntil = Math.min(Date.now() + PROFILE_CACHE_MS,
-            verifiedUntil > Date.now() ? verifiedUntil : Infinity);
+        this.profileFreshUntil = renewalFailed
+            ? Date.now() + DISCORD_RENEWAL_RETRY_MS
+            : Math.min(Date.now() + PROFILE_CACHE_MS,
+                verifiedUntil > Date.now() ? verifiedUntil : Infinity);
     }
 
     private resetProfile(): void {

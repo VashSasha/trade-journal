@@ -28,8 +28,9 @@ this rollout deletes trading accounts, connections, trades, or their balances.
 - Discord IDs come from verified Auth identities, not editable user metadata.
   Discord role grants renew for one hour. Expiry or unlinking removes that
   source from live authorization; billing and `plan_override` remain independent.
-  A failed Discord request never extends a lease. Provider tokens are not
-  newly persisted anywhere. Members may need to sign in with Discord again.
+  A failed Discord request never extends a lease. A guild bot now renews active
+  users silently without persisting provider or refresh tokens in the app;
+  Discord sign-in remains the fallback if bot verification is unavailable.
 - Removed the unreachable OAuth-placeholder branch in broker settings. This is
   **not** a full Tradovate OAuth rollout; the screen still uses direct broker
   authentication. OAuth needs provider configuration and a separately tested flow.
@@ -46,8 +47,9 @@ test environment first. Run each migration once, in this order:
    backfill, live entitlement functions, and safer signup hook. Existing Discord
    sources get a one-hour transition only when they match a linked identity.
 
-Deploy the two functions and frontend together after migrations. Existing secrets
-are reused; do not paste secrets into source, migration files, or chat.
+Deploy the two functions and frontend together after migrations. The silent
+renewal follow-up also requires `DISCORD_BOT_TOKEN`; do not paste secrets into
+source, migration files, or chat.
 
 ```bash
 npx supabase functions deploy resolve-plan --project-ref elbcjsewyqptrckdydha
@@ -81,9 +83,9 @@ or old clients after the one-hour transition. No Worker redeploy is required.
 
 ## Operational notes
 
-The maximum normal role-revocation delay is one hour. This design intentionally
-does not create a bot or scheduled job. `profiles.plan` is a historical snapshot
-between writes: always use the live entitlement RPC for new authorization gates.
+The maximum normal role-revocation delay is one hour. The guild bot performs
+on-demand membership reads; no scheduled job is required. `profiles.plan` is a
+historical snapshot between writes: always use the live entitlement RPC for new authorization gates.
 Client-only charts and locally cached data are not server-enforced subscriptions.
 
 If quota settlement fails twice because the database is unavailable, the

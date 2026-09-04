@@ -1,8 +1,9 @@
 // Verifies a linked Discord identity and grants a renewable one-hour role lease.
-// Only the Discord source changes; billing and admin overrides remain independent.
+// A server-held bot token enables silent renewal; the user's OAuth token remains
+// a backwards-compatible fallback. Billing and admin overrides are independent.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { readJson, RequestError } from '../_shared/request-body.ts';
-import { discordIdentity, discordRoles } from '../_shared/discord-identity.ts';
+import { discordBotRoles, discordIdentity, discordRoles } from '../_shared/discord-identity.ts';
 
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SB_SECRET_KEY')!, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -38,13 +39,26 @@ Deno.serve(async req => {
         } else {
             if (!id) return json({ error: 'No Discord identity linked to this account' }, 400);
             const token = body?.provider_token;
-            if (typeof token !== 'string' || !token.length || token.length > 4096) {
-                return json({ error: 'A Discord provider token is required' }, 400);
+            if (token !== undefined && (typeof token !== 'string' || !token.length || token.length > 4096)) {
+                return json({ error: 'Invalid Discord provider token' }, 400);
             }
             const guild = Deno.env.get('DISCORD_GUILD_ID') ?? '';
             if (!/^\d{15,22}$/.test(guild)) return json({ error: 'Discord membership verification is not configured' }, 503);
-            const roles = await discordRoles(token, id, guild,
-                AbortSignal.any([req.signal, AbortSignal.timeout(10_000)]));
+            const signal = AbortSignal.any([req.signal, AbortSignal.timeout(10_000)]);
+            const botToken = Deno.env.get('DISCORD_BOT_TOKEN')?.trim();
+            let roles: string[] | null = null;
+            if (botToken) {
+                try { roles = await discordBotRoles(botToken, id, guild, signal); }
+                catch (error) {
+                    // An explicit Discord callback can still repair access while
+                    // an operator fixes a missing/misconfigured guild bot.
+                    if (!(error instanceof RequestError && error.status === 503 && typeof token === 'string')) throw error;
+                    roles = await discordRoles(token, id, guild, signal);
+                }
+            } else if (typeof token === 'string') {
+                roles = await discordRoles(token, id, guild, signal);
+            }
+            if (!roles) return json({ error: 'Please sign in with Discord again to refresh your membership.' }, 401);
             const lifetime = Deno.env.get('ROLE_ID_LIFETIME');
             const premium = Deno.env.get('ROLE_ID_MEMBER');
             if (lifetime && roles.includes(lifetime)) plan = 'lifetime';

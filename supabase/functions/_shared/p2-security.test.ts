@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { validateAiBody, MAX_AI_BODY_BYTES } from './ai-validation.ts';
 import { readJson, RequestError } from './request-body.ts';
-import { discordIdentity, discordRoles } from './discord-identity.ts';
+import { discordBotRoles, discordIdentity, discordRoles } from './discord-identity.ts';
 import { aiTextStream } from './ai-stream.ts';
 
 const input = (maxTokens: unknown = 600) => ({ type: 'stream-analysis', payload: {
@@ -48,6 +48,26 @@ Deno.test('verified user outside the guild has no paid roles; transient errors a
     assert.deepEqual(await discordRoles('token', '123', 'guild', new AbortController().signal, fake), []);
     await assert.rejects(discordRoles('token', '123', 'guild', new AbortController().signal,
         (async () => new Response(null, { status: 503 })) as typeof fetch), /unavailable/);
+});
+Deno.test('server bot silently verifies only the requested linked member', async () => {
+    let requested = '';
+    let authorization = '';
+    const fake = (async (input: string | URL | Request, init?: RequestInit) => {
+        requested = String(input);
+        authorization = new Headers(init?.headers).get('Authorization') ?? '';
+        return Response.json({ user: { id: '123' }, roles: ['member', 'lifetime'] });
+    }) as typeof fetch;
+    assert.deepEqual(await discordBotRoles('secret', '123', 'guild', new AbortController().signal, fake), ['member', 'lifetime']);
+    assert.equal(requested, 'https://discord.com/api/v10/guilds/guild/members/123');
+    assert.equal(authorization, 'Bot secret');
+});
+Deno.test('bot lookup distinguishes a missing member from broken verification', async () => {
+    assert.deepEqual(await discordBotRoles('secret', '123', 'guild', new AbortController().signal,
+        (async () => Response.json({ code: 10007, message: 'Unknown Member' }, { status: 404 })) as typeof fetch), []);
+    await assert.rejects(discordBotRoles('secret', '123', 'guild', new AbortController().signal,
+        (async () => Response.json({ code: 10004, message: 'Unknown Guild' }, { status: 404 })) as typeof fetch), /not configured correctly/);
+    await assert.rejects(discordBotRoles('secret', '123', 'guild', new AbortController().signal,
+        (async () => new Response(null, { status: 403 })) as typeof fetch), /not configured correctly/);
 });
 Deno.test('a failed partial AI stream sends an error, never a success marker', async () => {
     let aborted = false;
