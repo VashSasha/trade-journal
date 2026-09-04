@@ -1,0 +1,43 @@
+<details class="session-sounds">
+    <summary class="session-sounds__summary">Session bell alerts <span>{{ sounds.error() ? 'Needs attention' : sounds.enabled() ? 'On' : sounds.waitingForGesture() ? 'Ready' : 'Off' }}</span></summary>
+    <div class="session-sounds__body">
+    <div class="session-sounds__head">
+        <div>
+            <p>{{ sounds.enabled() ? 'Enabled in this tab' : sounds.waitingForGesture() ? 'Waiting for your first click' : 'Off in this tab' }}</p>
+        </div>
+        @if (sounds.state() !== 'off') {
+            <button type="button" (click)="sounds.mute()">{{ sounds.state() === 'enabling' ? 'Cancel' : 'Mute' }}</button>
+        } @else {
+            <button type="button" (click)="sounds.enable()" [disabled]="!sounds.supported || sounds.previewing() || !sounds.preferences().volume || (!sounds.preferences().opens && !sounds.preferences().closes)">{{ sounds.waitingForGesture() ? 'Reactivate bells' : 'Enable sounds' }}</button>
+        }
+    </div>
+    @if (!sounds.supported) {
+        <p class="session-sounds__note">Sound alerts need a supported browser on HTTPS or localhost.</p>
+    } @else {
+        <div class="session-sounds__kinds">
+            <label><input type="checkbox" [checked]="sounds.preferences().opens" (change)="sounds.setKind('open', checked($event))" /> Opening bell</label>
+            <label><input type="checkbox" [checked]="sounds.preferences().closes" (change)="sounds.setKind('close', checked($event))" /> Closing bell</label>
+        </div>
+        <label class="session-sounds__volume">
+            <span>Volume <span>{{ sounds.preferences().volume }}%</span></span>
+            <input type="range" min="0" max="100" step="5" [value]="sounds.preferences().volume"
+                (input)="volume($event)" aria-label="Session sound volume" [attr.aria-valuetext]="sounds.preferences().volume + '%'" />
+        </label>
+        <div class="session-sounds__tests">
+            <button type="button" (click)="sounds.preview('open')" [disabled]="sounds.previewing() || sounds.state() === 'enabling' || !sounds.preferences().volume">Test opening bell</button>
+            <button type="button" (click)="sounds.preview('close')" [disabled]="sounds.previewing() || sounds.state() === 'enabling' || !sounds.preferences().volume">Test closing bell</button>
+        </div>
+        <p class="session-sounds__note">Keep this tab open. After reloading, your first click or keypress reactivates bells. Sleeping or suspended browsers can miss alerts; missed alerts are never replayed.</p>
+        <p class="session-sounds__note">Your on/off choice, volume and alert types are saved in this browser. Reference windows only, including holidays.</p>
+        @if (!sounds.preferences().volume) { <p class="session-sounds__note">Increase volume to enable or test sounds.</p> }
+        @if (!sounds.preferences().opens && !sounds.preferences().closes) { <p class="session-sounds__note">Select at least one alert type to enable sounds.</p> }
+        @if (sounds.lastAlert(); as alert) { <p class="session-sounds__last">Last alert: {{ alert }}</p> }
+    }
+    @if (sounds.state() === 'enabling') { <p class="session-sounds__note" role="status">Enabling audio…</p> }
+    @if (sounds.previewing()) { <p class="session-sounds__note" role="status">Playing test sound…</p> }
+    @if (sounds.error(); as error) { <p class="session-sounds__error" role="status">{{ error }}</p> }
+    @if (sounds.storageWarning()) { <p class="session-sounds__note" role="status">Preferences could not be saved. They still apply until this page closes.</p> }
+    </div>
+</details>
+@if (sounds.lastAlert(); as alert) { <p class="session-sounds__sr-only" role="status">{{ alert }}</p> }
+@if (sounds.error(); as error) { <p class="session-sounds__sr-only" role="alert">{{ error }}</p> }
