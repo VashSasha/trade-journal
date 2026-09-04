@@ -1,135 +1,83 @@
-import { Injectable, inject, signal, effect } from '@angular/core';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import { Goal, GoalType } from '../models/goal.model';
 import { TradeService } from './trade.service';
+import { UserSessionService } from './user-session.service';
+import { UserDataRepo } from './user-data/user-data.repo';
+import { CACHE_KEYS, cacheSuspended, readCache, writeCache } from './user-data/user-data.cache';
 
-const STORAGE_KEY = 'trade_journal_goals';
+function cachedGoals(): Goal[] {
+    const value = readCache<unknown>(CACHE_KEYS.goals);
+    if (!Array.isArray(value)) return [];
+    return value.filter((g): g is Goal => !!g && typeof g === 'object' && typeof g.id === 'string' &&
+        typeof g.label === 'string' && typeof g.target === 'number' && Number.isFinite(g.target) && g.target > 0 &&
+        ['monthly_pnl', 'yearly_pnl', 'monthly_trades', 'win_rate'].includes(g.type) &&
+        ['month', 'year'].includes(g.period) && typeof g.deadline === 'string' && Number.isFinite(Date.parse(g.deadline)));
+}
 
-@Injectable({
-    providedIn: 'root'
-})
+/** Goal definitions are owner-scoped cloud data; progress is derived, never saved. */
+@Injectable({ providedIn: 'root' })
 export class GoalService {
-    private tradeService = inject(TradeService);
+    private trades = inject(TradeService);
+    private session = inject(UserSessionService);
+    private repo = inject(UserDataRepo);
+    private state = signal({
+        owner: readCache<string>(CACHE_KEYS.owner),
+        items: cachedGoals()
+    });
 
-    private goalsSignal = signal<Goal[]>(this.loadGoals());
-    goals = this.goalsSignal.asReadonly();
-
-    constructor() {
-        effect(() => {
-            this.updateGoalProgress();
-        }, { allowSignalWrites: true });
-    }
-
-
-    addGoal(type: GoalType, target: number, period: 'month' | 'year'): void {
-        const now = new Date();
-        let deadline: Date;
-        let label = '';
-
-        if (period === 'month') {
-            // End of current month
-            deadline = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-            const monthName = now.toLocaleString('default', { month: 'long' });
-            label = `${monthName} `;
-        } else {
-            // End of current year
-            deadline = new Date(now.getFullYear(), 11, 31);
-            label = `${now.getFullYear()} `;
-        }
-
-        switch (type) {
-            case 'monthly_pnl': label += `P&L Target`; break;
-            case 'yearly_pnl': label += `P&L Target`; break;
-            case 'monthly_trades': label += `Trade Count`; break;
-            case 'win_rate': label += `Win Rate`; break;
-        }
-
-        const newGoal: Goal = {
-            id: Date.now().toString(),
-            type,
-            label,
-            target,
-            current: 0,
-            deadline: deadline.toISOString(),
-            status: 'active',
-            period
-        };
-
-        const updated = [...this.goalsSignal(), newGoal];
-        this.goalsSignal.set(updated);
-        this.updateGoalProgress();
-        this.saveGoals(updated);
-    }
-
-    /**
-     * Remove a goal
-     */
-    deleteGoal(id: string): void {
-        const updated = this.goalsSignal().filter(g => g.id !== id);
-        this.goalsSignal.set(updated);
-        this.saveGoals(updated);
-    }
-
-    /**
-     * Calculate progress for all active goals based on current trades
-     */
-    private updateGoalProgress(): void {
-        const trades = this.tradeService.trades();
-        const goals = this.goalsSignal();
-
-        const updatedGoals = goals.map(goal => {
-            if (goal.status !== 'active') return goal;
-
+    readonly goals = computed(() => {
+        const owner = this.session.userId();
+        const state = this.state();
+        if (!owner || state.owner !== owner || cacheSuspended()) return [];
+        const trades = this.trades.trades().filter(t => t.userId === owner);
+        return state.items.map(goal => {
             const deadline = new Date(goal.deadline);
-
-            // Determine start date for the goal period
-            let startDate: Date;
-            if (goal.period === 'month') {
-                startDate = new Date(deadline.getFullYear(), deadline.getMonth(), 1);
-            } else {
-                startDate = new Date(deadline.getFullYear(), 0, 1);
-            }
-
-            // Filter trades within this period
-            const relevantTrades = trades.filter(t => {
+            const start = goal.period === 'month'
+                ? new Date(deadline.getFullYear(), deadline.getMonth(), 1)
+                : new Date(deadline.getFullYear(), 0, 1);
+            // Include the entire final day, including goals created by older builds.
+            const end = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate() + 1);
+            const relevant = trades.filter(t => {
                 const entry = new Date(t.entryDate);
-                return entry >= startDate && entry <= deadline && t.status !== 'missed';
+                return entry >= start && entry < end && t.status !== 'missed';
             });
-
-            // Calculate current value
-            let current = 0;
-            const closedTrades = relevantTrades.filter(t => t.status === 'closed');
-
-            switch (goal.type) {
-                case 'monthly_pnl':
-                case 'yearly_pnl':
-                    current = closedTrades.reduce((sum, t) => sum + (t.netPnl || 0), 0);
-                    break;
-                case 'monthly_trades':
-                    current = relevantTrades.length;
-                    break;
-                case 'win_rate':
-                    if (closedTrades.length > 0) {
-                        const wins = closedTrades.filter(t => (t.netPnl || 0) > 0).length;
-                        current = (wins / closedTrades.length) * 100;
-                    }
-                    break;
-            }
-
+            const closed = relevant.filter(t => t.status === 'closed');
+            const current = goal.type === 'monthly_trades' ? relevant.length
+                : goal.type === 'win_rate'
+                    ? (closed.length ? 100 * closed.filter(t => (t.netPnl ?? 0) > 0).length / closed.length : 0)
+                    : closed.reduce((sum, t) => sum + (t.netPnl ?? 0), 0);
             return { ...goal, current };
         });
+    });
 
-        if (JSON.stringify(updatedGoals) !== JSON.stringify(goals)) {
-            this.goalsSignal.set(updatedGoals);
-            this.saveGoals(updatedGoals);
+    hydrate(items: Goal[], owner: string | null): void {
+        this.state.set({ owner, items });
+        writeCache(CACHE_KEYS.goals, items);
+    }
+
+    addGoal(type: GoalType, target: number, period: 'month' | 'year'): void {
+        if (cacheSuspended()) return;
+        const owner = this.session.capture().userId;
+        if (!Number.isFinite(target) || target <= 0 || (type === 'win_rate' && target > 100)) {
+            throw new Error('Enter a valid positive goal target. Win rate cannot exceed 100%.');
         }
+        const now = new Date();
+        const deadline = period === 'month'
+            ? new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+            : new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+        const periodLabel = period === 'month' ? now.toLocaleString('default', { month: 'long' }) : now.getFullYear();
+        const metric = type === 'monthly_trades' ? 'Trade Count' : type === 'win_rate' ? 'Win Rate' : 'P&L Target';
+        const goal: Goal = { id: crypto.randomUUID(), type, target, period, label: periodLabel + ' ' + metric,
+            current: 0, deadline: deadline.toISOString(), status: 'active' };
+        this.repo.queueGoalUpsert(goal); // Durable before changing the UI.
+        this.hydrate([...(this.state().owner === owner ? this.state().items : []), goal], owner);
     }
 
-    private loadGoals(): Goal[] {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        return stored ? JSON.parse(stored) : [];
-    }
-
-    private saveGoals(goals: Goal[]): void {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
+    deleteGoal(id: string): void {
+        if (cacheSuspended()) return;
+        const owner = this.session.capture().userId;
+        if (this.state().owner !== owner) return;
+        this.repo.queueGoalDelete(id);
+        this.hydrate(this.state().items.filter(goal => goal.id !== id), owner);
     }
 }

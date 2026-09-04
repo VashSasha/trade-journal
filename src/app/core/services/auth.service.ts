@@ -25,6 +25,13 @@ interface Profile {
     betaAccess: boolean;
 }
 
+interface Entitlements {
+    plan: PlanTier;
+    discord_id: string | null;
+    beta_access: boolean;
+    discord_plan_expires_at: string | null;
+}
+
 @Injectable({
     providedIn: 'root'
 })
@@ -34,6 +41,8 @@ export class AuthService {
 
     private sessionSignal = signal<Session | null>(null);
     private profileSignal = signal<Profile | null>(null);
+    private profileRequest = 0;
+    readonly discordReauthRequired = signal(false);
 
     /** Resolves once the initial session restore (and profile load) has settled. */
     readonly authReady: Promise<void>;
@@ -63,12 +72,19 @@ export class AuthService {
 
     constructor() {
         this.authReady = this.initialize();
+        const refresh = () => { void this.refreshProfile().catch(() => undefined); };
+        window.addEventListener('focus', refresh);
+        setInterval(refresh, 15 * 60 * 1000);
 
         this.supabase.auth.onAuthStateChange((event, session) => {
-            if (session?.user.id !== this.sessionSignal()?.user.id) this.profileSignal.set(null);
+            if (session?.user.id !== this.sessionSignal()?.user.id) {
+                this.profileSignal.set(null);
+                this.discordReauthRequired.set(false);
+            }
             this.sessionSignal.set(session);
             if (event === 'SIGNED_OUT' || !session) {
                 this.profileSignal.set(null);
+                this.discordReauthRequired.set(false);
                 localStorage.removeItem(IDLE_EXPIRY_KEY);
                 return;
             }
@@ -195,13 +211,25 @@ export class AuthService {
     }
 
     private async loadProfile(userId: string): Promise<void> {
-        const { data, error } = await this.supabase
-            .from('profiles')
-            .select('plan, discord_id, beta_access')
-            .eq('id', userId)
-            .single();
+        const request = ++this.profileRequest;
+        let { data, error } = await this.supabase.rpc('get_my_entitlements').single<Entitlements>();
 
-        if (this.sessionSignal()?.user.id !== userId) return;
+        if (this.sessionSignal()?.user.id !== userId || request !== this.profileRequest) return;
+        const token = this.sessionSignal()?.provider_token;
+        const expiry = data?.discord_plan_expires_at ? Date.parse(data.discord_plan_expires_at) : 0;
+        // Renew opportunistically without persisting additional provider tokens.
+        // Missing/expired provider credentials require a new Discord sign-in;
+        // they never extend the previous role grant.
+        if (data?.discord_id && token && expiry < Date.now() + 15 * 60 * 1000) {
+            const scope = this.userSession.capture();
+            const renewed = await this.supabase.functions.invoke('resolve-plan', {
+                body: { provider_token: token }, signal: scope.signal
+            });
+            if (!this.userSession.isCurrent(scope)) return;
+            if (!renewed.error) ({ data, error } = await this.supabase.rpc('get_my_entitlements').single<Entitlements>());
+        }
+
+        if (this.sessionSignal()?.user.id !== userId || request !== this.profileRequest) return;
 
         if (error || !data) {
             // RLS guarantees at most the caller's own row; a miss means the
@@ -214,6 +242,8 @@ export class AuthService {
             discordId: data.discord_id ?? null,
             betaAccess: data.beta_access ?? false
         });
+        this.discordReauthRequired.set(!!data.discord_id && data.plan === 'free' &&
+            (!data.discord_plan_expires_at || Date.parse(data.discord_plan_expires_at) <= Date.now()));
     }
 
     private buildUser(user: SupabaseUser, profile: Profile | null): User {

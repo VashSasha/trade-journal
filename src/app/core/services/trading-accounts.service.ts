@@ -56,15 +56,6 @@ export class TradingAccountsService {
     /** accountId → full record, for fast lookups. */
     readonly byId = computed(() => new Map(this.accountsMap()));
 
-    /** Account IDs where active = false — retired by the broker or by the user. */
-    readonly retiredIds = computed(() => {
-        const ids = new Set<number>();
-        for (const acc of this.accountsMap().values()) {
-            if (!acc.active) ids.add(acc.accountId);
-        }
-        return ids;
-    });
-
     /** Replace the store with the authoritative cloud rows (or [] on sign-out). */
     hydrate(rows: StoredTradingAccount[]): void {
         this.accountsMap.set(TradingAccountsService.toMap(rows));
@@ -110,14 +101,6 @@ export class TradingAccountsService {
             });
         }
         this.merge(updates);
-    }
-
-    /** Retire or restore an account. active=false → excluded from selector and
-     *  balance aggregation; trades remain fully visible. */
-    setActive(accountId: number, active: boolean): void {
-        const prev = this.accountsMap().get(accountId);
-        if (!prev || prev.active === active) return;
-        this.merge([{ ...prev, active }]);
     }
 
     private merge(updates: StoredTradingAccount[]): void {

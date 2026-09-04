@@ -1,5 +1,6 @@
 import { Trade } from '../../models/trade.model';
 import { DailyNote, JournalTemplate } from '../../models/daily-journal.model';
+import { Goal } from '../../models/goal.model';
 
 /**
  * camelCase model ↔ snake_case row mapping for the Phase 2 tables.
@@ -18,6 +19,18 @@ export interface UserSettings {
 }
 
 type Row = Record<string, unknown>;
+
+export function goalToRow(goal: Goal): Row {
+    const { current: _derived, ...definition } = goal;
+    return definition;
+}
+
+export function rowToGoal(row: Row): Goal {
+    return { id: row['id'] as string, type: row['type'] as Goal['type'],
+        label: row['label'] as string, target: Number(row['target']), current: 0,
+        deadline: row['deadline'] as string, period: row['period'] as Goal['period'],
+        status: row['status'] as Goal['status'] };
+}
 
 /** null (from Postgres) → undefined (optional model field). */
 function opt<T>(value: T | null | undefined): T | undefined {

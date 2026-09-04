@@ -18,6 +18,7 @@ export class GoalsWidgetComponent {
     goals = this.goalService.goals;
 
     isAdding = signal(false);
+    error = signal<string | null>(null);
 
     goalForm = this.fb.group({
         type: ['monthly_pnl' as GoalType, Validators.required],
@@ -30,13 +31,20 @@ export class GoalsWidgetComponent {
     }
 
     deleteGoal(id: string): void {
-        this.goalService.deleteGoal(id);
+        this.error.set(null);
+        try { this.goalService.deleteGoal(id); }
+        catch (err) { this.error.set(err instanceof Error ? err.message : 'Could not remove the goal.'); }
     }
 
     onSubmit(): void {
+        this.error.set(null);
         if (this.goalForm.valid) {
             const { type, target, period } = this.goalForm.value;
-            this.goalService.addGoal(type!, target!, period!);
+            try { this.goalService.addGoal(type!, target!, type === 'yearly_pnl' ? 'year' : period!); }
+            catch (err) {
+                this.error.set(err instanceof Error ? err.message : 'Could not save the goal.');
+                return;
+            }
             this.isAdding.set(false);
             this.goalForm.reset({ type: 'monthly_pnl', target: 1000, period: 'month' });
         }

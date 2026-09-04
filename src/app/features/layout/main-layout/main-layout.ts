@@ -4,7 +4,6 @@ import { RouterOutlet } from '@angular/router';
 import { Sidebar } from '../sidebar/sidebar';
 import { Header } from '../header/header';
 import { TradovateService } from '../../../core/services/tradovate.service';
-import { TradingAccountsService } from '../../../core/services/trading-accounts.service';
 import { SyncNoticeComponent } from '../../../shared/components/sync-notice/sync-notice.component';
 import { DemoModeService } from '../../../core/services/demo-mode.service';
 import { DemoBannerComponent } from '../../demo/demo-banner/demo-banner.component';
@@ -22,7 +21,6 @@ const DISMISSED_KEY = 'tj_banner_dismissed_connections';
 })
 export class MainLayoutComponent {
     readonly tradovate = inject(TradovateService);
-    readonly tradingAccounts = inject(TradingAccountsService);
     readonly demo = inject(DemoModeService);
 
     /** Per-connection IDs the user dismissed; persisted to localStorage. */
@@ -53,14 +51,6 @@ export class MainLayoutComponent {
         next.delete(connectionId);
         this.dismissedIds.set(next);
         this.saveDismissed(next);
-    }
-
-    retireAccount(accountId: number): void {
-        this.tradingAccounts.setActive(accountId, false);
-    }
-
-    restoreAccount(accountId: number): void {
-        this.tradingAccounts.setActive(accountId, true);
     }
 
     startReconnect(connectionId: string): void {

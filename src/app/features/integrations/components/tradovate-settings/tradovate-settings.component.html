@@ -56,36 +56,22 @@
                   {{ conn.disabled ? 'Re-enable' : 'Mark Closed' }}
                 </button>
                 <button (click)="disconnectConnection(conn.id)" class="btn-danger tv-settings__remove-btn">
-                  Remove
+                  Disconnect
                 </button>
               </div>
             </div>
 
-            <!-- Per-account retire controls -->
+            <!-- Broker status only — account history is never retired manually. -->
             @if (conn.accounts.length > 0) {
               <div class="tv-settings__accounts-list">
                 @for (acc of conn.accounts; track acc.id) {
-                  @let retired = isAccountRetired(acc.id);
-                  <div class="tv-settings__account-row" [class.tv-settings__account-row--archived]="retired">
+                  <div class="tv-settings__account-row" [class.tv-settings__account-row--archived]="acc.active === false">
                     <div class="tv-settings__account-info">
                       <span class="tv-settings__account-name">{{ acc.name }}</span>
-                      @if (retired) {
-                        <span class="tv-settings__archived-badge">Retired</span>
-                      } @else if (!acc.active) {
-                        <span class="tv-settings__inactive-badge">Inactive</span>
+                      @if (acc.active === false) {
+                        <span class="tv-settings__inactive-badge">Historical</span>
                       }
                     </div>
-                    @if (retired) {
-                      <button (click)="restoreAccount(acc.id)"
-                              class="tv-settings__archive-btn tv-settings__archive-btn--unarchive">
-                        Restore
-                      </button>
-                    } @else {
-                      <button (click)="retireAccount(acc.id)"
-                              class="tv-settings__archive-btn">
-                        Retire
-                      </button>
-                    }
                   </div>
                 }
               </div>
@@ -205,10 +191,11 @@
           </div>
         }
 
-        @if (syncError()) {
-          <div class="tv-settings__banner tv-settings__banner--error">{{ syncError() }}</div>
-        }
       </div>
+    }
+
+    @if (syncError()) {
+      <div class="tv-settings__banner tv-settings__banner--error" role="alert">{{ syncError() }}</div>
     }
 
     <!-- Danger Zone -->

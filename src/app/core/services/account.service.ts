@@ -23,13 +23,7 @@ export class AccountService {
 
     accounts = signal<TradovateAccount[]>([]);
 
-    // Retired account IDs (active = false) — excluded from the account selector
-    // and balance aggregation; their trades remain fully visible in history.
-    readonly retiredIds = computed(() => this.tradingAccounts.retiredIds());
-
-    // Retired/inactive accounts (active=false in trading_accounts). Not shown
-    // in the account selector but kept for the import-trades dialog and for
-    // ensuring their trades stay in the filter.
+    // Broker-disabled accounts remain in historical views and import targets.
     // Primary source: stored table rows. Fallback: blob entries not yet stored.
     inactiveAccounts = computed((): TradovateAccount[] => {
         const storedById = this.tradingAccounts.byId();
@@ -59,12 +53,10 @@ export class AccountService {
         return result;
     });
 
-    // Accounts that are active=true but no longer in any live connection —
-    // shown in the "Historical" section of the selector. Primary source:
+    // Every stored account absent from the live list remains selectable under
+    // "Historical", including broker-disabled and disconnected accounts. Source:
     // the persisted trading_accounts store. Fallback: trade-row skeletons.
     historicalAccounts = computed((): TradovateAccount[] => {
-        // liveIds spans live (active+connection) and inactive (active=false) accounts,
-        // so only active=true accounts with no live connection fall through to historical.
         const liveIds = new Set([
             ...this.accounts().map(a => a.id)
         ]);

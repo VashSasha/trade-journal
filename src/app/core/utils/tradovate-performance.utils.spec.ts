@@ -67,8 +67,17 @@ describe('parsePerformanceCsv', () => {
         );
     });
 
-    it('returns empty for a CSV with unexpected columns', () => {
+    it('rejects unexpected columns rather than treating a failed report as no trades', () => {
         const csv = 'foo,bar,baz\n1,2,3';
-        expect(parsePerformanceCsv(csv, 12345, 'Apex 50K')).toHaveLength(0);
+        expect(() => parsePerformanceCsv(csv, 12345, 'Apex 50K')).toThrow('Unrecognized');
+    });
+
+    it('accepts a verified header-only empty report, not an empty/error response', () => {
+        expect(parsePerformanceCsv(HEADER, 12345, 'Apex 50K')).toEqual([]);
+        expect(() => parsePerformanceCsv('', 12345, 'Apex 50K')).toThrow();
+    });
+
+    it('rejects a malformed row instead of silently importing a partial history', () => {
+        expect(() => parsePerformanceCsv(THREE_ROW_CSV + '\nMNQU6,broken', 12345, 'Apex 50K')).toThrow('Incomplete');
     });
 });
