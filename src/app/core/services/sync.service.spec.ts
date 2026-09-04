@@ -9,8 +9,17 @@ import { AccountSettingsService } from './account-settings.service';
 import { UserSessionService } from './user-session.service';
 import { SupabaseService } from './supabase.service';
 import { UserDataRepo } from './user-data/user-data.repo';
+import { AuthService } from './auth.service';
+import { setCacheSuspended } from './user-data/user-data.cache';
 
 describe('broker sync user isolation', () => {
+    beforeEach(() => {
+        setCacheSuspended(false);
+        TestBed.configureTestingModule({ providers: [
+            { provide: AuthService, useValue: { plan: () => 'premium', isAuthenticated: () => true } }
+        ] });
+    });
+    afterEach(() => setCacheSuspended(false));
     for (const failure of ['report', 'final-save']) {
         it(`keeps the previous checkpoint after a ${failure} failure`, async () => {
             const previous = new Date('2026-07-01T12:00:00Z');

@@ -11,13 +11,17 @@
         <p class="up__body">{{ c.body }}</p>
 
         <div class="up__actions">
-            @if (isSignedIn()) {
-            <button class="up__btn up__btn--primary" type="button" (click)="subscribe()">
-                Subscribe — $24.99/mo
+            @if (canSwitch()) {
+            <button class="up__btn up__btn--primary" type="button" (click)="switchWorkspace()" [disabled]="demo.transitioning()">
+                Switch to my workspace
             </button>
+            } @else if (isSignedIn()) {
+            <a class="up__btn up__btn--primary" routerLink="/account" (click)="dismiss()">
+                View subscription options
+            </a>
             } @else {
             <a class="up__btn up__btn--primary" routerLink="/login" (click)="dismiss()">
-                Subscribe — $24.99/mo
+                Create an account
             </a>
             }
 
@@ -25,7 +29,7 @@
                 Join NVZN Trading
             </a>
 
-            <button class="up__skip" type="button" (click)="dismiss()">Stay in demo</button>
+            <button class="up__skip" type="button" (click)="dismiss()">{{ demo.active() ? 'Stay in demo' : 'Not now' }}</button>
         </div>
     </div>
 </div>

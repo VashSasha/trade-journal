@@ -1,4 +1,4 @@
-import { Injectable, inject, signal, effect } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { TradeService } from './trade.service';
 import { DailyJournalService } from './daily-journal.service';
@@ -7,7 +7,8 @@ import { TradingAccountsService } from './trading-accounts.service';
 import { AccountService } from './account.service';
 import { AuthService } from './auth.service';
 import { UserDataService } from './user-data/user-data.service';
-import { setCacheSuspended, readCache, CACHE_KEYS } from './user-data/user-data.cache';
+import { setCacheSuspended, readCache, CACHE_KEYS, cacheSuspended } from './user-data/user-data.cache';
+import { AccessPolicyService } from './access-policy.service';
 import { generateDemoData, LIVE_ACCOUNT_ID, HIST_ACCOUNT_ID } from '../demo/demo-data';
 import { Trade } from '../models/trade.model';
 import { DailyNote, JournalTemplate } from '../models/daily-journal.model';
@@ -36,14 +37,13 @@ export class DemoModeService {
     private auth = inject(AuthService);
     private userData = inject(UserDataService);
     private router = inject(Router);
+    private access = inject(AccessPolicyService);
 
-    readonly active = signal(false);
+    readonly active = cacheSuspended;
+    readonly transitioning = signal(false);
 
     /** Non-null while an upgrade prompt is open; drives UpgradePromptComponent. */
-    readonly promptReason = signal<'connect' | 'save' | 'sync' | 'ai' | null>(null);
-
-    /** Set after the user explicitly exits demo to prevent immediate re-entry. */
-    private demoOptedOut = false;
+    readonly promptReason = this.access.promptReason;
 
     constructor() {
         // Restore demo state across page reloads (same tab session only).
@@ -51,67 +51,59 @@ export class DemoModeService {
             this.activateDemo();
         }
 
-        // Auto-enter demo for signed-in free users who have no data yet, so
-        // they see a populated app instead of an empty one. Uses dataLoaded as
-        // a gate so the effect never fires before the Supabase fetch settles.
-        effect(() => {
-            if (this.active() || this.demoOptedOut) return;
-            if (!this.userData.dataLoaded()) return;
-            const user = this.auth.currentUser();
-            if (!user) {
-                this.demoOptedOut = false; // reset when signed out so next user gets a fresh check
-                return;
-            }
-            if (this.auth.plan() !== 'free') return;
-            if (this.trades.trades().length > 0) return;
-            if (this.accounts.all().length > 0) return;
-            this.demoOptedOut = true; // prevent re-entry after this auto-enter
-            this.enter();
-        }, { allowSignalWrites: true });
+        // Demo is an explicit choice, never an automatic replacement for a
+        // free user's real journal (including a legitimately empty journal).
     }
 
     enter(): void {
+        if (this.transitioning()) return;
+        this.dismissPrompt();
         this.activateDemo();
         sessionStorage.setItem(SESSION_KEY, 'true');
     }
 
     /**
-     * Call before any write/connect action. Returns true and proceeds normally
-     * when not in demo; returns false and opens the upgrade prompt when in demo.
+     * Shared action gate: free manual saves are allowed in the real workspace;
+     * broker/AI actions require paid access. Demo only allows previews.
      */
     requireAccount(reason: 'connect' | 'save' | 'sync' | 'ai'): boolean {
-        if (!this.active()) return true;
-        this.promptReason.set(reason);
-        return false;
+        return this.access.requestAction(reason);
     }
 
     dismissPrompt(): void {
         this.promptReason.set(null);
     }
 
-    exit(): void {
-        this.demoOptedOut = true; // user chose to leave demo — don't auto-re-enter
-        setCacheSuspended(false);
-        sessionStorage.removeItem(SESSION_KEY);
-        this.active.set(false);
-
-        // Restore real data from localStorage — cache was suspended during demo
-        // so the real keys were never overwritten.
-        this.restoreFromCache();
-        this.accountService.resetLiveAccounts();
-        this.accountService.restorePersistedSelection();
-
-        if (this.auth.isAuthenticated()) {
-            // Background re-fetch from Supabase to catch any changes while in demo.
-            void this.userData.reload();
-        } else {
-            void this.router.navigate(['/']);
-        }
+    async exit(destination = '/dashboard'): Promise<void> {
+        if (this.transitioning()) return;
+        this.transitioning.set(true);
+        try {
+            // Destroy paid preview pages BEFORE restoring any real user data.
+            // The router skips same-URL navigation. Already being on the safe
+            // dashboard is not a cancellation and must still let demo exit.
+            if (this.router.url.split(/[?#]/)[0] !== '/dashboard') {
+                const moved = await this.router.navigateByUrl('/dashboard', { replaceUrl: true });
+                if (!moved) return;
+            }
+            this.dismissPrompt();
+            this.restoreFromCache(); // cache still suspended during restoration
+            this.accountService.resetLiveAccounts();
+            this.accountService.restorePersistedSelection();
+            sessionStorage.removeItem(SESSION_KEY);
+            setCacheSuspended(false);
+            if (this.auth.isAuthenticated()) {
+                void this.userData.reload();
+                if (destination === '/settings' && this.access.canOpen('broker')) {
+                    await this.router.navigateByUrl('/settings');
+                }
+            } else {
+                await this.router.navigateByUrl('/');
+            }
+        } finally { this.transitioning.set(false); }
     }
 
     private activateDemo(): void {
         setCacheSuspended(true);
-        this.active.set(true);
         const data = generateDemoData();
         this.trades.hydrate(data.trades);
         this.journal.hydrateNotes(data.notes);
@@ -127,6 +119,14 @@ export class DemoModeService {
     }
 
     private restoreFromCache(): void {
+        // A login/logout in demo may have changed the cache owner. Never show
+        // the previous user's data, even briefly while the cloud load starts.
+        if (!this.auth.currentUser() || readCache<string>(CACHE_KEYS.owner) !== this.auth.currentUser()?.id) {
+            this.trades.hydrate([]); this.journal.hydrateNotes([]);
+            this.journal.hydrateRules(null); this.journal.hydrateTemplates([]);
+            this.accounts.hydrate([]); this.settings.hydrate(null);
+            return;
+        }
         const trades = readCache<Trade[]>(CACHE_KEYS.trades) ?? [];
         const notes = readCache<DailyNote[]>(CACHE_KEYS.notes) ?? [];
         const rules = readCache<string[]>(CACHE_KEYS.rules) ?? null;

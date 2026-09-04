@@ -10,11 +10,9 @@
     </div>
 
     <div class="demo-banner__actions">
-        @if (auth.isAuthenticated()) {
-            <a class="demo-banner__cta" routerLink="/settings" (click)="exitDemo()">Connect your broker</a>
-        } @else {
-            <a class="demo-banner__cta" routerLink="/login" (click)="exitDemo()">Get started free</a>
-        }
-        <button class="demo-banner__exit" type="button" (click)="exitDemo()">Exit demo</button>
+        <button class="demo-banner__cta" type="button" (click)="primaryAction()" [disabled]="demo.transitioning()">
+            {{ !auth.isAuthenticated() ? 'Create an account' : access.paid() ? 'Connect your broker' : 'Upgrade to connect your broker' }}
+        </button>
+        <button class="demo-banner__exit" type="button" (click)="exitDemo()" [disabled]="demo.transitioning()">Exit demo</button>
     </div>
 </div>

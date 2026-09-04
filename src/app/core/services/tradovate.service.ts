@@ -8,6 +8,7 @@ import { TradingAccountsService } from './trading-accounts.service';
 import { UserSessionService } from './user-session.service';
 import { UserDataRepo } from './user-data/user-data.repo';
 import { parsePerformanceCsv } from '../utils/tradovate-performance.utils';
+import { AccessPolicyService } from './access-policy.service';
 
 export interface TradovateFill {
     id: number;
@@ -112,6 +113,12 @@ export class TradovateService {
     private tradingAccounts = inject(TradingAccountsService);
     private userSession = inject(UserSessionService);
     private repo = inject(UserDataRepo);
+    private access = inject(AccessPolicyService);
+
+    private captureBroker() {
+        this.access.assertAction('connect');
+        return this.access.capture();
+    }
 
     // ── Persistence keys ──────────────────────────────────────────────────
     // CACHE_* mirror the Supabase rows for offline use and are cleared on
@@ -616,7 +623,7 @@ export class TradovateService {
      * Password must be supplied by the user (it is never stored).
      */
     reconnectConnection(connectionId: string, password: string): Observable<void> {
-        const scope = this.userSession.capture();
+        const scope = this.captureBroker();
         const conn = this.allConnections().find(c => c.id === connectionId);
         if (!conn) return throwError(() => new Error('Connection not found'));
         if (conn.config.authMode !== 'direct' || !conn.config.username) {
@@ -670,6 +677,7 @@ export class TradovateService {
      * matching credentials revives the same row (see addConnection).
      */
     removeConnection(connectionId: string): void {
+        this.access.assertAction('save');
         this.clearRenewalTimer(connectionId);
         this.allConnections.update(conns =>
             conns.map(c => c.id === connectionId ? { ...c, removed: true, token: '', tokenExpiresAt: undefined } : c)
@@ -694,6 +702,7 @@ export class TradovateService {
      * visible in Settings so the user can re-enable it.
      */
     disableConnection(connectionId: string): void {
+        this.access.assertAction('save');
         this.allConnections.update(conns =>
             conns.map(c => c.id === connectionId ? { ...c, disabled: true } : c)
         );
@@ -706,6 +715,7 @@ export class TradovateService {
     }
 
     enableConnection(connectionId: string): void {
+        this.access.assertAction('connect');
         this.allConnections.update(conns =>
             conns.map(c => c.id === connectionId ? { ...c, disabled: false } : c)
         );
@@ -793,8 +803,8 @@ export class TradovateService {
 
     /** Renew the token for one connection via /auth/renewAccessToken. */
     private async renewToken(connectionId: string): Promise<void> {
-        if (!this.userSession.userId()) return;
-        const scope = this.userSession.capture();
+        if (!this.access.canAct('connect')) return;
+        const scope = this.captureBroker();
         const conn = this.allConnections().find(c => c.id === connectionId);
         if (!conn || !conn.token || conn.removed) return;
 
@@ -893,7 +903,7 @@ export class TradovateService {
     }
 
     private authGetFor<T>(conn: TradovateConnection, endpoint: string, params?: Record<string, string>): Observable<T> {
-        const scope = this.userSession.capture();
+        const scope = this.captureBroker();
         const headers = new HttpHeaders({ 'Authorization': `Bearer ${conn.token}`, 'Accept': 'application/json' });
         return this.http.get<T>(`${this.getBaseUrlFor(conn)}${endpoint}`, { headers, params }).pipe(
             tap(() => this.userSession.assertCurrent(scope)),
@@ -919,6 +929,7 @@ export class TradovateService {
      * Ensure we have a valid token, throws if not connected
      */
     private requireToken(): string {
+        this.access.assertAction('sync');
         const token = this.getToken();
         if (!token) {
             throw new Error('Tradovate not connected');
@@ -931,7 +942,7 @@ export class TradovateService {
      * Intercepts 401 responses to mark the active connection as expired.
      */
     private authGet<T>(endpoint: string, params?: Record<string, string>): Observable<T> {
-        const scope = this.userSession.capture();
+        const scope = this.captureBroker();
         try {
             this.requireToken();
         } catch (e) {
@@ -959,7 +970,7 @@ export class TradovateService {
     // because the Worker injects the OAuth client credentials from its secrets;
     // the client never sees or stores the client_secret.
     exchangeCodeForToken(code: string): Observable<any> {
-        const scope = this.userSession.capture();
+        const scope = this.captureBroker();
         const config = this.getConfig();
         if (!config) return throwError(() => new Error('Tradovate configuration not found'));
 
@@ -985,7 +996,7 @@ export class TradovateService {
 
     // Simple Login - Just username/password, no API credentials needed
     simpleLogin(username: string, password: string, connectionName: string, environment: 'demo' | 'live' = 'demo'): Observable<{ connectionId: string }> {
-        const scope = this.userSession.capture();
+        const scope = this.captureBroker();
         const body = {
             locale: 'en',
             login: username,
@@ -1098,6 +1109,7 @@ export class TradovateService {
     }
 
     getMarketData(symbol: string, timeframe: string = '15min', barsCount: number = 100): Promise<any> {
+        this.access.assertAction('sync');
         const token = this.getToken();
         const wsUrl = 'wss://md.tradovateapi.com/v1/websocket';
 
@@ -1739,7 +1751,7 @@ export class TradovateService {
         pTicket?: string,
         conn?: TradovateConnection
     ): Observable<any[]> {
-        const scope = this.userSession.capture();
+        const scope = this.captureBroker();
         if (conn) {
             // Per-connection auth path
         } else {

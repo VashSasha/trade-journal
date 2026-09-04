@@ -38,16 +38,13 @@ export class AuthCallbackComponent implements OnInit {
             return;
         }
 
-        // The Discord provider token only exists right after OAuth login;
-        // pass it to the resolve-plan Edge Function to verify roles.
-        const providerToken = session.provider_token;
-        if (providerToken) {
-            try {
-                await this.authService.resolvePlan(providerToken);
-            } catch (err) {
-                // Auth succeeded; plan resolution can be retried later. Don't block entry.
-                console.warn('Plan resolution failed, continuing with current plan.', err);
-            }
+        // Use the flow we started, not the account's original signup provider
+        // or its linked identities. Google also supplies a provider_token.
+        try {
+            await this.authService.completeOAuth();
+        } catch (err) {
+            // Auth succeeded; plan resolution can be retried later. Don't block entry.
+            console.warn('Plan resolution failed, continuing with current plan.', err);
         }
 
         const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard';

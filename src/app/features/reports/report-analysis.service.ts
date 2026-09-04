@@ -2,6 +2,7 @@ import { Injectable, inject, signal, effect } from '@angular/core';
 import { SupabaseService } from '../../core/services/supabase.service';
 import { VerdictCard } from './verdict-card.model';
 import { UserSessionService } from '../../core/services/user-session.service';
+import { AccessPolicyService } from '../../core/services/access-policy.service';
 
 export interface SavedReport {
     id: string;
@@ -29,6 +30,7 @@ function rowToReport(row: any): SavedReport | null {
 export class ReportAnalysisService {
     private client = inject(SupabaseService).client;
     private userSession = inject(UserSessionService);
+    private access = inject(AccessPolicyService);
 
     readonly reports = signal<SavedReport[]>([]);
     readonly loading = signal(false);
@@ -36,13 +38,15 @@ export class ReportAnalysisService {
     constructor() {
         effect(() => {
             this.userSession.userId();
+            this.access.demo();
             this.reports.set([]); this.loading.set(false); this.error.set(null);
         });
     }
 
     async listReports(): Promise<void> {
+        if (this.access.demo()) { this.reports.set([]); return; }
         if (!this.userSession.userId()) return;
-        const scope = this.userSession.capture();
+        const scope = this.access.capture();
         this.loading.set(true);
         this.error.set(null);
 
@@ -65,7 +69,8 @@ export class ReportAnalysisService {
     }
 
     async saveReport(title: string, verdict: VerdictCard): Promise<SavedReport> {
-        const scope = this.userSession.capture();
+        this.access.assertAction('ai');
+        const scope = this.access.capture();
         const { data, error } = await this.client
             .from('ai_analyses')
             .insert({ user_id: scope.userId, kind: 'report', title, content: JSON.stringify(verdict) })
@@ -81,7 +86,8 @@ export class ReportAnalysisService {
     }
 
     async deleteReport(id: string): Promise<void> {
-        const scope = this.userSession.capture();
+        this.access.assertAction('save');
+        const scope = this.access.capture();
         const { error } = await this.client
             .from('ai_analyses')
             .delete()

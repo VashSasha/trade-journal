@@ -1,5 +1,5 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, ElementRef, OnInit, afterNextRender, computed, inject, signal } from '@angular/core';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DatePipe, TitleCasePipe } from '@angular/common';
 import { AuthService } from '../../../../core/services/auth.service';
 import { AccountService } from '../../account.service';
@@ -22,6 +22,18 @@ export class AccountPlanComponent implements OnInit {
 
     readonly plan = this.auth.plan;
     readonly discordReauthRequired = this.auth.discordReauthRequired;
+
+    constructor() {
+        const host = inject(ElementRef<HTMLElement>);
+        const route = inject(ActivatedRoute);
+        // The workspace scrolls inside .app-content, not the browser window.
+        // Restore the billing section when returning from the pricing page.
+        afterNextRender(() => {
+            if (route.snapshot.fragment === 'billing') {
+                host.nativeElement.scrollIntoView({ block: 'start' });
+            }
+        });
+    }
 
     async refreshDiscord(): Promise<void> {
         try { await this.auth.loginWithDiscord('/account'); }

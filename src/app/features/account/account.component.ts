@@ -48,7 +48,7 @@ export class AccountComponent implements OnInit {
                 checkout === 'success' ? 'Subscription active!' : 'Checkout canceled.',
             );
             // The webhook may have already flipped the plan — pick it up.
-            if (checkout === 'success') await this.auth.refreshProfile();
+            if (checkout === 'success') await this.auth.refreshProfile({ force: true });
             this.clearQueryParams();
             return;
         }
@@ -57,14 +57,7 @@ export class AccountComponent implements OnInit {
         const linked = this.route.snapshot.queryParamMap.get('linked');
         if (!linked) return;
 
-        // Discord roles gate the plan — re-resolve now that it's linked. The
-        // provider_token in the fresh session is Discord's right after linking.
-        if (linked === 'discord') {
-            const token = this.auth.session()?.provider_token;
-            if (token) {
-                try { await this.auth.resolvePlan(token); } catch { /* best-effort; plan can re-resolve later */ }
-            }
-        }
+        try { await this.auth.completeOAuth(linked); } catch { /* best-effort; plan can re-resolve later */ }
 
         await this.account.loadIdentities();
         await this.auth.refreshProfile();

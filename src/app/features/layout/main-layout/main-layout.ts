@@ -1,6 +1,9 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map } from 'rxjs';
+import { AccessPolicyService } from '../../../core/services/access-policy.service';
 import { Sidebar } from '../sidebar/sidebar';
 import { Header } from '../header/header';
 import { TradovateService } from '../../../core/services/tradovate.service';
@@ -22,6 +25,25 @@ const DISMISSED_KEY = 'tj_banner_dismissed_connections';
 export class MainLayoutComponent {
     readonly tradovate = inject(TradovateService);
     readonly demo = inject(DemoModeService);
+    readonly access = inject(AccessPolicyService);
+    private router = inject(Router);
+    private url = toSignal(this.router.events.pipe(
+        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+        map(event => event.urlAfterRedirects)
+    ), { initialValue: this.router.url });
+    readonly pageAllowed = computed(() => {
+        const feature = this.access.featureForUrl(this.url());
+        return !feature || this.access.canOpen(feature);
+    });
+
+    constructor() {
+        effect(() => {
+            if (this.demo.transitioning() || this.pageAllowed()) return;
+            void this.router.navigate(['/upgrade'], {
+                queryParams: { feature: this.access.featureForUrl(this.url()) }, replaceUrl: true
+            });
+        });
+    }
 
     /** Per-connection IDs the user dismissed; persisted to localStorage. */
     private readonly dismissedIds = signal<Set<string>>(this.loadDismissed());
@@ -45,6 +67,7 @@ export class MainLayoutComponent {
     }
 
     markConnectionClosed(connectionId: string): void {
+        if (!this.access.requestAction('connect')) return;
         this.tradovate.disableConnection(connectionId);
         // Clear dismiss entry — disabled connections don't need a dismiss record.
         const next = new Set(this.dismissedIds());
@@ -54,6 +77,7 @@ export class MainLayoutComponent {
     }
 
     startReconnect(connectionId: string): void {
+        if (!this.access.requestAction('connect')) return;
         this.reconnectingId.set(connectionId);
         this.reconnectPassword.set('');
         this.reconnectError.set(null);
@@ -65,6 +89,7 @@ export class MainLayoutComponent {
     }
 
     submitReconnect(connectionId: string): void {
+        if (!this.access.requestAction('connect')) return;
         const password = this.reconnectPassword();
         if (!password) return;
 

@@ -1,4 +1,4 @@
-<section class="acc-card">
+<section class="acc-card" id="billing">
     <div class="acc-card__head">
         <h2 class="acc-card__title">Plan &amp; billing</h2>
         <p class="acc-card__desc">Your current plan and how to change it.</p>
@@ -58,7 +58,7 @@
                         (click)="subscribe('annual')" [disabled]="checkoutBusy() !== null">
                     {{ checkoutBusy() === 'annual' ? 'Redirecting…' : 'Subscribe annually' }}
                 </button>
-                <a class="acc-btn acc-btn--ghost" routerLink="/welcome" fragment="pricing">See pricing</a>
+                <a class="acc-btn acc-btn--ghost" routerLink="/account/pricing">See pricing</a>
             </div>
         </div>
     }

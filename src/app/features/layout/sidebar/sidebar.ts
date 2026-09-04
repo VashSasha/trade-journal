@@ -4,6 +4,7 @@ import { TitleCasePipe } from '@angular/common';
 import { AuthService } from '../../../core/services/auth.service';
 import { LayoutService } from '../../../core/services/layout.service';
 import { DemoModeService } from '../../../core/services/demo-mode.service';
+import { AccessPolicyService } from '../../../core/services/access-policy.service';
 
 @Component({
   selector: 'app-sidebar',
@@ -16,6 +17,7 @@ export class Sidebar {
   layout = inject(LayoutService);
   router = inject(Router);
   demo = inject(DemoModeService);
+  access = inject(AccessPolicyService);
 
   plan = this.authService.plan;
 
@@ -24,8 +26,4 @@ export class Sidebar {
     this.router.navigate(['/login']);
   }
 
-  canAccess(requiredPlan: 'premium' | 'lifetime'): boolean {
-    const tierRank: Record<string, number> = { free: 0, premium: 1, lifetime: 2, admin: 3 };
-    return (tierRank[this.plan()] ?? 0) >= tierRank[requiredPlan];
-  }
 }

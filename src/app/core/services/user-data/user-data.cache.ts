@@ -22,12 +22,20 @@ import { signal } from '@angular/core';
 
 let _cacheSuspended = false;
 const _cacheSuspendedSignal = signal(false);
+let _workspaceController = new AbortController();
+
+/** Cancels late real-data results when entering OR leaving demo, including rapid toggles. */
+export function workspaceSignal(): AbortSignal { return _workspaceController.signal; }
 
 /** Readonly signal — true while demo mode is active. Use inside effects to
  *  avoid overwriting demo-injected values with stale derivations. */
 export const cacheSuspended = _cacheSuspendedSignal.asReadonly();
 
 export function setCacheSuspended(suspended: boolean): void {
+    if (_cacheSuspended !== suspended) {
+        _workspaceController.abort();
+        _workspaceController = new AbortController();
+    }
     _cacheSuspended = suspended;
     _cacheSuspendedSignal.set(suspended);
 }
