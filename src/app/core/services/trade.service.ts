@@ -1,13 +1,15 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, signal, computed, inject, effect } from '@angular/core';
 import { Trade, TradeFormData, TradeStats, TradeStatus } from '../models/trade.model';
 import { UserDataRepo } from './user-data/user-data.repo';
-import { CACHE_KEYS, readCache, writeCache } from './user-data/user-data.cache';
+import { CACHE_KEYS, readCache, writeCache, isCacheSuspended } from './user-data/user-data.cache';
+import { UserSessionService } from './user-session.service';
 
 @Injectable({
     providedIn: 'root'
 })
 export class TradeService {
     private repo = inject(UserDataRepo);
+    private userSession = inject(UserSessionService);
 
     // Starts from the offline cache; UserDataService replaces this with the
     // authoritative Supabase rows once the post-login fetch completes.
@@ -25,7 +27,21 @@ export class TradeService {
 
     stats = computed(() => this.calculateStats(this.tradesSignal()));
 
-    constructor() { }
+    constructor() {
+        effect(() => {
+            const canonical = this.repo.canonicalTrades();
+            if (!canonical.length) return;
+            // Two tabs may assign different local IDs to the same broker trade.
+            // Reconcile identity only; never overwrite a newer journal edit.
+            this.tradesSignal.update(trades => {
+                const mapped = trades.map(t => {
+                    const saved = canonical.find(c => c.userId === t.userId && c.externalId && c.externalId === t.externalId);
+                    return saved ? { ...t, id: saved.id } : t;
+                });
+                return [...new Map(mapped.map(t => [t.id, t])).values()];
+            });
+        });
+    }
 
     /**
      * Get trade by ID
@@ -38,6 +54,9 @@ export class TradeService {
      * Create new trade
      */
     createTrade(formData: TradeFormData, userId: string): Trade {
+        if (!isCacheSuspended() && userId !== this.userSession.capture().userId) {
+            throw new Error('The account changed. Trade creation cancelled.');
+        }
         const now = new Date().toISOString();
 
         // Determine status: use form status if valid (missed), otherwise infer from exit price

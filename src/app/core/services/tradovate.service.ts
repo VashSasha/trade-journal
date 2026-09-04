@@ -5,6 +5,9 @@ import { catchError, map, switchMap, tap, takeWhile, mergeMap, filter, concatMap
 import { AuthService } from './auth.service';
 import { SupabaseService } from './supabase.service';
 import { TradingAccountsService } from './trading-accounts.service';
+import { UserSessionService } from './user-session.service';
+import { UserDataRepo } from './user-data/user-data.repo';
+import { parsePerformanceCsv } from '../utils/tradovate-performance.utils';
 
 export interface TradovateFill {
     id: number;
@@ -73,6 +76,14 @@ export interface TradovateConnection {
      * matching credentials flips this back instead of creating a duplicate.
      */
     removed?: boolean;
+    /**
+     * User-set retirement flag for dead connections whose credentials no longer
+     * work. A disabled connection is skipped by sync and balance fetches, never
+     * appears in the expired-connections banner, and retains all its rows.
+     * Unlike `removed`, a disabled connection remains visible in Settings so
+     * the user can re-enable it if the account is later reinstated.
+     */
+    disabled?: boolean;
 }
 
 
@@ -99,6 +110,8 @@ export class TradovateService {
     private auth = inject(AuthService);
     private supabase = inject(SupabaseService).client;
     private tradingAccounts = inject(TradingAccountsService);
+    private userSession = inject(UserSessionService);
+    private repo = inject(UserDataRepo);
 
     // ── Persistence keys ──────────────────────────────────────────────────
     // CACHE_* mirror the Supabase rows for offline use and are cleared on
@@ -115,7 +128,6 @@ export class TradovateService {
     private loadedForUser: string | null = null;
     /** True once this user's connections exist in the cloud (import ran, or rows were found). */
     private importedToCloud = false;
-    private cloudPushTimer: ReturnType<typeof setTimeout> | null = null;
     /** Per-connection renewal timers. Keyed by connectionId. */
     private renewalTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -124,7 +136,10 @@ export class TradovateService {
     // or drop them); the public `connections` hides removed entries from all
     // consumers — header, settings, sync loops, account fetching.
     private allConnections = signal<TradovateConnection[]>([]);
-    connections = computed(() => this.allConnections().filter(c => !c.removed));
+    /** Non-removed, non-disabled connections — used by sync, balance fetches, and account selectors. */
+    connections = computed(() => this.allConnections().filter(c => !c.removed && !c.disabled));
+    /** Non-removed connections including disabled — used by Settings so the user can re-enable. */
+    readonly settingsConnections = computed(() => this.allConnections().filter(c => !c.removed));
     activeConnectionId = signal<string | null>(null);
 
     // Cached accounts for active connection
@@ -300,6 +315,9 @@ export class TradovateService {
      * signals if the fetch fails (offline).
      */
     private async loadForUser(userId: string): Promise<void> {
+        await this.userSession.ready;
+        if (this.userSession.userId() !== userId) return;
+        const scope = this.userSession.capture();
         if (this.loadedForUser === userId) return;
         this.loadedForUser = userId;
 
@@ -308,18 +326,17 @@ export class TradovateService {
         // this machine yet (the first-login/import case) — keep the cache/legacy
         // hydrated signals so they can be imported below.
         const cacheOwner = localStorage.getItem(TradovateService.CACHE_OWNER);
-        if (cacheOwner && cacheOwner !== userId) {
+        if (cacheOwner !== userId) {
             this.clearConnectionsCache();
             this.applyConnections([], null);
         }
         localStorage.setItem(TradovateService.CACHE_OWNER, userId);
 
         try {
-            const { data, error } = await this.supabase
-                .from('tradovate_connections')
-                .select('connection_id, data, is_active')
-                .order('updated_at', { ascending: true });
-            if (error) throw error;
+            await this.repo.flushQueue();
+            this.userSession.assertCurrent(scope);
+            const data = await this.repo.fetchConnections();
+            this.userSession.assertCurrent(scope);
 
             const rows = (data ?? []) as { connection_id: string; data: Partial<TradovateConnection>; is_active: boolean }[];
 
@@ -328,12 +345,11 @@ export class TradovateService {
                 // whatever the signals already hold (cache/legacy hydrated at
                 // construction), else read the legacy pre-cloud key explicitly.
                 if (this.allConnections().length === 0) {
-                    const legacy = this.readLegacyConnections();
-                    if (legacy.length === 0) return;
-                    this.applyConnections(legacy, localStorage.getItem(TradovateService.LEGACY_ACTIVE));
+                    return; // Never claim unowned legacy credentials for a new user.
                 }
                 this.writeConnectionsCache();
                 await this.pushToCloud();
+                this.userSession.assertCurrent(scope);
                 this.importedToCloud = true;
                 return;
             }
@@ -363,6 +379,7 @@ export class TradovateService {
             // Anything the cloud didn't know about yet gets upserted.
             if (localOnly.length > 0) this.scheduleCloudPush();
         } catch (err) {
+            if (!this.userSession.isCurrent(scope)) return;
             // Offline / Supabase unreachable — keep the cache-hydrated signals and
             // allow a later retry (online listener / next sign-in) to re-run.
             this.loadedForUser = null;
@@ -370,21 +387,11 @@ export class TradovateService {
         }
     }
 
-    /** Read + sanitize the legacy pre-cloud connections (import source). */
-    private readLegacyConnections(): TradovateConnection[] {
-        const raw = localStorage.getItem(TradovateService.LEGACY_CONNECTIONS);
-        if (!raw) return [];
-        return this.parseStoredConnections(raw) ?? [];
-    }
-
     /** Debounced full push of the current connections to Supabase. */
     private scheduleCloudPush(): void {
         if (!this.auth.session()) return;
-        if (this.cloudPushTimer) return;
-        this.cloudPushTimer = setTimeout(() => {
-            this.cloudPushTimer = null;
-            void this.pushToCloud();
-        }, 400);
+        if (this.userSession.userId() !== this.auth.session()?.user.id) return;
+        this.repo.queueConnectionUpserts(this.allConnections().map(c => this.connectionToRow(c, this.activeConnectionId())));
     }
 
     /**
@@ -397,6 +404,8 @@ export class TradovateService {
     private async pushToCloud(): Promise<void> {
         const uid = this.auth.session()?.user.id;
         if (!uid) return;
+        if (this.userSession.userId() !== uid) return;
+        const scope = this.userSession.capture();
 
         const conns = this.allConnections();
         if (conns.length === 0) return;
@@ -404,11 +413,10 @@ export class TradovateService {
         const activeId = this.activeConnectionId();
 
         try {
-            const rows = conns.map(c => this.connectionToRow(c, activeId));
-            const { error } = await this.supabase
-                .from('tradovate_connections')
-                .upsert(rows, { onConflict: 'user_id,connection_id' });
-            if (error) throw error;
+            const rows = conns.map(c => ({ ...this.connectionToRow(c, activeId), user_id: uid }));
+            this.repo.queueConnectionUpserts(rows);
+            await this.repo.flushQueue();
+            this.userSession.assertCurrent(scope);
 
             this.importedToCloud = true;
         } catch (err) {
@@ -450,7 +458,8 @@ export class TradovateService {
             selectedAccountIds: data.selectedAccountIds ?? cached?.selectedAccountIds,
             createdAt: data.createdAt ?? cached?.createdAt ?? new Date().toISOString(),
             lastSyncedAt: data.lastSyncedAt ?? cached?.lastSyncedAt,
-            removed: data.removed ?? false // cloud metadata is authoritative for soft-removal
+            removed: data.removed ?? false, // cloud metadata is authoritative for soft-removal
+            disabled: data.disabled ?? false
         };
     }
 
@@ -468,10 +477,6 @@ export class TradovateService {
      * and would otherwise be absorbed into the next user's import).
      */
     private onSignOut(): void {
-        if (this.cloudPushTimer) {
-            clearTimeout(this.cloudPushTimer);
-            this.cloudPushTimer = null;
-        }
         for (const t of this.renewalTimers.values()) clearTimeout(t);
         this.renewalTimers.clear();
         this.clearConnectionsCache();
@@ -611,6 +616,7 @@ export class TradovateService {
      * Password must be supplied by the user (it is never stored).
      */
     reconnectConnection(connectionId: string, password: string): Observable<void> {
+        const scope = this.userSession.capture();
         const conn = this.allConnections().find(c => c.id === connectionId);
         if (!conn) return throwError(() => new Error('Connection not found'));
         if (conn.config.authMode !== 'direct' || !conn.config.username) {
@@ -626,6 +632,7 @@ export class TradovateService {
 
         return this.http.post<TradovateAuthResponse>(authUrl, { locale: 'en', login: username, password }, { headers }).pipe(
             map(res => {
+                this.userSession.assertCurrent(scope);
                 const token = res.d?.access_token || res.access_token;
                 if (!token) throw new Error(res.errorText || 'No access token received');
                 this.updateConnectionToken(connectionId, token, this.parseExpiresAt(res));
@@ -677,6 +684,31 @@ export class TradovateService {
 
         // Persist last: the cloud push UPSERTS the removed flag (no deletes)
         // and writes the new active flag / cache in one go.
+        this.saveConnections();
+    }
+
+    /**
+     * Retire a dead connection whose credentials no longer work.
+     * Skipped by sync/balance fetches and never shown in the expired banner.
+     * The row and all its accounts/trades stay intact; the connection remains
+     * visible in Settings so the user can re-enable it.
+     */
+    disableConnection(connectionId: string): void {
+        this.allConnections.update(conns =>
+            conns.map(c => c.id === connectionId ? { ...c, disabled: true } : c)
+        );
+        this.clearExpiredConnection(connectionId);
+        if (this.activeConnectionId() === connectionId) {
+            const remaining = this.connections();
+            this.activeConnectionId.set(remaining.length > 0 ? remaining[0].id : null);
+        }
+        this.saveConnections();
+    }
+
+    enableConnection(connectionId: string): void {
+        this.allConnections.update(conns =>
+            conns.map(c => c.id === connectionId ? { ...c, disabled: false } : c)
+        );
         this.saveConnections();
     }
 
@@ -761,6 +793,8 @@ export class TradovateService {
 
     /** Renew the token for one connection via /auth/renewAccessToken. */
     private async renewToken(connectionId: string): Promise<void> {
+        if (!this.userSession.userId()) return;
+        const scope = this.userSession.capture();
         const conn = this.allConnections().find(c => c.id === connectionId);
         if (!conn || !conn.token || conn.removed) return;
 
@@ -773,11 +807,13 @@ export class TradovateService {
             const res = await firstValueFrom(
                 this.http.post<TradovateAuthResponse>(renewUrl, {}, { headers })
             );
+            this.userSession.assertCurrent(scope);
             const token = res.d?.access_token || res.access_token;
             if (!token) throw new Error('No access token in renewal response');
             this.updateConnectionToken(connectionId, token, this.parseExpiresAt(res));
             if (isDevMode()) console.log(`[TradovateService] Token renewed for ${conn.name}`);
         } catch (err: any) {
+            if (!this.userSession.isCurrent(scope)) return;
             if (err?.status === 401 || err?.status === 403) this.markConnectionExpired(connectionId);
             if (isDevMode()) console.warn(`[TradovateService] Token renewal failed for ${conn.name}:`, err);
         }
@@ -857,10 +893,12 @@ export class TradovateService {
     }
 
     private authGetFor<T>(conn: TradovateConnection, endpoint: string, params?: Record<string, string>): Observable<T> {
+        const scope = this.userSession.capture();
         const headers = new HttpHeaders({ 'Authorization': `Bearer ${conn.token}`, 'Accept': 'application/json' });
         return this.http.get<T>(`${this.getBaseUrlFor(conn)}${endpoint}`, { headers, params }).pipe(
+            tap(() => this.userSession.assertCurrent(scope)),
             catchError(err => {
-                if (err?.status === 401) this.markConnectionExpired(conn.id);
+                if (this.userSession.isCurrent(scope) && err?.status === 401) this.markConnectionExpired(conn.id);
                 return throwError(() => err);
             })
         );
@@ -893,6 +931,7 @@ export class TradovateService {
      * Intercepts 401 responses to mark the active connection as expired.
      */
     private authGet<T>(endpoint: string, params?: Record<string, string>): Observable<T> {
+        const scope = this.userSession.capture();
         try {
             this.requireToken();
         } catch (e) {
@@ -903,8 +942,9 @@ export class TradovateService {
             headers: this.getAuthHeaders(),
             params
         }).pipe(
+            tap(() => this.userSession.assertCurrent(scope)),
             catchError(err => {
-                if (err?.status === 401 || err?.error?.errorText?.toLowerCase().includes('expired')) {
+                if (this.userSession.isCurrent(scope) && (err?.status === 401 || err?.error?.errorText?.toLowerCase().includes('expired'))) {
                     const connId = this.activeConnectionId();
                     if (connId) this.markConnectionExpired(connId);
                 }
@@ -919,6 +959,7 @@ export class TradovateService {
     // because the Worker injects the OAuth client credentials from its secrets;
     // the client never sees or stores the client_secret.
     exchangeCodeForToken(code: string): Observable<any> {
+        const scope = this.userSession.capture();
         const config = this.getConfig();
         if (!config) return throwError(() => new Error('Tradovate configuration not found'));
 
@@ -929,6 +970,7 @@ export class TradovateService {
         };
 
         return this.http.post<TradovateAuthResponse>(`${this.tradovateProxyOrigin}/oauth/token`, body).pipe(
+            tap(() => this.userSession.assertCurrent(scope)),
             map(res => {
                 if (res.access_token) {
                     return res;
@@ -943,6 +985,7 @@ export class TradovateService {
 
     // Simple Login - Just username/password, no API credentials needed
     simpleLogin(username: string, password: string, connectionName: string, environment: 'demo' | 'live' = 'demo'): Observable<{ connectionId: string }> {
+        const scope = this.userSession.capture();
         const body = {
             locale: 'en',
             login: username,
@@ -959,6 +1002,7 @@ export class TradovateService {
         });
 
         return this.http.post<TradovateAuthResponse>(authUrl, body, { headers }).pipe(
+            tap(() => this.userSession.assertCurrent(scope)),
             map(res => {
                 const accessToken = res.d?.access_token || res.access_token;
 
@@ -1688,101 +1732,6 @@ export class TradovateService {
     }
 
     /**
-     * Parse the CSV form of the Performance report (representationType='csv').
-     * Columns: symbol,_priceFormat,_priceFormatType,_tickSize,buyFillId,sellFillId,
-     *          qty,buyPrice,sellPrice,pnl,boughtTimestamp,soldTimestamp,duration
-     *
-     * Each row is a completed, already-matched round-turn trade — the same data as the
-     * Flex.html "Trades" table, but with stable fill IDs and no DOM walking. Note the CSV
-     * form does NOT include the summary block (Gross P/L / fees / Total P/L) that the HTML
-     * template carries; fees are resolved downstream in SyncService.
-     */
-    private parsePerformanceCsv(csv: string, accountId: number, accountName: string): any[] {
-        try {
-            const lines = csv.split(/\r?\n/).filter(l => l.trim().length > 0);
-            if (lines.length < 2) return [];
-
-            const header = lines[0].split(',').map(h => h.trim());
-            // Guard against format drift — bail to empty if the columns we rely on are gone.
-            const required = ['symbol', 'qty', 'buyPrice', 'sellPrice', 'pnl', 'boughtTimestamp', 'soldTimestamp'];
-            if (!required.every(c => header.includes(c))) {
-                if (isDevMode()) { console.warn('[TradovateService] Performance CSV: unexpected columns', header); }
-                return [];
-            }
-
-            const trades: any[] = [];
-            for (let i = 1; i < lines.length; i++) {
-                const parts = lines[i].split(',');
-                if (parts.length < 13) continue;
-
-                // Leading columns and the trailing 3 (timestamps + duration) are comma-free.
-                // pnl sits in the middle and may carry a thousands separator (e.g. $1,322.00),
-                // so reconstruct it from everything between sellPrice and boughtTimestamp.
-                const symbol      = parts[0].trim();
-                const tickSize    = parseFloat(parts[3]) || 0;
-                const buyFillId   = parts[4].trim();
-                const sellFillId  = parts[5].trim();
-                const quantity    = parseFloat(parts[6]) || 0;
-                const buyPrice    = parseFloat(parts[7]) || 0;
-                const sellPrice   = parseFloat(parts[8]) || 0;
-                const soldStr     = parts[parts.length - 2].trim();
-                const boughtStr   = parts[parts.length - 3].trim();
-                const pnl         = this.parsePerformancePnl(parts.slice(9, parts.length - 3).join('').trim());
-
-                if (!symbol || !quantity || !boughtStr || !soldStr) continue;
-
-                const buyTime  = new Date(boughtStr);
-                const sellTime = new Date(soldStr);
-                if (isNaN(buyTime.getTime()) || isNaN(sellTime.getTime())) continue;
-
-                // Sell before buy → SHORT (sold to enter, bought to cover).
-                const isShort    = sellTime < buyTime;
-                const entryDate  = (isShort ? sellTime : buyTime).toISOString();
-                const exitDate   = (isShort ? buyTime  : sellTime).toISOString();
-                const entryPrice = isShort ? sellPrice : buyPrice;
-                const exitPrice  = isShort ? buyPrice  : sellPrice;
-                const pnlPercent = entryPrice
-                    ? ((isShort ? entryPrice - exitPrice : exitPrice - entryPrice) / entryPrice) * 100
-                    : 0;
-
-                trades.push({
-                    symbol,
-                    assetType: 'futures',
-                    direction: isShort ? 'short' : 'long',
-                    quantity,
-                    entryDate,
-                    exitDate,
-                    entryPrice,
-                    exitPrice,
-                    pnl,
-                    pnlPercent,
-                    fees: undefined,
-                    tickSize,
-                    buyFillId,
-                    sellFillId,
-                    status: 'closed',
-                    accountId: String(accountId),
-                    accountName,
-                    // Dedup key MUST distinguish trades that share symbol + entry/exit times
-                    // but are genuinely separate fills (e.g. two scalps closed in the same
-                    // second at different prices). buyFillId/sellFillId are globally unique
-                    // per fill, so they key the trade exactly. Fall back to a price+pnl
-                    // composite only if a CSV ever arrives without fill IDs.
-                    externalId: (buyFillId && sellFillId)
-                        ? `tradovate_perf_${accountId}_${symbol}_${buyFillId}_${sellFillId}`
-                        : `tradovate_perf_${accountId}_${symbol}_${entryDate}_${exitDate}_${entryPrice}_${exitPrice}_${pnl}`
-                });
-            }
-
-            if (isDevMode()) { console.log(`[TradovateService] Performance CSV parser extracted ${trades.length} trades`); }
-            return trades;
-        } catch (err) {
-            console.error('[TradovateService] Performance CSV parsing failed:', err);
-            return [];
-        }
-    }
-
-    /**
      * Request a Performance report for one account/chunk and return parsed trades.
      * Handles p-ticket long-polling (up to 30 attempts).
      */
@@ -1795,6 +1744,7 @@ export class TradovateService {
         pTicket?: string,
         conn?: TradovateConnection
     ): Observable<any[]> {
+        const scope = this.userSession.capture();
         if (conn) {
             // Per-connection auth path
         } else {
@@ -1829,7 +1779,9 @@ export class TradovateService {
         const waitMs = pTicket ? 2000 : 0;
 
         return timer(waitMs).pipe(
+            tap(() => this.userSession.assertCurrent(scope)),
             switchMap(() => this.http.post(url, body, { headers, responseType: 'text' })),
+            tap(() => this.userSession.assertCurrent(scope)),
             map((raw: string) => {
                 try { return JSON.parse(raw); } catch { return { data: raw }; }
             }),
@@ -1841,12 +1793,12 @@ export class TradovateService {
                         // Fallback: Tradovate ignored csv and rendered the HTML template.
                         return of(this.parsePerformanceTrades(raw, accountId ?? 0, accountName ?? ''));
                     }
-                    return of(this.parsePerformanceCsv(raw, accountId ?? 0, accountName ?? ''));
+                    return of(parsePerformanceCsv(raw, accountId ?? 0, accountName ?? ''));
                 }
                 if (res['p-ticket']) {
                     if (attempt >= 30) {
                         if (isDevMode()) { console.warn('[TradovateService] Performance report polling timed out'); }
-                        return of([]);
+                        return throwError(() => new Error('Tradovate report timed out; sync was not completed.'));
                     }
                     const msg: string = res['p-message'] || '';
                     if (msg.toLowerCase().includes('rate limit')) {
@@ -1868,12 +1820,12 @@ export class TradovateService {
                     return throwError(() => err);
                 }
                 if (isDevMode()) { console.warn('[TradovateService] Unexpected Performance report response:', res); }
-                return of([]);
+                return throwError(() => new Error('Unexpected Tradovate report response; sync was not completed.'));
             }),
             catchError(err => {
                 if (this.isAuthError(err)) return throwError(() => err);
                 console.error(`[TradovateService] Performance report error for ${accountName}:`, err);
-                return of([] as any[]);
+                return throwError(() => err);
             })
         );
     }
@@ -1904,7 +1856,7 @@ export class TradovateService {
                             catchError(err => {
                                 if (this.isAuthError(err)) return throwError(() => err);
                                 console.error(`[TradovateService] getAllTrades failed for ${account.name}:`, err);
-                                return of([] as any[]);
+                                return throwError(() => err);
                             })
                         );
                     })
@@ -1915,7 +1867,7 @@ export class TradovateService {
             catchError(err => {
                 if (this.isAuthError(err)) return throwError(() => err);
                 if (isDevMode()) { console.warn('[TradovateService] getAllTrades failed:', err); }
-                return of([] as any[]);
+                return throwError(() => err);
             })
         );
     }

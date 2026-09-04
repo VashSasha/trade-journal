@@ -1,9 +1,11 @@
 import { Trade } from '../../../core/models/trade.model';
 import { PerformanceCsvTrade } from '../../../core/utils/tradovate-performance.utils';
+import { reconcileBrokerTrades } from '../../../core/utils/broker-trade-identity';
 
 export interface ImportSplit {
     newTrades: PerformanceCsvTrade[];
     duplicates: PerformanceCsvTrade[];
+    review: PerformanceCsvTrade[];
 }
 
 /**
@@ -12,28 +14,7 @@ export interface ImportSplit {
  * legacy no-accountId key format for trades stored before accountId prefixing).
  */
 export function splitByExisting(parsed: PerformanceCsvTrade[], existing: Trade[]): ImportSplit {
-    const existingByExternalId = new Map(
-        existing
-            .filter(t => t.source === 'tradovate' && t.externalId)
-            .map(t => [t.externalId!, t])
-    );
-
-    const newTrades: PerformanceCsvTrade[] = [];
-    const duplicates: PerformanceCsvTrade[] = [];
-
-    for (const t of parsed) {
-        let match = existingByExternalId.get(t.externalId);
-
-        if (!match) {
-            const legacyId = `tradovate_perf_${t.symbol}_${t.entryDate}_${t.exitDate}`;
-            const leg = existingByExternalId.get(legacyId);
-            if (leg && leg.accountId === t.accountId) match = leg;
-        }
-
-        (match ? duplicates : newTrades).push(t);
-    }
-
-    return { newTrades, duplicates };
+    return reconcileBrokerTrades(parsed, existing);
 }
 
 /**

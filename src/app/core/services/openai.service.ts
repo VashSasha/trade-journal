@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 import { SupabaseService } from './supabase.service';
 import { DemoModeService } from './demo-mode.service';
+import { UserSessionService } from './user-session.service';
 
 /**
  * All AI calls go through the ai-report Supabase Edge Function — the
@@ -19,6 +20,7 @@ export class OpenAiService {
     private auth = inject(AuthService);
     private supabase = inject(SupabaseService).client;
     private demo = inject(DemoModeService);
+    private userSession = inject(UserSessionService);
 
     constructor() {
         // Pre-Phase-3 Electron builds kept a user-pasted Anthropic key in
@@ -60,9 +62,16 @@ export class OpenAiService {
     }
 
     private async callFunction(type: string, payload: unknown): Promise<string> {
+        const scope = this.userSession.capture();
+        const { data: { session } } = await this.supabase.auth.getSession();
+        this.userSession.assertCurrent(scope);
+        if (!session || session.user.id !== scope.userId) throw new Error('Please sign in again.');
         const { data, error } = await this.supabase.functions.invoke('ai-report', {
-            body: { type, payload }
+            body: { type, payload },
+            headers: { Authorization: `Bearer ${session.access_token}` },
+            signal: scope.signal
         });
+        this.userSession.assertCurrent(scope);
         if (error) {
             // FunctionsHttpError carries the function's JSON body (plan/rate-limit
             // messages) on its context Response — surface that to the user.
@@ -76,6 +85,7 @@ export class OpenAiService {
 
     streamAnalysis(messages: any[], maxTokens = 1200): Observable<string> {
         if (this.demo.active()) return cannedDemoResponse();
+        const scope = this.userSession.capture();
 
         // functions.invoke() buffers the whole response; streaming needs a raw
         // fetch against the same function endpoint with the session JWT.
@@ -83,13 +93,17 @@ export class OpenAiService {
 
         return new Observable<string>(subscriber => {
             const controller = new AbortController();
+            const cancel = () => { controller.abort(); subscriber.error(new Error('The session changed. Analysis cancelled.')); };
+            scope.signal.addEventListener('abort', cancel, { once: true });
             let buffer = '';
 
             // Fetch a FRESH access token right before the request. getSession()
             // auto-refreshes an expired token; reading the cached authToken()
             // signal could send a stale/expired JWT ("Invalid or expired token").
             (async () => {
+                this.userSession.assertCurrent(scope);
                 const { data: { session } } = await this.supabase.auth.getSession();
+                this.userSession.assertCurrent(scope);
                 const token = session?.access_token;
                 if (!token) {
                     subscriber.error(new Error('Not authenticated.'));
@@ -123,6 +137,7 @@ export class OpenAiService {
 
                 while (true) {
                     const { done, value } = await reader.read();
+                    this.userSession.assertCurrent(scope);
                     if (done) break;
 
                     buffer += decoder.decode(value, { stream: true });
@@ -152,9 +167,9 @@ export class OpenAiService {
                     // A genuine network failure (fetch rejects) — surface friendly copy.
                     subscriber.error(new Error('Couldn\'t reach the AI service. Check your connection and try again.'));
                 });
-            })();
+            })().catch(err => subscriber.error(err));
 
-            return () => controller.abort();
+            return () => { scope.signal.removeEventListener('abort', cancel); controller.abort(); };
         });
     }
 }

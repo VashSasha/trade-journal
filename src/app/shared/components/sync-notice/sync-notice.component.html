@@ -1,6 +1,9 @@
-@if (userData.importing()) {
+@if (userData.importing() || repo.pending() || repo.saveError()) {
     <div class="sync-notice" role="status" aria-live="polite">
         <span class="sync-notice__spinner" aria-hidden="true"></span>
-        <span class="sync-notice__text">Syncing your journal to the cloud…</span>
+        <span class="sync-notice__text">{{ repo.saveError() || 'Saving changes to the cloud…' }}</span>
+        @if (repo.saveError()) {
+            <button class="sync-notice__retry" (click)="retry()">Retry save</button>
+        }
     </div>
 }

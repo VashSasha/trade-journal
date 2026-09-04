@@ -25,7 +25,16 @@
     &__text {
         font-size: 13px;
         color: var(--color-text-secondary);
-        white-space: nowrap;
+        max-width: 32rem;
+        white-space: normal;
+    }
+    &__retry {
+        color: var(--color-accent);
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 4px;
+        padding: 6px 10px;
+        cursor: pointer;
     }
 }
 

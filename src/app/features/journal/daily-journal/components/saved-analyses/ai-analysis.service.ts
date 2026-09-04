@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { SupabaseService } from '../../../../../core/services/supabase.service';
 import { DemoModeService } from '../../../../../core/services/demo-mode.service';
+import { UserSessionService } from '../../../../../core/services/user-session.service';
 
 /** A persisted AI day-analysis (row of public.ai_analyses). */
 export interface SavedAnalysis {
@@ -32,6 +33,7 @@ function rowToAnalysis(row: any): SavedAnalysis {
 export class AiAnalysisService {
     private client = inject(SupabaseService).client;
     private demo = inject(DemoModeService);
+    private userSession = inject(UserSessionService);
 
     /** Saved analyses for the most recently loaded date, newest first. */
     readonly analyses = signal<SavedAnalysis[]>([]);
@@ -43,6 +45,8 @@ export class AiAnalysisService {
 
     /** Fetch a day's saved analyses (newest first) into the `analyses` signal. */
     async listAnalyses(date: string): Promise<void> {
+        if (!this.userSession.userId()) return;
+        const scope = this.userSession.capture();
         this.loadedDate = date;
         this.loading.set(true);
         this.error.set(null);
@@ -52,7 +56,9 @@ export class AiAnalysisService {
             .select(COLUMNS)
             .eq('kind', 'journal')
             .eq('date', date)
-            .order('created_at', { ascending: false });
+            .eq('user_id', scope.userId)
+            .order('created_at', { ascending: false }).abortSignal(scope.signal);
+        if (!this.userSession.isCurrent(scope) || this.loadedDate !== date) return;
 
         this.loading.set(false);
         if (error) {
@@ -65,11 +71,13 @@ export class AiAnalysisService {
     /** Persist a new analysis for `date`; prepends to `analyses` if it's loaded. */
     async saveAnalysis(date: string, content: string): Promise<SavedAnalysis> {
         if (!this.demo.requireAccount('ai')) throw new Error('demo');
+        const scope = this.userSession.capture();
         const { data, error } = await this.client
             .from('ai_analyses')
-            .insert({ kind: 'journal', date, content })
+            .insert({ user_id: scope.userId, kind: 'journal', date, content })
             .select(COLUMNS)
-            .single();
+            .abortSignal(scope.signal).single();
+        this.userSession.assertCurrent(scope);
 
         if (error) throw error;
 
@@ -85,15 +93,19 @@ export class AiAnalysisService {
      * coach to check yesterday's commitment. Null when none exists.
      */
     async latestAnalysisBefore(date: string): Promise<SavedAnalysis | null> {
+        if (!this.userSession.userId()) return null;
+        const scope = this.userSession.capture();
         const { data, error } = await this.client
             .from('ai_analyses')
             .select(COLUMNS)
             .eq('kind', 'journal')
             .lt('date', date)
+            .eq('user_id', scope.userId)
             .order('date', { ascending: false })
             .order('created_at', { ascending: false })
             .limit(1)
-            .maybeSingle();
+            .abortSignal(scope.signal).maybeSingle();
+        this.userSession.assertCurrent(scope);
 
         if (error || !data) return null;
         return rowToAnalysis(data);
@@ -101,10 +113,12 @@ export class AiAnalysisService {
 
     /** Delete a saved analysis and drop it from the `analyses` signal. */
     async deleteAnalysis(id: string): Promise<void> {
+        const scope = this.userSession.capture();
         const { error } = await this.client
             .from('ai_analyses')
             .delete()
-            .eq('id', id);
+            .eq('id', id).eq('user_id', scope.userId).abortSignal(scope.signal);
+        this.userSession.assertCurrent(scope);
 
         if (error) throw error;
         this.analyses.update(list => list.filter(a => a.id !== id));

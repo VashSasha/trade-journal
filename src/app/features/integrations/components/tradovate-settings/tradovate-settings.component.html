@@ -19,14 +19,19 @@
         <h2 class="tv-settings__section-title">Your Connections</h2>
 
         @for (conn of connections(); track conn.id) {
-          <div class="card">
+          <div class="card" [class.tv-settings__conn-card--disabled]="conn.disabled">
             <div class="tv-settings__conn-row">
               <div class="tv-settings__conn-info">
-                <div class="tv-settings__avatar">
+                <div class="tv-settings__avatar" [class.tv-settings__avatar--disabled]="conn.disabled">
                   {{ conn.name.charAt(0).toUpperCase() }}
                 </div>
                 <div>
-                  <h3 class="tv-settings__conn-name">{{ conn.name }}</h3>
+                  <div class="tv-settings__conn-name-row">
+                    <h3 class="tv-settings__conn-name">{{ conn.name }}</h3>
+                    @if (conn.disabled) {
+                      <span class="tv-settings__disabled-badge">Closed</span>
+                    }
+                  </div>
                   <div class="tv-settings__conn-meta">
                     <span class="trade-badge tv-settings__badge"
                           [class.badge-open]="conn.config.environment === 'demo'"
@@ -43,10 +48,48 @@
                   }
                 </div>
               </div>
-              <button (click)="disconnectConnection(conn.id)" class="btn-danger tv-settings__remove-btn">
-                Remove
-              </button>
+              <div class="tv-settings__conn-actions">
+                <button (click)="toggleConnectionDisabled(conn)"
+                        class="tv-settings__toggle-disabled-btn"
+                        [class.tv-settings__toggle-disabled-btn--enable]="conn.disabled"
+                        [title]="conn.disabled ? 'Re-enable this connection' : 'Mark as closed — skips sync and hides from the expired banner'">
+                  {{ conn.disabled ? 'Re-enable' : 'Mark Closed' }}
+                </button>
+                <button (click)="disconnectConnection(conn.id)" class="btn-danger tv-settings__remove-btn">
+                  Remove
+                </button>
+              </div>
             </div>
+
+            <!-- Per-account retire controls -->
+            @if (conn.accounts.length > 0) {
+              <div class="tv-settings__accounts-list">
+                @for (acc of conn.accounts; track acc.id) {
+                  @let retired = isAccountRetired(acc.id);
+                  <div class="tv-settings__account-row" [class.tv-settings__account-row--archived]="retired">
+                    <div class="tv-settings__account-info">
+                      <span class="tv-settings__account-name">{{ acc.name }}</span>
+                      @if (retired) {
+                        <span class="tv-settings__archived-badge">Retired</span>
+                      } @else if (!acc.active) {
+                        <span class="tv-settings__inactive-badge">Inactive</span>
+                      }
+                    </div>
+                    @if (retired) {
+                      <button (click)="restoreAccount(acc.id)"
+                              class="tv-settings__archive-btn tv-settings__archive-btn--unarchive">
+                        Restore
+                      </button>
+                    } @else {
+                      <button (click)="retireAccount(acc.id)"
+                              class="tv-settings__archive-btn">
+                        Retire
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+            }
           </div>
         }
       </div>

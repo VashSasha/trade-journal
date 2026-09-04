@@ -7,11 +7,14 @@ import { AuthService } from '../../../core/services/auth.service';
 import { DemoModeService } from '../../../core/services/demo-mode.service';
 import { parsePerformanceCsv, PerformanceCsvTrade } from '../../../core/utils/tradovate-performance.utils';
 import { splitByExisting, stableAccountIdFromName } from './import-trades.utils';
+import { UserSessionService } from '../../../core/services/user-session.service';
+import { UserDataRepo } from '../../../core/services/user-data/user-data.repo';
 
 export interface ImportPreview {
     total: number;
     newTrades: PerformanceCsvTrade[];
     duplicateCount: number;
+    reviewCount: number;
     firstDate: string | null;
     lastDate: string | null;
     symbols: string[];
@@ -33,6 +36,8 @@ export class ImportTradesState {
     private accountSettings = inject(AccountSettingsService);
     private authService = inject(AuthService);
     private demo = inject(DemoModeService);
+    private userSession = inject(UserSessionService);
+    private repo = inject(UserDataRepo);
 
     fileName = signal<string | null>(null);
     private csvText = signal<string | null>(null);
@@ -92,13 +97,14 @@ export class ImportTradesState {
         if (!csv || !acc) return null;
 
         const parsed = parsePerformanceCsv(csv, acc.id, acc.name);
-        const { newTrades, duplicates } = splitByExisting(parsed, this.tradeService.trades());
+        const { newTrades, duplicates, review } = splitByExisting(parsed, this.tradeService.trades());
 
         const dates = parsed.flatMap(t => [t.entryDate, t.exitDate]).sort();
         return {
             total: parsed.length,
             newTrades,
             duplicateCount: duplicates.length,
+            reviewCount: review.length,
             firstDate: dates[0] ?? null,
             lastDate: dates[dates.length - 1] ?? null,
             symbols: [...new Set(parsed.map(t => t.symbol))]
@@ -136,12 +142,13 @@ export class ImportTradesState {
      * (user_id, external_id) index rejects any cross-tab race with a concurrent
      * sync), then recalculateTradovateNetPnl for fee reconciliation.
      */
-    import(): void {
+    async import(): Promise<void> {
         if (!this.demo.requireAccount('sync')) return;
         const preview = this.preview();
         const acc = this.targetAccount();
         const user = this.authService.currentUser();
         if (!preview || !acc || !user || preview.newTrades.length === 0 || this.isImporting()) return;
+        const scope = this.userSession.capture();
 
         this.isImporting.set(true);
         try {
@@ -167,8 +174,12 @@ export class ImportTradesState {
             }
 
             this.tradeService.recalculateTradovateNetPnl(commission);
+            await this.repo.flushQueue();
+            this.userSession.assertCurrent(scope);
             this.importResult.set({ imported, skipped: preview.duplicateCount });
             this.clearFile();
+        } catch {
+            if (this.userSession.isCurrent(scope)) this.fileError.set('Cloud save is not complete. Your changes remain pending on this device; use Retry save.');
         } finally {
             this.isImporting.set(false);
         }

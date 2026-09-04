@@ -1,10 +1,12 @@
-import { Injectable, inject, signal, isDevMode } from '@angular/core';
+import { Injectable, inject, signal, isDevMode, effect } from '@angular/core';
 import { TradovateService } from './tradovate.service';
 import { TradeService } from './trade.service';
 import { AccountSettingsService } from './account-settings.service';
-import { firstValueFrom, Subject } from 'rxjs';
+import { firstValueFrom, Subject, fromEvent } from 'rxjs';
 import { takeUntil, timeout } from 'rxjs/operators';
-import { AuthService } from './auth.service';
+import { UserSessionService } from './user-session.service';
+import { UserDataRepo } from './user-data/user-data.repo';
+import { reconcileBrokerTrades } from '../utils/broker-trade-identity';
 
 export interface SyncLogEntry {
     time: string;
@@ -18,27 +20,36 @@ export interface SyncLogEntry {
 export class SyncService {
     private tradovateService = inject(TradovateService);
     private tradeService = inject(TradeService);
-    private authService = inject(AuthService);
     private accountSettings = inject(AccountSettingsService);
+    private userSession = inject(UserSessionService);
+    private repo = inject(UserDataRepo);
 
     private static readonly LAST_SYNC_KEY = 'tradovate_last_sync_time';
     private static readonly SYNC_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
     isSyncing = signal(false);
-    lastSyncTime = signal<Date | null>(SyncService.loadLastSyncTime());
+    lastSyncTime = signal<Date | null>(null);
     syncLog = signal<SyncLogEntry[]>([]);
     syncProgress = signal<{ current: number; total: number } | null>(null);
 
     private cancel$ = new Subject<void>();
+    private activeRun: AbortController | null = null;
+    constructor() {
+        effect(() => {
+            this.lastSyncTime.set(SyncService.loadLastSyncTime(this.userSession.userId()));
+            this.clearLog();
+        });
+    }
 
     cancelSync(): void {
+        this.activeRun?.abort();
         this.cancel$.next();
-        this.isSyncing.set(false);
         this.log('Sync cancelled by user.', 'warn');
     }
 
-    private static loadLastSyncTime(): Date | null {
-        const stored = localStorage.getItem(SyncService.LAST_SYNC_KEY);
+    private static loadLastSyncTime(userId: string | null): Date | null {
+        if (!userId) return null;
+        const stored = localStorage.getItem(`${SyncService.LAST_SYNC_KEY}:${userId}`);
         if (!stored) return null;
         const d = new Date(stored);
         return isNaN(d.getTime()) ? null : d;
@@ -82,6 +93,13 @@ export class SyncService {
      */
     async syncFrom(fromDate: Date | null): Promise<number> {
         if (this.isSyncing()) return 0;
+        const scope = this.userSession.capture();
+        const run = new AbortController();
+        this.activeRun = run;
+        const assertRun = () => {
+            this.userSession.assertCurrent(scope);
+            if (run.signal.aborted) throw new Error('Sync cancelled. Pending saves remain safe.');
+        };
         this.isSyncing.set(true);
         this.clearLog();
 
@@ -100,6 +118,7 @@ export class SyncService {
             // so the session can't die halfway through.
             for (const conn of conns) {
                 await this.tradovateService.ensureFreshToken(conn.id);
+                assertRun();
             }
 
             // Link legacy trades (imported before connection tracking) to the
@@ -116,9 +135,11 @@ export class SyncService {
             const rawTrades = await firstValueFrom(
                 this.tradovateService.getAllTrades(fromDate).pipe(
                     timeout(SyncService.SYNC_TIMEOUT_MS),
-                    takeUntil(this.cancel$)
+                    takeUntil(this.cancel$),
+                    takeUntil(fromEvent(scope.signal, 'abort'))
                 )
             );
+            assertRun();
             this.log(`Retrieved ${rawTrades.length} trade(s)`, rawTrades.length > 0 ? 'success' : 'warn');
 
             if (rawTrades.length === 0) {
@@ -129,9 +150,11 @@ export class SyncService {
                     `[SyncService] Fee reconciliation — gross P&L: $${totals0.grossPnl.toFixed(2)}, ` +
                     `total fees: $${totals0.totalFees.toFixed(2)}, net P&L: $${totals0.netPnl.toFixed(2)}`
                 ); }
+                await this.repo.flushQueue();
+                assertRun();
                 const syncTime = new Date();
                 this.lastSyncTime.set(syncTime);
-                localStorage.setItem(SyncService.LAST_SYNC_KEY, syncTime.toISOString());
+                localStorage.setItem(`${SyncService.LAST_SYNC_KEY}:${scope.userId}`, syncTime.toISOString());
                 conns.forEach(c => this.tradovateService.updateConnectionSyncTime(c.id));
                 return 0;
             }
@@ -148,33 +171,21 @@ export class SyncService {
             });
 
             // Deduplicate and collect fee updates for already-stored trades
-            const existingByExternalId = new Map(
-                this.tradeService.trades()
-                    .filter(t => t.source === 'tradovate' && t.externalId)
-                    .map(t => [t.externalId, t])
-            );
-
-            const tradesToImport: typeof matchedTrades = [];
+            const reconciliation = reconcileBrokerTrades(matchedTrades, this.tradeService.trades());
+            if (reconciliation.review.length) {
+                throw new Error(`${reconciliation.review.length} possible cross-format duplicate(s). Sync paused; review the existing trades before importing. No trades were removed.`);
+            }
+            const tradesToImport = reconciliation.newTrades;
             const feeUpdates: { id: string; fees: number; netPnl: number }[] = [];
 
             for (const t of matchedTrades) {
-                // New-format externalId check (accountId included)
-                let existing = existingByExternalId.get(t.externalId);
-
-                if (!existing) {
-                    // Legacy-format check (no accountId prefix) — same account only
-                    const legacyId = `tradovate_perf_${t.symbol}_${t.entryDate}_${t.exitDate}`;
-                    const leg = existingByExternalId.get(legacyId);
-                    if (leg && leg.accountId === t.accountId) existing = leg;
-                }
+                const existing = reconciliation.matches.get(t);
 
                 if (existing) {
                     // Trade already stored — update fees/netPnl if the report gives different values
                     if (existing.fees !== t.fees || existing.netPnl !== t.netPnl) {
                         feeUpdates.push({ id: existing.id, fees: t.fees, netPnl: t.netPnl });
                     }
-                } else {
-                    tradesToImport.push(t);
                 }
             }
 
@@ -190,22 +201,24 @@ export class SyncService {
             }
 
             // Import new trades
-            const currentUser = this.authService.currentUser();
-            if (!currentUser) throw new Error('User not logged in');
 
             this.syncProgress.set({ current: 0, total: tradesToImport.length });
             for (let i = 0; i < tradesToImport.length; i++) {
-                this.tradeService.createTrade(tradesToImport[i], currentUser.id);
+                this.tradeService.createTrade(tradesToImport[i], scope.userId);
                 this.syncProgress.set({ current: i + 1, total: tradesToImport.length });
             }
 
+            await this.repo.flushQueue();
+            assertRun();
             const syncTime = new Date();
             this.lastSyncTime.set(syncTime);
-            localStorage.setItem(SyncService.LAST_SYNC_KEY, syncTime.toISOString());
+            localStorage.setItem(`${SyncService.LAST_SYNC_KEY}:${scope.userId}`, syncTime.toISOString());
             conns.forEach(c => this.tradovateService.updateConnectionSyncTime(c.id));
 
             // Recompute netPnl from stored fees (ensures consistency after import + fee patches)
             const totals = this.tradeService.recalculateTradovateNetPnl(commission);
+            await this.repo.flushQueue();
+            assertRun();
             if (isDevMode()) { console.log(
                 `[SyncService] Fee reconciliation — gross P&L: $${totals.grossPnl.toFixed(2)}, ` +
                 `total fees: $${totals.totalFees.toFixed(2)}, net P&L: $${totals.netPnl.toFixed(2)}`
@@ -218,11 +231,14 @@ export class SyncService {
 
         } catch (err: any) {
             const msg = err?.message || 'Unknown error';
-            this.log(`Sync failed: ${msg}`, 'error');
+            if (this.userSession.isCurrent(scope)) this.log(`Sync failed: ${msg}`, 'error');
             console.error('Sync failed', err);
             throw err;
         } finally {
-            this.isSyncing.set(false);
+            if (this.activeRun === run) {
+                this.activeRun = null;
+                this.isSyncing.set(false);
+            }
         }
     }
 }
