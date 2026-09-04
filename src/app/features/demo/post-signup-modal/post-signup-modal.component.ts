@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { TradeService } from '../../../core/services/trade.service';
 import { DemoModeService } from '../../../core/services/demo-mode.service';
+import { AccessPolicyService } from '../../../core/services/access-policy.service';
 
 const DISMISSED_KEY_PREFIX = 'post_signup_modal_dismissed_';
 const NEW_USER_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -30,6 +31,7 @@ export class PostSignupModalComponent {
     private auth = inject(AuthService);
     private trades = inject(TradeService);
     private demo = inject(DemoModeService);
+    readonly access = inject(AccessPolicyService);
 
     readonly visible = signal(false);
 

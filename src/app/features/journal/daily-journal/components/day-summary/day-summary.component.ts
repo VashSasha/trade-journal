@@ -18,6 +18,7 @@ import {
 import { SharePnlComponent, SharePnlStats } from '../../../../../shared/components/share-pnl/share-pnl.component';
 import { AiAnalysisService } from '../saved-analyses/ai-analysis.service';
 import { JournalFormState } from '../../state/journal-form.state';
+import { AccessPolicyService } from '../../../../../core/services/access-policy.service';
 
 type AnalysisState = { status: 'idle' | 'streaming' | 'complete' | 'error'; content: string; error: string | null };
 type ConfidenceTier = 'high' | 'medium' | 'low' | null;
@@ -56,6 +57,7 @@ export class DaySummaryComponent implements OnDestroy {
 
   readonly accountSettings = inject(AccountSettingsService);
   readonly openAiService = inject(OpenAiService);
+  readonly access = inject(AccessPolicyService);
   private readonly aiAnalysis = inject(AiAnalysisService);
   private readonly journalService = inject(DailyJournalService);
   private readonly tradeService = inject(TradeService);
@@ -157,6 +159,8 @@ export class DaySummaryComponent implements OnDestroy {
 
   // ── AI Insight ───────────────────────────────────────────────────────────
   async generateInsight(): Promise<void> {
+    if (!this.trades.length) return;
+    if (!this.access.demo() && !this.access.requestAction('ai')) return;
     const yesterdayFocus = await this.fetchYesterdayFocus();
 
     this.insightMessages = [

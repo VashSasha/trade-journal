@@ -4,9 +4,12 @@
         <!-- Header -->
         <div class="air-header">
             <h1 class="page-title">AI Market Analyzer</h1>
-            <p class="page-subtitle">Get AI-powered market analysis from chart screenshots or live data</p>
+            <p class="page-subtitle">AI-powered chart analysis. Live data analysis is coming soon.</p>
         </div>
 
+        @if (access.demo()) {
+            <p class="page-subtitle" role="status">Demo preview: this is a fictional example, not analysis of your chart. Nothing is uploaded or saved and no AI credits are used.</p>
+        } @else {
         <!-- Mode Toggle -->
         <div class="air-mode-toggle">
             <button class="air-mode-toggle__btn"
@@ -94,8 +97,8 @@
             <!-- API Key Warning -->
             @if (!openAiService.hasApiKey()) {
                 <div class="air-apikey-warning">
-                    <p class="air-apikey-warning__text">An Anthropic API key is required for analysis.</p>
-                    <a class="air-btn air-btn--amber" routerLink="/settings">Add API key in Settings</a>
+                    <p class="air-apikey-warning__text">Personalized AI analysis is included with Premium and Lifetime.</p>
+                    <a class="air-btn air-btn--amber" routerLink="/account">View subscription options</a>
                 </div>
             }
 
@@ -122,6 +125,7 @@
             </button>
         </div>
 
+        }
         <!-- Results -->
         <div class="air-results">
 
@@ -226,7 +230,7 @@
         </div>
 
         <!-- Saved Reports — auto-populated after each successful analysis -->
-        <app-saved-reports></app-saved-reports>
+        @if (!access.demo()) { <app-saved-reports></app-saved-reports> }
 
     </div>
 </div>

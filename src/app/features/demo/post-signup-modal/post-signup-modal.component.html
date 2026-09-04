@@ -8,12 +8,15 @@
         </div>
         <h2 class="psm__title" id="psm-title">Your workspace is ready</h2>
         <p class="psm__body">
-            Connect your Tradovate account to start syncing real trades and get AI-powered coaching on your actual performance.
+            Start with manual trades and a daily journal for free. Upgrade for broker sync, analytics, and personalized AI coaching.
         </p>
 
         <div class="psm__actions">
-            <a class="psm__btn psm__btn--primary" routerLink="/settings" (click)="dismiss()">
-                Connect Trading Account
+            <a class="psm__btn psm__btn--primary" routerLink="/journal/daily" (click)="dismiss()">
+                Open my journal
+            </a>
+            <a class="psm__btn psm__btn--secondary" [routerLink]="access.paid() ? '/settings' : '/upgrade'" (click)="dismiss()">
+                {{ access.paid() ? 'Connect your broker' : 'Explore Premium' }}
             </a>
             <button class="psm__btn psm__btn--secondary" type="button" (click)="exploreDemo()">
                 Explore demo data

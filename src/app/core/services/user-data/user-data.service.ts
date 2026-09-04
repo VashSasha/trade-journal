@@ -9,6 +9,7 @@ import { UserDataRepo } from './user-data.repo';
 import { UserSessionService, UserOperation } from '../user-session.service';
 import { Trade } from '../../models/trade.model';
 import { GoalService } from '../goal.service';
+import { AccessPolicyService } from '../access-policy.service';
 import { DailyNote, JournalTemplate } from '../../models/daily-journal.model';
 import {
     CACHE_KEYS, LEGACY_KEYS,
@@ -40,6 +41,7 @@ export class UserDataService {
     private settingsService = inject(AccountSettingsService);
     private tradingAccounts = inject(TradingAccountsService);
     private goals = inject(GoalService);
+    private access = inject(AccessPolicyService);
 
     /** True while the one-time legacy upload runs — drives the sync notice. */
     readonly importing = signal(false);
@@ -88,7 +90,7 @@ export class UserDataService {
     private async loadForUser(userId: string): Promise<void> {
         await this.userSession.ready;
         if (this.userSession.userId() !== userId) return;
-        const scope = this.userSession.capture();
+        const scope = this.access.capture();
         if (isCacheSuspended()) return;
         if (this.loadedForUser === userId) return;
         this.loadedForUser = userId;
@@ -109,6 +111,7 @@ export class UserDataService {
             const version = this.repo.writeVersion;
             const settings = await this.repo.fetchSettings();
             this.userSession.assertCurrent(scope);
+            if (isCacheSuspended()) return;
             this.importedAt = settings?.importedAt ?? null;
 
             if (!this.importedAt && hasLegacyData() &&

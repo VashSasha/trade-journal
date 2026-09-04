@@ -142,6 +142,9 @@
      never calls the AI. The real plan gate is enforced server-side by the
      ai-report Edge Function (no client key exists anymore). -->
 <div class="ds-insight">
+    @if (access.demo()) {
+        <p class="page-subtitle">Example coaching on sample data—not a live analysis. No AI credits are used.</p>
+    }
 
     @if (trades.length === 0) {
         <div class="ds-ai-cta ds-ai-cta--disabled" aria-disabled="true">
@@ -157,8 +160,8 @@
             <button class="ds-ai-cta" type="button" (click)="generateInsight()">
                 <span class="ds-ai-cta__icon" aria-hidden="true">✨</span>
                 <span class="ds-ai-cta__text">
-                    <span class="ds-ai-cta__title">Get today's AI insight</span>
-                    <span class="ds-ai-cta__subtitle">Personalized coaching on today's trades — patterns, mistakes, and what to fix tomorrow.</span>
+                    <span class="ds-ai-cta__title">{{ access.demo() ? 'Preview AI coaching' : access.paid() ? "Get today's AI insight" : 'Unlock AI coaching with Premium' }}</span>
+                    <span class="ds-ai-cta__subtitle">{{ access.demo() ? 'See an example of the coaching experience using sample content.' : "Personalized coaching on today's trades — patterns, mistakes, and what to fix tomorrow." }}</span>
                 </span>
                 <span class="ds-ai-cta__arrow" aria-hidden="true">→</span>
             </button>

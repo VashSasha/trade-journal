@@ -40,6 +40,12 @@
         margin: 0 auto;
         align-items: stretch;
     }
+
+    &.pricing--embedded {
+        padding: 0;
+        border: none;
+        background: transparent;
+    }
 }
 
 .pricing-card {

@@ -1,11 +1,13 @@
 import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ThemeService } from '../../../core/services/theme.service';
+import { AuthService } from '../../../core/services/auth.service';
 
 /**
- * Top navigation for public (logged-out) pages — landing, login.
- * On the landing page section links are native anchors (smooth-scrolled);
- * on other pages they navigate back to the landing with a fragment.
+ * Top navigation for public pages — landing, login. Signed-in visitors
+ * always have a visible path back to their workspace.
+ * Section links preserve the current landing route; on other pages they
+ * use /welcome explicitly so authenticated visitors aren't sent to the dashboard.
  */
 @Component({
     selector: 'app-public-nav',
@@ -17,6 +19,7 @@ import { ThemeService } from '../../../core/services/theme.service';
 })
 export class PublicNavComponent {
     theme = inject(ThemeService);
+    readonly auth = inject(AuthService);
 
     /** True when rendered on the landing page itself. */
     onLanding = input(false);

@@ -7,7 +7,7 @@
         <app-demo-banner />
         }
 
-        @if (hasVisibleExpiredConnections()) {
+        @if (!demo.active() && hasVisibleExpiredConnections()) {
         <div class="expired-banner">
             <svg class="expired-banner__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -74,7 +74,7 @@
         }
 
         <main class="app-content">
-            <router-outlet />
+            @if (!demo.transitioning() && pageAllowed()) { <router-outlet /> }
         </main>
 
         <app-sync-notice />

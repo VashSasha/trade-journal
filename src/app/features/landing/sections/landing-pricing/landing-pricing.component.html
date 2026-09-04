@@ -1,11 +1,13 @@
-<section class="pricing" id="pricing">
+<section class="pricing" [class.pricing--embedded]="embedded()" id="pricing">
     <div class="pricing__inner">
-        <div class="pricing__head" appRevealOnScroll>
-            <h2 class="pricing__title">Simple pricing</h2>
-            <p class="pricing__subtitle">
-                One membership unlocks the full journal — and the community trading behind it.
-            </p>
-        </div>
+        @if (!embedded()) {
+            <div class="pricing__head" appRevealOnScroll>
+                <h2 class="pricing__title">Simple pricing</h2>
+                <p class="pricing__subtitle">
+                    One membership unlocks the full journal — and the community trading behind it.
+                </p>
+            </div>
+        }
 
         <div class="pricing__grid">
             <article class="pricing-card pricing-card--featured" appRevealOnScroll>
@@ -47,6 +49,7 @@
                         type="button"
                         class="pricing-card__cycle-btn"
                         [class.pricing-card__cycle-btn--active]="billingCycle() === 'monthly'"
+                        [attr.aria-pressed]="billingCycle() === 'monthly'"
                         (click)="selectCycle('monthly')">
                         Monthly
                     </button>
@@ -54,6 +57,7 @@
                         type="button"
                         class="pricing-card__cycle-btn"
                         [class.pricing-card__cycle-btn--active]="billingCycle() === 'annual'"
+                        [attr.aria-pressed]="billingCycle() === 'annual'"
                         (click)="selectCycle('annual')">
                         Annual
                         <span class="pricing-card__save-chip">Save {{ annualSavingsPct }}%</span>
@@ -76,15 +80,20 @@
                         <li>{{ feature }}</li>
                     }
                 </ul>
-                <button
-                    class="pricing-card__cta"
-                    type="button"
-                    (click)="subscribe()"
-                    [disabled]="checkoutBusy() !== null">
-                    {{ checkoutBusy() ? 'Redirecting…' : 'Subscribe ' + (billingCycle() === 'monthly' ? 'monthly' : 'annually') }}
-                </button>
+                @if (hasFullAccess()) {
+                    <p class="pricing-card__note">Your current plan already includes full journal access.</p>
+                    <a class="pricing-card__cta" routerLink="/account" fragment="billing">Manage plan &amp; billing</a>
+                } @else {
+                    <button
+                        class="pricing-card__cta"
+                        type="button"
+                        (click)="subscribe()"
+                        [disabled]="checkoutBusy() !== null">
+                        {{ checkoutBusy() ? 'Redirecting…' : 'Subscribe ' + (billingCycle() === 'monthly' ? 'monthly' : 'annually') }}
+                    </button>
+                }
                 @if (checkoutError()) {
-                    <p class="pricing-card__error">{{ checkoutError() }}</p>
+                    <p class="pricing-card__error" role="alert">{{ checkoutError() }}</p>
                 }
                 <p class="pricing-card__note">Billed via Stripe · Cancel anytime</p>
             </article>

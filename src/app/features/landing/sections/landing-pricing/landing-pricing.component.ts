@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { RevealOnScrollDirective } from '../../reveal-on-scroll.directive';
 import { AuthService } from '../../../../core/services/auth.service';
 import { BillingService, BillingInterval } from '../../../account/billing.service';
@@ -16,7 +16,7 @@ const BUNDLE_MONTHLY = 79.99;
 @Component({
     selector: 'app-landing-pricing',
     standalone: true,
-    imports: [RevealOnScrollDirective, CurrencyPipe],
+    imports: [RevealOnScrollDirective, CurrencyPipe, RouterLink],
     templateUrl: './landing-pricing.component.html',
     styleUrl: './landing-pricing.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
@@ -26,6 +26,9 @@ export class LandingPricingComponent {
     private billing = inject(BillingService);
     private router = inject(Router);
 
+    /** Compact layout when hosted by the in-app plan comparison page. */
+    readonly embedded = input(false);
+    readonly hasFullAccess = computed(() => ['premium', 'lifetime', 'admin'].includes(this.auth.plan()));
     readonly whopUrl = WHOP_URL;
     readonly bundlePrice = BUNDLE_MONTHLY;
     readonly journalAnnualPrice = JOURNAL_ANNUAL;
@@ -78,6 +81,11 @@ export class LandingPricingComponent {
 
         if (!this.auth.isAuthenticated()) {
             this.router.navigate(['/login'], { queryParams: { returnUrl: '/account' } });
+            return;
+        }
+
+        if (this.hasFullAccess()) {
+            this.router.navigate(['/account'], { fragment: 'billing' });
             return;
         }
 

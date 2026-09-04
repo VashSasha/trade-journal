@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import { MainLayoutComponent } from './features/layout/main-layout/main-layout';
-import { authGuard } from './core/guards/auth.guard';
+import { authGuard, signedInGuard } from './core/guards/auth.guard';
 import { planGuard } from './core/guards/plan.guard';
 import { guestMatchGuard } from './features/landing/guest-match.guard';
 
@@ -36,7 +36,7 @@ export const routes: Routes = [
     },
     {
         path: 'upgrade',
-        canActivate: [authGuard],
+        canActivate: [signedInGuard],
         loadComponent: () => import('./features/upgrade/upgrade.component')
             .then(m => m.UpgradeComponent)
     },
@@ -65,14 +65,14 @@ export const routes: Routes = [
             },
             {
                 path: 'analytics',
-                canActivate: [planGuard('premium')],
+                canActivate: [planGuard('analytics')],
                 loadComponent: () => import('./features/analytics/analytics-dashboard.component').then(m => m.AnalyticsDashboardComponent)
             },
             {
                 path: 'reports',
                 // Premium and lifetime share the same feature set; AI reports
                 // are available to any paid tier (premium or higher).
-                canActivate: [planGuard('premium')],
+                canActivate: [planGuard('ai')],
                 loadComponent: () => import('./features/reports/ai-reports.component').then(m => m.AiReportsComponent)
             },
             {
@@ -90,7 +90,6 @@ export const routes: Routes = [
                     },
                     {
                         path: 'daily',
-                        canActivate: [planGuard('premium')],
                         loadComponent: () => import('./features/journal/daily-journal/daily-journal.component').then(m => m.DailyJournalComponent)
                     }
                 ]
@@ -115,13 +114,20 @@ export const routes: Routes = [
             },
             {
                 path: 'settings',
-                canActivate: [planGuard('premium')],
+                canActivate: [planGuard('broker')],
                 loadChildren: () => import('./features/integrations/integrations.routes')
                     .then(m => m.INTEGRATION_ROUTES)
             },
             {
+                path: 'account/pricing',
+                canActivate: [signedInGuard],
+                loadComponent: () => import('./features/account/pricing/account-pricing.component')
+                    .then(m => m.AccountPricingComponent)
+            },
+            {
                 // authGuard is already applied by the parent shell.
                 path: 'account',
+                canActivate: [signedInGuard],
                 loadComponent: () => import('./features/account/account.component')
                     .then(m => m.AccountComponent)
             },

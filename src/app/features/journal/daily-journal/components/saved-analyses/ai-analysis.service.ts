@@ -1,7 +1,8 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, effect, inject, signal } from '@angular/core';
 import { SupabaseService } from '../../../../../core/services/supabase.service';
 import { DemoModeService } from '../../../../../core/services/demo-mode.service';
 import { UserSessionService } from '../../../../../core/services/user-session.service';
+import { AccessPolicyService } from '../../../../../core/services/access-policy.service';
 
 /** A persisted AI day-analysis (row of public.ai_analyses). */
 export interface SavedAnalysis {
@@ -34,6 +35,7 @@ export class AiAnalysisService {
     private client = inject(SupabaseService).client;
     private demo = inject(DemoModeService);
     private userSession = inject(UserSessionService);
+    private access = inject(AccessPolicyService);
 
     /** Saved analyses for the most recently loaded date, newest first. */
     readonly analyses = signal<SavedAnalysis[]>([]);
@@ -43,10 +45,17 @@ export class AiAnalysisService {
     /** The date currently reflected in `analyses`, so saves can update it live. */
     private loadedDate: string | null = null;
 
+    constructor() {
+        effect(() => {
+            if (this.access.demo()) { this.analyses.set([]); this.loading.set(false); this.error.set(null); }
+        });
+    }
+
     /** Fetch a day's saved analyses (newest first) into the `analyses` signal. */
     async listAnalyses(date: string): Promise<void> {
+        if (this.access.demo()) { this.analyses.set([]); this.loading.set(false); return; }
         if (!this.userSession.userId()) return;
-        const scope = this.userSession.capture();
+        const scope = this.access.capture();
         this.loadedDate = date;
         this.loading.set(true);
         this.error.set(null);
@@ -71,7 +80,7 @@ export class AiAnalysisService {
     /** Persist a new analysis for `date`; prepends to `analyses` if it's loaded. */
     async saveAnalysis(date: string, content: string): Promise<SavedAnalysis> {
         if (!this.demo.requireAccount('ai')) throw new Error('demo');
-        const scope = this.userSession.capture();
+        const scope = this.access.capture();
         const { data, error } = await this.client
             .from('ai_analyses')
             .insert({ user_id: scope.userId, kind: 'journal', date, content })
@@ -93,8 +102,9 @@ export class AiAnalysisService {
      * coach to check yesterday's commitment. Null when none exists.
      */
     async latestAnalysisBefore(date: string): Promise<SavedAnalysis | null> {
+        if (this.access.demo()) return null;
         if (!this.userSession.userId()) return null;
-        const scope = this.userSession.capture();
+        const scope = this.access.capture();
         const { data, error } = await this.client
             .from('ai_analyses')
             .select(COLUMNS)
@@ -113,7 +123,8 @@ export class AiAnalysisService {
 
     /** Delete a saved analysis and drop it from the `analyses` signal. */
     async deleteAnalysis(id: string): Promise<void> {
-        const scope = this.userSession.capture();
+        this.access.assertAction('save');
+        const scope = this.access.capture();
         const { error } = await this.client
             .from('ai_analyses')
             .delete()

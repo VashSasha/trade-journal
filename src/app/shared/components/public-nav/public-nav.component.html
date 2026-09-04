@@ -3,13 +3,17 @@
         <a class="public-nav__brand" routerLink="/">
             <img class="public-nav__logo" src="NVZN_Trading_logo_transparent_noshine.png" alt="NVZN Journal" />
         </a>
-        <nav class="public-nav__links">
+        <nav class="public-nav__links" aria-label="Website navigation">
             @if (onLanding()) {
-                <a class="public-nav__link" href="#features">Features</a>
-                <a class="public-nav__link" href="#pricing">Pricing</a>
+                <a class="public-nav__link" [routerLink]="[]" fragment="features">Features</a>
+                <a class="public-nav__link" [routerLink]="[]" fragment="pricing">Pricing</a>
             } @else {
-                <a class="public-nav__link" routerLink="/" fragment="features">Features</a>
-                <a class="public-nav__link" routerLink="/" fragment="pricing">Pricing</a>
+                <a class="public-nav__link" routerLink="/welcome" fragment="features">Features</a>
+                @if (auth.isAuthenticated()) {
+                    <a class="public-nav__link" routerLink="/account/pricing">Pricing</a>
+                } @else {
+                    <a class="public-nav__link" routerLink="/welcome" fragment="pricing">Pricing</a>
+                }
             }
             <button class="public-nav__theme" (click)="theme.toggle()"
                 [title]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'">
@@ -25,11 +29,13 @@
                 </svg>
                 }
             </button>
-            @if (onLanding()) {
+            @if (auth.isAuthenticated()) {
+                <a class="public-nav__cta" routerLink="/dashboard">Back to journal</a>
+            } @else if (onLanding()) {
                 <a class="public-nav__login" routerLink="/login">Log in</a>
-                <a class="public-nav__cta" href="#pricing">Get started</a>
+                <a class="public-nav__cta" [routerLink]="[]" fragment="pricing">Get started</a>
             } @else {
-                <a class="public-nav__cta" routerLink="/" fragment="pricing">Get started</a>
+                <a class="public-nav__cta" routerLink="/welcome" fragment="pricing">Get started</a>
             }
         </nav>
     </div>

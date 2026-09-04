@@ -4,6 +4,7 @@ import { TitleCasePipe } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { TradeService } from '../../../core/services/trade.service';
+import { AccessPolicyService } from '../../../core/services/access-policy.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { AssetType, TradeDirection, TradeGrade } from '../../../core/models/trade.model';
 
@@ -17,6 +18,7 @@ import { AssetType, TradeDirection, TradeGrade } from '../../../core/models/trad
 export class TradeEntryComponent implements OnInit {
     private fb = inject(FormBuilder);
     private tradeService = inject(TradeService);
+    private access = inject(AccessPolicyService);
     private authService = inject(AuthService);
     private router = inject(Router);
     private route = inject(ActivatedRoute);
@@ -200,6 +202,7 @@ export class TradeEntryComponent implements OnInit {
     }
 
     onSubmit(): void {
+        if (!this.access.requestAction('save')) return;
         if (this.tradeForm.invalid) {
             this.tradeForm.markAllAsTouched();
             return;

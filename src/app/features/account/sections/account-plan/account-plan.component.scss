@@ -1,6 +1,9 @@
 @use '../account-ui';
 
-:host { display: block; }
+:host {
+    display: block;
+    scroll-margin-block-start: 1.5rem;
+}
 
 .plan {
     &__current {

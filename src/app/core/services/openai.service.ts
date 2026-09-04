@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 import { SupabaseService } from './supabase.service';
 import { DemoModeService } from './demo-mode.service';
+import { AccessPolicyService } from './access-policy.service';
 import { UserSessionService } from './user-session.service';
 
 /**
@@ -20,6 +21,7 @@ export class OpenAiService {
     private auth = inject(AuthService);
     private supabase = inject(SupabaseService).client;
     private demo = inject(DemoModeService);
+    private access = inject(AccessPolicyService);
     private userSession = inject(UserSessionService);
 
     constructor() {
@@ -34,7 +36,7 @@ export class OpenAiService {
      * mirroring the Edge Function's server-side plan gate.
      */
     hasApiKey(): boolean {
-        return this.auth.plan() === 'premium' || this.auth.plan() === 'lifetime';
+        return this.access.canOpen('ai');
     }
 
     // ── Non-streaming helpers ─────────────────────────────────────────────────
@@ -62,8 +64,11 @@ export class OpenAiService {
     }
 
     private async callFunction(type: string, payload: unknown): Promise<string> {
-        const scope = this.userSession.capture();
+        if (this.access.demo()) return `Example only — not an analysis of your data.\n\n${DEMO_RESPONSES[0]}`;
+        this.access.assertAction('ai');
+        const scope = this.access.capture();
         await this.auth.refreshProfile();
+        this.access.assertAction('ai');
         const { data: { session } } = await this.supabase.auth.getSession();
         this.userSession.assertCurrent(scope);
         if (!session || session.user.id !== scope.userId) throw new Error('Please sign in again.');
@@ -86,7 +91,9 @@ export class OpenAiService {
 
     streamAnalysis(messages: any[], maxTokens = 1200): Observable<string> {
         if (this.demo.active()) return cannedDemoResponse();
-        const scope = this.userSession.capture();
+        try { this.access.assertAction('ai'); }
+        catch (err) { return throwError(() => err); }
+        const scope = this.access.capture();
 
         // functions.invoke() buffers the whole response; streaming needs a raw
         // fetch against the same function endpoint with the session JWT.
@@ -104,6 +111,7 @@ export class OpenAiService {
             (async () => {
                 this.userSession.assertCurrent(scope);
                 await this.auth.refreshProfile();
+                this.access.assertAction('ai');
                 const { data: { session } } = await this.supabase.auth.getSession();
                 this.userSession.assertCurrent(scope);
                 const token = session?.access_token;
