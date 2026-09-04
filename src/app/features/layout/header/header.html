@@ -5,6 +5,7 @@
         </a>
     </div>
     <div class="app-header__right">
+        <app-sessions-widget />
         <app-account-selector />
         <button class="app-header__icon-btn" (click)="theme.toggle()"
             [title]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'">
