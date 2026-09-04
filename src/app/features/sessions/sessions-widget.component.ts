@@ -3,10 +3,13 @@ import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, signa
 import { SessionsClockService } from './sessions-clock.service';
 import { SessionState, SessionWindow } from './sessions.model';
 import { sessionCountdown, sessionWallTime } from './sessions.utils';
+import { SessionAlertControlsComponent } from '../alerts/session-alert-controls.component';
+import { SessionAlertsService } from '../alerts/session-alerts.service';
 
 @Component({
     selector: 'app-sessions-widget',
     standalone: true,
+    imports: [SessionAlertControlsComponent],
     providers: [SessionsClockService],
     templateUrl: './sessions-widget.component.html',
     styleUrl: './sessions-widget.component.scss',
@@ -15,6 +18,7 @@ import { sessionCountdown, sessionWallTime } from './sessions.utils';
 })
 export class SessionsWidgetComponent {
     readonly clock = inject(SessionsClockService);
+    readonly sounds = inject(SessionAlertsService);
     private readonly document = inject(DOCUMENT);
     private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
     private readonly panel = viewChild.required<ElementRef<HTMLElement>>('panel');
@@ -44,7 +48,7 @@ export class SessionsWidgetComponent {
         }
         return state.next ? `${state.next.definition.name} in ${sessionCountdown(state.next.opensAt - state.now)}` : 'No upcoming windows';
     });
-    readonly triggerLabel = computed(() => `Sessions: ${this.title()}. ${this.detail()}. Show reference schedule.`);
+    readonly triggerLabel = computed(() => `Sessions: ${this.title()}. ${this.detail()}. Sounds ${this.sounds.enabled() ? 'on' : this.sounds.waitingForGesture() ? 'ready to reactivate' : 'off'}. Show reference schedule.`);
     readonly wallTime = sessionWallTime;
 
     timing(state: SessionState): string {

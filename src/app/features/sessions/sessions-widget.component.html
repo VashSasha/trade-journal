@@ -3,6 +3,7 @@
     (click)="positionPanel()">
     <span class="sessions__caption">
         <span>Sessions</span>
+        @if (sounds.enabled()) { <span>Sounds on</span> }
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="m6 9 6 6 6-6" />
         </svg>
@@ -69,6 +70,8 @@
             }
         </div>
     }
+
+    <app-session-alert-controls />
 
     <footer class="sessions__foot">
         <p>Scheduled windows, not live exchange status. Daylight saving is included; holidays, maintenance and early closes are not.</p>

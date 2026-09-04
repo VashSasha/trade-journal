@@ -1,0 +1,37 @@
+:host { display: block; }
+.session-sounds {
+    border-top: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    &__summary {
+        padding: 0.85rem 1.25rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer;
+        span { float: right; color: var(--color-text-secondary); font-size: 0.75rem; font-weight: 400; }
+    }
+    &__body { padding: 0 1.25rem 1rem; }
+    &__head {
+        display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+        p { font-size: 0.6875rem; color: var(--color-text-secondary); margin: 0.2rem 0 0; }
+    }
+    button {
+        padding: 0.4rem 0.6rem; min-height: 2.5rem; font: inherit; font-size: 0.75rem;
+        border: 1px solid var(--color-border); border-radius: 0.4rem;
+        background: var(--color-bg-surface-2); color: var(--color-text-primary); cursor: pointer;
+        &:hover:not(:disabled) { border-color: var(--color-accent); color: var(--color-accent); }
+        &:disabled { opacity: 0.5; cursor: not-allowed; }
+    }
+    &__kinds { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.6rem; }
+    &__kinds label { display: flex; align-items: center; gap: 0.4rem; min-height: 2rem; font-size: 0.75rem; cursor: pointer; }
+    input { accent-color: var(--color-accent); }
+    input[type='checkbox'] { width: 1rem; height: 1rem; margin: 0; }
+    &__volume { display: block; font-size: 0.75rem; margin: 0.5rem 0; }
+    &__volume > span { display: flex; justify-content: space-between; }
+    &__volume input { display: block; width: 100%; min-height: 2rem; margin: 0; }
+    &__tests { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    &__note, &__last, &__error { font-size: 0.6875rem; line-height: 1.5; margin: 0.65rem 0 0; color: var(--color-text-secondary); }
+    &__last { color: var(--color-accent); }
+    &__error { color: var(--color-text-primary); border-left: 2px solid var(--color-negative); padding-left: 0.5rem; }
+    &__sr-only {
+        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+    }
+    button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+}
