@@ -74,7 +74,6 @@ export class SyncService {
      * Full sync — fetches all historical data from each account's creation date
      */
     async fullSync(): Promise<number> {
-        this.lastSyncTime.set(null);
         return this.syncFrom(null);
     }
 
@@ -153,9 +152,11 @@ export class SyncService {
                 await this.repo.flushQueue();
                 assertRun();
                 const syncTime = new Date();
+                conns.forEach(c => this.tradovateService.updateConnectionSyncTime(c.id));
+                await this.repo.flushQueue();
+                assertRun();
                 this.lastSyncTime.set(syncTime);
                 localStorage.setItem(`${SyncService.LAST_SYNC_KEY}:${scope.userId}`, syncTime.toISOString());
-                conns.forEach(c => this.tradovateService.updateConnectionSyncTime(c.id));
                 return 0;
             }
 
@@ -210,15 +211,18 @@ export class SyncService {
 
             await this.repo.flushQueue();
             assertRun();
-            const syncTime = new Date();
-            this.lastSyncTime.set(syncTime);
-            localStorage.setItem(`${SyncService.LAST_SYNC_KEY}:${scope.userId}`, syncTime.toISOString());
-            conns.forEach(c => this.tradovateService.updateConnectionSyncTime(c.id));
-
             // Recompute netPnl from stored fees (ensures consistency after import + fee patches)
             const totals = this.tradeService.recalculateTradovateNetPnl(commission);
             await this.repo.flushQueue();
             assertRun();
+            conns.forEach(c => this.tradovateService.updateConnectionSyncTime(c.id));
+            await this.repo.flushQueue();
+            assertRun();
+            // Advance only after every trade, fee correction and connection save
+            // is acknowledged. A failed final save must remain retryable.
+            const syncTime = new Date();
+            this.lastSyncTime.set(syncTime);
+            localStorage.setItem(`${SyncService.LAST_SYNC_KEY}:${scope.userId}`, syncTime.toISOString());
             if (isDevMode()) { console.log(
                 `[SyncService] Fee reconciliation — gross P&L: $${totals.grossPnl.toFixed(2)}, ` +
                 `total fees: $${totals.totalFees.toFixed(2)}, net P&L: $${totals.netPnl.toFixed(2)}`

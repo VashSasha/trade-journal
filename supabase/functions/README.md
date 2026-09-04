@@ -7,13 +7,23 @@ market prediction, streaming report generation). The OpenAI API key exists
 **only** as a function secret — never in the repo or the client. The function:
 
 - Rejects requests without a valid Supabase JWT (401).
-- Requires `profiles.plan = 'lifetime'` — the server-side enforcement of what
-  `planGuard('lifetime')` only enforces client-side (403 otherwise).
-- Rate-limits to 10 requests per user per day via the `ai_usage` table,
-  incremented atomically by `increment_ai_usage()` (429 when exceeded).
+- Requires a live `premium` or `lifetime` entitlement via `effective_user_plan()`;
+  both plans have the same AI features (403 otherwise).
+- Validates input before reserving quota: max 4 MiB JSON, 24 messages, 80,000
+  text characters, 2 embedded images, 1–2000 output tokens for streaming.
+- Atomically reserves up to 10 analyses/day (UTC) with `reserve_ai_request()`.
+  `finish_ai_request()` refunds failures before output exactly once. Partial or
+  cancelled responses with generated text count. At most one pending reservation
+  younger than two minutes and 30 reserved attempts/day prevent retry abuse.
+- No automatic upstream retries; first streamed text has a 35-second deadline
+  and the overall invocation a 75-second deadline. Cancellation aborts upstream.
 - `stream-analysis` requests return Server-Sent Events. OpenAI stream chunks
   are translated into the Anthropic wire shape (`content_block_delta` /
-  `message_stop`) the client parser reads, so the client stays unchanged.
+  `message_stop`) the client parser reads. An interrupted stream emits `error`;
+  EOF without `message_stop` is also a client error, never an auto-save success.
+
+Apply migrations 0018–0020 and follow [P2 rollout](../../docs/P2-fixes-rollout.md)
+before deploying this version.
 
 ### Deploy
 
@@ -53,7 +63,7 @@ Without (1), `linkIdentity({ provider: 'google' })` / Google login fail; without
 Verifies the caller's Discord guild roles (using the Discord provider token
 from their own OAuth session) and writes `profiles.discord_plan` — one of the
 plan SOURCES from which a DB trigger derives the effective `profiles.plan`
-(see migration `0007_plan_sources.sql`). It runs with the Supabase secret key,
+(see migrations `0007_plan_sources.sql` and `0020_discord_entitlement_expiry.sql`). It runs with the Supabase secret key,
 which exists **only** as a function secret, never in this repo or the client.
 
 Also supports a **clear** request (`{ "clear": true }`, no provider token):
@@ -93,9 +103,17 @@ supabase secrets set \
 
 - Rejects requests without a valid Supabase JWT (401).
 - Rejects if the Discord token's user id doesn't match the caller's linked
-  `discord_id` (403) — prevents resolving someone else's roles.
+  identity returned by verified Supabase Auth (403). Never trusts user_metadata
+  or a client-supplied profile field. Checks `/users/@me` even before a guild 404.
 - Not in the guild / no matching roles → `discord_plan` null.
-- Returns `{ "plan": ..., "beta_access": ... }` (the trigger-computed effective plan).
+- Role verification expires after one hour. The client refreshes near expiry
+  using the provider token when available; Account settings offers Discord
+  sign-in again when that credential is missing/expired. No additional token
+  storage, bot credentials, cron jobs, or production configuration is created.
+- Stored `profiles.plan` is a snapshot, not an authorization oracle. Clients use
+  `get_my_entitlements()` and AI uses `effective_user_plan(user_id)`, which also
+  checks that the Discord identity is still linked at read time.
+- Returns `{ "plan": ... }`. This function does not change manually managed beta access.
 
 ## delete-account
 

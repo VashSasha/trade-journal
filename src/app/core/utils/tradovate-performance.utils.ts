@@ -51,20 +51,20 @@ export function parsePerformancePnl(raw: string): number {
 export function parsePerformanceCsv(csv: string, accountId: number, accountName: string): PerformanceCsvTrade[] {
     try {
         const lines = csv.split(/\r?\n/).filter(l => l.trim().length > 0);
-        if (lines.length < 2) return [];
+        if (!lines.length) throw new Error('Empty Performance report response.');
 
         const header = lines[0].split(',').map(h => h.trim());
-        // Guard against format drift — bail to empty if the columns we rely on are gone.
-        const required = ['symbol', 'qty', 'buyPrice', 'sellPrice', 'pnl', 'boughtTimestamp', 'soldTimestamp'];
-        if (!required.every(c => header.includes(c))) {
+        // Positional parsing is safe only for this known broker layout.
+        const required = ['symbol', '_priceFormat', '_priceFormatType', '_tickSize', 'buyFillId', 'sellFillId', 'qty', 'buyPrice', 'sellPrice', 'pnl', 'boughtTimestamp', 'soldTimestamp', 'duration'];
+        if (header.length !== required.length || !required.every((c, i) => header[i] === c)) {
             if (isDevMode()) { console.warn('[tradovate-performance] Performance CSV: unexpected columns', header); }
-            return [];
+            throw new Error('Unrecognized Performance report format. Sync was not completed.');
         }
 
         const trades: PerformanceCsvTrade[] = [];
         for (let i = 1; i < lines.length; i++) {
             const parts = lines[i].split(',');
-            if (parts.length < 13) continue;
+            if (parts.length < 13) throw new Error(`Incomplete Performance report row ${i + 1}.`);
 
             // Leading columns and the trailing 3 (timestamps + duration) are comma-free.
             // pnl sits in the middle and may carry a thousands separator (e.g. $1,322.00),
@@ -80,11 +80,16 @@ export function parsePerformanceCsv(csv: string, accountId: number, accountName:
             const boughtStr   = parts[parts.length - 3].trim();
             const pnl         = parsePerformancePnl(parts.slice(9, parts.length - 3).join('').trim());
 
-            if (!symbol || !quantity || !boughtStr || !soldStr) continue;
+            if (!symbol || quantity <= 0 || !boughtStr || !soldStr || !parts[7].trim() || !parts[8].trim() ||
+                !parts.slice(9, parts.length - 3).join('').replace(/[$()\s]/g, '') || !Number.isFinite(quantity) ||
+                !Number.isFinite(Number(parts[7])) || !Number.isFinite(Number(parts[8])) ||
+                !Number.isFinite(Number(parts.slice(9, parts.length - 3).join('').replace(/[$()\s]/g, '')))) {
+                throw new Error(`Invalid Performance report row ${i + 1}.`);
+            }
 
             const buyTime  = new Date(boughtStr);
             const sellTime = new Date(soldStr);
-            if (isNaN(buyTime.getTime()) || isNaN(sellTime.getTime())) continue;
+            if (isNaN(buyTime.getTime()) || isNaN(sellTime.getTime())) throw new Error(`Invalid trade date on row ${i + 1}.`);
 
             // Sell before buy → SHORT (sold to enter, bought to cover).
             const isShort    = sellTime < buyTime;
@@ -129,6 +134,6 @@ export function parsePerformanceCsv(csv: string, accountId: number, accountName:
         return trades;
     } catch (err) {
         console.error('[tradovate-performance] Performance CSV parsing failed:', err);
-        return [];
+        throw err;
     }
 }

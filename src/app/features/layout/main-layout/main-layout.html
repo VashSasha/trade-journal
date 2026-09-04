@@ -60,14 +60,8 @@
                         @for (acc of conn.accounts; track acc.id) {
                         <div class="expired-banner__account-row">
                             <span class="expired-banner__account-name">{{ acc.name }}</span>
-                            @if (tradingAccounts.retiredIds().has(acc.id)) {
-                            <button class="expired-banner__restore-btn" (click)="restoreAccount(acc.id)">
-                                Restore
-                            </button>
-                            } @else {
-                            <button class="expired-banner__retire-btn" (click)="retireAccount(acc.id)">
-                                Retire
-                            </button>
+                            @if (acc.active === false) {
+                            <span>Historical</span>
                             }
                         </div>
                         }

@@ -32,6 +32,10 @@
     </form>
     }
 
+    @if (error()) {
+        <p class="goals-widget__error" role="alert">{{ error() }}</p>
+    }
+
     @if (goals().length === 0 && !isAdding()) {
     <div class="goals-widget__empty">
         No active goals.<br />

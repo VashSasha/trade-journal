@@ -2,16 +2,17 @@ import { Injectable, inject, signal } from '@angular/core';
 import { SupabaseService } from '../supabase.service';
 import { UserOperation, UserSessionService } from '../user-session.service';
 import { Trade } from '../../models/trade.model';
+import { Goal } from '../../models/goal.model';
 import { DailyNote, JournalTemplate } from '../../models/daily-journal.model';
 import {
   UserSettings, StoredTradingAccount, tradeToRow, rowToTrade, noteToRow, rowToNote,
   templateToRow, rowToTemplate, settingsToRow, rowToSettings, tradingAccountToRow,
-  rowToTradingAccount
+  rowToTradingAccount, goalToRow, rowToGoal
 } from './user-data.mappers';
 import { CACHE_KEYS, readCache, isCacheSuspended } from './user-data.cache';
 
 type Row = Record<string, unknown>;
-type UserTable = 'trades' | 'journal_entries' | 'journal_templates' | 'trading_accounts' | 'tradovate_connections';
+type UserTable = 'trades' | 'journal_entries' | 'journal_templates' | 'trading_accounts' | 'tradovate_connections' | 'goals';
 type PendingWrite =
   | { table: UserTable; op: 'upsert'; rows: Row[] }
   | { table: UserTable; op: 'delete'; ids: string[] }
@@ -26,6 +27,7 @@ interface Envelope {
 
 const PREFIX = 'tj_outbox_v2:';
 const CONFLICT = {
+  goals: 'user_id,id',
   journal_entries: 'user_id,date', journal_templates: 'user_id,id',
   trading_accounts: 'user_id,account_id', tradovate_connections: 'user_id,connection_id'
 };
@@ -98,6 +100,10 @@ export class UserDataRepo {
   async fetchTradingAccounts(): Promise<StoredTradingAccount[]> {
     return (await this.fetchAll('trading_accounts')).map(rowToTradingAccount);
   }
+
+  async fetchGoals(): Promise<Goal[]> { return (await this.fetchAll('goals')).map(rowToGoal); }
+  queueGoalUpsert(goal: Goal): void { this.upsert('goals', [goalToRow(goal)]); }
+  queueGoalDelete(id: string): void { this.enqueue({ table: 'goals', op: 'delete', ids: [id] }); }
 
   async fetchSettings(): Promise<UserSettings | null> {
     const scope = this.session.capture();

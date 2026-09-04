@@ -1195,7 +1195,7 @@ export class TradovateService {
      * Detects HTML and routes to the appropriate parser.
      */
     private parseReportCsvResponse(raw: string, accountId: number): any[] {
-        if (!raw || raw.trim().length === 0 || raw.trim() === '\r\n') return [];
+        if (!raw?.trim()) throw new Error('Empty broker report response. Sync was not completed.');
         const trimmed = raw.trim();
         if (trimmed.startsWith('<') || trimmed.toLowerCase().includes('<table')) {
             return this.parseReportHtml(trimmed, accountId);
@@ -1213,12 +1213,12 @@ export class TradovateService {
             const table = doc.querySelector('table');
             if (!table) {
                 if (isDevMode()) { console.warn('[TradovateService] HTML response contained no <table> element. Raw:', html.slice(0, 300)); }
-                return [];
+                throw new Error('Unrecognized broker report: no table found.');
             }
 
             // Build header → column-index map (case-insensitive)
             const headerRow = table.querySelector('thead tr, tr');
-            if (!headerRow) return [];
+            if (!headerRow) throw new Error('Broker report headers are missing.');
             const headers = Array.from(headerRow.querySelectorAll('th, td'))
                 .map(el => el.textContent?.trim().toLowerCase() ?? '');
 
@@ -1241,6 +1241,9 @@ export class TradovateService {
             const idxFillTime  = col(['fill time', 'timestamp', 'date']);
             const idxStatus    = col(['status']);
             const idxAccount   = col(['account']);
+            if ([idxId, idxSymbol, idxAction, idxFilledQty, idxPrice, idxFillTime].some(i => i < 0)) {
+                throw new Error('Unrecognized broker fill report columns.');
+            }
 
             if (isDevMode()) { console.log('[TradovateService] Report columns:', headers); }
 
@@ -1289,7 +1292,7 @@ export class TradovateService {
             return fills;
         } catch (err) {
             console.error('[TradovateService] HTML report parsing failed:', err);
-            return [];
+            throw err;
         }
     }
 
@@ -1306,7 +1309,7 @@ export class TradovateService {
     ): Observable<any[]> {
         if (attempt > 30) {
             if (isDevMode()) { console.warn('[TradovateService] p-ticket polling exceeded 30 attempts'); }
-            return of([]);
+            return throwError(() => new Error('Tradovate report timed out; sync was not completed.'));
         }
 
         if (isDevMode()) { console.log(`[TradovateService] p-ticket poll #${attempt}, waiting ${waitMs / 1000}s...`); }
@@ -1337,14 +1340,14 @@ export class TradovateService {
                 }
                 if (res.errorText) {
                     if (isDevMode()) { console.warn(`[TradovateService] p-ticket error: ${res.errorText}`); }
-                    return of([]);
+                    return throwError(() => new Error('Tradovate rejected the report request.'));
                 }
                 if (isDevMode()) { console.warn('[TradovateService] Unexpected p-ticket response:', res); }
-                return of([]);
+                return throwError(() => new Error('Unexpected Tradovate report response.'));
             }),
             catchError(err => {
                 console.error(`[TradovateService] p-ticket poll #${attempt} error:`, err);
-                return of([]);
+                return throwError(() => err);
             })
         );
     }
@@ -1450,7 +1453,7 @@ export class TradovateService {
         }
 
         if (isDevMode()) { console.warn('[TradovateService] Unexpected response format:', res); }
-        return of([]);
+        return throwError(() => new Error('Unexpected Tradovate report response.'));
     }
 
     /**
@@ -1468,24 +1471,15 @@ export class TradovateService {
      * Handle errors in report fetching.
      * Auth errors (expired token) are re-thrown immediately — no fallback — so the
      * caller can bail out of remaining chunks rather than hammering the API.
-     * Non-auth errors fall back to /fill/list for current-day data.
+     * A current-day-only fallback cannot satisfy a historical import.
      */
-    private handleReportError(err: any, accountId?: number): Observable<any[]> {
+    private handleReportError(err: any, _accountId?: number): Observable<any[]> {
         if (this.isAuthError(err)) {
             if (isDevMode()) { console.warn('[TradovateService] Auth error in Reports API — skipping fallback, token expired.'); }
             return throwError(() => err);
         }
 
-        console.error('Error in Report API workflow:', err);
-        if (isDevMode()) { console.log('[TradovateService] Falling back to /fill/list (current-day only)...'); }
-
-        const params: Record<string, string> = {};
-        if (accountId) params['accountId'] = accountId.toString();
-
-        return this.authGet<any[]>('/fill/list', params).pipe(
-            tap(fills => { if (isDevMode()) { console.log(`[TradovateService] Fallback returned ${fills?.length ?? 0} fills`); } }),
-            catchError(() => of([]))
-        );
+        return throwError(() => err instanceof Error ? err : new Error('Historical report failed. Please retry; your saved trades are unchanged.'));
     }
 
     private pollReportStatus(reportId: number): Observable<any> {
@@ -1663,13 +1657,14 @@ export class TradovateService {
 
             if (!tradesTable) {
                 if (isDevMode()) { console.warn('[TradovateService] Performance report: no Trades table found'); }
-                return [];
+                throw new Error('Unrecognized Performance report: no Trades table found.');
             }
 
             const trades: any[] = [];
             (tradesTable as Element).querySelectorAll('tbody tr').forEach((row) => {
                 const cells = row.querySelectorAll('td');
-                if (cells.length < 8) return;
+                if (!cells.length) return; // Header-only tables are valid empty results.
+                if (cells.length < 8) throw new Error('Incomplete Performance report row.');
 
                 const symbol      = cells[0].textContent?.trim() ?? '';
                 const quantity    = parseFloat(cells[1].textContent?.trim() ?? '0') || 0;
@@ -1684,12 +1679,12 @@ export class TradovateService {
                     ? Math.abs(this.parsePerformancePnl(cells[8].textContent?.trim() ?? ''))
                     : undefined;
 
-                if (!symbol || !quantity || !buyTimeStr || !sellTimeStr) return;
+                if (!symbol || !quantity || !buyTimeStr || !sellTimeStr) throw new Error('Invalid Performance report row.');
 
                 const buyTime  = new Date(buyTimeStr);
                 const sellTime = new Date(sellTimeStr);
 
-                if (isNaN(buyTime.getTime()) || isNaN(sellTime.getTime())) return;
+                if (isNaN(buyTime.getTime()) || isNaN(sellTime.getTime())) throw new Error('Invalid date in Performance report.');
 
                 // If sell happened before buy → SHORT (sold to enter, bought to cover)
                 const isShort    = sellTime < buyTime;
@@ -1727,7 +1722,7 @@ export class TradovateService {
             return trades;
         } catch (err) {
             console.error('[TradovateService] Performance report parsing failed:', err);
-          return [];
+            throw err;
         }
     }
 
@@ -1894,11 +1889,15 @@ export class TradovateService {
     }
     private parseFillsCsv(csv: string, accountId: number): any[] {
         const lines = csv.split('\n').filter(l => l.trim().length > 0);
-        if (lines.length < 2) return [];
+        if (!lines.length) throw new Error('Empty fill report response.');
 
         const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
         const map: any = {};
         headers.forEach((h, i) => map[h] = i);
+        if (![ ['Fill ID', 'ID'], ['Contract', 'Symbol'], ['B/S', 'Side'], ['Quantity', 'Qty'], ['Price'], ['Timestamp', 'Date'] ]
+            .every(aliases => aliases.some(name => headers.includes(name)))) {
+            throw new Error('Unrecognized fill report columns.');
+        }
         // Helper to get value by column name
         const getVal = (row: string[], colName: string) => {
             const idx = map[colName];
@@ -1909,10 +1908,10 @@ export class TradovateService {
         const fills: any[] = [];
         for (let i = 1; i < lines.length; i++) {
             const row = lines[i].split(',');
-            if (row.length < headers.length) continue;
+            if (row.length < headers.length) throw new Error('Incomplete fill report row.');
 
             const fill: any = {
-                id: getVal(row, 'Fill ID') || getVal(row, 'ID') || `csv-${i}`,
+                id: getVal(row, 'Fill ID') || getVal(row, 'ID'),
                 orderId: parseInt(getVal(row, 'Order ID') || '0'),
                 symbol: getVal(row, 'Contract') || getVal(row, 'Symbol'),
                 action: (getVal(row, 'B/S') || getVal(row, 'Side') || '').toLowerCase().includes('b') ? 'Buy' : 'Sell',
@@ -1926,7 +1925,9 @@ export class TradovateService {
             if (fill.timestamp && !fill.timestamp.includes('T')) {
                 try { fill.timestamp = new Date(fill.timestamp).toISOString(); } catch (e) { }
             }
-            if (fill.id) fills.push(fill);
+            if (!fill.id || !fill.symbol || fill.qty <= 0 || !Number.isFinite(fill.qty) ||
+                !Number.isFinite(new Date(fill.timestamp).getTime())) throw new Error('Invalid fill report row.');
+            fills.push(fill);
         }
         return fills;
     }
