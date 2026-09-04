@@ -60,11 +60,13 @@ Without (1), `linkIdentity({ provider: 'google' })` / Google login fail; without
 
 ## resolve-plan
 
-Verifies the caller's Discord guild roles (using the Discord provider token
-from their own OAuth session) and writes `profiles.discord_plan` — one of the
+Verifies the caller's Discord guild roles and writes `profiles.discord_plan` — one of the
 plan SOURCES from which a DB trigger derives the effective `profiles.plan`
 (see migrations `0007_plan_sources.sql` and `0020_discord_entitlement_expiry.sql`). It runs with the Supabase secret key,
 which exists **only** as a function secret, never in this repo or the client.
+For normal renewals it looks up the verified linked Discord id using a
+server-held bot token. The user's Discord OAuth token remains a fallback for
+deployments that have not configured the bot yet.
 
 Also supports a **clear** request (`{ "clear": true }`, no provider token):
 after a user unlinks Discord, this nulls `discord_plan` / `discord_id` so the
@@ -86,6 +88,7 @@ real ones locally, do not commit them anywhere):
 supabase secrets set \
   SB_SECRET_KEY=sb_secret_... \
   DISCORD_GUILD_ID=0000000000000000000 \
+  DISCORD_BOT_TOKEN=replace_with_the_raw_bot_token \
   ROLE_ID_MEMBER=0000000000000000000 \
   ROLE_ID_LIFETIME=0000000000000000000 \
   APP_ORIGIN=https://nvzn-journal.com
@@ -95,21 +98,30 @@ supabase secrets set \
 |---|---|
 | `SB_SECRET_KEY` | Supabase secret API key (service-role equivalent) — validates JWTs and performs the privileged `profiles.plan` update |
 | `DISCORD_GUILD_ID` | Discord guild whose roles gate the plans |
+| `DISCORD_BOT_TOKEN` | Raw token for a bot installed in that guild; enables silent membership renewal and must never reach the browser |
 | `ROLE_ID_MEMBER` | Role id mapped to the `premium` plan |
 | `ROLE_ID_LIFETIME` | Role id mapped to the `lifetime` plan |
 | `APP_ORIGIN` | Production web origin allowed for CORS (localhost:4200 is always allowed) |
 
+Create or reuse the bot belonging to the same Discord application, add it to
+`DISCORD_GUILD_ID` with the `bot` OAuth scope, and store the raw token (without
+the `Bot ` prefix) as `DISCORD_BOT_TOKEN`. Reading one guild member does not
+require Administrator or Manage Roles permission. Never use the OAuth client
+secret or a user token in this setting.
+
 ### Behavior
 
 - Rejects requests without a valid Supabase JWT (401).
-- Rejects if the Discord token's user id doesn't match the caller's linked
-  identity returned by verified Supabase Auth (403). Never trusts user_metadata
-  or a client-supplied profile field. Checks `/users/@me` even before a guild 404.
+- The bot looks up only the Discord id from the caller's verified Supabase Auth
+  identity. When the provider-token fallback is used, it rejects a token whose
+  user id does not match that identity (403). Neither path trusts user_metadata
+  or a client-supplied profile field.
 - Not in the guild / no matching roles → `discord_plan` null.
 - Role verification expires after one hour. The client refreshes near expiry
-  using the provider token when available; Account settings offers Discord
-  sign-in again when that credential is missing/expired. No additional token
-  storage, bot credentials, cron jobs, or production configuration is created.
+  through the guild bot, including after a page reload, a Google login, or a
+  suspended tab. Account settings offers Discord sign-in only as a fallback
+  when bot verification is unavailable. No user provider or refresh token is
+  newly persisted by the app and no cron job is required.
 - Stored `profiles.plan` is a snapshot, not an authorization oracle. Clients use
   `get_my_entitlements()` and AI uses `effective_user_plan(user_id)`, which also
   checks that the Discord identity is still linked at read time.
