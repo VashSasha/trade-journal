@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, computed } from '@angular/c
 import { RouterLink } from '@angular/router';
 import { DemoModeService } from '../../../core/services/demo-mode.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { BillingService } from '../../account/billing.service';
+import { AccessPolicyService } from '../../../core/services/access-policy.service';
 
 type Reason = 'connect' | 'save' | 'sync' | 'ai';
 
@@ -12,8 +12,8 @@ const COPY: Record<Reason, { title: string; body: string }> = {
         body: 'Link your Tradovate account to start tracking actual trades, P&L, and get personalized AI coaching on your real performance.',
     },
     save: {
-        title: 'Create an account to save your work',
-        body: 'Your edits live in this demo session only. Subscribe to keep your journal entries, templates, and custom rules.',
+        title: 'Save in your own journal',
+        body: 'Demo edits are not saved or copied into your account. Manual trades and basic daily journaling are free in your own workspace.',
     },
     sync: {
         title: 'Sync your real trades',
@@ -38,7 +38,8 @@ const WHOP_URL = 'https://whop.com/nvzn-trading/monthly-trading-access?a=sasha-v
 export class UpgradePromptComponent {
     readonly demo = inject(DemoModeService);
     private auth = inject(AuthService);
-    private billing = inject(BillingService);
+    readonly access = inject(AccessPolicyService);
+    readonly canSwitch = computed(() => this.isSignedIn() && (this.access.paid() || this.demo.promptReason() === 'save'));
 
     readonly visible = computed(() => this.demo.promptReason() !== null);
     readonly copy = computed(() => {
@@ -53,8 +54,8 @@ export class UpgradePromptComponent {
         this.demo.dismissPrompt();
     }
 
-    async subscribe(): Promise<void> {
-        const { url } = await this.billing.startCheckout('monthly');
-        if (url) window.location.href = url;
+    async switchWorkspace(): Promise<void> {
+        const reason = this.demo.promptReason();
+        await this.demo.exit(reason === 'connect' || reason === 'sync' ? '/settings' : '/dashboard');
     }
 }

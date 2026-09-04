@@ -18,6 +18,8 @@ export const SESSION_IDLE_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
  * so SessionTimeoutService can sign out after prolonged inactivity.
  */
 const IDLE_EXPIRY_KEY = 'trade_journal_idle_expiry';
+const PROFILE_CACHE_MS = 30_000;
+const OAUTH_PROVIDER_KEY = 'nvzn_pending_oauth_provider';
 
 interface Profile {
     plan: PlanTier;
@@ -42,6 +44,12 @@ export class AuthService {
     private sessionSignal = signal<Session | null>(null);
     private profileSignal = signal<Profile | null>(null);
     private profileRequest = 0;
+    private profileLoad: { userId: string; promise: Promise<void> } | null = null;
+    private profileFreshUntil = 0;
+    // Only keep a credential verified during an explicit Discord callback.
+    // Linked identities / app_metadata.provider do not identify the provider
+    // of session.provider_token (a linked user can sign in through Google).
+    private discordCredential: { userId: string; token: string } | null = null;
     readonly discordReauthRequired = signal(false);
 
     /** Resolves once the initial session restore (and profile load) has settled. */
@@ -78,13 +86,14 @@ export class AuthService {
 
         this.supabase.auth.onAuthStateChange((event, session) => {
             if (session?.user.id !== this.sessionSignal()?.user.id) {
-                this.profileSignal.set(null);
-                this.discordReauthRequired.set(false);
+                this.resetProfile();
+            } else if (event === 'SIGNED_IN' && session?.provider_token &&
+                session.provider_token !== this.discordCredential?.token) {
+                this.discordCredential = null;
             }
             this.sessionSignal.set(session);
             if (event === 'SIGNED_OUT' || !session) {
-                this.profileSignal.set(null);
-                this.discordReauthRequired.set(false);
+                this.resetProfile();
                 localStorage.removeItem(IDLE_EXPIRY_KEY);
                 return;
             }
@@ -92,7 +101,7 @@ export class AuthService {
                 this.refreshSessionExpiry();
                 // Defer Supabase calls out of the auth callback (supabase-js
                 // serializes calls made inside onAuthStateChange).
-                setTimeout(() => void this.loadProfile(session.user.id));
+                setTimeout(() => void this.refreshProfile().catch(() => undefined));
             }
         });
     }
@@ -111,10 +120,12 @@ export class AuthService {
 
         this.sessionSignal.set(session);
         this.refreshSessionExpiry();
-        await this.loadProfile(session.user.id);
+        await this.refreshProfile();
     }
 
     async login(credentials: LoginCredentials): Promise<{ success: boolean; error?: string }> {
+        this.discordCredential = null;
+        sessionStorage.removeItem(OAUTH_PROVIDER_KEY);
         const { error } = await this.supabase.auth.signInWithPassword({
             email: credentials.email,
             password: credentials.password
@@ -127,6 +138,7 @@ export class AuthService {
 
     /** Redirects to Discord OAuth — the promise resolves just before navigation. */
     async loginWithDiscord(returnUrl?: string): Promise<void> {
+        this.rememberOAuthProvider('discord');
         const redirectTo = new URL('/auth/callback', window.location.origin);
         if (returnUrl) redirectTo.searchParams.set('returnUrl', returnUrl);
 
@@ -137,11 +149,15 @@ export class AuthService {
                 redirectTo: redirectTo.toString()
             }
         });
-        if (error) throw new Error(error.message);
+        if (error) {
+            sessionStorage.removeItem(OAUTH_PROVIDER_KEY);
+            throw new Error(error.message);
+        }
     }
 
     /** Redirects to Google OAuth — mirrors loginWithDiscord for non-Discord signups. */
     async loginWithGoogle(returnUrl?: string): Promise<void> {
+        this.rememberOAuthProvider('google');
         const redirectTo = new URL('/auth/callback', window.location.origin);
         if (returnUrl) redirectTo.searchParams.set('returnUrl', returnUrl);
 
@@ -149,20 +165,36 @@ export class AuthService {
             provider: 'google',
             options: { redirectTo: redirectTo.toString() }
         });
-        if (error) throw new Error(error.message);
+        if (error) {
+            sessionStorage.removeItem(OAUTH_PROVIDER_KEY);
+            throw new Error(error.message);
+        }
     }
 
     /**
-     * Ask the resolve-plan Edge Function to verify Discord roles and update
-     * the profile. Called from the OAuth callback with the Discord provider
-     * token (only available in the session immediately after OAuth login).
+     * Finish a login/link callback. Only a Discord flow sends its provider
+     * token to resolve-plan; the server must still verify identity and roles.
      */
-    async resolvePlan(providerToken: string): Promise<void> {
+    async completeOAuth(provider?: string | null): Promise<void> {
+        await this.authReady;
+        const initiatedProvider = this.consumeOAuthProvider();
+        // Identity-link callbacks already name their provider. Login callbacks
+        // use a one-shot, tab-local marker so existing redirect URLs stay valid.
+        provider ??= initiatedProvider;
+        if (provider !== 'discord') {
+            this.discordCredential = null;
+            return;
+        }
+        const providerToken = this.sessionSignal()?.provider_token;
+        if (!providerToken) return;
+        const scope = this.userSession.capture();
         const { error } = await this.supabase.functions.invoke('resolve-plan', {
-            body: { provider_token: providerToken }
+            body: { provider_token: providerToken }, signal: scope.signal
         });
+        if (!this.userSession.isCurrent(scope)) return;
         if (error) throw new Error(`Plan resolution failed: ${error.message}`);
-        await this.refreshProfile();
+        this.discordCredential = { userId: scope.userId, token: providerToken };
+        await this.refreshProfile({ force: true });
     }
 
     /**
@@ -171,17 +203,31 @@ export class AuthService {
      * remains), then we refresh so the derived plan display updates.
      */
     async clearDiscordPlan(): Promise<void> {
+        this.discordCredential = null;
         const { error } = await this.supabase.functions.invoke('resolve-plan', {
             body: { clear: true }
         });
         if (error) throw new Error(`Failed to clear Discord plan: ${error.message}`);
-        await this.refreshProfile();
+        await this.refreshProfile({ force: true });
     }
 
-    /** Re-read the caller's profiles row (plan may have changed server-side). */
-    async refreshProfile(): Promise<void> {
-        const session = this.sessionSignal();
-        if (session) await this.loadProfile(session.user.id);
+    /** Coalesce guard/auth/focus checks; explicit entitlement changes bypass the short cache. */
+    async refreshProfile({ force = false }: { force?: boolean } = {}): Promise<void> {
+        const userId = this.sessionSignal()?.user.id;
+        if (!userId) return;
+        if (force) {
+            // A read started before a mutation must not hide its new result.
+            if (this.profileLoad?.userId === userId) await this.profileLoad.promise;
+            this.profileFreshUntil = 0;
+        }
+        if (this.sessionSignal()?.user.id !== userId) return;
+        if (this.profileLoad?.userId === userId) return this.profileLoad.promise;
+        if (Date.now() < this.profileFreshUntil) return;
+
+        const pending = { userId, promise: this.loadProfile(userId) };
+        this.profileLoad = pending;
+        try { await pending.promise; }
+        finally { if (this.profileLoad === pending) this.profileLoad = null; }
     }
 
     /** Slide the idle window forward. Called by SessionTimeoutService on user activity. */
@@ -205,36 +251,44 @@ export class AuthService {
         this.userSession.clear();
         // Clear local state immediately so guards react without waiting on the network.
         this.sessionSignal.set(null);
-        this.profileSignal.set(null);
+        this.resetProfile();
         localStorage.removeItem(IDLE_EXPIRY_KEY);
+        sessionStorage.removeItem(OAUTH_PROVIDER_KEY);
         void this.supabase.auth.signOut();
     }
 
     private async loadProfile(userId: string): Promise<void> {
         const request = ++this.profileRequest;
-        let { data, error } = await this.supabase.rpc('get_my_entitlements').single<Entitlements>();
-
+        await this.userSession.ready;
         if (this.sessionSignal()?.user.id !== userId || request !== this.profileRequest) return;
-        const token = this.sessionSignal()?.provider_token;
+        const scope = this.userSession.capture();
+        const current = () => this.userSession.isCurrent(scope) &&
+            this.sessionSignal()?.user.id === userId && request === this.profileRequest;
+        const read = () => this.supabase.rpc('get_my_entitlements').abortSignal(scope.signal).single<Entitlements>();
+        let { data, error } = await read();
+
+        if (!current()) return;
+        const token = this.discordCredential?.userId === userId ? this.discordCredential.token : null;
         const expiry = data?.discord_plan_expires_at ? Date.parse(data.discord_plan_expires_at) : 0;
         // Renew opportunistically without persisting additional provider tokens.
         // Missing/expired provider credentials require a new Discord sign-in;
         // they never extend the previous role grant.
         if (data?.discord_id && token && expiry < Date.now() + 15 * 60 * 1000) {
-            const scope = this.userSession.capture();
             const renewed = await this.supabase.functions.invoke('resolve-plan', {
                 body: { provider_token: token }, signal: scope.signal
             });
-            if (!this.userSession.isCurrent(scope)) return;
-            if (!renewed.error) ({ data, error } = await this.supabase.rpc('get_my_entitlements').single<Entitlements>());
+            if (!current()) return;
+            if (!renewed.error) ({ data, error } = await read());
+            else this.discordCredential = null; // Don't repeatedly retry a rejected credential.
         }
 
-        if (this.sessionSignal()?.user.id !== userId || request !== this.profileRequest) return;
+        if (!current()) return;
 
         if (error || !data) {
             // RLS guarantees at most the caller's own row; a miss means the
             // trigger hasn't created it yet — treat as free rather than failing.
             this.profileSignal.set(null);
+            this.discordReauthRequired.set(false);
             return;
         }
         this.profileSignal.set({
@@ -244,6 +298,37 @@ export class AuthService {
         });
         this.discordReauthRequired.set(!!data.discord_id && data.plan === 'free' &&
             (!data.discord_plan_expires_at || Date.parse(data.discord_plan_expires_at) <= Date.now()));
+        const verifiedUntil = data.discord_plan_expires_at ? Date.parse(data.discord_plan_expires_at) : 0;
+        this.profileFreshUntil = Math.min(Date.now() + PROFILE_CACHE_MS,
+            verifiedUntil > Date.now() ? verifiedUntil : Infinity);
+    }
+
+    private resetProfile(): void {
+        ++this.profileRequest;
+        this.profileLoad = null;
+        this.profileFreshUntil = 0;
+        this.discordCredential = null;
+        this.profileSignal.set(null);
+        this.discordReauthRequired.set(false);
+    }
+
+    private rememberOAuthProvider(provider: 'discord' | 'google'): void {
+        this.discordCredential = null;
+        // No credential or user data is stored here. This is routing context,
+        // never proof of membership; resolve-plan still verifies the identity.
+        sessionStorage.setItem(OAUTH_PROVIDER_KEY, JSON.stringify({ provider, startedAt: Date.now() }));
+    }
+
+    private consumeOAuthProvider(): 'discord' | 'google' | null {
+        const stored = sessionStorage.getItem(OAUTH_PROVIDER_KEY);
+        sessionStorage.removeItem(OAUTH_PROVIDER_KEY);
+        if (!stored) return null;
+        try {
+            const { provider, startedAt } = JSON.parse(stored);
+            const age = Date.now() - startedAt;
+            return (provider === 'discord' || provider === 'google') && age >= 0 && age < 15 * 60_000
+                ? provider : null;
+        } catch { return null; }
     }
 
     private buildUser(user: SupabaseUser, profile: Profile | null): User {

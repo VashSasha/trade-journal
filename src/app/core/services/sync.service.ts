@@ -7,6 +7,7 @@ import { takeUntil, timeout } from 'rxjs/operators';
 import { UserSessionService } from './user-session.service';
 import { UserDataRepo } from './user-data/user-data.repo';
 import { reconcileBrokerTrades } from '../utils/broker-trade-identity';
+import { AccessPolicyService } from './access-policy.service';
 
 export interface SyncLogEntry {
     time: string;
@@ -23,6 +24,7 @@ export class SyncService {
     private accountSettings = inject(AccountSettingsService);
     private userSession = inject(UserSessionService);
     private repo = inject(UserDataRepo);
+    private access = inject(AccessPolicyService);
 
     private static readonly LAST_SYNC_KEY = 'tradovate_last_sync_time';
     private static readonly SYNC_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
@@ -91,12 +93,14 @@ export class SyncService {
      * Sync from a specific date (null = account creation date = full sync)
      */
     async syncFrom(fromDate: Date | null): Promise<number> {
+        this.access.assertAction('sync');
         if (this.isSyncing()) return 0;
-        const scope = this.userSession.capture();
+        const scope = this.access.capture();
         const run = new AbortController();
         this.activeRun = run;
         const assertRun = () => {
             this.userSession.assertCurrent(scope);
+            this.access.assertAction('sync');
             if (run.signal.aborted) throw new Error('Sync cancelled. Pending saves remain safe.');
         };
         this.isSyncing.set(true);

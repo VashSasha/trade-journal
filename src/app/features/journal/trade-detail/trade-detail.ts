@@ -4,6 +4,7 @@ import { CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TradeService } from '../../../core/services/trade.service';
 import { Trade } from '../../../core/models/trade.model';
+import { AccessPolicyService } from '../../../core/services/access-policy.service';
 
 @Component({
   selector: 'app-trade-detail',
@@ -16,6 +17,7 @@ export class TradeDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private tradeService = inject(TradeService);
+  private access = inject(AccessPolicyService);
   private destroyRef = inject(DestroyRef);
 
   trade = signal<Trade | undefined>(undefined);
@@ -36,6 +38,7 @@ export class TradeDetailComponent implements OnInit {
   }
 
   deleteTrade(): void {
+    if (!this.access.requestAction('save')) return;
     const t = this.trade();
     if (!t) return;
 

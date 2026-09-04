@@ -4,6 +4,7 @@ import { SyncService } from '../../core/services/sync.service';
 import { FilterService } from '../../core/services/filter.service';
 import { AccountSettingsService } from '../../core/services/account-settings.service';
 import { AccountService } from '../../core/services/account.service';
+import { AccessPolicyService } from '../../core/services/access-policy.service';
 import { tradeSessionDateStr } from '../../core/utils/market-holidays';
 
 function toDateStr(date: Date): string {
@@ -34,6 +35,7 @@ import { FilterToolbarComponent } from './components/filter-toolbar/filter-toolb
     styleUrl: './dashboard.scss'
 })
 export class DashboardComponent implements OnInit {
+    private access = inject(AccessPolicyService);
     private tradeService = inject(TradeService);
     private syncService = inject(SyncService);
     private filterService = inject(FilterService);
@@ -50,7 +52,7 @@ export class DashboardComponent implements OnInit {
 
         const lastSync = this.syncService.lastSyncTime();
         const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-        if (!lastSync || lastSync.getTime() < fiveMinutesAgo) {
+        if (this.access.canAct('sync') && (!lastSync || lastSync.getTime() < fiveMinutesAgo)) {
             this.syncService.syncTrades().catch(err => {
                 console.error('Dashboard auto-sync failed:', err);
             });

@@ -1,4 +1,4 @@
-import { Component, inject, signal, DestroyRef, WritableSignal, OnDestroy } from '@angular/core';
+import { Component, effect, inject, signal, DestroyRef, WritableSignal, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -10,6 +10,8 @@ import { ReportAnalysisService } from './report-analysis.service';
 import { SavedReportsComponent } from './saved-reports/saved-reports.component';
 import { VerdictCardComponent } from './verdict-card/verdict-card.component';
 import { VerdictCard } from './verdict-card.model';
+import { AccessPolicyService } from '../../core/services/access-policy.service';
+import { DEMO_VERDICT } from './demo-verdict';
 
 type AnalysisState = { status: 'idle' | 'streaming' | 'complete' | 'error'; content: string; error: string | null };
 type ConfidenceTier = 'high' | 'medium' | 'low' | null;
@@ -37,6 +39,18 @@ export class AiReportsComponent implements OnDestroy {
     readonly openAiService     = inject(OpenAiService);
     readonly reportService     = inject(ReportAnalysisService);
     private readonly destroyRef = inject(DestroyRef);
+    readonly access = inject(AccessPolicyService);
+
+    constructor() {
+        effect(() => { if (this.access.demo()) this.showExample(); });
+    }
+
+    private showExample(): void {
+        this.activeStream?.unsubscribe(); this.activeFollowUp?.unsubscribe();
+        this.verdict.set(DEMO_VERDICT);
+        this.analysisState.set({ status: 'complete', content: JSON.stringify(DEMO_VERDICT), error: null });
+        this.confidence.set('medium');
+    }
 
     // ── Preserved inputs (survive regeneration) ──────────────────────────────
     analysisMode  = signal<'screenshot' | 'live'>('screenshot');
@@ -102,6 +116,8 @@ export class AiReportsComponent implements OnDestroy {
 
     // ── Analysis entry points ────────────────────────────────────────────────
     async analyze(): Promise<void> {
+        if (this.access.demo()) { this.showExample(); return; }
+        if (!this.access.requestAction('ai')) return;
         this.confidence.set(null);
         this.followUpState.set({ status: 'idle', content: '', error: null });
         this.followUpConfidence.set(null);
@@ -128,6 +144,7 @@ export class AiReportsComponent implements OnDestroy {
     }
 
     regenerate(): void {
+        if (this.access.demo()) { this.showExample(); return; }
         if (!this.lastMessages.length) return;
         this.verdict.set(null);
         this.confidence.set(null);
@@ -142,6 +159,10 @@ export class AiReportsComponent implements OnDestroy {
     }
 
     askFollowUp(message: string): void {
+        if (this.access.demo()) {
+            this.followUpState.set({ status: 'complete', content: 'Example only: the analyst explains the setup, its invalidation, and uncertainties here. Upgrade for analysis of your own charts.', error: null });
+            return;
+        }
         if (this.analysisState().status !== 'complete') return;
         this.lastFollowUpMessage = message;
         const context = this.lastMessages.filter(m => m.role !== 'system');
@@ -216,7 +237,7 @@ export class AiReportsComponent implements OnDestroy {
                             confidenceSignal?.set(score >= 75 ? 'high' : score >= 45 ? 'medium' : 'low');
                             // Auto-save the structured verdict; guard prevents double-save per generation.
                             const key = JSON.stringify(parsed);
-                            if (!autoSaved && key !== this.lastAutoSavedKey) {
+                            if (this.access.canAct('ai') && !autoSaved && key !== this.lastAutoSavedKey) {
                                 autoSaved = true;
                                 this.lastAutoSavedKey = key;
                                 void this.reportService.saveReport(this.deriveReportTitle(parsed), parsed);

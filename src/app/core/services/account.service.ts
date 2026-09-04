@@ -8,6 +8,7 @@ import { TradingAccountsService } from './trading-accounts.service';
 import { AccountSettingsService } from './account-settings.service';
 import { UserSessionService } from './user-session.service';
 import { isCacheSuspended, cacheSuspended } from './user-data/user-data.cache';
+import { AccessPolicyService } from './access-policy.service';
 
 const STORAGE_KEY = 'tradovate_selected_account_ids';
 
@@ -20,6 +21,7 @@ export class AccountService {
     private tradingAccounts = inject(TradingAccountsService);
     private accountSettings = inject(AccountSettingsService);
     private userSession = inject(UserSessionService);
+    private access = inject(AccessPolicyService);
 
     accounts = signal<TradovateAccount[]>([]);
 
@@ -41,6 +43,7 @@ export class AccountService {
                 active: false
             });
         }
+        if (cacheSuspended()) return result;
         // Blob fallback: inactive accounts not yet in stored table
         for (const conn of this.tradovateService.connections()) {
             for (const a of conn.accounts) {
@@ -199,6 +202,7 @@ export class AccountService {
             this.userSession.userId();
             this.liveBalances.set(new Map());
             this.balanceFailedConnectionIds.set(new Set());
+            if (cacheSuspended()) return;
             this.selectedIds.set(this.loadSelectedIds());
         });
         // Derive live accounts from trading_accounts (the authoritative table),
@@ -299,6 +303,7 @@ export class AccountService {
     }
 
     init(): void {
+        if (!this.access.canAct('sync')) return;
         // Stored balances from TradingAccountsService already render via accountBalances —
         // no need to wait for the API. Just kick off the live refresh.
         if (!this.isConnected()) return;
@@ -321,7 +326,8 @@ export class AccountService {
     }
 
     private async fetchBalancesForConnection(conn: TradovateConnection): Promise<void> {
-        const scope = this.userSession.capture();
+        if (!this.access.canAct('sync')) return;
+        const scope = this.access.capture();
         try {
             const balances = await firstValueFrom(
                 this.tradovateService.getCashBalancesForConnection(conn)
@@ -400,6 +406,7 @@ export class AccountService {
     }
 
     async refreshBalances(): Promise<void> {
+        if (!this.access.requestAction('sync')) return;
         if (!this.isConnected()) return;
         this.isRefreshing.set(true);
         try {
