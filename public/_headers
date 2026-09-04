@@ -15,6 +15,9 @@
 # covered before, leaving every other route exposed to exactly that.
 /*
   Cache-Control: no-cache
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: object-src 'none'; base-uri 'self'; frame-ancestors 'none'
 
 # Hashed build assets are content-addressed (name changes when content
 # changes), so they're safe to cache forever. Cloudflare Pages merges

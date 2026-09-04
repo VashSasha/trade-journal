@@ -2,6 +2,7 @@ import { Injectable, signal, computed, inject } from '@angular/core';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { User, PlanTier, LoginCredentials } from '../models/user.model';
 import { SupabaseService } from './supabase.service';
+import { UserSessionService } from './user-session.service';
 
 /**
  * Long-inactivity backstop: sign out after 7 days with no user input.
@@ -29,6 +30,7 @@ interface Profile {
 })
 export class AuthService {
     private supabase = inject(SupabaseService).client;
+    private userSession = inject(UserSessionService);
 
     private sessionSignal = signal<Session | null>(null);
     private profileSignal = signal<Profile | null>(null);
@@ -63,6 +65,7 @@ export class AuthService {
         this.authReady = this.initialize();
 
         this.supabase.auth.onAuthStateChange((event, session) => {
+            if (session?.user.id !== this.sessionSignal()?.user.id) this.profileSignal.set(null);
             this.sessionSignal.set(session);
             if (event === 'SIGNED_OUT' || !session) {
                 this.profileSignal.set(null);
@@ -183,6 +186,7 @@ export class AuthService {
     }
 
     logout(): void {
+        this.userSession.clear();
         // Clear local state immediately so guards react without waiting on the network.
         this.sessionSignal.set(null);
         this.profileSignal.set(null);
@@ -196,6 +200,8 @@ export class AuthService {
             .select('plan, discord_id, beta_access')
             .eq('id', userId)
             .single();
+
+        if (this.sessionSignal()?.user.id !== userId) return;
 
         if (error || !data) {
             // RLS guarantees at most the caller's own row; a miss means the

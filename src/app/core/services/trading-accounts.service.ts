@@ -56,13 +56,24 @@ export class TradingAccountsService {
     /** accountId → full record, for fast lookups. */
     readonly byId = computed(() => new Map(this.accountsMap()));
 
+    /** Account IDs where active = false — retired by the broker or by the user. */
+    readonly retiredIds = computed(() => {
+        const ids = new Set<number>();
+        for (const acc of this.accountsMap().values()) {
+            if (!acc.active) ids.add(acc.accountId);
+        }
+        return ids;
+    });
+
     /** Replace the store with the authoritative cloud rows (or [] on sign-out). */
     hydrate(rows: StoredTradingAccount[]): void {
         this.accountsMap.set(TradingAccountsService.toMap(rows));
         writeCache(CACHE_KEYS.tradingAccounts, rows);
     }
 
-    /** Persist account metadata from an /account/list fetch. Balance and starting_balance fields are preserved. */
+    /** Persist account metadata from an /account/list fetch. Balance and
+     *  starting_balance are preserved; active is written from the broker payload
+     *  so broker-deactivated accounts are correctly reflected in the stored table. */
     recordAccounts(connectionId: string, accounts: TradovateAccount[]): void {
         if (accounts.length === 0) return;
         this.merge(accounts.map(a => {
@@ -75,12 +86,12 @@ export class TradingAccountsService {
                 active: a.active !== false,
                 lastBalance: prev?.lastBalance ?? null,
                 balanceUpdatedAt: prev?.balanceUpdatedAt ?? null,
-                startingBalance: prev?.startingBalance ?? null
+                startingBalance: prev?.startingBalance ?? null,
             };
         }));
     }
 
-    /** Persist balances from a /cashBalance/list fetch. Metadata fields are preserved. */
+    /** Persist balances from a /cashBalance/list fetch. All other fields preserved. */
     recordBalances(connectionId: string, balances: TradovateCashBalance[]): void {
         const now = new Date().toISOString();
         const updates: StoredTradingAccount[] = [];
@@ -95,10 +106,18 @@ export class TradingAccountsService {
                 active: prev?.active ?? true,
                 lastBalance: b.amount,
                 balanceUpdatedAt: now,
-                startingBalance: prev?.startingBalance ?? null
+                startingBalance: prev?.startingBalance ?? null,
             });
         }
         this.merge(updates);
+    }
+
+    /** Retire or restore an account. active=false → excluded from selector and
+     *  balance aggregation; trades remain fully visible. */
+    setActive(accountId: number, active: boolean): void {
+        const prev = this.accountsMap().get(accountId);
+        if (!prev || prev.active === active) return;
+        this.merge([{ ...prev, active }]);
     }
 
     private merge(updates: StoredTradingAccount[]): void {

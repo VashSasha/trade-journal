@@ -72,6 +72,23 @@ describe('splitByExisting', () => {
         const { newTrades } = splitByExisting(parsed, [manual]);
         expect(newTrades).toHaveLength(3);
     });
+
+    it('holds a CSV match to an older HTML import for review, never imports it twice', () => {
+        const t = parsed[0];
+        const html = asStoredTrade(t, { externalId: `tradovate_perf_${t.accountId}_${t.symbol}_${t.entryDate}_${t.exitDate}_${t.entryPrice}_${t.exitPrice}_${t.pnl}` });
+        const result = splitByExisting([t], [html]);
+        expect(result.newTrades).toHaveLength(0);
+        expect(result.review).toHaveLength(1);
+    });
+    it('keeps distinct stable fills even when every economic value is identical', () => {
+        const differentFill = { ...parsed[0], externalId: 'tradovate_perf_12345_MNQU6_999_888' };
+        expect(splitByExisting([differentFill], [asStoredTrade(parsed[0])]).newTrades).toHaveLength(1);
+    });
+    it('deduplicates repeated rows within the incoming file', () => {
+        const result = splitByExisting([parsed[0], parsed[0]], []);
+        expect(result.newTrades).toHaveLength(1);
+        expect(result.duplicates).toHaveLength(1);
+    });
 });
 
 describe('stableAccountIdFromName', () => {

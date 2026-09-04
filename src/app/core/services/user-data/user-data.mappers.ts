@@ -179,6 +179,12 @@ export function rowToTemplate(r: Row): JournalTemplate {
 /**
  * A persisted trading account (row of public.trading_accounts). Survives
  * connection removal — this is what "historical" accounts render from.
+ *
+ * `active` is the single retirement flag: false means the account is retired
+ * (excluded from the account selector and balance aggregation; trades remain
+ * fully visible). The broker also writes false here when it deactivates an
+ * account, so both user-initiated and broker-initiated retirements converge
+ * on the same flag.
  */
 export interface StoredTradingAccount {
     accountId: number;
@@ -222,7 +228,7 @@ export function rowToTradingAccount(r: Row): StoredTradingAccount {
             ? null : Number(r['last_balance']),
         balanceUpdatedAt: (r['balance_updated_at'] as string | null) ?? null,
         startingBalance: r['starting_balance'] === null || r['starting_balance'] === undefined
-            ? null : Number(r['starting_balance'])
+            ? null : Number(r['starting_balance']),
     };
 }
 

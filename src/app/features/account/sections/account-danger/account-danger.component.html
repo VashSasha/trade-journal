@@ -21,7 +21,7 @@
     <div class="danger__row">
         <div class="danger__meta">
             <span class="danger__name">Delete account</span>
-            <span class="danger__hint">Permanently deletes your account and all your data. This cannot be undone.</span>
+            <span class="danger__hint">Cancels your journal subscription immediately, then permanently deletes your account and data. No automatic refund is issued. Sign in again first if your login is older than 10 minutes.</span>
         </div>
         @if (!showDelete()) {
             <button class="acc-btn acc-btn--danger" (click)="showDelete.set(true)">Delete account</button>

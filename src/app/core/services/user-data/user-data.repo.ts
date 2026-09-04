@@ -1,312 +1,284 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { SupabaseService } from '../supabase.service';
+import { UserOperation, UserSessionService } from '../user-session.service';
 import { Trade } from '../../models/trade.model';
 import { DailyNote, JournalTemplate } from '../../models/daily-journal.model';
 import {
-    UserSettings, StoredTradingAccount,
-    tradeToRow, rowToTrade,
-    noteToRow, rowToNote,
-    templateToRow, rowToTemplate,
-    settingsToRow, rowToSettings,
-    tradingAccountToRow, rowToTradingAccount
+  UserSettings, StoredTradingAccount, tradeToRow, rowToTrade, noteToRow, rowToNote,
+  templateToRow, rowToTemplate, settingsToRow, rowToSettings, tradingAccountToRow,
+  rowToTradingAccount
 } from './user-data.mappers';
-import { CACHE_KEYS, readCache, writeCache, isCacheSuspended } from './user-data.cache';
+import { CACHE_KEYS, readCache, isCacheSuspended } from './user-data.cache';
 
 type Row = Record<string, unknown>;
-type UserTable = 'trades' | 'journal_entries' | 'journal_templates' | 'trading_accounts';
+type UserTable = 'trades' | 'journal_entries' | 'journal_templates' | 'trading_accounts' | 'tradovate_connections';
+type PendingWrite =
+  | { table: UserTable; op: 'upsert'; rows: Row[] }
+  | { table: UserTable; op: 'delete'; ids: string[] }
+  | { table: 'trades'; op: 'delete-all' }
+  | { table: 'user_settings'; op: 'upsert'; row: Row };
 
-/** Composite-PK conflict targets for upserts (user_id fills from its default). */
-const CONFLICT: Record<UserTable, string> = {
-    trades: 'user_id,id',
-    journal_entries: 'user_id,id',
-    journal_templates: 'user_id,id',
-    trading_accounts: 'user_id,account_id'
+interface Envelope {
+  key: string;
+  userId: string;
+  write: PendingWrite
+}
+
+const PREFIX = 'tj_outbox_v2:';
+const CONFLICT = {
+  journal_entries: 'user_id,date', journal_templates: 'user_id,id',
+  trading_accounts: 'user_id,account_id', tradovate_connections: 'user_id,connection_id'
 };
 
-type PendingWrite =
-    | { table: UserTable; op: 'upsert'; rows: Row[] }
-    | { table: UserTable; op: 'delete'; ids: string[] }
-    | { table: 'trades'; op: 'delete-all' }
-    | { table: 'user_settings'; op: 'upsert'; row: Row };
-
-/** How long mutations accumulate before being sent as one request. */
-const BATCH_DELAY_MS = 300;
-const RETRY_INTERVAL_MS = 30_000;
-const IMPORT_CHUNK_SIZE = 500;
-
-/**
- * All Supabase reads/writes for user data. Services call the queue* methods
- * fire-and-forget: mutations are micro-batched (a Tradovate sync creating
- * hundreds of trades becomes a handful of upserts) and, when the network is
- * down, land in a localStorage-persisted queue that retries on 'online',
- * on an interval, and after login.
- */
-@Injectable({ providedIn: 'root' })
+/** Owner-bound outbox. Persist BEFORE sending; only acknowledged writes are removed.
+ * Separate keys prevent another tab's enqueue from overwriting this tab's queue.
+ * Sign-out clears UI state, never another user's pending durable writes. */
+@Injectable({providedIn: 'root'})
 export class UserDataRepo {
-    private client = inject(SupabaseService).client;
+  private client = inject(SupabaseService).client;
+  private session = inject(UserSessionService);
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private running: Promise<void> | null = null;
+  private sequence = 0;
+  writeVersion = 0;
+  readonly pending = signal(0);
+  readonly saveError = signal<string | null>(null);
+  readonly canonicalTrades = signal<Trade[]>([]);
 
-    // In-flight micro-batches, coalesced by row id.
-    private batchedUpserts = new Map<UserTable, Map<string, Row>>();
-    private batchedDeletes = new Map<UserTable, Set<string>>();
-    private batchedSettings: Row | null = null;
-    private flushTimer: ReturnType<typeof setTimeout> | null = null;
-
-    // Writes that failed on the network, persisted across restarts.
-    private queue: PendingWrite[] = readCache<PendingWrite[]>(CACHE_KEYS.queue) ?? [];
-    private flushing = false;
-
-    constructor() {
-        window.addEventListener('online', () => void this.flushQueue());
-        setInterval(() => void this.flushQueue(), RETRY_INTERVAL_MS);
+  constructor() {
+    const retry = () => void this.flushQueue().catch(() => undefined);
+    window.addEventListener('online', retry);
+    window.addEventListener('storage', retry);
+    setInterval(retry, 30_000);
+    // Migrate legacy failures ONLY when their owner is known. Unknown-owner
+    // data is deliberately not uploaded to whoever next signs in.
+    const owner = readCache<string>(CACHE_KEYS.owner);
+    const legacy = readCache<PendingWrite[]>(CACHE_KEYS.queue);
+    if (owner && legacy?.length) {
+      for (const write of legacy) this.persist(owner, write);
+      localStorage.removeItem(CACHE_KEYS.queue);
     }
+  }
 
-    // ── reads ────────────────────────────────────────────────────────────
+  private async fetchAll(table: UserTable): Promise<Row[]> {
+    const scope = this.session.capture();
+    const key = table === 'trading_accounts' ? 'account_id' : table === 'tradovate_connections' ? 'connection_id' : 'id';
+    const rows: Row[] = [];
+    let cursor: string | number | undefined;
+    for (; ;) {
+      this.session.assertCurrent(scope);
+      let query = this.client.from(table).select('*').eq('user_id', scope.userId)
+        .order(key, {ascending: true}).limit(500);
+      if (cursor !== undefined) query = query.gt(key, cursor);
+      const {data, error} = await query.abortSignal(scope.signal);
+      this.session.assertCurrent(scope);
+      if (error) throw error;
+      if (!data?.length) return rows;
+      rows.push(...data);
+      cursor = data[data.length - 1][key];
+      // Continue until empty, even if the project's row cap is <500.
+    }
+  }
 
-    async fetchTrades(): Promise<Trade[]> {
-        const { data, error } = await this.client
-            .from('trades').select('*').order('entry_date', { ascending: true });
+  async fetchTrades(): Promise<Trade[]> {
+    return (await this.fetchAll('trades')).map(rowToTrade)
+      .sort((a, b) => a.entryDate.localeCompare(b.entryDate));
+  }
+  async fetchConnections(): Promise<Row[]> { return this.fetchAll('tradovate_connections'); }
+  queueConnectionUpserts(rows: Row[]): void { this.upsert('tradovate_connections', rows); }
+
+  async fetchNotes(): Promise<DailyNote[]> {
+    return (await this.fetchAll('journal_entries')).map(rowToNote);
+  }
+
+  async fetchTemplates(): Promise<JournalTemplate[]> {
+    return (await this.fetchAll('journal_templates')).map(rowToTemplate);
+  }
+
+  async fetchTradingAccounts(): Promise<StoredTradingAccount[]> {
+    return (await this.fetchAll('trading_accounts')).map(rowToTradingAccount);
+  }
+
+  async fetchSettings(): Promise<UserSettings | null> {
+    const scope = this.session.capture();
+    const {data, error} = await this.client.from('user_settings').select('*')
+      .eq('user_id', scope.userId).abortSignal(scope.signal).maybeSingle();
+    this.session.assertCurrent(scope);
+    if (error) throw error;
+    return data ? rowToSettings(data) : null;
+  }
+
+  queueTradeUpserts(trades: Trade[]): void {
+    if (isCacheSuspended()) return;
+    const owner = this.session.capture().userId;
+    if (trades.some(t => t.userId !== owner)) throw new Error('Trade owner changed. Save cancelled.');
+    this.upsert('trades', trades.map(tradeToRow));
+  }
+
+  queueTradeDeletes(ids: string[]): void {
+    this.enqueue({table: 'trades', op: 'delete', ids});
+  }
+
+  queueClearAllTrades(): void {
+    this.enqueue({table: 'trades', op: 'delete-all'});
+  }
+
+  queueNoteUpsert(note: DailyNote): void {
+    this.upsert('journal_entries', [noteToRow(note)]);
+  }
+
+  queueTemplateUpsert(template: JournalTemplate): void {
+    this.upsert('journal_templates', [templateToRow(template)]);
+  }
+
+  queueTemplateDelete(id: string): void {
+    this.enqueue({table: 'journal_templates', op: 'delete', ids: [id]});
+  }
+
+  queueSettingsUpsert(settings: Partial<UserSettings>): void {
+    this.enqueue({table: 'user_settings', op: 'upsert', row: settingsToRow(settings)});
+  }
+
+  queueTradingAccountUpserts(accounts: StoredTradingAccount[]): void {
+    this.upsert('trading_accounts', accounts.map(tradingAccountToRow));
+  }
+
+  async importTrades(trades: Trade[]): Promise<void> {
+    this.queueTradeUpserts(trades);
+    await this.flushQueue();
+  }
+
+  async importNotes(notes: DailyNote[]): Promise<void> {
+    this.upsert('journal_entries', [...new Map(notes.map(n => [n.date, n])).values()].map(noteToRow));
+    await this.flushQueue();
+  }
+
+  async importTemplates(templates: JournalTemplate[]): Promise<void> {
+    this.upsert('journal_templates', templates.map(templateToRow));
+    await this.flushQueue();
+  }
+
+  async importSettings(settings: Partial<UserSettings>): Promise<void> {
+    this.queueSettingsUpsert(settings);
+    await this.flushQueue();
+  }
+
+  private upsert(table: UserTable, rows: Row[]): void {
+    for (let i = 0; i < rows.length; i += 500) this.enqueue({table, op: 'upsert', rows: rows.slice(i, i + 500)});
+  }
+
+  private enqueue(write: PendingWrite): void {
+    if (isCacheSuspended()) return;
+    const {userId} = this.session.capture();
+    this.persist(userId, write);
+    this.writeVersion++;
+    this.pending.update(count => count + 1);
+    if (!this.timer) this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.flushQueue().catch(() => undefined);
+    }, 300);
+  }
+
+  private persist(userId: string, write: PendingWrite): void {
+    this.sequence = Math.max(Date.now() * 1000, this.sequence + 1);
+    const key = `${PREFIX}${userId}:${String(this.sequence).padStart(18, '0')}:${crypto.randomUUID()}`;
+    try {
+      localStorage.setItem(key, JSON.stringify({key, userId, write} satisfies Envelope));
+    } catch {
+      this.saveError.set('Browser storage is full. This change was not saved. Export your data before closing this page.');
+      throw new Error(this.saveError()!);
+    }
+  }
+
+  private entries(userId: string): Envelope[] {
+    return Object.keys(localStorage).filter(k => k.startsWith(`${PREFIX}${userId}:`)).sort()
+      .map(k => JSON.parse(localStorage.getItem(k)!) as Envelope);
+  }
+
+  async flushQueue(): Promise<void> {
+    if (isCacheSuspended() || !this.session.userId()) return;
+    if (this.running) {
+      await this.running;
+      return this.flushQueue();
+    }
+    const scope = this.session.capture();
+    const run = async () => {
+      this.session.assertCurrent(scope);
+      let items = this.entries(scope.userId);
+      this.pending.set(items.length);
+      while (items.length) {
+        const item = items[0];
+        const batch = [item];
+        let write = item.write;
+        if (write.op === 'upsert' && write.table !== 'user_settings') {
+          const table = write.table;
+          let rows = [...write.rows];
+          for (const next of items.slice(1)) {
+            const w = next.write;
+            if (w.op !== 'upsert' || w.table !== table || rows.length + w.rows.length > 500) break;
+            rows.push(...w.rows); batch.push(next);
+          }
+          const key = table === 'trading_accounts' ? 'account_id' : table === 'journal_entries' ? 'date' : table === 'tradovate_connections' ? 'connection_id' : 'id';
+          rows = [...new Map(rows.map(r => [r[key], r])).values()];
+          write = { table, op: 'upsert', rows };
+        }
+        await this.execute(write, scope);
+        this.session.assertCurrent(scope);
+        for (const acknowledged of batch) localStorage.removeItem(acknowledged.key);
+        items = this.entries(scope.userId);
+        this.pending.set(items.length);
+      }
+      this.saveError.set(null);
+    };
+    this.running = Promise.resolve(navigator.locks
+      ? navigator.locks.request(`${PREFIX}${scope.userId}`, {signal: scope.signal}, run)
+      : run()).then(() => undefined).catch(err => {
+      if (this.session.isCurrent(scope)) this.saveError.set('Changes are pending on this device, not yet saved to the cloud. Retry when connected.');
+      throw err;
+    });
+    try {
+      await this.running;
+    } finally {
+      this.running = null;
+    }
+  }
+
+  /** Cancel scheduled work; leave the departing user's durable outbox intact. */
+  clearQueue(): void {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.pending.set(0);
+    this.saveError.set(null);
+    this.canonicalTrades.set([]);
+  }
+
+  private async execute(write: PendingWrite, scope: UserOperation): Promise<void> {
+    this.session.assertCurrent(scope);
+    if (isCacheSuspended()) throw new Error('Saving is paused in demo mode.');
+    const owned = (row: Row) => ({...row, user_id: scope.userId});
+    if (write.op === 'delete-all') {
+      const {error} = await this.client.from('trades').delete().eq('user_id', scope.userId).abortSignal(scope.signal);
+      if (error) throw error;
+    } else if (write.table === 'user_settings') {
+      const {error} = await this.client.from('user_settings').upsert(owned(write.row), {onConflict: 'user_id'}).abortSignal(scope.signal);
+      if (error) throw error;
+    } else if (write.op === 'upsert') {
+      if (write.table === 'trades') {
+        const {
+          data,
+          error
+        } = await this.client.rpc('upsert_user_trades', {p_rows: write.rows.map(owned)}).abortSignal(scope.signal);
+        this.session.assertCurrent(scope);
         if (error) throw error;
-        return (data as Row[]).map(rowToTrade);
-    }
-
-    async fetchNotes(): Promise<DailyNote[]> {
-        const { data, error } = await this.client
-            .from('journal_entries').select('*').order('date', { ascending: true });
+        this.canonicalTrades.set((data ?? []).map(rowToTrade));
+      } else {
+        const {error} = await this.client.from(write.table).upsert(write.rows.map(owned), {onConflict: CONFLICT[write.table]}).abortSignal(scope.signal);
         if (error) throw error;
-        return (data as Row[]).map(rowToNote);
+      }
+    } else {
+      const {error} = await this.client.from(write.table).delete().eq('user_id', scope.userId).in('id', write.ids).abortSignal(scope.signal);
+      if (error) throw error;
     }
-
-    async fetchTemplates(): Promise<JournalTemplate[]> {
-        const { data, error } = await this.client
-            .from('journal_templates').select('*').order('created_at', { ascending: true });
-        if (error) throw error;
-        return (data as Row[]).map(rowToTemplate);
-    }
-
-    async fetchSettings(): Promise<UserSettings | null> {
-        const { data, error } = await this.client
-            .from('user_settings').select('*').maybeSingle();
-        if (error) throw error;
-        return data ? rowToSettings(data as Row) : null;
-    }
-
-    async fetchTradingAccounts(): Promise<StoredTradingAccount[]> {
-        const { data, error } = await this.client
-            .from('trading_accounts').select('*').order('account_id', { ascending: true });
-        if (error) throw error;
-        return (data as Row[]).map(rowToTradingAccount);
-    }
-
-    // ── fire-and-forget writes (batched) ─────────────────────────────────
-
-    queueTradeUpserts(trades: Trade[]): void {
-        if (isCacheSuspended()) return;
-        this.addUpserts('trades', trades.map(t => [t.id, tradeToRow(t)]));
-    }
-
-    queueTradeDeletes(ids: string[]): void {
-        if (isCacheSuspended()) return;
-        this.addDeletes('trades', ids);
-    }
-
-    queueClearAllTrades(): void {
-        if (isCacheSuspended()) return;
-        // Supersedes anything queued for the table.
-        this.batchedUpserts.delete('trades');
-        this.batchedDeletes.delete('trades');
-        this.queue = this.queue.filter(w => w.table !== 'trades');
-        this.persistQueue();
-        void this.runOrQueue({ table: 'trades', op: 'delete-all' });
-    }
-
-    queueNoteUpsert(note: DailyNote): void {
-        if (isCacheSuspended()) return;
-        this.addUpserts('journal_entries', [[note.id, noteToRow(note)]]);
-    }
-
-    queueTemplateUpsert(template: JournalTemplate): void {
-        if (isCacheSuspended()) return;
-        this.addUpserts('journal_templates', [[template.id, templateToRow(template)]]);
-    }
-
-    queueTemplateDelete(id: string): void {
-        if (isCacheSuspended()) return;
-        this.addDeletes('journal_templates', [id]);
-    }
-
-    queueSettingsUpsert(settings: Partial<UserSettings>): void {
-        if (isCacheSuspended()) return;
-        this.batchedSettings = { ...(this.batchedSettings ?? {}), ...settingsToRow(settings) };
-        this.scheduleFlush();
-    }
-
-    /**
-     * Rows arrive pre-merged (full column set) from TradingAccountsService, so
-     * plain last-write-wins coalescing by account id is safe here. This table
-     * is append/update only — nothing ever queues a delete for it.
-     */
-    queueTradingAccountUpserts(accounts: StoredTradingAccount[]): void {
-        if (isCacheSuspended()) return;
-        this.addUpserts('trading_accounts',
-            accounts.map(a => [String(a.accountId), tradingAccountToRow(a)]));
-    }
-
-    // ── direct writes (awaited — used by the one-time import) ────────────
-
-    async importTrades(trades: Trade[]): Promise<void> {
-        for (let i = 0; i < trades.length; i += IMPORT_CHUNK_SIZE) {
-            const chunk = trades.slice(i, i + IMPORT_CHUNK_SIZE).map(tradeToRow);
-            await this.execute({ table: 'trades', op: 'upsert', rows: chunk });
-        }
-    }
-
-    async importNotes(notes: DailyNote[]): Promise<void> {
-        // The table enforces one note per (user, date); legacy data should
-        // already satisfy that, but dedupe defensively (last write wins).
-        const byDate = new Map(notes.map(n => [n.date, n]));
-        const rows = [...byDate.values()].map(noteToRow);
-        if (rows.length) await this.execute({ table: 'journal_entries', op: 'upsert', rows });
-    }
-
-    async importTemplates(templates: JournalTemplate[]): Promise<void> {
-        const rows = templates.map(templateToRow);
-        if (rows.length) await this.execute({ table: 'journal_templates', op: 'upsert', rows });
-    }
-
-    async importSettings(settings: Partial<UserSettings>): Promise<void> {
-        await this.execute({ table: 'user_settings', op: 'upsert', row: settingsToRow(settings) });
-    }
-
-    // ── batching ─────────────────────────────────────────────────────────
-
-    private addUpserts(table: UserTable, entries: Array<[string, Row]>): void {
-        const pending = this.batchedUpserts.get(table) ?? new Map<string, Row>();
-        for (const [id, row] of entries) {
-            pending.set(id, row);
-            this.batchedDeletes.get(table)?.delete(id); // upsert cancels a pending delete
-        }
-        this.batchedUpserts.set(table, pending);
-        this.scheduleFlush();
-    }
-
-    private addDeletes(table: UserTable, ids: string[]): void {
-        const pending = this.batchedDeletes.get(table) ?? new Set<string>();
-        for (const id of ids) {
-            pending.add(id);
-            this.batchedUpserts.get(table)?.delete(id); // delete cancels a pending upsert
-        }
-        this.batchedDeletes.set(table, pending);
-        this.scheduleFlush();
-    }
-
-    private scheduleFlush(): void {
-        if (this.flushTimer) return;
-        this.flushTimer = setTimeout(() => {
-            this.flushTimer = null;
-            void this.flushBatch();
-        }, BATCH_DELAY_MS);
-    }
-
-    private async flushBatch(): Promise<void> {
-        const writes: PendingWrite[] = [];
-
-        for (const [table, rows] of this.batchedUpserts) {
-            if (rows.size) writes.push({ table, op: 'upsert', rows: [...rows.values()] });
-        }
-        for (const [table, ids] of this.batchedDeletes) {
-            if (ids.size) writes.push({ table, op: 'delete', ids: [...ids] });
-        }
-        if (this.batchedSettings) {
-            writes.push({ table: 'user_settings', op: 'upsert', row: this.batchedSettings });
-        }
-        this.batchedUpserts.clear();
-        this.batchedDeletes.clear();
-        this.batchedSettings = null;
-
-        for (const write of writes) await this.runOrQueue(write);
-    }
-
-    // ── retry queue ──────────────────────────────────────────────────────
-
-    private async runOrQueue(write: PendingWrite): Promise<void> {
-        try {
-            await this.execute(write);
-        } catch (err) {
-            if (this.isNetworkError(err)) {
-                this.queue.push(write);
-                this.persistQueue();
-            } else {
-                // Server rejected the write (RLS, constraint, …). Retrying would
-                // loop forever; the data is still in the local cache/signals.
-                console.error('Supabase write rejected, not retrying:', write.table, err);
-            }
-        }
-    }
-
-    async flushQueue(): Promise<void> {
-        if (isCacheSuspended() || this.flushing || !this.queue.length || !navigator.onLine) return;
-        this.flushing = true;
-        try {
-            while (this.queue.length) {
-                try {
-                    await this.execute(this.queue[0]);
-                } catch (err) {
-                    if (this.isNetworkError(err)) return; // still offline — keep the queue
-                    console.error('Dropping rejected queued write:', this.queue[0].table, err);
-                }
-                this.queue.shift();
-                this.persistQueue();
-            }
-        } finally {
-            this.flushing = false;
-        }
-    }
-
-    /** Sign-out: pending writes belong to the departing user. */
-    clearQueue(): void {
-        this.batchedUpserts.clear();
-        this.batchedDeletes.clear();
-        this.batchedSettings = null;
-        this.queue = [];
-        this.persistQueue();
-    }
-
-    private persistQueue(): void {
-        writeCache(CACHE_KEYS.queue, this.queue);
-    }
-
-    // ── execution ────────────────────────────────────────────────────────
-
-    private async execute(write: PendingWrite): Promise<void> {
-        // Single choke point: blocks all Supabase writes during demo mode.
-        // The queue* methods also return early, but this guards direct callers
-        // (importTrades/Notes/Templates/Settings) and timer-triggered flushes.
-        if (isCacheSuspended()) return;
-        if (write.op === 'delete-all') {
-            const { error } = await this.client.from('trades').delete().neq('id', '');
-            if (error) throw error;
-            return;
-        }
-        if (write.table === 'user_settings') {
-            const { error } = await this.client
-                .from('user_settings').upsert(write.row, { onConflict: 'user_id' });
-            if (error) throw error;
-            return;
-        }
-        if (write.op === 'upsert') {
-            const { error } = await this.client
-                .from(write.table).upsert(write.rows, { onConflict: CONFLICT[write.table] });
-            if (error) throw error;
-            return;
-        }
-        const { error } = await this.client
-            .from(write.table).delete().in('id', write.ids);
-        if (error) throw error;
-    }
-
-    private isNetworkError(err: unknown): boolean {
-        if (!navigator.onLine) return true;
-        const message = err instanceof Error ? err.message : String(err);
-        return /failed to fetch|networkerror|load failed|fetch failed|timeout/i.test(message);
-    }
+    this.session.assertCurrent(scope);
+  }
 }

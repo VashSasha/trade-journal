@@ -7,7 +7,7 @@
         <app-demo-banner />
         }
 
-        @if (tradovate.hasExpiredConnections() && !bannerDismissed()) {
+        @if (hasVisibleExpiredConnections()) {
         <div class="expired-banner">
             <svg class="expired-banner__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -15,7 +15,7 @@
             </svg>
 
             <div class="expired-banner__body">
-                @for (conn of tradovate.expiredConnections(); track conn.id) {
+                @for (conn of visibleExpiredConnections(); track conn.id) {
                 <div class="expired-banner__row">
                     <span class="expired-banner__name">{{ conn.name }}</span>
                     <span class="expired-banner__label">session expired</span>
@@ -44,16 +44,38 @@
                     <button class="expired-banner__reconnect-btn" (click)="startReconnect(conn.id)">
                         Reconnect
                     </button>
+                    <button class="expired-banner__close-btn" (click)="markConnectionClosed(conn.id)"
+                            title="Mark this connection as permanently closed — skips sync and hides this banner">
+                        Connection closed
+                    </button>
+                    <button class="expired-banner__dismiss" (click)="dismissBanner(conn.id)" aria-label="Dismiss">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                    }
+
+                    @if (conn.accounts.length > 0) {
+                    <div class="expired-banner__accounts">
+                        @for (acc of conn.accounts; track acc.id) {
+                        <div class="expired-banner__account-row">
+                            <span class="expired-banner__account-name">{{ acc.name }}</span>
+                            @if (tradingAccounts.retiredIds().has(acc.id)) {
+                            <button class="expired-banner__restore-btn" (click)="restoreAccount(acc.id)">
+                                Restore
+                            </button>
+                            } @else {
+                            <button class="expired-banner__retire-btn" (click)="retireAccount(acc.id)">
+                                Retire
+                            </button>
+                            }
+                        </div>
+                        }
+                    </div>
                     }
                 </div>
                 }
             </div>
-
-            <button class="expired-banner__dismiss" (click)="bannerDismissed.set(true)" aria-label="Dismiss">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-            </button>
         </div>
         }
 

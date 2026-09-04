@@ -12,12 +12,24 @@
  *   DemoModeService calls setCacheSuspended(true) before hydrating demo data.
  *   While suspended, writeCache and clearUserCache are no-ops so demo data
  *   never reaches localStorage and the real user's data stays intact.
+ *
+ * cacheSuspended is also exposed as a readonly Angular signal so that
+ * reactive effects (e.g. AccountService's account-sync effect) can skip
+ * while demo data is being hydrated.
  */
 
+import { signal } from '@angular/core';
+
 let _cacheSuspended = false;
+const _cacheSuspendedSignal = signal(false);
+
+/** Readonly signal — true while demo mode is active. Use inside effects to
+ *  avoid overwriting demo-injected values with stale derivations. */
+export const cacheSuspended = _cacheSuspendedSignal.asReadonly();
 
 export function setCacheSuspended(suspended: boolean): void {
     _cacheSuspended = suspended;
+    _cacheSuspendedSignal.set(suspended);
 }
 
 export function isCacheSuspended(): boolean {
@@ -64,7 +76,8 @@ export function writeCache(key: string, value: unknown): void {
 
 export function clearUserCache(): void {
     if (_cacheSuspended) return;
-    Object.values(CACHE_KEYS).forEach(key => localStorage.removeItem(key));
+    // Unknown-owner legacy failures must be retained for manual recovery.
+    Object.values(CACHE_KEYS).filter(key => key !== CACHE_KEYS.queue).forEach(key => localStorage.removeItem(key));
 }
 
 export function hasLegacyData(): boolean {

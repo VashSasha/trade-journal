@@ -15,6 +15,7 @@ export interface FilterState {
     setups: string[];
     sides: ('long' | 'short')[];
     accountIds: string[];
+    accountSelectionActive?: boolean;
 }
 
 @Injectable({
@@ -70,22 +71,23 @@ export class FilterService {
             const accountIds = s.accountIds.includes(accountId)
                 ? s.accountIds.filter(x => x !== accountId)
                 : [...s.accountIds, accountId];
-            return { ...s, accountIds };
+            return { ...s, accountIds, accountSelectionActive: true };
         });
     }
 
-    updateAccounts(accountIds: string[]) {
-        this.state.update(s => ({ ...s, accountIds }));
+    updateAccounts(accountIds: string[], accountSelectionActive = true) {
+        this.state.update(s => ({ ...s, accountIds, accountSelectionActive }));
     }
 
     reset() {
-        this.state.set({
+        this.state.update(s => ({
             dateRange: { start: null, end: null },
             symbols: [],
             setups: [],
             sides: [],
-            accountIds: []
-        });
+            accountIds: s.accountIds,
+            accountSelectionActive: s.accountSelectionActive
+        }));
     }
 
     // Filtering Logic
@@ -112,9 +114,7 @@ export class FilterService {
             // Sides
             if (s.sides.length > 0 && !s.sides.includes(t.direction)) return false;
 
-            if (s.accountIds.length > 0 && t.accountId && t.accountId !== '0') {
-                if (!s.accountIds.includes(t.accountId)) return false;
-            }
+            if (s.accountSelectionActive && !s.accountIds.includes(t.accountId || '0')) return false;
 
             return true;
         });
@@ -130,9 +130,7 @@ export class FilterService {
             if (s.setups.length > 0 && (!t.setup || !s.setups.includes(t.setup))) return false;
             if (s.sides.length > 0 && !s.sides.includes(t.direction)) return false;
 
-            if (s.accountIds.length > 0 && t.accountId && t.accountId !== '0') {
-                if (!s.accountIds.includes(t.accountId)) return false;
-            }
+            if (s.accountSelectionActive && !s.accountIds.includes(t.accountId || '0')) return false;
 
             return true;
         });

@@ -7,6 +7,7 @@ import { SyncService } from '../../../../core/services/sync.service';
 import { AccountSettingsService } from '../../../../core/services/account-settings.service';
 import { TradeService } from '../../../../core/services/trade.service';
 import { DemoModeService } from '../../../../core/services/demo-mode.service';
+import { TradingAccountsService } from '../../../../core/services/trading-accounts.service';
 
 @Component({
     selector: 'app-tradovate-settings',
@@ -23,6 +24,7 @@ export class TradovateSettingsComponent {
     syncService = inject(SyncService);
     accountSettings = inject(AccountSettingsService);
     private tradeService = inject(TradeService);
+    tradingAccounts = inject(TradingAccountsService);
 
     configForm: FormGroup;
     isSaved = signal(false);
@@ -37,8 +39,8 @@ export class TradovateSettingsComponent {
     customFromDate = signal(this.defaultFromDate(30));
     activePreset = signal<number | null | undefined>(30);
 
-    // Expose service signals
-    connections = this.tradovateService.connections;
+    // Expose service signals — settings shows all non-removed connections (including disabled)
+    connections = this.tradovateService.settingsConnections;
     isSyncing = this.syncService.isSyncing;
     syncLog = this.syncService.syncLog;
     syncProgress = this.syncService.syncProgress;
@@ -156,6 +158,26 @@ export class TradovateSettingsComponent {
         if (confirm('Are you sure you want to remove this connection?')) {
             this.tradovateService.removeConnection(connectionId);
         }
+    }
+
+    toggleConnectionDisabled(conn: TradovateConnection): void {
+        if (conn.disabled) {
+            this.tradovateService.enableConnection(conn.id);
+        } else {
+            this.tradovateService.disableConnection(conn.id);
+        }
+    }
+
+    retireAccount(accountId: number): void {
+        this.tradingAccounts.setActive(accountId, false);
+    }
+
+    restoreAccount(accountId: number): void {
+        this.tradingAccounts.setActive(accountId, true);
+    }
+
+    isAccountRetired(accountId: number): boolean {
+        return this.tradingAccounts.retiredIds().has(accountId);
     }
 
     resetAllTrades(): void {

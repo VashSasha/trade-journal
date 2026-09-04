@@ -6,6 +6,7 @@ import { DailyJournalService } from '../daily-journal.service';
 import { AccountSettingsService } from '../account-settings.service';
 import { TradingAccountsService } from '../trading-accounts.service';
 import { UserDataRepo } from './user-data.repo';
+import { UserSessionService, UserOperation } from '../user-session.service';
 import { Trade } from '../../models/trade.model';
 import { DailyNote, JournalTemplate } from '../../models/daily-journal.model';
 import {
@@ -32,6 +33,7 @@ export class UserDataService {
     private auth = inject(AuthService);
     private supabase = inject(SupabaseService).client;
     private repo = inject(UserDataRepo);
+    private userSession = inject(UserSessionService);
     private tradeService = inject(TradeService);
     private journalService = inject(DailyJournalService);
     private settingsService = inject(AccountSettingsService);
@@ -82,6 +84,9 @@ export class UserDataService {
     }
 
     private async loadForUser(userId: string): Promise<void> {
+        await this.userSession.ready;
+        if (this.userSession.userId() !== userId) return;
+        const scope = this.userSession.capture();
         if (isCacheSuspended()) return;
         if (this.loadedForUser === userId) return;
         this.loadedForUser = userId;
@@ -96,11 +101,18 @@ export class UserDataService {
         localStorage.setItem(CACHE_KEYS.owner, JSON.stringify(userId));
 
         try {
+            // Pending local edits must reach the server before cloud hydration.
+            await this.repo.flushQueue();
+            this.userSession.assertCurrent(scope);
+            const version = this.repo.writeVersion;
             const settings = await this.repo.fetchSettings();
+            this.userSession.assertCurrent(scope);
             this.importedAt = settings?.importedAt ?? null;
 
-            if (!this.importedAt && hasLegacyData()) {
-                await this.runLegacyImport();
+            if (!this.importedAt && hasLegacyData() &&
+                (readCache<Trade[]>(LEGACY_KEYS.trades) ?? []).every(t => t.userId === userId) &&
+                (readCache<Trade[]>(LEGACY_KEYS.trades) ?? []).length > 0) {
+                await this.runLegacyImport(scope);
             } else if (settings) {
                 this.settingsService.hydrate(settings);
                 this.journalService.hydrateRules(settings.customRules);
@@ -112,6 +124,12 @@ export class UserDataService {
                 this.repo.fetchTemplates(),
                 this.repo.fetchTradingAccounts()
             ]);
+            this.userSession.assertCurrent(scope);
+            if (isCacheSuspended()) return;
+            if (version !== this.repo.writeVersion) {
+                this.loadedForUser = null;
+                return this.loadForUser(userId);
+            }
             this.tradeService.hydrate(trades);
             this.journalService.hydrateNotes(notes);
             this.journalService.hydrateTemplates(templates);
@@ -119,8 +137,10 @@ export class UserDataService {
 
             // Now that we're demonstrably online, retry anything queued.
             await this.repo.flushQueue();
+            this.userSession.assertCurrent(scope);
             this.dataLoaded.set(true);
         } catch (err) {
+            if (!this.userSession.isCurrent(scope)) return;
             // Offline (or Supabase unreachable) — the cache-hydrated signals
             // keep the app usable; queued writes retry automatically.
             this.loadedForUser = null; // allow a later retry to re-run the load
@@ -134,7 +154,7 @@ export class UserDataService {
      * simply re-runs on the next login — upserts make that idempotent. The
      * legacy keys are never deleted here.
      */
-    private async runLegacyImport(): Promise<void> {
+    private async runLegacyImport(scope: UserOperation): Promise<void> {
         this.importing.set(true);
         try {
             const trades = readCache<Trade[]>(LEGACY_KEYS.trades) ?? [];
@@ -145,8 +165,11 @@ export class UserDataService {
             const rawCommission = localStorage.getItem(LEGACY_KEYS.commission);
 
             await this.repo.importTrades(trades);
+            this.userSession.assertCurrent(scope);
             await this.repo.importNotes(notes);
+            this.userSession.assertCurrent(scope);
             await this.repo.importTemplates(templates);
+            this.userSession.assertCurrent(scope);
 
             const settings = {
                 startingBalance: rawBalance ? Number(rawBalance) : 25000,
@@ -155,12 +178,13 @@ export class UserDataService {
                 importedAt: new Date().toISOString()
             };
             await this.repo.importSettings(settings);
+            this.userSession.assertCurrent(scope);
 
             this.importedAt = settings.importedAt;
             this.settingsService.hydrate(settings);
             this.journalService.hydrateRules(rules);
         } finally {
-            this.importing.set(false);
+            if (this.userSession.isCurrent(scope)) this.importing.set(false);
         }
     }
 

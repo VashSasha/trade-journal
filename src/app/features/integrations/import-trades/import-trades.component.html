@@ -74,6 +74,9 @@
   }
 
   @if (state.preview(); as p) {
+    @if (p.reviewCount) {
+      <p role="alert">{{ p.reviewCount }} possible duplicate(s) match older HTML imports. These rows will not be imported automatically. Review your existing trades first.</p>
+    }
     @if (p.total === 0) {
       <p class="import-trades__error">
         No trades found in this file — is it a Tradovate Performance CSV export?
