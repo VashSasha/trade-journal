@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { SessionAlertKind } from './session-alerts.utils';
+import { AlertSoundKind } from './session-alerts.utils';
 
 /** Local synthesized chimes: no media downloads, microphone, or third-party calls. */
 @Injectable({ providedIn: 'root' })
@@ -43,7 +43,7 @@ export class AlertAudioService {
     }
 
     /** Returns audible duration in milliseconds, or 0 when another bell is ringing. */
-    play(kind: SessionAlertKind, volume: number): number {
+    play(kind: AlertSoundKind, volume: number): number {
         const context = this.context;
         if (!context || !this.output || context.state !== 'running') throw new Error('Audio is paused. Enable sounds again.');
         if (volume <= 0 || context.currentTime < this.availableAt) return 0;
@@ -52,8 +52,12 @@ export class AlertAudioService {
         // descending double toll. Inharmonic partials create the metallic body.
         const strikes = kind === 'open'
             ? [{ offset: 0, frequency: 784 }, { offset: 0.28, frequency: 831 }, { offset: 0.56, frequency: 784 }]
-            : [{ offset: 0, frequency: 659.25 }, { offset: 0.48, frequency: 523.25 }];
-        const ring = kind === 'open' ? 1.15 : 1.45;
+            : kind === 'target'
+                ? [{ offset: 0, frequency: 659.25 }, { offset: 0.2, frequency: 783.99 }, { offset: 0.4, frequency: 987.77 }]
+                : kind === 'risk'
+                    ? [{ offset: 0, frequency: 587.33 }, { offset: 0.22, frequency: 440 }, { offset: 0.44, frequency: 349.23 }]
+                    : [{ offset: 0, frequency: 659.25 }, { offset: 0.48, frequency: 523.25 }];
+        const ring = kind === 'open' || kind === 'target' ? 1.15 : 1.45;
         const duration = Math.ceil((strikes[strikes.length - 1].offset + ring + 0.14) * 1000);
         const start = context.currentTime + 0.01;
         strikes.forEach(strike => {

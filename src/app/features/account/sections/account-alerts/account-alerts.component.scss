@@ -1,0 +1,51 @@
+.alerts-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+
+    &__header { margin-bottom: 2px; }
+    &__title {
+        margin: 0 0 5px;
+        color: var(--color-text-primary);
+        font-size: 1.25rem;
+    }
+    &__description {
+        max-width: 640px;
+        margin: 0;
+        color: var(--color-text-secondary);
+        font-size: 0.875rem;
+        line-height: 1.55;
+    }
+    &__card {
+        overflow: hidden;
+        border: 1px solid var(--color-border);
+        border-radius: 14px;
+        background: var(--color-bg-surface);
+    }
+    &__card-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 20px 22px 14px;
+
+        h3 { margin: 0 0 4px; color: var(--color-text-primary); font-size: 1rem; }
+        p { margin: 0; color: var(--color-text-secondary); font-size: 0.8125rem; }
+    }
+    &__badge {
+        flex: 0 0 auto;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: var(--color-bg-surface-3);
+        color: var(--color-text-muted);
+        font-size: 0.6875rem;
+        font-weight: 650;
+    }
+    &__future {
+        margin: 0;
+        padding: 0 22px 18px;
+        color: var(--color-text-muted);
+        font-size: 0.75rem;
+        line-height: 1.5;
+    }
+}

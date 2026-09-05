@@ -29,7 +29,7 @@ describe('in-app pricing navigation', () => {
             provideRouter([
                 { path: '', component: TestShell, children: [
                     pricingRoute,
-                    { path: 'account', component: TestDestination },
+                    { path: 'account/plan', component: TestDestination },
                 ] },
                 { path: 'login', component: TestDestination },
             ]),
@@ -54,7 +54,7 @@ describe('in-app pricing navigation', () => {
 
         el.querySelector<HTMLAnchorElement>('.account-pricing__back')!.click();
         await harness.fixture.whenStable();
-        expect(TestBed.inject(Router).url).toBe('/account#billing');
+        expect(TestBed.inject(Router).url).toBe('/account/plan');
         expect(harness.routeNativeElement!.textContent).toContain('Workspace navigation');
         expect(startCheckout).not.toHaveBeenCalled();
     });

@@ -1,28 +1,24 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { AccessPolicyService, PaidFeature } from '../../core/services/access-policy.service';
 import { AccountService } from './account.service';
-import { AccountProfileComponent } from './sections/account-profile/account-profile.component';
-import { AccountConnectionsComponent } from './sections/account-connections/account-connections.component';
-import { AccountPlanComponent } from './sections/account-plan/account-plan.component';
-import { AccountAppearanceComponent } from './sections/account-appearance/account-appearance.component';
-import { AccountDangerComponent } from './sections/account-danger/account-danger.component';
+
+interface SettingsLink {
+    path: string;
+    label: string;
+    detail: string;
+    feature?: PaidFeature;
+}
 
 /**
- * Account settings shell. Provides the scoped AccountService and stacks the
- * self-contained sections. Also finalizes account-link redirects that return
- * to /account?linked=<provider>.
+ * Route-backed settings shell. The internal rail scales independently from
+ * the main product navigation while each section remains self-contained.
  */
 @Component({
     selector: 'app-account',
     standalone: true,
-    imports: [
-        AccountProfileComponent,
-        AccountConnectionsComponent,
-        AccountPlanComponent,
-        AccountAppearanceComponent,
-        AccountDangerComponent,
-    ],
+    imports: [RouterLink, RouterLinkActive, RouterOutlet],
     providers: [AccountService],
     templateUrl: './account.component.html',
     styleUrl: './account.component.scss'
@@ -32,15 +28,29 @@ export class AccountComponent implements OnInit {
     private auth = inject(AuthService);
     private route = inject(ActivatedRoute);
     private router = inject(Router);
+    readonly access = inject(AccessPolicyService);
 
     /** Transient toast for post-Checkout redirects. */
     readonly toast = signal<{ kind: 'success' | 'info'; text: string } | null>(null);
+
+    readonly personalLinks: readonly SettingsLink[] = [
+        { path: 'profile', label: 'Profile', detail: 'Name and account details' },
+        { path: 'sign-in', label: 'Sign-in methods', detail: 'Google, Discord and email' },
+        { path: 'plan', label: 'Plan & billing', detail: 'Membership and subscription' },
+    ];
+
+    readonly workspaceLinks: readonly SettingsLink[] = [
+        { path: 'integrations', label: 'Broker connections', detail: 'Accounts, sync and imports', feature: 'broker' },
+        { path: 'alerts', label: 'Alerts', detail: 'Session bells and guardrails' },
+        { path: 'appearance', label: 'Appearance', detail: 'Theme and display' },
+        { path: 'data', label: 'Account data', detail: 'Sessions and account removal' },
+    ];
 
     async ngOnInit(): Promise<void> {
         await this.auth.authReady;
         await this.account.loadIdentities();
 
-        // Handle a Stripe Checkout return (…/account?checkout=success|cancel).
+        // Handle old and current Stripe returns from any Settings child.
         const checkout = this.route.snapshot.queryParamMap.get('checkout');
         if (checkout === 'success' || checkout === 'cancel') {
             this.showToast(
@@ -49,7 +59,7 @@ export class AccountComponent implements OnInit {
             );
             // The webhook may have already flipped the plan — pick it up.
             if (checkout === 'success') await this.auth.refreshProfile({ force: true });
-            this.clearQueryParams();
+            this.clearQueryParams('/account/plan');
             return;
         }
 
@@ -61,7 +71,7 @@ export class AccountComponent implements OnInit {
 
         await this.account.loadIdentities();
         await this.auth.refreshProfile();
-        this.clearQueryParams();
+        this.clearQueryParams('/account/sign-in');
     }
 
     private showToast(kind: 'success' | 'info', text: string): void {
@@ -70,7 +80,7 @@ export class AccountComponent implements OnInit {
     }
 
     /** Drop one-shot query params so a reload doesn't re-run the handlers. */
-    private clearQueryParams(): void {
-        this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+    private clearQueryParams(destination: string): void {
+        void this.router.navigateByUrl(destination, { replaceUrl: true });
     }
 }

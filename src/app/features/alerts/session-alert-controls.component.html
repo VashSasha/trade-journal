@@ -1,5 +1,5 @@
-<details class="session-sounds">
-    <summary class="session-sounds__summary">Session bell alerts <span>{{ sounds.error() ? 'Needs attention' : sounds.enabled() ? 'On' : sounds.waitingForGesture() ? 'Ready' : 'Off' }}</span></summary>
+<details class="session-sounds" [class.session-sounds--settings]="settingsView()" [open]="expanded()">
+    <summary class="session-sounds__summary">{{ settingsView() ? 'Sound controls' : 'Session bell alerts' }} <span>{{ sounds.error() ? 'Needs attention' : sounds.enabled() ? 'On' : sounds.waitingForGesture() ? 'Ready' : 'Off' }}</span></summary>
     <div class="session-sounds__body">
     <div class="session-sounds__head">
         <div>
@@ -8,7 +8,7 @@
         @if (sounds.state() !== 'off') {
             <button type="button" (click)="sounds.mute()">{{ sounds.state() === 'enabling' ? 'Cancel' : 'Mute' }}</button>
         } @else {
-            <button type="button" (click)="sounds.enable()" [disabled]="!sounds.supported || sounds.previewing() || !sounds.preferences().volume || (!sounds.preferences().opens && !sounds.preferences().closes)">{{ sounds.waitingForGesture() ? 'Reactivate bells' : 'Enable sounds' }}</button>
+            <button type="button" (click)="sounds.enable()" [disabled]="!sounds.supported || sounds.previewing() || !sounds.preferences().volume">{{ sounds.waitingForGesture() ? 'Reactivate bells' : 'Enable sounds' }}</button>
         }
     </div>
     @if (!sounds.supported) {
@@ -28,9 +28,9 @@
             <button type="button" (click)="sounds.preview('close')" [disabled]="sounds.previewing() || sounds.state() === 'enabling' || !sounds.preferences().volume">Test closing bell</button>
         </div>
         <p class="session-sounds__note">Keep this tab open. After reloading, your first click or keypress reactivates bells. Sleeping or suspended browsers can miss alerts; missed alerts are never replayed.</p>
-        <p class="session-sounds__note">Your on/off choice, volume and alert types are saved in this browser. Reference windows only, including holidays.</p>
+        <p class="session-sounds__note">Your on/off choice, volume and alert types are saved in this browser. Session times are reference windows only.</p>
         @if (!sounds.preferences().volume) { <p class="session-sounds__note">Increase volume to enable or test sounds.</p> }
-        @if (!sounds.preferences().opens && !sounds.preferences().closes) { <p class="session-sounds__note">Select at least one alert type to enable sounds.</p> }
+        @if (!sounds.preferences().opens && !sounds.preferences().closes) { <p class="session-sounds__note">Session bells are off. Performance alerts can still use sound.</p> }
         @if (sounds.lastAlert(); as alert) { <p class="session-sounds__last">Last alert: {{ alert }}</p> }
     }
     @if (sounds.state() === 'enabling') { <p class="session-sounds__note" role="status">Enabling audio…</p> }

@@ -1,0 +1,10 @@
+@if (alerts.event(); as event) {
+    <aside class="performance-toast performance-toast--{{ event.tone }}" [attr.role]="event.tone === 'risk' ? 'alert' : 'status'">
+        <span class="performance-toast__mark" aria-hidden="true">{{ event.tone === 'risk' ? '!' : '✓' }}</span>
+        <div class="performance-toast__copy">
+            <strong>{{ event.tone === 'risk' ? 'Guardrail reached' : 'Target reached' }}</strong>
+            <span>{{ event.text }}</span>
+        </div>
+        <button type="button" (click)="alerts.dismiss()" aria-label="Dismiss alert">×</button>
+    </aside>
+}

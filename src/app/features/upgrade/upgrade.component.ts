@@ -26,7 +26,7 @@ export class UpgradeComponent {
         void this.router.navigateByUrl(this.feature === 'ai' ? '/reports' : '/analytics');
     }
 
-    connect(): void { void this.demo.exit('/settings'); }
+    connect(): void { void this.demo.exit('/account/integrations'); }
 
     back(): void {
         if (this.demo.active()) void this.demo.exit();

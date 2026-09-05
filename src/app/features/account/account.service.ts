@@ -85,12 +85,12 @@ export class AccountService {
 
     /**
      * Begin linking an OAuth provider to the current account. This redirects
-     * the browser to the provider and returns to /account?linked=<provider>,
+     * the browser to the provider and returns to /account/sign-in?linked=<provider>,
      * where the page finalizes (and, for Discord, re-resolves the plan).
      * Only resolves (with an error) if it fails before the redirect.
      */
     async linkProvider(provider: LinkableProvider): Promise<{ error?: string }> {
-        const redirectTo = new URL('/account', window.location.origin);
+        const redirectTo = new URL('/account/sign-in', window.location.origin);
         redirectTo.searchParams.set('linked', provider);
 
         const options: { redirectTo: string; scopes?: string } = { redirectTo: redirectTo.toString() };

@@ -50,7 +50,7 @@ export class AccessPolicyService {
         const path = url.split(/[?#]/)[0];
         if (/^\/analytics(?:\/|;|$)/.test(path)) return 'analytics';
         if (/^\/reports(?:\/|;|$)/.test(path)) return 'ai';
-        if (/^\/settings(?:\/|;|$)/.test(path)) return 'broker';
+        if (/^\/settings(?:\/|;|$)/.test(path) || /^\/account\/integrations(?:\/|;|$)/.test(path)) return 'broker';
         return null;
     }
 }

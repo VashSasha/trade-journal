@@ -56,6 +56,6 @@ export class UpgradePromptComponent {
 
     async switchWorkspace(): Promise<void> {
         const reason = this.demo.promptReason();
-        await this.demo.exit(reason === 'connect' || reason === 'sync' ? '/settings' : '/dashboard');
+        await this.demo.exit(reason === 'connect' || reason === 'sync' ? '/account/integrations' : '/dashboard');
     }
 }

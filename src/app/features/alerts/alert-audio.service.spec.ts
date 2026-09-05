@@ -64,6 +64,17 @@ describe('local alert audio', () => {
         expect(() => audio.play('open', 30)).toThrow('paused');
         expect(context.resume).toHaveBeenCalledOnce();
     });
+    it('provides distinct semantic cues for targets and risk guardrails', async () => {
+        const audio = TestBed.inject(AlertAudioService); await audio.activate();
+        const context = FakeAudioContext.instances[0];
+        expect(audio.play('target', 45)).toBe(1690);
+        expect(context.oscillators.filter((_, index) => index % 5 === 0).map(o => o.frequency.value))
+            .toEqual([659.25, 783.99, 987.77]);
+        context.currentTime = 2;
+        expect(audio.play('risk', 45)).toBe(2030);
+        expect(context.oscillators.slice(15).filter((_, index) => index % 5 === 0).map(o => o.frequency.value))
+            .toEqual([587.33, 440, 349.23]);
+    });
     it('closes audio on mute and cannot keep scheduling sounds', async () => {
         const audio = TestBed.inject(AlertAudioService); await audio.activate(); audio.play('open', 30); audio.stop();
         expect(FakeAudioContext.instances[0].close).toHaveBeenCalledOnce();

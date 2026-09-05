@@ -2,7 +2,6 @@ import { Component, signal, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
-import { Router } from '@angular/router';
 import { TradovateService, TradovateConnection } from '../../../../core/services/tradovate.service';
 import { SyncService } from '../../../../core/services/sync.service';
 import { AccountSettingsService } from '../../../../core/services/account-settings.service';
@@ -19,7 +18,6 @@ import { UserSessionService } from '../../../../core/services/user-session.servi
 })
 export class TradovateSettingsComponent {
     private fb = inject(FormBuilder);
-    private router = inject(Router);
     private demo = inject(DemoModeService);
     tradovateService = inject(TradovateService);
     syncService = inject(SyncService);
@@ -161,10 +159,6 @@ export class TradovateSettingsComponent {
             this.syncResult.set(null);
             this.syncError.set(null);
         }
-    }
-
-    back(): void {
-        this.router.navigate(['/journal/trades']);
     }
 
     getConnectionEnvironment(conn: TradovateConnection): string {

@@ -36,7 +36,7 @@ export class AccountPlanComponent implements OnInit {
     }
 
     async refreshDiscord(): Promise<void> {
-        try { await this.auth.loginWithDiscord('/account'); }
+        try { await this.auth.loginWithDiscord('/account/plan'); }
         catch { this.billingError.set('Could not open Discord sign-in. Please try again.'); }
     }
     readonly whopUrl = WHOP_URL;

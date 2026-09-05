@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, input } from '@angular/core';
 import { SessionAlertsService } from './session-alerts.service';
 
 @Component({
@@ -10,6 +10,8 @@ import { SessionAlertsService } from './session-alerts.service';
 })
 export class SessionAlertControlsComponent {
     readonly sounds = inject(SessionAlertsService);
+    readonly expanded = input(false);
+    readonly settingsView = input(false);
     constructor() { this.sounds.attach(inject(DestroyRef)); }
     volume(event: Event): void { this.sounds.setVolume(Number((event.target as HTMLInputElement).value)); }
     checked(event: Event): boolean { return (event.target as HTMLInputElement).checked; }

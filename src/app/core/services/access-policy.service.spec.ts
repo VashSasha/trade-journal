@@ -59,7 +59,9 @@ describe('shared workspace access policy', () => {
     });
     it('recognizes protected nested pages but leaves the basic journal and account settings open', () => {
         expect(access.featureForUrl('/settings/tradovate/callback?code=example')).toBe('broker');
+        expect(access.featureForUrl('/account/integrations')).toBe('broker');
         expect(access.featureForUrl('/journal/daily')).toBeNull();
         expect(access.featureForUrl('/account')).toBeNull();
+        expect(access.featureForUrl('/account/alerts')).toBeNull();
     });
 });

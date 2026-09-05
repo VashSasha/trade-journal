@@ -72,7 +72,7 @@ export class LandingPricingComponent {
     }
 
     /** Subscribe to the journal-only plan at the currently selected cycle.
-     *  Logged out → send them to /login (they finish from /account);
+     *  Logged out → send them to /login (they finish in Plan & billing);
      *  logged in → open Stripe Checkout. */
     async subscribe(): Promise<void> {
         if (this.checkoutBusy()) return;
@@ -80,12 +80,12 @@ export class LandingPricingComponent {
         const interval = this.billingCycle();
 
         if (!this.auth.isAuthenticated()) {
-            this.router.navigate(['/login'], { queryParams: { returnUrl: '/account' } });
+            this.router.navigate(['/login'], { queryParams: { returnUrl: '/account/plan' } });
             return;
         }
 
         if (this.hasFullAccess()) {
-            this.router.navigate(['/account'], { fragment: 'billing' });
+            this.router.navigate(['/account/plan']);
             return;
         }
 

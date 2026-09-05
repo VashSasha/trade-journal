@@ -18,7 +18,7 @@ describe('demo broker CTA', () => {
         TestBed.runInInjectionContext(() => new DemoBannerComponent()).primaryAction();
         if (tier === 'guest') expect(navigate).toHaveBeenCalledWith(['/login']);
         else if (tier === 'free') expect(navigate).toHaveBeenCalledWith(['/upgrade'], { queryParams: { feature: 'broker' } });
-        else expect(exit).toHaveBeenCalledWith('/settings');
+        else expect(exit).toHaveBeenCalledWith('/account/integrations');
         if (tier === 'guest' || tier === 'free') expect(exit).not.toHaveBeenCalled();
     });
 });
