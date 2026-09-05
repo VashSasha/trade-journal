@@ -44,7 +44,7 @@ describe('safe demo transitions', () => {
     it('leaves the paid preview route before exposing cached real trades', async () => {
         const { demo, trades, arrive, navigateByUrl, reload } = setup();
         demo.enter(); trades.hydrate.mockClear();
-        const pending = demo.exit('/settings');
+        const pending = demo.exit('/account/integrations');
         expect(demo.transitioning()).toBe(true);
         expect(demo.active()).toBe(true);
         expect(trades.hydrate).not.toHaveBeenCalled();
@@ -83,10 +83,10 @@ describe('safe demo transitions', () => {
     });
     it('lets paid users connect only after leaving demo', async () => {
         const { demo, navigateByUrl, arrive } = setup('premium');
-        demo.enter(); const pending = demo.exit('/settings');
+        demo.enter(); const pending = demo.exit('/account/integrations');
         arrive(); await Promise.resolve();
         expect(demo.active()).toBe(false);
-        expect(navigateByUrl).toHaveBeenLastCalledWith('/settings');
+        expect(navigateByUrl).toHaveBeenLastCalledWith('/account/integrations');
         arrive(); await pending;
         expect(demo.transitioning()).toBe(false);
     });

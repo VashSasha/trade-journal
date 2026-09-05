@@ -1,0 +1,20 @@
+<section class="alerts-settings">
+    <header class="alerts-settings__header">
+        <h2 class="alerts-settings__title">Alerts</h2>
+        <p class="alerts-settings__description">Stay aware of market sessions and your own trading limits without watching another screen.</p>
+    </header>
+
+    <div class="alerts-settings__card">
+        <div class="alerts-settings__card-head">
+            <div>
+                <h3>Sound</h3>
+                <p>One master volume and permission for every audible alert.</p>
+            </div>
+            <span class="alerts-settings__badge">This browser</span>
+        </div>
+        <app-session-alert-controls [expanded]="true" [settingsView]="true" />
+        <p class="alerts-settings__future">Built-in exchange bells are included. Custom sound uploads will plug into this sound layer in a later update.</p>
+    </div>
+
+    <app-performance-alert-controls />
+</section>

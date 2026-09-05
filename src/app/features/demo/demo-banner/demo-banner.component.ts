@@ -25,6 +25,6 @@ export class DemoBannerComponent {
     primaryAction(): void {
         if (!this.auth.isAuthenticated()) { void this.router.navigate(['/login']); return; }
         if (!this.access.paid()) { void this.router.navigate(['/upgrade'], { queryParams: { feature: 'broker' } }); return; }
-        void this.demo.exit('/settings');
+        void this.demo.exit('/account/integrations');
     }
 }

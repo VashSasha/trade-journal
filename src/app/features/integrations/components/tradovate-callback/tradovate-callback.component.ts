@@ -70,7 +70,7 @@ export class TradovateCallbackComponent implements OnInit {
             next: () => {
                 this.status.set('success');
                 setTimeout(() => {
-                    this.router.navigate(['/settings']);
+                    this.router.navigate(['/account/integrations']);
                 }, 2000);
             },
             error: () => {
@@ -85,6 +85,6 @@ export class TradovateCallbackComponent implements OnInit {
     }
 
     retry(): void {
-        this.router.navigate(['/settings']);
+        this.router.navigate(['/account/integrations']);
     }
 }

@@ -3,7 +3,7 @@ import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core'
 import { getSessionsSnapshot } from '../sessions/sessions.utils';
 import { SessionsSnapshot } from '../sessions/sessions.model';
 import { AlertAudioService } from './alert-audio.service';
-import { crossedSessionAlerts, parseSoundPreferences, SessionAlertKind } from './session-alerts.utils';
+import { AlertSoundKind, crossedSessionAlerts, parseSoundPreferences, SessionAlertKind } from './session-alerts.utils';
 
 const PREFERENCES_KEY = 'nvzn_session_sound_preferences_v1';
 const OWNER_LOCK = 'nvzn_session_sound_owner_v1';
@@ -70,7 +70,6 @@ export class SessionAlertsService {
         this.error.set(null);
         if (!this.supported) { this.error.set('Sound alerts need a supported browser on HTTPS or localhost.'); return; }
         if (!this.preferences().volume) { this.error.set('Increase the volume before enabling sounds.'); return; }
-        if (!this.preferences().opens && !this.preferences().closes) { this.error.set('Select at least one alert type.'); return; }
         const generation = ++this.generation;
         this.disarmRestoreGesture();
         this.state.set('enabling');
@@ -134,6 +133,18 @@ export class SessionAlertsService {
         }
     }
 
+    /** Play a semantic cue when audio is active; visual alerts do not depend on it. */
+    announce(kind: AlertSoundKind, text: string): void {
+        if (!this.enabled() || this.previewing()) return;
+        try {
+            if (!this.audio.running()) throw new Error('Your browser paused audio. Enable sounds again.');
+            if (this.audio.play(kind, this.preferences().volume)) this.lastAlert.set(text);
+        } catch (error) {
+            this.stopRuntime();
+            this.error.set(error instanceof Error ? error.message : 'Sound is unavailable. Enable it again.');
+        }
+    }
+
     setVolume(value: number): void {
         if (!Number.isFinite(value)) return;
         const volume = Math.round(Math.max(0, Math.min(100, value)));
@@ -145,10 +156,6 @@ export class SessionAlertsService {
 
     setKind(kind: SessionAlertKind, enabled: boolean): void {
         this.preferences.update(p => ({ ...p, [kind === 'open' ? 'opens' : 'closes']: enabled }));
-        if (!this.preferences().opens && !this.preferences().closes) {
-            this.preferences.update(p => ({ ...p, armed: false }));
-            this.stopRuntime(false);
-        }
         this.savePreferences();
         this.rebase();
     }

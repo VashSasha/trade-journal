@@ -93,8 +93,9 @@ export class DemoModeService {
             setCacheSuspended(false);
             if (this.auth.isAuthenticated()) {
                 void this.userData.reload();
-                if (destination === '/settings' && this.access.canOpen('broker')) {
-                    await this.router.navigateByUrl('/settings');
+                const feature = this.access.featureForUrl(destination);
+                if (destination !== '/dashboard' && (!feature || this.access.canOpen(feature))) {
+                    await this.router.navigateByUrl(destination);
                 }
             } else {
                 await this.router.navigateByUrl('/');

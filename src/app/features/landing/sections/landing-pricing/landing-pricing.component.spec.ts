@@ -26,11 +26,11 @@ describe('shared pricing cards', () => {
         const fixture = TestBed.createComponent(LandingPricingComponent);
         await fixture.whenStable();
         const el: HTMLElement = fixture.nativeElement;
-        expect(el.querySelector('a[href="/account#billing"]')?.textContent).toBe('Manage plan & billing');
+        expect(el.querySelector('a[href="/account/plan"]')?.textContent).toBe('Manage plan & billing');
         expect(el.querySelector('button.pricing-card__cta')).toBeNull();
         await fixture.componentInstance.subscribe();
         expect(startCheckout).not.toHaveBeenCalled();
-        expect(navigate).toHaveBeenCalledWith(['/account'], { fragment: 'billing' });
+        expect(navigate).toHaveBeenCalledWith(['/account/plan']);
     });
 
     it('keeps the annual price and selected checkout interval aligned in the embedded view', async () => {

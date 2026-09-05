@@ -4,15 +4,43 @@
     }
 
     <header class="account-page__header">
-        <h1 class="account-page__title">Account</h1>
-        <p class="account-page__subtitle">Manage your profile, sign-in methods, plan, and preferences.</p>
+        <h1 class="account-page__title">Settings</h1>
+        <p class="account-page__subtitle">Manage your journal, connections, alerts, and account.</p>
     </header>
 
-    <div class="account-page__sections">
-        <app-account-profile />
-        <app-account-connections />
-        <app-account-plan />
-        <app-account-appearance />
-        <app-account-danger />
+    <div class="account-page__layout">
+        <nav class="settings-nav" aria-label="Settings sections">
+            <div class="settings-nav__group">
+                <p class="settings-nav__group-name">Personal</p>
+                @for (item of personalLinks; track item.path) {
+                    <a class="settings-nav__link" [routerLink]="item.path" routerLinkActive="is-active"
+                       ariaCurrentWhenActive="page">
+                        <span class="settings-nav__link-label">{{ item.label }}</span>
+                        <span class="settings-nav__link-detail">{{ item.detail }}</span>
+                    </a>
+                }
+            </div>
+
+            <div class="settings-nav__group">
+                <p class="settings-nav__group-name">Journal</p>
+                @for (item of workspaceLinks; track item.path) {
+                    <a class="settings-nav__link"
+                       [class.settings-nav__link--locked]="item.feature && !access.canOpen(item.feature)"
+                       [routerLink]="item.path" routerLinkActive="is-active" ariaCurrentWhenActive="page">
+                        <span class="settings-nav__link-title">
+                            <span class="settings-nav__link-label">{{ item.label }}</span>
+                            @if (item.feature && !access.canOpen(item.feature)) {
+                                <span class="settings-nav__lock">Premium</span>
+                            }
+                        </span>
+                        <span class="settings-nav__link-detail">{{ item.detail }}</span>
+                    </a>
+                }
+            </div>
+        </nav>
+
+        <main class="account-page__content">
+            <router-outlet />
+        </main>
     </div>
 </div>

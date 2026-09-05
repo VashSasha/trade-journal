@@ -1,6 +1,8 @@
 import { SessionsSnapshot } from '../sessions/sessions.model';
 
 export type SessionAlertKind = 'open' | 'close';
+/** Semantic cue; a future sound library can map any cue to a user asset. */
+export type AlertSoundKind = SessionAlertKind | 'target' | 'risk';
 export interface SessionAlert {
     id: string;
     kind: SessionAlertKind;
@@ -27,7 +29,7 @@ export function parseSoundPreferences(raw: string | null): SessionSoundPreferenc
             ? Math.round(Math.max(0, Math.min(100, p.volume))) : DEFAULT_SESSION_SOUNDS.volume;
         const opens = typeof p.opens === 'boolean' ? p.opens : true;
         const closes = typeof p.closes === 'boolean' ? p.closes : true;
-        return { volume, opens, closes, armed: p.armed === true && volume > 0 && (opens || closes) };
+        return { volume, opens, closes, armed: p.armed === true && volume > 0 };
     } catch { return { ...DEFAULT_SESSION_SOUNDS }; }
 }
 

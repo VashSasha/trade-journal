@@ -157,10 +157,11 @@ describe('session sound coordinator', () => {
         const sounds = service(); await sounds.enable(); window.dispatchEvent(new Event('pagehide'));
         expect(sounds.enabled()).toBe(false);
     });
-    it('does not enable if no alert types are selected', async () => {
+    it('keeps the master sound active when only performance alerts need it', async () => {
         const sounds = service(); sounds.setKind('open', false); sounds.setKind('close', false);
-        await sounds.enable(); expect(sounds.enabled()).toBe(false);
-        expect(audio.activate).not.toHaveBeenCalled();
+        await sounds.enable(); expect(sounds.enabled()).toBe(true);
+        expect(audio.activate).toHaveBeenCalledOnce();
+        vi.advanceTimersByTime(30_000); expect(audio.play).not.toHaveBeenCalled();
     });
     it('does not acquire a lease that arrives after cancel', async () => {
         let deliver!: () => Promise<void>;
