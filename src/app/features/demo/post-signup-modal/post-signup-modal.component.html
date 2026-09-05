@@ -15,7 +15,7 @@
             <a class="psm__btn psm__btn--primary" routerLink="/journal/daily" (click)="dismiss()">
                 Open my journal
             </a>
-            <a class="psm__btn psm__btn--secondary" [routerLink]="access.paid() ? '/settings' : '/upgrade'" (click)="dismiss()">
+            <a class="psm__btn psm__btn--secondary" [routerLink]="access.paid() ? '/account/integrations' : '/upgrade'" (click)="dismiss()">
                 {{ access.paid() ? 'Connect your broker' : 'Explore Premium' }}
             </a>
             <button class="psm__btn psm__btn--secondary" type="button" (click)="exploreDemo()">

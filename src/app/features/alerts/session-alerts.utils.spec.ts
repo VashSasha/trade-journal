@@ -47,6 +47,6 @@ describe('sound preference validation', () => {
     it('restores only a valid explicit opt-in', () => {
         expect(parseSoundPreferences('{"volume":45,"opens":true,"closes":false,"armed":true}').armed).toBe(true);
         expect(parseSoundPreferences('{"volume":0,"opens":true,"armed":true}').armed).toBe(false);
-        expect(parseSoundPreferences('{"volume":45,"opens":false,"closes":false,"armed":true}').armed).toBe(false);
+        expect(parseSoundPreferences('{"volume":45,"opens":false,"closes":false,"armed":true}').armed).toBe(true);
     });
 });

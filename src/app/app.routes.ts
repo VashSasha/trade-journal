@@ -113,10 +113,18 @@ export const routes: Routes = [
                 canActivate: [authGuard]
             },
             {
-                path: 'settings',
+                // Keep the registered Tradovate callback stable while the
+                // integrations UI itself lives inside the Settings workspace.
+                path: 'settings/tradovate/callback',
                 canActivate: [planGuard('broker')],
-                loadChildren: () => import('./features/integrations/integrations.routes')
-                    .then(m => m.INTEGRATION_ROUTES)
+                loadComponent: () => import('./features/integrations/components/tradovate-callback/tradovate-callback.component')
+                    .then(m => m.TradovateCallbackComponent)
+            },
+            {
+                // Backwards-compatible bookmark used by older clients.
+                path: 'settings',
+                redirectTo: 'account/integrations',
+                pathMatch: 'full'
             },
             {
                 path: 'account/pricing',
@@ -128,8 +136,8 @@ export const routes: Routes = [
                 // authGuard is already applied by the parent shell.
                 path: 'account',
                 canActivate: [signedInGuard],
-                loadComponent: () => import('./features/account/account.component')
-                    .then(m => m.AccountComponent)
+                loadChildren: () => import('./features/account/account.routes')
+                    .then(m => m.ACCOUNT_ROUTES)
             },
         ]
     }

@@ -12,13 +12,14 @@ import { DemoModeService } from '../../../core/services/demo-mode.service';
 import { DemoBannerComponent } from '../../demo/demo-banner/demo-banner.component';
 import { PostSignupModalComponent } from '../../demo/post-signup-modal/post-signup-modal.component';
 import { UpgradePromptComponent } from '../../demo/upgrade-prompt/upgrade-prompt.component';
+import { PerformanceAlertToastComponent } from '../../alerts/performance-alert-toast.component';
 
 const DISMISSED_KEY = 'tj_banner_dismissed_connections';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, FormsModule, Sidebar, Header, SyncNoticeComponent, DemoBannerComponent, PostSignupModalComponent, UpgradePromptComponent],
+  imports: [RouterOutlet, FormsModule, Sidebar, Header, SyncNoticeComponent, DemoBannerComponent, PostSignupModalComponent, UpgradePromptComponent, PerformanceAlertToastComponent],
   templateUrl: './main-layout.html',
   styleUrl: './main-layout.scss'
 })

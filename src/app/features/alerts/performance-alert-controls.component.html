@@ -1,0 +1,45 @@
+<section class="guardrails">
+    <div class="guardrails__head">
+        <div>
+            <h3>Performance guardrails</h3>
+            <p>Get one alert when a selected-account threshold is crossed.</p>
+        </div>
+        <span class="guardrails__status">After sync</span>
+    </div>
+
+    <div class="guardrails__period">
+        <h4>Daily</h4>
+        <div class="guardrails__rules">
+            <div class="guardrails__rule">
+                <label><input type="checkbox" [checked]="alerts.preferences().dailyProfit.enabled" (change)="setEnabled('dailyProfit', $event)" /> Profit target</label>
+                <div class="guardrails__value"><span>$</span><input type="number" min="1" step="50" [value]="alerts.preferences().dailyProfit.value" (change)="setValue('dailyProfit', $event)" aria-label="Daily profit target" /></div>
+            </div>
+            <div class="guardrails__rule">
+                <label><input type="checkbox" [checked]="alerts.preferences().dailyLoss.enabled" (change)="setEnabled('dailyLoss', $event)" /> Loss limit</label>
+                <div class="guardrails__value"><span>$</span><input type="number" min="1" step="50" [value]="alerts.preferences().dailyLoss.value" (change)="setValue('dailyLoss', $event)" aria-label="Daily loss limit" /></div>
+            </div>
+            <div class="guardrails__rule">
+                <label><input type="checkbox" [checked]="alerts.preferences().dailyTrades.enabled" (change)="setEnabled('dailyTrades', $event)" /> Completed trades</label>
+                <div class="guardrails__value guardrails__value--count"><input type="number" min="1" step="1" [value]="alerts.preferences().dailyTrades.value" (change)="setValue('dailyTrades', $event)" aria-label="Daily completed trade limit" /><span>max</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="guardrails__period">
+        <h4>Weekly</h4>
+        <div class="guardrails__rules">
+            <div class="guardrails__rule">
+                <label><input type="checkbox" [checked]="alerts.preferences().weeklyProfit.enabled" (change)="setEnabled('weeklyProfit', $event)" /> Profit target</label>
+                <div class="guardrails__value"><span>$</span><input type="number" min="1" step="100" [value]="alerts.preferences().weeklyProfit.value" (change)="setValue('weeklyProfit', $event)" aria-label="Weekly profit target" /></div>
+            </div>
+            <div class="guardrails__rule">
+                <label><input type="checkbox" [checked]="alerts.preferences().weeklyLoss.enabled" (change)="setEnabled('weeklyLoss', $event)" /> Loss limit</label>
+                <div class="guardrails__value"><span>$</span><input type="number" min="1" step="100" [value]="alerts.preferences().weeklyLoss.value" (change)="setValue('weeklyLoss', $event)" aria-label="Weekly loss limit" /></div>
+            </div>
+        </div>
+    </div>
+
+    <p class="guardrails__note">
+        Visual alerts work while NVZN is open. Sound uses the master control above. Values update after imports and broker syncs; true live overtrading protection will require a broker live-data connection.
+    </p>
+</section>
