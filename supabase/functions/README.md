@@ -1,5 +1,20 @@
 # Edge Functions
 
+## market-events
+
+Returns a normalized U.S. economic-event schedule for signed-in users. It
+combines the official BLS calendar (CPI, NFP, PPI, JOLTS), BEA release schedule
+(GDP, PCE, trade), and published Federal Reserve FOMC decision dates. The
+function has no third-party data key and returns only public schedule metadata;
+the client keeps a last-known cache and its small curated calendar as fallback.
+
+```bash
+supabase functions deploy market-events --project-ref elbcjsewyqptrckdydha
+```
+
+It uses the existing `SB_SECRET_KEY` to validate the caller and `APP_ORIGIN` for
+CORS. No new secret or database migration is required.
+
 ## ai-report
 
 Server-side proxy for all AI features (trade analysis, chart image analysis,
