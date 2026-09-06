@@ -4,10 +4,12 @@ import { TradeService } from '../../core/services/trade.service';
 import { UserDataService } from '../../core/services/user-data/user-data.service';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { cacheSuspended } from '../../core/services/user-data/user-data.cache';
+import { TradovateLiveAccountMetric } from '../integrations/tradovate-live/tradovate-live.models';
+import { TradovateLiveService } from '../integrations/tradovate-live/tradovate-live.service';
 import { SessionAlertsService } from './session-alerts.service';
 import {
     crossedPerformanceAlerts, parsePerformanceAlertPreferences, performanceMetrics,
-    PerformanceAlertPreferences, PerformanceAlertRule, PerformanceMetrics,
+    PerformanceAlertPreferences, PerformanceAlertRule, PerformanceMetrics, weekStartFor,
 } from './performance-alerts.utils';
 
 const STORAGE_PREFIX = 'nvzn_performance_alert_preferences_v1:';
@@ -26,6 +28,7 @@ export class PerformanceAlertsService {
     private readonly userData = inject(UserDataService);
     private readonly session = inject(UserSessionService);
     private readonly sounds = inject(SessionAlertsService);
+    readonly live = inject(TradovateLiveService);
 
     readonly preferences = signal(parsePerformanceAlertPreferences(null));
     readonly event = signal<PerformanceAlertEvent | null>(null);
@@ -36,6 +39,8 @@ export class PerformanceAlertsService {
     private rules = '';
     private previous: PerformanceMetrics | null = null;
     private fired = new Set<string>();
+    private liveBaselineSignature = '';
+    private liveTradeBaselines = new Map<string, number>();
     private eventSequence = 0;
     private dismissTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -50,6 +55,14 @@ export class PerformanceAlertsService {
         });
 
         effect(() => {
+            const shouldMonitor = !!this.session.userId()
+                && this.userData.dataLoaded()
+                && !cacheSuspended()
+                && this.anyEnabled();
+            this.live.setRequested(shouldMonitor);
+        });
+
+        effect(() => {
             const owner = this.session.userId();
             const loaded = this.userData.dataLoaded();
             const suspended = cacheSuspended();
@@ -57,17 +70,25 @@ export class PerformanceAlertsService {
             const selected = filter.accountSelectionActive ? [...filter.accountIds].sort() : [];
             const scopedTrades = this.trades.trades().filter(trade =>
                 trade.userId === owner && (!filter.accountSelectionActive || selected.includes(trade.accountId || '0')));
-            const current = performanceMetrics(scopedTrades);
+            const liveMetrics = this.selectedLiveMetrics(this.live.metrics(), filter.accountSelectionActive, selected);
+            const liveBaselineSignature = liveMetrics.map(metric => metric.baselineKey).sort().join('|');
+            const current = this.mergeLiveMetrics(scopedTrades, liveMetrics);
             const context = `${owner ?? ''}:${filter.accountSelectionActive ? selected.join(',') : 'all'}:${current.day}:${current.week}`;
             const rules = JSON.stringify(this.preferences());
 
             // Loading, account/filter changes, a new period, and settings edits
             // establish a baseline; they never replay historical achievements.
-            if (!owner || !loaded || suspended || context !== this.context || rules !== this.rules || !this.previous) {
+            const contextChanged = context !== this.context;
+            const rulesChanged = rules !== this.rules;
+            if (!owner || !loaded || suspended || contextChanged || rulesChanged
+                || liveBaselineSignature !== this.liveBaselineSignature || !this.previous) {
                 this.context = context;
                 this.rules = rules;
+                this.liveBaselineSignature = liveBaselineSignature;
                 this.previous = current;
-                this.fired.clear();
+                // A stream reconnect establishes a new live baseline but must
+                // not replay a threshold that already fired this day/week.
+                if (contextChanged || rulesChanged || !owner) this.fired.clear();
                 return;
             }
 
@@ -120,6 +141,8 @@ export class PerformanceAlertsService {
     private resetEvaluation(): void {
         this.context = '';
         this.rules = '';
+        this.liveBaselineSignature = '';
+        this.liveTradeBaselines.clear();
         this.previous = null;
         this.fired.clear();
         this.dismiss();
@@ -135,5 +158,50 @@ export class PerformanceAlertsService {
         if (!this.owner) return;
         try { localStorage.setItem(STORAGE_PREFIX + this.owner, JSON.stringify(this.preferences())); }
         catch { /* Browser-local preferences remain active for this page. */ }
+    }
+
+    private selectedLiveMetrics(
+        metrics: TradovateLiveAccountMetric[],
+        selectionActive: boolean | undefined,
+        selected: string[],
+    ): TradovateLiveAccountMetric[] {
+        const selectedSet = new Set(selected);
+        const newestByAccount = new Map<number, TradovateLiveAccountMetric>();
+        for (const metric of metrics) {
+            if (selectionActive && !selectedSet.has(String(metric.accountId))) continue;
+            const current = newestByAccount.get(metric.accountId);
+            if (!current || metric.updatedAt > current.updatedAt) newestByAccount.set(metric.accountId, metric);
+        }
+        return [...newestByAccount.values()];
+    }
+
+    /** Overlay authoritative live broker P&L while retaining DB metrics for
+     *  historical/manual accounts. The max() count prevents a later report
+     *  sync from double-counting a position already observed on the stream. */
+    private mergeLiveMetrics(trades: Parameters<typeof performanceMetrics>[0], live: TradovateLiveAccountMetric[]): PerformanceMetrics {
+        const current = performanceMetrics(trades);
+        const activeKeys = new Set(live.map(metric => metric.baselineKey));
+        for (const key of this.liveTradeBaselines.keys()) {
+            if (!activeKeys.has(key)) this.liveTradeBaselines.delete(key);
+        }
+
+        for (const metric of live) {
+            const accountTrades = trades.filter(trade => trade.accountId === String(metric.accountId));
+            const persisted = performanceMetrics(accountTrades);
+            if (!this.liveTradeBaselines.has(metric.baselineKey)) {
+                this.liveTradeBaselines.set(metric.baselineKey, persisted.dailyTrades);
+            }
+
+            if (metric.tradeDate === current.day) {
+                if (metric.dailyPnl !== null) current.dailyPnl += metric.dailyPnl - persisted.dailyPnl;
+                const baseline = this.liveTradeBaselines.get(metric.baselineKey) ?? persisted.dailyTrades;
+                const liveCount = Math.max(persisted.dailyTrades, baseline + metric.completedTrades);
+                current.dailyTrades += liveCount - persisted.dailyTrades;
+            }
+            if (metric.tradeDate && weekStartFor(metric.tradeDate) === current.week && metric.weeklyPnl !== null) {
+                current.weeklyPnl += metric.weeklyPnl - persisted.weeklyPnl;
+            }
+        }
+        return current;
     }
 }
