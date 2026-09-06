@@ -13,13 +13,15 @@
                 </div>
             </div>
             <div class="market-drawer__header-actions">
-                <button type="button" class="market-drawer__icon-button" (click)="refresh()"
-                    [disabled]="calendar.refreshing()" aria-label="Refresh market events">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        [class.market-drawer__spin]="calendar.refreshing()" aria-hidden="true">
-                        <path d="M20 11a8.1 8.1 0 1 0-2.4 5.8M20 4v7h-7"/>
-                    </svg>
-                </button>
+                @if (panel.activeTab() !== 'alerts') {
+                    <button type="button" class="market-drawer__icon-button" (click)="refresh()"
+                        [disabled]="refreshing()" [attr.aria-label]="refreshLabel()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            [class.market-drawer__spin]="refreshing()" aria-hidden="true">
+                            <path d="M20 11a8.1 8.1 0 1 0-2.4 5.8M20 4v7h-7"/>
+                        </svg>
+                    </button>
+                }
                 <button #closeButton type="button" class="market-drawer__icon-button" (click)="panel.close()"
                     aria-label="Close market awareness">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -32,9 +34,10 @@
         <nav class="market-drawer__tabs" aria-label="Market awareness sections">
             <button type="button" [class.is-active]="panel.activeTab() === 'calendar'"
                 (click)="selectTab('calendar')">Calendar</button>
+            <button type="button" [class.is-active]="panel.activeTab() === 'news'"
+                (click)="selectTab('news')">News</button>
             <button type="button" [class.is-active]="panel.activeTab() === 'alerts'"
                 (click)="selectTab('alerts')">Alerts</button>
-            <span class="market-drawer__future">Live news coming later</span>
         </nav>
 
         <div class="market-drawer__content">
@@ -90,6 +93,8 @@
                 @if (calendar.error(); as error) {
                     <p class="market-drawer__notice" role="status">{{ error }}</p>
                 }
+            } @else if (panel.activeTab() === 'news') {
+                <app-market-news-feed />
             } @else {
                 <div class="market-drawer__alerts">
                     <app-market-event-alert-controls />
@@ -98,7 +103,13 @@
         </div>
 
         <footer class="market-drawer__footer">
-            Schedules can change. Open the linked official source before trading a release.
+            @if (panel.activeTab() === 'calendar') {
+                Schedules can change. Open the linked official source before trading a release.
+            } @else if (panel.activeTab() === 'news') {
+                Official releases only—not a complete breaking-news wire or trading advice.
+            } @else {
+                Alerts use your device timezone and preferences.
+            }
         </footer>
     </aside>
 }

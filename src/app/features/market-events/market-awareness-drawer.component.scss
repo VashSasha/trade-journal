@@ -111,12 +111,6 @@
         }
     }
 
-    &__future {
-        margin-left: auto;
-        color: var(--color-text-muted);
-        font-size: 0.62rem;
-    }
-
     &__content {
         min-height: 0;
         flex: 1;
@@ -272,7 +266,6 @@ a:focus-visible {
         width: 100vw;
 
         &__content { padding: 0.8rem; }
-        &__future { display: none; }
     }
 }
 

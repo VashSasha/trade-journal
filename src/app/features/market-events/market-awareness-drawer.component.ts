@@ -14,6 +14,8 @@ import { EconomicCalendarService, EconomicEvent } from '../../core/services/econ
 import { economicEventTimestamp } from '../../core/utils/economic-events';
 import { MarketEventAlertControlsComponent } from '../alerts/market-event-alert-controls.component';
 import { sessionCountdown } from '../sessions/sessions.utils';
+import { MarketNewsFeedComponent } from './market-news-feed.component';
+import { MarketNewsService } from './market-news.service';
 import { MarketPanelService, MarketPanelTab } from './market-panel.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -27,7 +29,7 @@ interface MarketEventGroup {
 @Component({
     selector: 'app-market-awareness-drawer',
     standalone: true,
-    imports: [MarketEventAlertControlsComponent],
+    imports: [MarketEventAlertControlsComponent, MarketNewsFeedComponent],
     templateUrl: './market-awareness-drawer.component.html',
     styleUrl: './market-awareness-drawer.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -35,6 +37,7 @@ interface MarketEventGroup {
 export class MarketAwarenessDrawerComponent {
     readonly panel = inject(MarketPanelService);
     readonly calendar = inject(EconomicCalendarService);
+    readonly news = inject(MarketNewsService);
     private readonly destroyRef = inject(DestroyRef);
     private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton');
     readonly now = signal(Date.now());
@@ -54,6 +57,17 @@ export class MarketAwarenessDrawerComponent {
     });
     readonly nextHighImpact = computed(() => this.events().find(event => event.impact === 'high') ?? null);
     readonly statusLabel = computed(() => {
+        if (this.panel.activeTab() === 'alerts') return 'Sound and timing preferences';
+        if (this.panel.activeTab() === 'news') {
+            switch (this.news.status()) {
+                case 'live': return 'Official headlines';
+                case 'partial': return 'Partial official feed';
+                case 'stale': return 'Cached headlines';
+                case 'loading': return 'Updating headlines';
+                case 'error': return 'Headlines unavailable';
+                default: return 'Official headlines';
+            }
+        }
         switch (this.calendar.status()) {
             case 'live': return 'Official schedule';
             case 'stale': return 'Cached schedule';
@@ -61,13 +75,23 @@ export class MarketAwarenessDrawerComponent {
             default: return 'Reference schedule';
         }
     });
+    readonly refreshing = computed(() => this.panel.activeTab() === 'news'
+        ? this.news.refreshing()
+        : this.panel.activeTab() === 'calendar' && this.calendar.refreshing());
+    readonly refreshLabel = computed(() => this.panel.activeTab() === 'news'
+        ? 'Refresh market headlines'
+        : 'Refresh market events');
     private readonly timer = window.setInterval(() => this.now.set(Date.now()), 30_000);
 
     constructor() {
         effect(() => {
             if (!this.panel.open()) return;
-            void this.calendar.refresh();
             window.setTimeout(() => this.closeButton()?.nativeElement.focus(), 0);
+        });
+        effect(() => {
+            if (!this.panel.open()) return;
+            if (this.panel.activeTab() === 'calendar') void this.calendar.refresh();
+            if (this.panel.activeTab() === 'news') void this.news.refresh();
         });
         this.destroyRef.onDestroy(() => window.clearInterval(this.timer));
     }
@@ -82,7 +106,8 @@ export class MarketAwarenessDrawerComponent {
     }
 
     refresh(): void {
-        void this.calendar.refresh(true);
+        if (this.panel.activeTab() === 'calendar') void this.calendar.refresh(true);
+        if (this.panel.activeTab() === 'news') void this.news.refresh(true);
     }
 
     timestamp(event: EconomicEvent): number {

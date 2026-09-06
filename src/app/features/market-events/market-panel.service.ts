@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-export type MarketPanelTab = 'calendar' | 'alerts';
+export type MarketPanelTab = 'calendar' | 'news' | 'alerts';
 
 /** App-wide state for the market-awareness drawer mounted in the authenticated shell. */
 @Injectable({ providedIn: 'root' })

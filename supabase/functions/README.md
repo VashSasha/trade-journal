@@ -1,5 +1,21 @@
 # Edge Functions
 
+## market-news
+
+Returns a normalized, newest-first feed of official monetary-policy, inflation,
+and employment headlines for signed-in users. It reads the Federal Reserve
+monetary-policy RSS feed and the BLS CPI, Employment Situation, and PPI Atom
+feeds. Failed sources are reported individually so the client can keep showing
+partial results, and both the function and client retain short-lived caches.
+
+```bash
+supabase functions deploy market-news --project-ref elbcjsewyqptrckdydha
+```
+
+It uses the existing `SB_SECRET_KEY` to validate the caller and `APP_ORIGIN` for
+CORS. No new secret or database migration is required. The client treats every
+response as untrusted and only opens HTTPS links on the expected official host.
+
 ## market-events
 
 Returns a normalized U.S. economic-event schedule for signed-in users. It
