@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal, effect, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { TradovateService, TradovateAccount, TradovateConnection } from './tradovate.service';
+import { TradovateService, TradovateAccount, TradovateCashBalance, TradovateConnection } from './tradovate.service';
 import { FilterService } from './filter.service';
 import { SyncService } from './sync.service';
 import { TradeService } from './trade.service';
@@ -356,6 +356,28 @@ export class AccountService {
                 return next;
             });
         }
+    }
+
+    /** Apply a normalized user-data WebSocket balance update immediately and
+     *  retain it as the account's last-known DB fallback. */
+    applyLiveBalances(connectionId: string, balances: TradovateCashBalance[]): void {
+        if (balances.length === 0 || cacheSuspended() || !this.userSession.userId()) return;
+        this.liveBalances.update(map => {
+            const next = new Map(map);
+            for (const balance of balances) {
+                if (balance.accountId && balance.amount !== undefined) {
+                    next.set(balance.accountId, balance.amount);
+                }
+            }
+            return next;
+        });
+        this.tradingAccounts.recordBalances(connectionId, balances);
+        this.balanceFailedConnectionIds.update(failed => {
+            if (!failed.has(connectionId)) return failed;
+            const next = new Set(failed);
+            next.delete(connectionId);
+            return next;
+        });
     }
 
     /** ISO timestamp of the last known balance for an account. */

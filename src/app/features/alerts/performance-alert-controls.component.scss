@@ -24,6 +24,28 @@
         color: var(--color-accent);
         font-size: 0.6875rem;
         font-weight: 700;
+
+        &--live,
+        &--standby {
+            background: var(--color-positive-subtle);
+            color: var(--color-positive);
+        }
+
+        &--reconnecting {
+            background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+            color: var(--color-warning);
+        }
+
+        &--needs-auth {
+            background: color-mix(in srgb, var(--color-negative) 12%, transparent);
+            color: var(--color-negative);
+        }
+
+        &--off,
+        &--unavailable {
+            background: var(--color-bg-surface-3);
+            color: var(--color-text-muted);
+        }
     }
 
     &__period {

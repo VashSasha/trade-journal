@@ -4,7 +4,11 @@
             <h3>Performance guardrails</h3>
             <p>Get one alert when a selected-account threshold is crossed.</p>
         </div>
-        <span class="guardrails__status">After sync</span>
+        <span
+            class="guardrails__status"
+            [class]="'guardrails__status guardrails__status--' + alerts.live.state()"
+            aria-live="polite"
+        >{{ alerts.live.statusLabel() }}</span>
     </div>
 
     <div class="guardrails__period">
@@ -40,6 +44,6 @@
     </div>
 
     <p class="guardrails__note">
-        Visual alerts work while NVZN is open. Sound uses the master control above. Values update after imports and broker syncs; true live overtrading protection will require a broker live-data connection.
+        {{ alerts.live.statusDetail() }} Sound uses the master control above. Live monitoring works while NVZN is open; saved trades reconcile shortly after a position closes.
     </p>
 </section>
