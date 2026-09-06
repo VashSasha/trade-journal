@@ -97,6 +97,29 @@ export class AiAnalysisService {
         return saved;
     }
 
+    /** Replace the content of an existing journal analysis (for a deeper follow-up). */
+    async updateAnalysis(id: string, content: string): Promise<SavedAnalysis> {
+        if (!this.demo.requireAccount('ai')) throw new Error('demo');
+        const scope = this.access.capture();
+        const { data, error } = await this.client
+            .from('ai_analyses')
+            .update({ content })
+            .eq('id', id)
+            .eq('kind', 'journal')
+            .eq('user_id', scope.userId)
+            .select(COLUMNS)
+            .abortSignal(scope.signal).single();
+        this.userSession.assertCurrent(scope);
+
+        if (error) throw error;
+
+        const saved = rowToAnalysis(data);
+        if (this.loadedDate === saved.date) {
+            this.analyses.update(list => list.map(item => item.id === saved.id ? saved : item));
+        }
+        return saved;
+    }
+
     /**
      * The most recent saved analysis strictly BEFORE `date` — used by the
      * coach to check yesterday's commitment. Null when none exists.

@@ -19,6 +19,10 @@ import { SharePnlComponent, SharePnlStats } from '../../../../../shared/componen
 import { AiAnalysisService } from '../saved-analyses/ai-analysis.service';
 import { JournalFormState } from '../../state/journal-form.state';
 import { AccessPolicyService } from '../../../../../core/services/access-policy.service';
+import {
+  inferTradeDecisions,
+  TradeDecisionSummary,
+} from '../../utils/trade-decisions.utils';
 
 type AnalysisState = { status: 'idle' | 'streaming' | 'complete' | 'error'; content: string; error: string | null };
 type ConfidenceTier = 'high' | 'medium' | 'low' | null;
@@ -77,14 +81,20 @@ export class DaySummaryComponent implements OnDestroy {
   // ── Save-analysis state ──────────────────────────────────────────────────
   aiSaving = signal(false);
   aiSaveError = signal<string | null>(null);
+  private savedAnalysisId = signal<string | null>(null);
   /** Content of the last successfully saved insight — guards against double-saves. */
   private savedContent = signal<string | null>(null);
+  private insightDate: string | null = null;
+  private insightActivity = signal<TradeDecisionSummary | null>(null);
 
   /** True once the current insight text has been persisted (soften/disable Save). */
   readonly insightSaved = computed(() => {
     const saved = this.savedContent();
-    return saved !== null && saved === this.insightState().content;
+    return saved !== null && saved === this.analysisContentForStorage();
   });
+
+  /** The exact activity model used for the visible coach response. */
+  readonly coachActivity = computed(() => this.insightActivity());
 
   /** Structured coach card, parsed from the completed reply (null → raw fallback). */
   readonly coach = computed((): CoachCard | null => {
@@ -161,7 +171,17 @@ export class DaySummaryComponent implements OnDestroy {
   async generateInsight(): Promise<void> {
     if (!this.trades.length) return;
     if (!this.access.demo() && !this.access.requestAction('ai')) return;
-    const yesterdayFocus = await this.fetchYesterdayFocus();
+    if (this.aiSaving()) return;
+
+    const analysisDate = this.date ?? null;
+    const activity = inferTradeDecisions([...this.trades]);
+    const yesterdayFocus = await this.fetchYesterdayFocus(analysisDate);
+
+    this.insightDate = analysisDate;
+    this.insightActivity.set(activity);
+    this.savedAnalysisId.set(null);
+    this.savedContent.set(null);
+    this.aiSaveError.set(null);
 
     this.insightMessages = [
       {
@@ -180,11 +200,13 @@ One line only: a letter grade A–F for PROCESS QUALITY (not P&L — a disciplin
 ## Tomorrow's focus
 EXACTLY ONE task-list item (\`- [ ]\`) — the single highest-leverage change, concrete and checkable, e.g. "- [ ] Stop trading after 2 consecutive losses".
 
+Copy-trading rule: one trading decision may create executions on several accounts. Judge trade frequency and overtrading ONLY from the provided inferred decision count and decision sequence — never from the account-level execution count. Use execution count only when discussing combined exposure, commissions, or copy-trading operational risk. Treat the grouping as an informed estimate, not a certainty.
+
 Rules: address the trader as "you". Never invent trades, prices, or data you were not given. Reference their plan, rules, mood, or baseline when relevant. Keep the whole reply under 150 words. No preamble, no closing remarks.`
       },
       {
         role: 'user',
-        content: this.buildCoachInput(yesterdayFocus)
+        content: this.buildCoachInput(yesterdayFocus, analysisDate, activity)
       }
     ];
     this.followUpInsight.set({status: 'idle', content: '', error: null});
@@ -193,17 +215,22 @@ Rules: address the trader as "you". Never invent trades, prices, or data you wer
   }
 
   tellMeMore(): void {
-    if (this.insightState().status !== 'complete') return;
-    const s = this.stats;
-    const biggestLoss = this.trades.length
-      ? Math.min(...this.trades.map(t => t.netPnl || 0))
-      : 0;
+    if (this.insightState().status !== 'complete' || this.aiSaving()) return;
+    const activity = this.insightActivity() ?? inferTradeDecisions(this.trades);
+    const biggestLoss = activity.decisions.reduce(
+      (lowest, decision) => Math.min(lowest, decision.totalPnl),
+      0,
+    );
+    const biggestLossDecision = activity.decisions.find(decision => decision.totalPnl === biggestLoss);
+    const lossContext = biggestLossDecision && biggestLoss < 0
+      ? `${this.fmtMoney(biggestLoss)} combined (${this.fmtMoney(biggestLossDecision.averagePnl)} average per execution)`
+      : this.fmtMoney(0);
     const messages = [
       ...this.insightMessages,
       {role: 'assistant', content: this.insightState().content},
       {
         role: 'user',
-        content: `Go deeper on today's review. Expand on your verdict and the "What cost you" items — walk through the specific trades and times behind them. Given ${s.totalTrades} trades, a ${s.winRate.toFixed(1)}% win rate, and a biggest single loss of $${biggestLoss.toFixed(2)}: what does today say about my decision quality and risk management? Reply in short Markdown prose — no new grade, no new sections.`
+        content: `Go deeper on today's review. Expand on your verdict and the "What cost you" items — walk through the specific decisions and times behind them. The day contained ${activity.decisionCount} inferred trading decisions represented by ${activity.executionCount} account-level executions across ${activity.accountCount} account${activity.accountCount === 1 ? '' : 's'}, with a ${activity.winRate.toFixed(1)}% decision win rate and a largest losing decision of ${lossContext}. Keep copy-traded executions grouped when judging overtrading. What does today say about my decision quality and risk management? Reply in short Markdown prose — no new grade and no repeated verdict.`
       }
     ];
     this.startInsightStream(messages, this.followUpInsight, this.followUpInsightConfidence);
@@ -212,13 +239,23 @@ Rules: address the trader as "you". Never invent trades, prices, or data you wer
   // ── Coach input builders ─────────────────────────────────────────────────
 
   /** Assemble the full user message: day stats, trade tape, journal, baseline, continuity. */
-  private buildCoachInput(yesterdayFocus: string | null): string {
-    const s = this.stats;
+  private buildCoachInput(
+    yesterdayFocus: string | null,
+    analysisDate: string | null,
+    activity: TradeDecisionSummary,
+  ): string {
+    const s = computeDayStats(activity.decisions.flatMap(decision => decision.trades));
     const parts = [
       `Coach me on this trading day.`,
-      `Date: ${this.date ?? 'today'}
-Day stats: ${s.totalTrades} trades · Net P&L: ${this.fmtMoney(s.netPnl)} · Win rate: ${s.winRate.toFixed(1)}% (${s.winners}W/${s.losers}L) · Gross: ${this.fmtMoney(s.grossPnl)} · Commissions: ${this.fmtMoney(s.commissions)} · Avg trade: ${this.fmtMoney(s.avgNetPnl)}`,
-      `Trades (chronological):\n${this.tradeLines()}`,
+      `Date: ${analysisDate ?? 'today'}
+Activity model:
+- ${activity.executionCount} account-level execution${activity.executionCount === 1 ? '' : 's'} across ${activity.accountCount} account${activity.accountCount === 1 ? '' : 's'}
+- ${activity.decisionCount} inferred trading decision${activity.decisionCount === 1 ? '' : 's'} (${activity.mirroredDecisionCount} mirrored across accounts)
+- Decision outcomes: ${activity.winners}W/${activity.losers}L${activity.breakeven ? `/${activity.breakeven}BE` : ''} · ${activity.winRate.toFixed(1)}% decision win rate
+- Grouping is inferred from matching symbol, direction, and near-identical entry/exit times on different accounts.
+Financial totals across all account executions: Net P&L ${this.fmtMoney(s.netPnl)} · Execution win rate ${s.winRate.toFixed(1)}% (${s.winners}W/${s.losers}L) · Gross ${this.fmtMoney(s.grossPnl)} · Commissions ${this.fmtMoney(s.commissions)} · Avg execution ${this.fmtMoney(s.avgNetPnl)}
+Coaching instruction: assess frequency and overtrading from ${activity.decisionCount} decisions, not ${activity.executionCount} executions.`,
+      `Trading decisions (chronological):\n${this.decisionLines(activity)}`,
       this.journalContext(),
       this.baselineContext(),
       yesterdayFocus ? `Yesterday you committed to: "${yesterdayFocus}"` : ''
@@ -226,14 +263,19 @@ Day stats: ${s.totalTrades} trades · Net P&L: ${this.fmtMoney(s.netPnl)} · Win
     return parts.filter(Boolean).join('\n\n');
   }
 
-  /** One line per trade, in execution order, so sequences are visible. */
-  private tradeLines(): string {
-    const sorted = [...this.trades].sort((a, b) => (a.entryDate ?? '').localeCompare(b.entryDate ?? ''));
-    return sorted.map(t => {
-      const pnl = t.netPnl ?? t.pnl ?? 0;
-      const hold = this.holdDuration(t);
-      const dir = t.direction === 'short' ? 'SHORT' : 'LONG';
-      return `${this.fmtTime(t)} ${t.symbol} ${dir} x${t.quantity} → ${this.fmtMoney(pnl)}${hold ? ` (held ${hold})` : ''}`;
+  /** One line per inferred decision, keeping mirrored account executions together. */
+  private decisionLines(activity: TradeDecisionSummary): string {
+    return activity.decisions.map((decision, index) => {
+      const trade = decision.trades[0];
+      const hold = this.holdDuration(trade);
+      const direction = trade.direction === 'short' ? 'SHORT' : 'LONG';
+      const quantity = decision.minQuantity === decision.maxQuantity
+        ? `x${decision.minQuantity}${decision.mirrored ? '/account' : ''}`
+        : `x${decision.minQuantity}–${decision.maxQuantity}/account`;
+      const executionContext = decision.mirrored
+        ? `${decision.trades.length} mirrored executions across ${decision.accountIds.length} accounts · combined ${this.fmtMoney(decision.totalPnl)} · avg ${this.fmtMoney(decision.averagePnl)}/execution`
+        : `1 execution · ${this.fmtMoney(decision.totalPnl)}`;
+      return `${index + 1}. ${this.fmtTime(trade)} ${trade.symbol} ${direction} ${quantity} · ${executionContext}${hold ? ` · held ${hold}` : ''}`;
     }).join('\n');
   }
 
@@ -269,19 +311,17 @@ Day stats: ${s.totalTrades} trades · Net P&L: ${this.fmtMoney(s.netPnl)} · Win
     const all = this.filterService.filterTradesIgnoreDateRange(this.tradeService.trades());
     const windowStart = this.shiftDate(date, -30);
     const dayPnls = new Map<string, number>();
-    let wins = 0, total = 0;
+    const windowTrades: Trade[] = [];
 
     for (const t of all) {
       const key = tradeSessionDateStr((t.status === 'closed' && t.exitDate) ? t.exitDate : t.entryDate);
       if (!key || key >= date) continue; // only days BEFORE today
       const pnl = t.netPnl ?? t.pnl ?? 0;
       dayPnls.set(key, (dayPnls.get(key) ?? 0) + pnl);
-      if (key >= windowStart) {
-        total++;
-        if (pnl > 0) wins++;
-      }
+      if (key >= windowStart) windowTrades.push(t);
     }
-    if (total === 0) return '';
+    const baselineActivity = inferTradeDecisions(windowTrades);
+    if (baselineActivity.decisionCount === 0) return '';
 
     const windowDays = [...dayPnls.entries()].filter(([d]) => d >= windowStart);
     const avgDaily = windowDays.length
@@ -304,7 +344,7 @@ Day stats: ${s.totalTrades} trades · Net P&L: ${this.fmtMoney(s.netPnl)} · Win
     }
 
     const parts = [
-      `Win rate: ${((wins / total) * 100).toFixed(1)}% over ${total} trades`,
+      `Decision win rate: ${baselineActivity.winRate.toFixed(1)}% over ${baselineActivity.decisionCount} inferred decisions (${baselineActivity.executionCount} account-level executions)`,
       `Avg daily P&L: ${this.fmtMoney(avgDaily)}`
     ];
     if (streak > 0) {
@@ -314,10 +354,10 @@ Day stats: ${s.totalTrades} trades · Net P&L: ${this.fmtMoney(s.netPnl)} · Win
   }
 
   /** "Tomorrow's focus" from the most recent saved analysis before this date. */
-  private async fetchYesterdayFocus(): Promise<string | null> {
-    if (!this.date) return null;
+  private async fetchYesterdayFocus(date: string | null): Promise<string | null> {
+    if (!date) return null;
     try {
-      const prev = await this.aiAnalysis.latestAnalysisBefore(this.date);
+      const prev = await this.aiAnalysis.latestAnalysisBefore(date);
       if (!prev) return null;
       const line = this.extractFocusLine(prev.content);
       return line ? line.replace(TASK_LINE, '') : null;
@@ -411,18 +451,23 @@ Day stats: ${s.totalTrades} trades · Net P&L: ${this.fmtMoney(s.netPnl)} · Win
   }
 
   // ── Private helpers ──────────────────────────────────────────────────────
-  /** Persist the current insight markdown for the active journal date. */
+  /** Persist the current run, creating once and updating after the follow-up. */
   async saveInsight(): Promise<void> {
-    const content = this.insightState().content;
-    const date = this.date;
+    if (this.access.demo()) return;
+    const content = this.analysisContentForStorage();
+    const date = this.insightDate;
     if (this.insightState().status !== 'complete' || !content || !date) return;
     if (this.aiSaving() || this.insightSaved()) return;
 
     this.aiSaving.set(true);
     this.aiSaveError.set(null);
     try {
-      await this.aiAnalysis.saveAnalysis(date, content);
-      this.savedContent.set(content);
+      const id = this.savedAnalysisId();
+      const saved = id
+        ? await this.aiAnalysis.updateAnalysis(id, content)
+        : await this.aiAnalysis.saveAnalysis(date, content);
+      this.savedAnalysisId.set(saved.id);
+      this.savedContent.set(saved.content);
     } catch (err: any) {
       this.aiSaveError.set(err?.message || 'Couldn\'t save analysis. Please try again.');
     } finally {
@@ -482,6 +527,7 @@ Day stats: ${s.totalTrades} trades · Net P&L: ${this.fmtMoney(s.netPnl)} · Win
           this.clearInsightTimeout(isMain);
           stateSignal.update(s => ({...s, status: 'complete'}));
           confidenceSignal.set(this.deriveConfidence(stateSignal().content));
+          void this.saveInsight();
         },
         error: err => fail(err?.message || AI_GENERIC_ERROR),
       });
@@ -521,6 +567,21 @@ Day stats: ${s.totalTrades} trades · Net P&L: ${this.fmtMoney(s.netPnl)} · Win
       clearInterval(this.insightStepsInterval);
       this.insightStepsInterval = null;
     }
+  }
+
+  private analysisContentForStorage(): string {
+    const main = this.insightState().content.trim();
+    if (!main) return '';
+    const activity = this.insightActivity();
+    const context = activity && activity.mirroredDecisionCount > 0
+      ? `> **Copy-trade context:** ${activity.decisionCount} inferred decision${activity.decisionCount === 1 ? '' : 's'} from ${activity.executionCount} executions across ${activity.accountCount} accounts.`
+      : '';
+    const followUp = this.followUpInsight();
+    const sections = [context, main].filter(Boolean);
+    if (followUp.status === 'complete' && followUp.content.trim()) {
+      sections.push(`---\n\n## Deeper review\n\n${followUp.content.trim()}`);
+    }
+    return sections.join('\n\n');
   }
 
   private deriveConfidence(content: string): ConfidenceTier {
