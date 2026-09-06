@@ -1,7 +1,7 @@
 <section class="alerts-settings">
     <header class="alerts-settings__header">
         <h2 class="alerts-settings__title">Alerts</h2>
-        <p class="alerts-settings__description">Stay aware of market sessions and your own trading limits without watching another screen.</p>
+        <p class="alerts-settings__description">Stay aware of market sessions, scheduled economic events, and your own trading limits without watching another screen.</p>
     </header>
 
     <div class="alerts-settings__card">
@@ -15,6 +15,8 @@
         <app-session-alert-controls [expanded]="true" [settingsView]="true" />
         <p class="alerts-settings__future">Built-in exchange bells are included. Custom sound uploads will plug into this sound layer in a later update.</p>
     </div>
+
+    <app-market-event-alert-controls />
 
     <app-performance-alert-controls />
 </section>

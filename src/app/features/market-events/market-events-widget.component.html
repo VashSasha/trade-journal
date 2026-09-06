@@ -1,0 +1,62 @@
+<section class="market-events" aria-labelledby="market-events-title">
+    <header class="market-events__header">
+        <div class="market-events__heading">
+            <span class="market-events__radar" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.48M7.76 16.24a6 6 0 0 1 0-8.48M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/>
+                </svg>
+            </span>
+            <div>
+                <div class="market-events__title-line">
+                    <h2 id="market-events-title">Market awareness</h2>
+                    <span class="market-events__status" [class.market-events__status--live]="calendar.status() === 'live'">
+                        {{ statusLabel() }}
+                    </span>
+                </div>
+                <p>Upcoming U.S. releases that can increase futures volatility.</p>
+            </div>
+        </div>
+        <button type="button" class="market-events__refresh" (click)="refresh()" [disabled]="calendar.refreshing()" aria-label="Refresh economic events">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" [class.market-events__spin]="calendar.refreshing()" aria-hidden="true">
+                <path d="M20 11a8.1 8.1 0 1 0-2.4 5.8M20 4v7h-7"/>
+            </svg>
+            {{ calendar.refreshing() ? 'Updating' : 'Refresh' }}
+        </button>
+    </header>
+
+    @if (nextHigh(); as event) {
+        <div class="market-events__spotlight" [class.market-events__spotlight--imminent]="isImminent(event)">
+            <span class="market-events__impact market-events__impact--high">High impact</span>
+            <strong>{{ event.abbr }} in {{ countdown(event) }}</strong>
+            <span>{{ eventTime(event) }}</span>
+        </div>
+    }
+
+    @if (events().length) {
+        <div class="market-events__list">
+            @for (event of events(); track event.id ?? event.abbr + event.date) {
+                <a class="market-events__event" [class.market-events__event--imminent]="isImminent(event)"
+                    [href]="event.link" target="_blank" rel="noopener noreferrer">
+                    <div class="market-events__event-head">
+                        <span class="market-events__abbr">{{ event.abbr }}</span>
+                        <span class="market-events__impact market-events__impact--{{ event.impact }}">{{ event.impact }}</span>
+                    </div>
+                    <strong>{{ event.event }}</strong>
+                    <span>{{ eventTime(event) }}</span>
+                    <small>{{ countdown(event) }} away · {{ event.sourceName ?? 'Official source' }}</small>
+                </a>
+            }
+        </div>
+    } @else if (calendar.status() === 'loading') {
+        <div class="market-events__empty" role="status">Loading official event schedules…</div>
+    } @else {
+        <div class="market-events__empty">No supported high- or medium-impact events are scheduled in the next 14 days.</div>
+    }
+
+    @if (calendar.error(); as error) {
+        <p class="market-events__notice" role="status">{{ error }}</p>
+    }
+    <footer class="market-events__footer">
+        Times use your device timezone. Schedules can change—open the linked official source before trading a release.
+    </footer>
+</section>

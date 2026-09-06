@@ -1,0 +1,42 @@
+<section class="event-alerts">
+    <div class="event-alerts__head">
+        <div>
+            <h3>Economic event warnings</h3>
+            <p>Get a heads-up before scheduled U.S. releases that can increase volatility.</p>
+        </div>
+        <span class="event-alerts__badge">This browser</span>
+    </div>
+
+    <div class="event-alerts__rows">
+        <label class="event-alerts__row">
+            <span><strong>In-app warnings</strong><small>Runs while NVZN is open</small></span>
+            <input type="checkbox" [checked]="alerts.preferences().enabled" (change)="alerts.setEnabled(checked($event))" />
+        </label>
+
+        <label class="event-alerts__row" [class.event-alerts__row--disabled]="!alerts.preferences().enabled">
+            <span><strong>Warn me before</strong><small>Sound follows the master volume above</small></span>
+            <select [value]="alerts.preferences().leadMinutes" (change)="alerts.setLeadMinutes(number($event))" [disabled]="!alerts.preferences().enabled" aria-label="Economic event warning lead time">
+                @for (minutes of alerts.leadOptions; track minutes) { <option [value]="minutes">{{ minutes }} minutes</option> }
+            </select>
+        </label>
+
+        <label class="event-alerts__row" [class.event-alerts__row--disabled]="!alerts.preferences().enabled">
+            <span><strong>High impact only</strong><small>Turn off to include selected medium-impact releases</small></span>
+            <input type="checkbox" [checked]="alerts.preferences().highOnly" (change)="alerts.setHighOnly(checked($event))" [disabled]="!alerts.preferences().enabled" />
+        </label>
+
+        <label class="event-alerts__row" [class.event-alerts__row--disabled]="!alerts.preferences().enabled || !alerts.desktopSupported">
+            <span><strong>Desktop notification</strong><small>{{ alerts.desktopSupported ? 'Useful when the tab is in the background' : 'Not supported by this browser' }}</small></span>
+            <input type="checkbox" [checked]="alerts.preferences().desktopNotifications"
+                (change)="alerts.setDesktopNotifications(checked($event))"
+                [disabled]="!alerts.preferences().enabled || !alerts.desktopSupported" />
+        </label>
+    </div>
+
+    <div class="event-alerts__actions">
+        <button type="button" (click)="alerts.testAlert()">Test warning</button>
+        <p>Schedules refresh automatically and use cached/reference dates if an official source is unavailable.</p>
+    </div>
+    @if (alerts.lastAlert(); as alert) { <p class="event-alerts__last">Last alert: {{ alert }}</p> }
+    @if (alerts.error(); as error) { <p class="event-alerts__error" role="status">{{ error }}</p> }
+</section>

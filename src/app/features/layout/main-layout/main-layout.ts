@@ -13,13 +13,14 @@ import { DemoBannerComponent } from '../../demo/demo-banner/demo-banner.componen
 import { PostSignupModalComponent } from '../../demo/post-signup-modal/post-signup-modal.component';
 import { UpgradePromptComponent } from '../../demo/upgrade-prompt/upgrade-prompt.component';
 import { PerformanceAlertToastComponent } from '../../alerts/performance-alert-toast.component';
+import { MarketAwarenessDrawerComponent } from '../../market-events/market-awareness-drawer.component';
 
 const DISMISSED_KEY = 'tj_banner_dismissed_connections';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, FormsModule, Sidebar, Header, SyncNoticeComponent, DemoBannerComponent, PostSignupModalComponent, UpgradePromptComponent, PerformanceAlertToastComponent],
+  imports: [RouterOutlet, FormsModule, Sidebar, Header, SyncNoticeComponent, DemoBannerComponent, PostSignupModalComponent, UpgradePromptComponent, PerformanceAlertToastComponent, MarketAwarenessDrawerComponent],
   templateUrl: './main-layout.html',
   styleUrl: './main-layout.scss'
 })

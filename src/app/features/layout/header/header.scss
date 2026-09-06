@@ -75,6 +75,24 @@
         background: var(--color-chrome-hover);
         color: var(--color-chrome-text-hi);
     }
+
+    &.is-active {
+        background: var(--color-accent-subtle);
+        color: var(--color-accent);
+    }
+}
+
+.app-header__market-btn { position: relative; }
+
+.app-header__market-dot {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    width: 0.38rem;
+    height: 0.38rem;
+    border: 1px solid var(--color-chrome-bg);
+    border-radius: 50%;
+    background: var(--color-positive);
 }
 
 .app-header__new-trade-btn {
