@@ -35,6 +35,7 @@ describe('saved AI data stays out of demo', () => {
         await journal.listAnalyses('2026-09-04');
         expect(await journal.latestAnalysisBefore('2026-09-04')).toBeNull();
         await expect(journal.saveAnalysis('2026-09-04', 'Sample')).rejects.toThrow();
+        await expect(journal.updateAnalysis('real-insight', 'Changed')).rejects.toThrow();
         await expect(journal.deleteAnalysis('real-insight')).rejects.toThrow('demo');
         expect(from).not.toHaveBeenCalled();
     });

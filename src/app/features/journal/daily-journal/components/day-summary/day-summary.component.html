@@ -196,6 +196,21 @@
                                 <span class="ds-coach__grade ds-coach__grade--{{ gradeTone(c.grade) }}">{{ c.grade }}</span>
                             }
                         </div>
+                        @if (coachActivity(); as activity) {
+                            @if (activity.mirroredDecisionCount > 0) {
+                                <div class="ds-coach__activity">
+                                    <span class="ds-coach__activity-mark" aria-hidden="true">↗</span>
+                                    <span>
+                                        Copy trading recognized:
+                                        <strong>
+                                            {{ activity.decisionCount }} decision{{ activity.decisionCount === 1 ? '' : 's' }}
+                                        </strong>
+                                        from {{ activity.executionCount }} executions across
+                                        {{ activity.accountCount }} accounts
+                                    </span>
+                                </div>
+                            }
+                        }
                         <div class="ds-coach__verdict">
                             <markdown [data]="c.verdict"></markdown>
                         </div>
@@ -243,8 +258,12 @@
                     }
                 }
 
-                <!-- Save analysis -->
-                @if (aiSaveError()) {
+                <!-- Analyses are persisted automatically; a failed save stays retryable. -->
+                @if (access.demo()) {
+                    <div class="ds-insight-save" role="status">
+                        Sample preview · Nothing is saved
+                    </div>
+                } @else if (aiSaveError()) {
                     <div class="ds-insight__error-card ds-insight__error-card--inline">
                         <svg class="ds-insight__error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -254,24 +273,24 @@
                         <button class="ds-insight__error-retry" (click)="saveInsight()">Try again</button>
                     </div>
                 } @else {
-                    <button class="ds-insight-save"
-                            [class.is-saved]="insightSaved()"
-                            [disabled]="aiSaving() || insightSaved()"
-                            (click)="saveInsight()">
+                    <div class="ds-insight-save" role="status" aria-live="polite">
                         @if (aiSaving()) {
-                            Saving…
+                            <span class="ds-insight-save__dot ds-insight-save__dot--saving" aria-hidden="true"></span>
+                            Saving automatically…
                         } @else if (insightSaved()) {
-                            ✓ Saved
+                            <span class="ds-insight-save__dot" aria-hidden="true">✓</span>
+                            Saved automatically · Delete anytime from Saved analyses
                         } @else {
-                            💾 Save analysis
+                            <span class="ds-insight-save__dot ds-insight-save__dot--saving" aria-hidden="true"></span>
+                            Preparing to save…
                         }
-                    </button>
+                    </div>
                 }
 
                 @if (followUpInsight().status === 'idle') {
                     <div class="ds-insight-panel__chips">
-                        <button class="ds-insight-chip" (click)="generateInsight()">↺ Regenerate</button>
-                        <button class="ds-insight-chip" (click)="tellMeMore()">Tell me more about today</button>
+                        <button class="ds-insight-chip" [disabled]="aiSaving()" (click)="generateInsight()">↺ Regenerate</button>
+                        <button class="ds-insight-chip" [disabled]="aiSaving()" (click)="tellMeMore()">Tell me more about today</button>
                     </div>
                 }
                 @if (followUpInsight().status !== 'idle') {
