@@ -1,6 +1,7 @@
 import { isMarketClosed } from './market-holidays';
 
 export interface EconomicEvent {
+    id?: string;
     event: string;
     abbr: string;
     date: string;  // YYYY-MM-DD
@@ -8,6 +9,10 @@ export interface EconomicEvent {
     impact: 'high' | 'medium';
     link: string;  // official source URL
     estimated?: boolean;
+    startsAt?: string; // ISO UTC instant when supplied by an official live schedule
+    country?: string;
+    source?: 'bls' | 'bea' | 'federal-reserve' | 'curated';
+    sourceName?: string;
 }
 
 // ── FOMC Rate Decision dates (day 2 of 2-day meeting) ────────────────────────
@@ -22,6 +27,9 @@ const FOMC_DATES: string[] = [
     // 2026 (estimated — Fed typically announces in Dec of prior year)
     '2026-01-28', '2026-03-18', '2026-04-29', '2026-06-17',
     '2026-07-29', '2026-09-16', '2026-10-28', '2026-12-09',
+    // 2027
+    '2027-01-27', '2027-03-17', '2027-04-28', '2027-06-09',
+    '2027-07-28', '2027-09-15', '2027-10-28', '2027-12-08',
 ];
 
 // ── CPI release dates ─────────────────────────────────────────────────────────
@@ -82,7 +90,10 @@ export function getEconomicEventsForMonth(year: number, month: number): Economic
             time: '14:00',
             impact: 'high',
             link: 'https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm',
-            estimated: d.startsWith('2026')
+            estimated: false,
+            source: 'curated',
+            sourceName: 'Federal Reserve Board',
+            country: 'US',
         });
     });
 
@@ -95,7 +106,10 @@ export function getEconomicEventsForMonth(year: number, month: number): Economic
             time: '08:30',
             impact: 'high',
             link: 'https://www.bls.gov/news.release/cpi.htm',
-            estimated: d.startsWith('2026')
+            estimated: d.startsWith('2026'),
+            source: 'curated',
+            sourceName: 'U.S. Bureau of Labor Statistics',
+            country: 'US',
         });
     });
 
@@ -109,9 +123,37 @@ export function getEconomicEventsForMonth(year: number, month: number): Economic
             time: '08:30',
             impact: 'high',
             link: 'https://www.bls.gov/news.release/empsit.htm',
-            estimated: true
+            estimated: true,
+            source: 'curated',
+            sourceName: 'U.S. Bureau of Labor Statistics',
+            country: 'US',
         });
     }
 
     return events;
+}
+
+/** Convert an Eastern wall-clock calendar value to UTC without assuming DST. */
+export function easternDateTimeToTimestamp(date: string, time: string): number {
+    const match = `${date}T${time}`.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+    if (!match) return Number.NaN;
+    const [, year, month, day, hour, minute] = match;
+    const target = Date.UTC(+year, +month - 1, +day, +hour, +minute);
+    let guess = target;
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+    });
+    for (let pass = 0; pass < 2; pass++) {
+        const parts = formatter.formatToParts(guess);
+        const get = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find(part => part.type === type)?.value);
+        const represented = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
+        guess += target - represented;
+    }
+    return guess;
+}
+
+export function economicEventTimestamp(event: EconomicEvent): number {
+    const live = event.startsAt ? Date.parse(event.startsAt) : Number.NaN;
+    return Number.isFinite(live) ? live : easternDateTimeToTimestamp(event.date, event.time);
 }

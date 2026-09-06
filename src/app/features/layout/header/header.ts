@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { ThemeService } from '../../../core/services/theme.service';
 import { AccountSelectorComponent } from './account-selector/account-selector.component';
 import { SessionsWidgetComponent } from '../../sessions/sessions-widget.component';
+import { MarketPanelService } from '../../market-events/market-panel.service';
 
 @Component({
   selector: 'app-header',
@@ -13,4 +14,5 @@ import { SessionsWidgetComponent } from '../../sessions/sessions-widget.componen
 })
 export class Header {
   theme = inject(ThemeService);
+  marketPanel = inject(MarketPanelService);
 }

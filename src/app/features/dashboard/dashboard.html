@@ -1,39 +1,75 @@
 <div class="dash">
-  <div class="dash__container">
+    <div class="dash__container">
+        <app-filter-toolbar />
 
-    <!-- Filter Toolbar -->
-    <app-filter-toolbar></app-filter-toolbar>
-
-    <!-- Stats Overview -->
-    <app-stats-overview [stats]="stats()"></app-stats-overview>
-
-    <!-- Performance Chart Card -->
-    <div class="dash-card dash__chart-card">
-      <div class="dash-card__header">
-        <h3 class="dash-card__title">Performance Overview</h3>
-        <div class="equity-tabs">
-          <button class="equity-tab" [class.is-active]="equityView() === 'trade'" (click)="setEquityView('trade')">
-            Trade
-          </button>
-          <button class="equity-tab" [class.is-active]="equityView() === 'hour'" (click)="setEquityView('hour')">Hour
-          </button>
-          <button class="equity-tab" [class.is-active]="equityView() === 'day'" (click)="setEquityView('day')">Day
-          </button>
+        <div class="dash__layout-bar">
+            <div>
+                <h1>Your dashboard</h1>
+                <p>Shape the workspace around the way you review performance.</p>
+            </div>
+            <button type="button" class="dash__customize" [class.is-active]="layout.editing()"
+                (click)="toggleEditing()">
+                @if (layout.editing()) {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M5 12l4 4L19 6"/>
+                    </svg>
+                    Done
+                } @else {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M4 7h10M18 7h2M10 17h10M4 17h2M14 4v6M10 14v6"/>
+                    </svg>
+                    Customize
+                }
+            </button>
         </div>
-      </div>
-      <app-performance-charts
-        [equityData]="equityCurveData()"
-        [winLossStats]="stats()"
-      >
-      </app-performance-charts>
-    </div>
 
-    <!-- Bottom Grid: Calendar + Recent Trades + Goals -->
-    <div class="dash__bottom-grid">
-      <app-calendar-heatmap class="dash__calendar" [trades]="calendarTrades()"></app-calendar-heatmap>
-      <app-recent-trades class="dash__recent" [trades]="recentTrades()"></app-recent-trades>
-      <app-goals-widget class="dash__goals"></app-goals-widget>
-    </div>
+        @if (layout.editing()) {
+            <section class="layout-editor" aria-label="Dashboard layout controls">
+                <header class="layout-editor__header">
+                    <div>
+                        <h2>Arrange your workspace</h2>
+                        <p>
+                            @if (canArrange()) {
+                                Drag by a widget header and resize its width from the edges. Height adapts automatically.
+                            } @else {
+                                Choose visible widgets here. Open this page on a larger screen to drag and resize.
+                            }
+                        </p>
+                    </div>
+                    <button type="button" class="layout-editor__reset" (click)="layout.reset()">Reset layout</button>
+                </header>
 
-  </div>
+                <div class="layout-editor__widgets">
+                    @for (definition of widgetDefinitions; track definition.id) {
+                        <label class="layout-editor__widget" [class.is-hidden]="layout.widgets()[$index].hidden">
+                            <input type="checkbox" [checked]="!layout.widgets()[$index].hidden"
+                                (change)="setWidgetVisible(definition.id, $any($event.target).checked)" />
+                            <span>
+                                <strong>{{ definition.label }}</strong>
+                                <small>{{ definition.description }}</small>
+                            </span>
+                        </label>
+                    }
+                </div>
+
+                <footer class="layout-editor__status">
+                    @switch (layout.saveState()) {
+                        @case ('saving') { <span>Saving layout…</span> }
+                        @case ('saved') { <span class="is-saved">Saved across your devices</span> }
+                        @case ('local-only') { <span>Saved on this device</span> }
+                        @default { <span>Move a widget to save your layout</span> }
+                    }
+                    @if (layout.error(); as error) { <small>{{ error }}</small> }
+                </footer>
+            </section>
+        }
+
+        <gridstack class="dash__grid" [class.dash__grid--editing]="layout.editing()"
+            [options]="gridOptions" (changeCB)="onLayoutChange($event)" (resizeStopCB)="onResizeStop()">
+            <div empty-content class="dash__empty-layout">
+                <strong>Your dashboard is empty.</strong>
+                <span>Choose Customize to bring a widget back.</span>
+            </div>
+        </gridstack>
+    </div>
 </div>

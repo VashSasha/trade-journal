@@ -21,6 +21,8 @@ export interface EquityCurve {
     values: number[];
 }
 
+export type EquityCurveGrouping = 'trade' | 'hour' | 'day';
+
 export function computeDayStats(trades: Trade[]): DayStats {
     const closed = trades.filter(t => t.status === 'closed');
     const netPnl = closed.reduce((sum, t) => sum + (t.netPnl ?? t.pnl ?? 0), 0);
@@ -83,5 +85,60 @@ export function buildEquityCurve(trades: Trade[], startingBalance = 0): EquityCu
         values.push(Math.round(cumulative * 100) / 100);
     });
 
+    return { labels, values };
+}
+
+/** Dashboard equity series grouped by realization time and anchored to an opening balance. */
+export function buildPerformanceEquityCurve(
+    trades: Trade[],
+    startingBalance: number,
+    grouping: EquityCurveGrouping,
+): EquityCurve {
+    const closed = [...trades]
+        .filter(trade => trade.status === 'closed' && trade.netPnl !== undefined)
+        .sort((left, right) => new Date(left.exitDate ?? left.entryDate).getTime()
+            - new Date(right.exitDate ?? right.entryDate).getTime());
+    const points: Array<{ label: string; pnl: number; timestamp: number }> = [];
+
+    if (grouping === 'trade') {
+        for (const trade of closed) {
+            const date = new Date(trade.exitDate ?? trade.entryDate);
+            points.push({
+                label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                pnl: trade.netPnl ?? 0,
+                timestamp: date.getTime(),
+            });
+        }
+    } else {
+        const grouped = new Map<string, { date: Date; pnl: number }>();
+        for (const trade of closed) {
+            const realizedAt = new Date(trade.exitDate ?? trade.entryDate);
+            const key = grouping === 'hour'
+                ? new Date(realizedAt.getFullYear(), realizedAt.getMonth(), realizedAt.getDate(), realizedAt.getHours()).toISOString()
+                : tradeSessionDateStr(realizedAt.toISOString());
+            const date = grouping === 'hour' ? new Date(key) : new Date(`${key}T12:00:00`);
+            const current = grouped.get(key);
+            grouped.set(key, { date, pnl: (current?.pnl ?? 0) + (trade.netPnl ?? 0) });
+        }
+        for (const { date, pnl } of grouped.values()) {
+            points.push({
+                label: grouping === 'hour'
+                    ? date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' })
+                    : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                pnl,
+                timestamp: date.getTime(),
+            });
+        }
+        points.sort((left, right) => left.timestamp - right.timestamp);
+    }
+
+    let cumulative = startingBalance;
+    const labels = ['Start'];
+    const values = [Math.round(cumulative * 100) / 100];
+    for (const point of points) {
+        cumulative += point.pnl;
+        labels.push(point.label);
+        values.push(Math.round(cumulative * 100) / 100);
+    }
     return { labels, values };
 }

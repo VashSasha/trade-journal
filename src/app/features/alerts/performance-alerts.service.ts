@@ -7,6 +7,7 @@ import { cacheSuspended } from '../../core/services/user-data/user-data.cache';
 import { TradovateLiveAccountMetric } from '../integrations/tradovate-live/tradovate-live.models';
 import { TradovateLiveService } from '../integrations/tradovate-live/tradovate-live.service';
 import { SessionAlertsService } from './session-alerts.service';
+import { AlertCenterService } from './alert-center.service';
 import {
     crossedPerformanceAlerts, parsePerformanceAlertPreferences, performanceMetrics,
     PerformanceAlertPreferences, PerformanceAlertRule, PerformanceMetrics, weekStartFor,
@@ -28,6 +29,7 @@ export class PerformanceAlertsService {
     private readonly userData = inject(UserDataService);
     private readonly session = inject(UserSessionService);
     private readonly sounds = inject(SessionAlertsService);
+    private readonly alertCenter = inject(AlertCenterService);
     readonly live = inject(TradovateLiveService);
 
     readonly preferences = signal(parsePerformanceAlertPreferences(null));
@@ -133,6 +135,11 @@ export class PerformanceAlertsService {
 
     private publish(tone: 'target' | 'risk', text: string): void {
         this.sounds.announce(tone, text);
+        this.alertCenter.publish({
+            tone,
+            title: tone === 'risk' ? 'Guardrail reached' : 'Target reached',
+            text,
+        });
         this.event.set({ id: ++this.eventSequence, tone, text });
         if (this.dismissTimer) clearTimeout(this.dismissTimer);
         this.dismissTimer = setTimeout(() => this.event.set(null), 12_000);

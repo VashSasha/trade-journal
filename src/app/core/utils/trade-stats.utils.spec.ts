@@ -1,5 +1,5 @@
 import { expect } from 'vitest';
-import { buildEquityCurve, computeWindowedBalance } from './trade-stats.utils';
+import { buildEquityCurve, buildPerformanceEquityCurve, computeWindowedBalance } from './trade-stats.utils';
 import type { Trade } from '../models/trade.model';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -129,5 +129,27 @@ describe('buildEquityCurve', () => {
         const baseline = 24_500;
         const { values } = buildEquityCurve([trade(100, '2026-08-10')], baseline);
         expect(values[0]).toBe(baseline);
+    });
+});
+
+describe('buildPerformanceEquityCurve', () => {
+    it('groups trades without changing the final balance', () => {
+        const trades = [
+            trade(200, '2026-08-10', { exitDate: '2026-08-10T09:05:00' }),
+            trade(-50, '2026-08-10', { exitDate: '2026-08-10T09:45:00' }),
+            trade(100, '2026-08-11', { exitDate: '2026-08-11T10:00:00' }),
+        ];
+
+        expect(buildPerformanceEquityCurve(trades, 25_000, 'trade').values.at(-1)).toBe(25_250);
+        expect(buildPerformanceEquityCurve(trades, 25_000, 'hour').values).toHaveLength(3);
+        expect(buildPerformanceEquityCurve(trades, 25_000, 'day').values).toHaveLength(3);
+    });
+
+    it('uses exit time rather than entry time for chronological order', () => {
+        const laterExit = trade(100, '2026-08-10', { exitDate: '2026-08-10T11:00:00' });
+        const earlierExit = trade(-50, '2026-08-10', { exitDate: '2026-08-10T09:00:00' });
+        const curve = buildPerformanceEquityCurve([laterExit, earlierExit], 1_000, 'trade');
+
+        expect(curve.values).toEqual([1_000, 950, 1_050]);
     });
 });

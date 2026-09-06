@@ -1,0 +1,104 @@
+@if (panel.open()) {
+    <button class="market-drawer__backdrop" type="button" aria-label="Close market awareness"
+        (click)="panel.close()"></button>
+
+    <aside id="market-awareness-drawer" class="market-drawer" role="dialog" aria-modal="true"
+        aria-labelledby="market-drawer-title">
+        <header class="market-drawer__header">
+            <div class="market-drawer__heading">
+                <span class="market-drawer__pulse" aria-hidden="true"></span>
+                <div>
+                    <h2 id="market-drawer-title">Market awareness</h2>
+                    <p>{{ statusLabel() }} · Times shown locally</p>
+                </div>
+            </div>
+            <div class="market-drawer__header-actions">
+                <button type="button" class="market-drawer__icon-button" (click)="refresh()"
+                    [disabled]="calendar.refreshing()" aria-label="Refresh market events">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        [class.market-drawer__spin]="calendar.refreshing()" aria-hidden="true">
+                        <path d="M20 11a8.1 8.1 0 1 0-2.4 5.8M20 4v7h-7"/>
+                    </svg>
+                </button>
+                <button #closeButton type="button" class="market-drawer__icon-button" (click)="panel.close()"
+                    aria-label="Close market awareness">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M6 6l12 12M18 6L6 18"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <nav class="market-drawer__tabs" aria-label="Market awareness sections">
+            <button type="button" [class.is-active]="panel.activeTab() === 'calendar'"
+                (click)="selectTab('calendar')">Calendar</button>
+            <button type="button" [class.is-active]="panel.activeTab() === 'alerts'"
+                (click)="selectTab('alerts')">Alerts</button>
+            <span class="market-drawer__future">Live news coming later</span>
+        </nav>
+
+        <div class="market-drawer__content">
+            @if (panel.activeTab() === 'calendar') {
+                @if (nextHighImpact(); as event) {
+                    <section class="market-drawer__next" [class.market-drawer__next--imminent]="isImminent(event)">
+                        <div>
+                            <span>Next high-impact release</span>
+                            <strong>{{ event.abbr }} · {{ event.event }}</strong>
+                        </div>
+                        <div class="market-drawer__countdown">
+                            <strong>{{ countdown(event) }}</strong>
+                            <span>{{ eventTime(event) }}</span>
+                        </div>
+                    </section>
+                }
+
+                @if (groups().length) {
+                    <div class="market-drawer__schedule">
+                        @for (group of groups(); track group.key) {
+                            <section class="market-day">
+                                <h3>{{ group.label }}</h3>
+                                <div class="market-day__events">
+                                    @for (event of group.events; track event.id ?? event.abbr + event.date) {
+                                        <a class="market-event" [class.market-event--imminent]="isImminent(event)"
+                                            [href]="event.link" target="_blank" rel="noopener noreferrer">
+                                            <span class="market-event__time">{{ eventTime(event) }}</span>
+                                            <span class="market-event__rail market-event__rail--{{ event.impact }}" aria-hidden="true"></span>
+                                            <span class="market-event__body">
+                                                <span class="market-event__topline">
+                                                    <strong>{{ event.abbr }}</strong>
+                                                    <small>{{ event.impact }} impact</small>
+                                                </span>
+                                                <span class="market-event__name">{{ event.event }}</span>
+                                                <small>{{ countdown(event) }} away · {{ event.sourceName ?? 'Official source' }}</small>
+                                            </span>
+                                            <svg class="market-event__link" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                stroke-width="1.8" aria-hidden="true">
+                                                <path d="M14 5h5v5M10 14L19 5M19 14v5H5V5h5"/>
+                                            </svg>
+                                        </a>
+                                    }
+                                </div>
+                            </section>
+                        }
+                    </div>
+                } @else if (calendar.status() === 'loading') {
+                    <div class="market-drawer__empty" role="status">Loading the market schedule…</div>
+                } @else {
+                    <div class="market-drawer__empty">No supported events are scheduled in the next 14 days.</div>
+                }
+
+                @if (calendar.error(); as error) {
+                    <p class="market-drawer__notice" role="status">{{ error }}</p>
+                }
+            } @else {
+                <div class="market-drawer__alerts">
+                    <app-market-event-alert-controls />
+                </div>
+            }
+        </div>
+
+        <footer class="market-drawer__footer">
+            Schedules can change. Open the linked official source before trading a release.
+        </footer>
+    </aside>
+}

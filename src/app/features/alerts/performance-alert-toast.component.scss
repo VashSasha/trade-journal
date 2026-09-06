@@ -22,6 +22,8 @@
     pointer-events: auto;
 
     &--risk { border-left-color: var(--color-negative); }
+    &--warning { border-left-color: var(--color-warning); }
+    &--info { border-left-color: var(--color-info); }
     &__mark {
         display: grid;
         width: 30px;
@@ -33,6 +35,8 @@
         font-weight: 800;
     }
     &--risk &__mark { background: var(--color-negative-subtle); color: var(--color-negative); }
+    &--warning &__mark { background: color-mix(in srgb, var(--color-warning) 16%, transparent); color: var(--color-warning); }
+    &--info &__mark { background: var(--color-accent-subtle); color: var(--color-info); }
     &__copy { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
     &__copy strong { font-size: 0.8125rem; }
     &__copy span { color: var(--color-text-secondary); font-size: 0.75rem; line-height: 1.4; }

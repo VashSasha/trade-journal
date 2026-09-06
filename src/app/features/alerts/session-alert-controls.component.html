@@ -30,7 +30,7 @@
         <p class="session-sounds__note">Keep this tab open. After reloading, your first click or keypress reactivates bells. Sleeping or suspended browsers can miss alerts; missed alerts are never replayed.</p>
         <p class="session-sounds__note">Your on/off choice, volume and alert types are saved in this browser. Session times are reference windows only.</p>
         @if (!sounds.preferences().volume) { <p class="session-sounds__note">Increase volume to enable or test sounds.</p> }
-        @if (!sounds.preferences().opens && !sounds.preferences().closes) { <p class="session-sounds__note">Session bells are off. Performance alerts can still use sound.</p> }
+        @if (!sounds.preferences().opens && !sounds.preferences().closes) { <p class="session-sounds__note">Session bells are off. Performance and market-event alerts can still use sound.</p> }
         @if (sounds.lastAlert(); as alert) { <p class="session-sounds__last">Last alert: {{ alert }}</p> }
     }
     @if (sounds.state() === 'enabling') { <p class="session-sounds__note" role="status">Enabling audio…</p> }

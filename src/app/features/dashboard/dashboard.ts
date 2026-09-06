@@ -1,159 +1,215 @@
-import { Component, inject, computed, signal, OnInit } from '@angular/core';
-import { TradeService } from '../../core/services/trade.service';
-import { SyncService } from '../../core/services/sync.service';
-import { FilterService } from '../../core/services/filter.service';
-import { AccountSettingsService } from '../../core/services/account-settings.service';
-import { AccountService } from '../../core/services/account.service';
+import {
+    AfterViewInit,
+    Component,
+    DestroyRef,
+    effect,
+    inject,
+    OnInit,
+    signal,
+    ViewChild,
+} from '@angular/core';
+import { GridItemHTMLElement, GridStackWidget } from 'gridstack';
+import { GridstackComponent, NgGridStackOptions, nodesCB } from 'gridstack/dist/angular';
 import { AccessPolicyService } from '../../core/services/access-policy.service';
-import { tradeSessionDateStr } from '../../core/utils/market-holidays';
-
-function toDateStr(date: Date): string {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-}
-import { GoalsWidgetComponent } from './components/goals-widget/goals-widget.component';
-import { StatsOverviewComponent } from './components/stats-overview/stats-overview.component';
-import { PerformanceChartsComponent } from './components/performance-charts/performance-charts.component';
-import { CalendarHeatmapComponent } from './components/calendar-heatmap/calendar-heatmap.component';
-import { RecentTradesComponent } from './components/recent-trades/recent-trades.component';
+import { AccountSettingsService } from '../../core/services/account-settings.service';
+import { SyncService } from '../../core/services/sync.service';
+import { TradeService } from '../../core/services/trade.service';
 import { FilterToolbarComponent } from './components/filter-toolbar/filter-toolbar.component';
+import { DashboardDataService } from './dashboard-data.service';
+import {
+    dashboardWidgetDefinition,
+    DASHBOARD_WIDGETS,
+    DashboardWidgetId,
+    DashboardWidgetPlacement,
+} from './dashboard-layout.model';
+import { DashboardLayoutService } from './dashboard-layout.service';
+import { DASHBOARD_WIDGET_COMPONENTS } from './widgets/dashboard-widgets';
 
 @Component({
     selector: 'app-dashboard',
     standalone: true,
-    imports: [
-        GoalsWidgetComponent,
-        StatsOverviewComponent,
-        PerformanceChartsComponent,
-        CalendarHeatmapComponent,
-        RecentTradesComponent,
-        FilterToolbarComponent
-    ],
+    imports: [FilterToolbarComponent, GridstackComponent],
+    providers: [DashboardDataService, DashboardLayoutService],
     templateUrl: './dashboard.html',
-    styleUrl: './dashboard.scss'
+    styleUrl: './dashboard.scss',
 })
-export class DashboardComponent implements OnInit {
-    private access = inject(AccessPolicyService);
-    private tradeService = inject(TradeService);
-    private syncService = inject(SyncService);
-    private filterService = inject(FilterService);
-    private accountSettings = inject(AccountSettingsService);
-    private accountService = inject(AccountService);
+export class DashboardComponent implements OnInit, AfterViewInit {
+    private readonly access = inject(AccessPolicyService);
+    private readonly tradeService = inject(TradeService);
+    private readonly syncService = inject(SyncService);
+    private readonly accountSettings = inject(AccountSettingsService);
+    private readonly destroyRef = inject(DestroyRef);
+    readonly layout = inject(DashboardLayoutService);
+    readonly widgetDefinitions = DASHBOARD_WIDGETS;
+    readonly canArrange = signal(false);
+    readonly gridOptions: NgGridStackOptions;
+    private readonly gridReady = signal(false);
+    private applyingLayout = false;
+    private gridResizeObserver?: ResizeObserver;
+    private widgetContentResizeObserver?: ResizeObserver;
 
-    equityView = signal<'trade' | 'hour' | 'day'>('hour');
+    @ViewChild(GridstackComponent) private gridComponent?: GridstackComponent;
+
+    constructor() {
+        GridstackComponent.registerComponents([...DASHBOARD_WIDGET_COMPONENTS]);
+        this.gridOptions = {
+            column: 12,
+            cellHeight: 54,
+            margin: 12,
+            minRow: 1,
+            animate: true,
+            float: false,
+            sizeToContent: true,
+            disableDrag: true,
+            disableResize: true,
+            handle: '.dashboard-widget-frame__drag-handle',
+            columnOpts: {
+                breakpoints: [
+                    { w: 640, c: 1, layout: 'list' },
+                    { w: 840, c: 6, layout: 'moveScale' },
+                ],
+                layout: 'moveScale',
+            },
+            children: this.toGridWidgets(this.layout.widgets()),
+        };
+
+        effect(() => {
+            const widgets = this.layout.widgets();
+            if (!this.gridReady()) return;
+            this.applyLayout(widgets);
+        });
+        effect(() => {
+            const editing = this.layout.editing();
+            const canArrange = this.canArrange();
+            if (!this.gridReady()) return;
+            this.gridComponent?.grid?.enableMove(editing && canArrange).enableResize(editing && canArrange);
+        });
+
+        this.destroyRef.onDestroy(() => {
+            this.gridResizeObserver?.disconnect();
+            this.widgetContentResizeObserver?.disconnect();
+        });
+    }
 
     ngOnInit(): void {
-        // Always recompute netPnl from stored fees on load so stale localStorage
-        // values (synced before fee logic existed) are corrected immediately,
-        // without waiting for the next sync.
         this.tradeService.recalculateTradovateNetPnl(this.accountSettings.commissionPerContract());
-
         const lastSync = this.syncService.lastSyncTime();
         const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
         if (this.access.canAct('sync') && (!lastSync || lastSync.getTime() < fiveMinutesAgo)) {
-            this.syncService.syncTrades().catch(err => {
-                console.error('Dashboard auto-sync failed:', err);
-            });
+            this.syncService.syncTrades().catch(error => console.error('Dashboard auto-sync failed:', error));
         }
     }
 
-    setEquityView(view: 'trade' | 'hour' | 'day') {
-        this.equityView.set(view);
+    ngAfterViewInit(): void {
+        this.gridReady.set(true);
+        const gridElement = this.gridComponent?.el;
+        if (!gridElement) return;
+
+        const updateArrangeMode = () => {
+            const grid = this.gridComponent?.grid;
+            this.canArrange.set(gridElement.clientWidth > 840 && grid?.getColumn() === 12);
+        };
+        updateArrangeMode();
+        if (typeof ResizeObserver !== 'undefined') {
+            this.gridResizeObserver = new ResizeObserver(() => {
+                window.requestAnimationFrame(updateArrangeMode);
+            });
+            this.gridResizeObserver.observe(gridElement);
+
+            this.widgetContentResizeObserver = new ResizeObserver(entries => {
+                const items = new Set<GridItemHTMLElement>();
+                for (const entry of entries) {
+                    const item = (entry.target as HTMLElement).closest('.grid-stack-item');
+                    if (item) items.add(item as GridItemHTMLElement);
+                }
+                window.requestAnimationFrame(() => {
+                    const grid = this.gridComponent?.grid;
+                    if (!grid) return;
+                    for (const item of items) grid.resizeToContent(item);
+                });
+            });
+        }
+        this.scheduleContentFit();
     }
 
-    filteredTrades = computed(() =>
-        this.filterService.filterTrades(this.tradeService.trades())
-    );
+    toggleEditing(): void {
+        this.layout.editing.update(editing => !editing);
+    }
 
-    // Date-range-agnostic — used by the calendar, which manages its own month navigation
-    calendarTrades = computed(() =>
-        this.filterService.filterTradesIgnoreDateRange(this.tradeService.trades())
-    );
+    setWidgetVisible(id: DashboardWidgetId, visible: boolean): void {
+        this.layout.setVisible(id, visible);
+    }
 
-    stats = computed(() => this.tradeService.calculateStats(this.filteredTrades()));
+    onLayoutChange(_data: nodesCB): void {
+        if (this.applyingLayout || !this.layout.editing() || !this.canArrange()) return;
+        const saved = this.gridComponent?.grid?.save(false, false, undefined, 12);
+        if (!Array.isArray(saved)) return;
+        this.layout.updatePositions(saved.flatMap(widget => {
+            if (typeof widget.id !== 'string') return [];
+            const id = widget.id as DashboardWidgetId;
+            if (!DASHBOARD_WIDGETS.some(definition => definition.id === id)) return [];
+            return [{
+                id,
+                x: widget.x ?? 0,
+                y: widget.y ?? 0,
+                w: widget.w ?? 1,
+                h: widget.h ?? 1,
+            }];
+        }));
+    }
 
-    recentTrades = computed(() =>
-        [...this.filteredTrades()]
-            .sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime())
-            .slice(0, 5)
-    );
+    onResizeStop(): void {
+        window.setTimeout(() => {
+            this.fitWidgetsToContent();
+            window.dispatchEvent(new Event('resize'));
+        }, 0);
+    }
 
-
-    equityCurveData = computed(() => {
-        const trades = this.filteredTrades()
-            .filter(t => t.status === 'closed' && t.netPnl !== undefined)
-            // P&L is realised at exit — sort by exitDate so the curve matches the
-            // calendar and filter attribution (which also use exitDate).
-            .sort((a, b) => new Date(a.exitDate ?? a.entryDate).getTime() - new Date(b.exitDate ?? b.entryDate).getTime());
-
-        const view = this.equityView();
-        let data: { date: string, rawDate: Date, pnl: number, timestamp: number }[] = [];
-
-        if (view === 'trade') {
-            data = trades.map(t => {
-                const d = new Date(t.exitDate ?? t.entryDate);
-                return {
-                    date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                    rawDate: d,
-                    pnl: t.netPnl || 0,
-                    timestamp: d.getTime()
-                };
-            });
-        } else if (view === 'day') {
-            const groups = new Map<string, number>();
-            trades.forEach(t => {
-                const day = new Date(t.exitDate ?? t.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                groups.set(day, (groups.get(day) || 0) + (t.netPnl || 0));
-            });
-            data = Array.from(groups.entries()).map(([dateStr, pnl]) => {
-                const d = new Date(dateStr);
-                return { date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), rawDate: d, pnl, timestamp: d.getTime() };
-            }).sort((a, b) => a.timestamp - b.timestamp);
-        } else if (view === 'hour') {
-            const groups = new Map<string, number>();
-            trades.forEach(t => {
-                const d = new Date(t.exitDate ?? t.entryDate);
-                d.setMinutes(0, 0, 0);
-                const key = d.toISOString();
-                groups.set(key, (groups.get(key) || 0) + (t.netPnl || 0));
-            });
-            data = Array.from(groups.entries()).map(([iso, pnl]) => {
-                const d = new Date(iso);
-                return {
-                    date: d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' }),
-                    rawDate: d, pnl, timestamp: d.getTime()
-                };
-            }).sort((a, b) => a.timestamp - b.timestamp);
+    private applyLayout(widgets: DashboardWidgetPlacement[]): void {
+        const grid = this.gridComponent?.grid;
+        if (!grid) return;
+        this.applyingLayout = true;
+        try {
+            grid.load(this.toGridWidgets(widgets));
+            grid.enableMove(this.layout.editing() && this.canArrange());
+            grid.enableResize(this.layout.editing() && this.canArrange());
+        } finally {
+            window.setTimeout(() => { this.applyingLayout = false; }, 0);
+            this.scheduleContentFit();
         }
+    }
 
-        // Opening balance: account funded amount, before any P&L.
-        // See AccountService.openingBalance for the derivation / resolution order.
-        const openingBalance = this.accountService.openingBalance();
+    private scheduleContentFit(): void {
+        window.requestAnimationFrame(() => this.fitWidgetsToContent());
+    }
 
-        // If a date range is active, offset the starting point by all P&L
-        // realised before the range so the curve anchors at the correct position.
-        const dateRangeStart = this.filterService.filters().dateRange.start;
-        let priorPnl = 0;
-        if (dateRangeStart) {
-            const startStr = toDateStr(dateRangeStart);
-            priorPnl = this.filterService.filterTradesIgnoreDateRange(this.tradeService.trades())
-                .filter(t => t.status === 'closed' && t.netPnl !== undefined)
-                .filter(t => tradeSessionDateStr(t.exitDate ?? t.entryDate) < startStr)
-                .reduce((sum, t) => sum + (t.netPnl || 0), 0);
+    private fitWidgetsToContent(): void {
+        const grid = this.gridComponent?.grid;
+        if (!grid) return;
+        this.widgetContentResizeObserver?.disconnect();
+        for (const item of grid.getGridItems()) {
+            const content = item.querySelector<HTMLElement>('.dashboard-widget-frame__content');
+            if (content) this.widgetContentResizeObserver?.observe(content);
+            grid.resizeToContent(item);
         }
+    }
 
-        let cumulative = openingBalance + priorPnl;
-        const labels: string[] = ['Start'];
-        const values: number[] = [Math.round(cumulative * 100) / 100];
-
-        data.forEach(d => {
-            cumulative += d.pnl;
-            labels.push(d.date);
-            values.push(Math.round(cumulative * 100) / 100);
+    private toGridWidgets(widgets: readonly DashboardWidgetPlacement[]): GridStackWidget[] {
+        return widgets.filter(widget => !widget.hidden).map(widget => {
+            const definition = dashboardWidgetDefinition(widget.id);
+            return {
+                id: widget.id,
+                component: definition.component,
+                x: widget.x,
+                y: widget.y,
+                w: widget.w,
+                h: widget.h,
+                minW: definition.minW,
+                minH: definition.minH,
+                maxH: definition.maxH,
+                sizeToContent: true,
+                resizeToContentParent: '.dashboard-widget-frame__body',
+            };
         });
-
-        return { labels, values };
-    });
+    }
 }
