@@ -49,6 +49,10 @@ __screenshots__/
 # Environment / secrets
 .env
 
+# Supabase CLI local state
+/supabase/.temp/
+/discord-exchange/supabase/.temp/
+
 # System files
 .DS_Store
 Thumbs.db
