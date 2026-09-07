@@ -1,7 +1,7 @@
 import { SessionsSnapshot } from '../sessions/sessions.model';
 
 export type SessionAlertKind = 'open' | 'close';
-/** Semantic cue; a future sound library can map any cue to a user asset. */
+/** Semantic cue mapped to either the built-in audio or a user-selected file. */
 export type AlertSoundKind = SessionAlertKind | 'target' | 'risk';
 export interface SessionAlert {
     id: string;

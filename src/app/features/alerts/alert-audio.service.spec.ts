@@ -1,6 +1,9 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 import { AlertAudioService } from './alert-audio.service';
+import { emptyCustomAlertSoundMap } from './custom-alert-sounds.models';
+import { CustomAlertSoundsService } from './custom-alert-sounds.service';
 
 const gain = () => ({
     gain: { value: 1, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
@@ -10,6 +13,9 @@ const oscillator = () => ({
     type: '', frequency: { value: 0 }, connect: vi.fn(), disconnect: vi.fn(),
     start: vi.fn((_at: number) => {}), stop: vi.fn((_at: number) => {}), onended: null as (() => void) | null,
 });
+const bufferSource = () => ({
+    buffer: null as AudioBuffer | null, connect: vi.fn(), disconnect: vi.fn(), start: vi.fn(), onended: null as (() => void) | null,
+});
 class FakeAudioContext {
     static instances: FakeAudioContext[] = [];
     state: AudioContextState = 'suspended';
@@ -17,17 +23,31 @@ class FakeAudioContext {
     destination = {};
     gains: ReturnType<typeof gain>[] = [];
     oscillators: ReturnType<typeof oscillator>[] = [];
+    sources: ReturnType<typeof bufferSource>[] = [];
     constructor() { FakeAudioContext.instances.push(this); }
     createGain() { const node = gain(); this.gains.push(node); return node; }
     createOscillator() { const node = oscillator(); this.oscillators.push(node); return node; }
+    createBufferSource() { const node = bufferSource(); this.sources.push(node); return node; }
+    decodeAudioData = vi.fn(async () => ({ duration: 1.25 }) as AudioBuffer);
     resume = vi.fn(async () => { this.state = 'running'; });
     close = vi.fn(async () => { this.state = 'closed'; });
 }
 
 describe('local alert audio', () => {
+    let library: {
+        sounds: ReturnType<typeof signal>; loading: ReturnType<typeof signal>; error: ReturnType<typeof signal>;
+        revision: ReturnType<typeof signal>; supported: boolean; currentRecords: ReturnType<typeof vi.fn>;
+        save: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn>;
+    };
     beforeEach(() => {
         vi.useFakeTimers(); FakeAudioContext.instances = [];
         vi.stubGlobal('AudioContext', FakeAudioContext);
+        library = {
+            sounds: signal(emptyCustomAlertSoundMap()), loading: signal(false), error: signal(null),
+            revision: signal(0), supported: true, currentRecords: vi.fn(async () => []),
+            save: vi.fn(async () => {}), remove: vi.fn(async () => {}),
+        };
+        TestBed.configureTestingModule({ providers: [{ provide: CustomAlertSoundsService, useValue: library }] });
     });
     afterEach(() => {
         TestBed.inject(AlertAudioService).stop(); TestBed.resetTestingModule();
@@ -93,5 +113,34 @@ describe('local alert audio', () => {
         const audio = TestBed.inject(AlertAudioService);
         expect(audio.supported()).toBe(false);
         await expect(audio.activate()).rejects.toThrow('not supported');
+    });
+    it('validates, saves, and plays a custom semantic cue before the built-in fallback', async () => {
+        const audio = TestBed.inject(AlertAudioService);
+        const file = {
+            name: 'opening-bell.mp3', size: 800, type: 'audio/mpeg',
+            arrayBuffer: vi.fn(async () => new ArrayBuffer(8)),
+        } as unknown as File;
+
+        await audio.installCustomSound('open', file);
+        expect(library.save).toHaveBeenCalledWith(expect.objectContaining({
+            kind: 'open', name: 'opening-bell.mp3', duration: 1.25,
+        }));
+        expect(audio.play('open', 45)).toBe(1330);
+        expect(FakeAudioContext.instances[0].sources).toHaveLength(1);
+        expect(FakeAudioContext.instances[0].oscillators).toHaveLength(0);
+    });
+    it('closes a newly unlocked audio context when a custom file cannot be decoded', async () => {
+        const audio = TestBed.inject(AlertAudioService);
+        const file = {
+            name: 'broken.mp3', size: 800, type: 'audio/mpeg',
+            arrayBuffer: vi.fn(async () => new ArrayBuffer(8)),
+        } as unknown as File;
+        const contextPromise = audio.installCustomSound('open', file);
+        const context = FakeAudioContext.instances[0];
+        context.decodeAudioData.mockRejectedValueOnce(new DOMException('Invalid audio'));
+
+        await expect(contextPromise).rejects.toThrow('could not be decoded');
+        expect(context.close).toHaveBeenCalledOnce();
+        expect(audio.running()).toBe(false);
     });
 });

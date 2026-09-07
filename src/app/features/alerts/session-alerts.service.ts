@@ -113,7 +113,7 @@ export class SessionAlertsService {
         if (rearm && this.preferences().armed) this.armRestoreGesture();
     }
 
-    async preview(kind: SessionAlertKind): Promise<void> {
+    async preview(kind: AlertSoundKind): Promise<void> {
         if (this.previewing() || this.state() === 'enabling' || !this.preferences().volume) return;
         this.previewing.set(true);
         this.error.set(null);

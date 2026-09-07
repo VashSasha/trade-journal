@@ -1,0 +1,69 @@
+<section class="custom-sounds" aria-labelledby="custom-sounds-title">
+    <header class="custom-sounds__header">
+        <div>
+            <h4 id="custom-sounds-title">Custom sounds</h4>
+            <p>Replace any built-in cue and use it anywhere you sign in.</p>
+        </div>
+        <span>Synced to your account</span>
+    </header>
+
+    @if (!audio.customSoundStorageSupported) {
+        <p class="custom-sounds__notice" role="status">
+            Custom audio is unavailable in this browser. The built-in NVZN sounds remain available.
+        </p>
+    } @else {
+        <div class="custom-sounds__list">
+            @for (option of options; track option.kind) {
+                <article class="custom-sound" [class.custom-sound--custom]="custom(option.kind)">
+                    <div class="custom-sound__identity">
+                        <span class="custom-sound__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <path d="M11 5L6 9H3v6h3l5 4V5zM15.5 8.5a5 5 0 010 7M18 6a8.5 8.5 0 010 12"/>
+                            </svg>
+                        </span>
+                        <div>
+                            <strong>{{ option.label }}</strong>
+                            <span>{{ option.detail }}</span>
+                        </div>
+                    </div>
+
+                    <div class="custom-sound__selection">
+                        @if (custom(option.kind); as selected) {
+                            <strong [title]="selected.name">{{ selected.name }}</strong>
+                            <span>{{ fileDetails(selected) }}</span>
+                        } @else {
+                            <strong>Built-in NVZN sound</strong>
+                            <span>Optimized bell cue</span>
+                        }
+                    </div>
+
+                    <div class="custom-sound__actions">
+                        <button type="button" (click)="test(option.kind)"
+                            [disabled]="busy() || audio.customSoundsLoading() || sounds.previewing() || sounds.state() === 'enabling' || !sounds.preferences().volume">
+                            Test
+                        </button>
+                        <label class="custom-sound__upload" [class.is-disabled]="busy() || audio.customSoundsLoading() || sounds.previewing()">
+                            {{ uploading() === option.kind ? 'Checking…' : custom(option.kind) ? 'Replace' : 'Upload' }}
+                            <input type="file" [accept]="acceptedAudio" [disabled]="busy() || audio.customSoundsLoading() || sounds.previewing()"
+                                (change)="chooseFile(option.kind, $event)" [attr.aria-label]="'Upload sound for ' + option.label" />
+                        </label>
+                        @if (custom(option.kind)) {
+                            <button type="button" class="custom-sound__reset" (click)="reset(option.kind)"
+                                [disabled]="busy() || audio.customSoundsLoading() || sounds.previewing()">
+                                {{ removing() === option.kind ? 'Resetting…' : 'Reset' }}
+                            </button>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    }
+
+    <footer class="custom-sounds__footer">
+        MP3, WAV, OGG, WebM, M4A, or AAC · up to 3 MB and 10 seconds. Files remain private to your account.
+    </footer>
+    @if (audio.customSoundsLoading()) { <p class="custom-sounds__status" role="status">Loading saved sounds…</p> }
+    @if (audio.customSoundsError(); as storageError) { <p class="custom-sounds__error" role="alert">{{ storageError }}</p> }
+    @if (error(); as uploadError) { <p class="custom-sounds__error" role="alert">{{ uploadError }}</p> }
+    @if (message(); as success) { <p class="custom-sounds__success" role="status">{{ success }}</p> }
+</section>

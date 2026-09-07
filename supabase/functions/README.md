@@ -1,5 +1,22 @@
 # Edge Functions
 
+## Custom alert sounds
+
+Migration `0022_custom_alert_sounds.sql` creates a private Storage bucket plus
+owner-scoped metadata. Files are limited to four fixed cue paths per user,
+3 MB per file, approved audio MIME types, and can only be accessed by that
+authenticated owner. The client keeps IndexedDB as a playback cache and
+automatically migrates sounds created by the earlier browser-only version.
+
+After applying the migration, redeploy account deletion so cloud audio is also
+removed when a user permanently deletes their account:
+
+```bash
+supabase functions deploy delete-account --project-ref elbcjsewyqptrckdydha
+```
+
+No new secret is required.
+
 ## market-news
 
 Returns a normalized, newest-first feed of official monetary-policy, inflation,
