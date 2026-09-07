@@ -3,6 +3,15 @@ import { admin, stripe, withBillingLock, readBilling,
 import { hasRecentAuthentication } from '../_shared/recent-auth.ts';
 import { stopCustomerBilling } from '../_shared/billing-lifecycle.ts';
 
+const CUSTOM_SOUND_KINDS = ['open', 'close', 'target', 'risk'] as const;
+
+function missingSoundBucket(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const value = error as { statusCode?: unknown; message?: unknown };
+    return String(value.statusCode) === '404'
+        && String(value.message ?? '').toLowerCase().includes('bucket');
+}
+
 Deno.serve(async req => {
     const headers = cors(req);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers });
@@ -21,6 +30,12 @@ Deno.serve(async req => {
                 await renew();
                 check((await admin.from('deleted_billing_customers').upsert({ customer_id: customer })).error);
             }
+            await renew();
+            // Storage objects are not Postgres rows and therefore are not
+            // removed by the auth-user cascade. Delete them through Storage.
+            const { error: soundError } = await admin.storage.from('custom-alert-sounds')
+                .remove(CUSTOM_SOUND_KINDS.map(kind => `${user.id}/${kind}`));
+            if (soundError && !missingSoundBucket(soundError)) check(soundError);
             await renew();
             // Keep the billing link and user intact if ANY preceding step failed.
             check((await admin.auth.admin.deleteUser(user.id)).error);
