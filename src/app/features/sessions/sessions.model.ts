@@ -40,5 +40,6 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
 export const REFERENCE_SESSIONS: readonly SessionDefinition[] = [
     { id: 'asia', name: 'Asia', city: 'Tokyo', timeZone: 'Asia/Tokyo', openMinute: 9 * 60, closeMinute: 18 * 60, weekdays: WEEKDAYS },
     { id: 'london', name: 'London', city: 'London', timeZone: 'Europe/London', openMinute: 8 * 60, closeMinute: 17 * 60, weekdays: WEEKDAYS },
-    { id: 'new-york', name: 'New York', city: 'New York', timeZone: 'America/New_York', openMinute: 8 * 60, closeMinute: 17 * 60, weekdays: WEEKDAYS },
+    // U.S. core cash session: 09:30–16:00 ET (08:30–15:00 CT).
+    { id: 'new-york', name: 'New York', city: 'New York', timeZone: 'America/New_York', openMinute: 9 * 60 + 30, closeMinute: 16 * 60, weekdays: WEEKDAYS },
 ];

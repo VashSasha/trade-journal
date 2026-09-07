@@ -12,14 +12,14 @@ describe('reference session windows', () => {
     it.each([
         [asia, '2026-01-12', '2026-01-12T00:00Z', '2026-01-12T09:00Z'],
         [london, '2026-01-12', '2026-01-12T08:00Z', '2026-01-12T17:00Z'],
-        [newYork, '2026-01-12', '2026-01-12T13:00Z', '2026-01-12T22:00Z'],
+        [newYork, '2026-01-12', '2026-01-12T14:30Z', '2026-01-12T21:00Z'],
         [asia, '2026-07-06', '2026-07-06T00:00Z', '2026-07-06T09:00Z'],
         [london, '2026-07-06', '2026-07-06T07:00Z', '2026-07-06T16:00Z'],
-        [newYork, '2026-07-06', '2026-07-06T12:00Z', '2026-07-06T21:00Z'],
+        [newYork, '2026-07-06', '2026-07-06T13:30Z', '2026-07-06T20:00Z'],
         // US and UK change clocks on different weekends.
-        [newYork, '2026-03-16', '2026-03-16T12:00Z', '2026-03-16T21:00Z'],
+        [newYork, '2026-03-16', '2026-03-16T13:30Z', '2026-03-16T20:00Z'],
         [london, '2026-03-16', '2026-03-16T08:00Z', '2026-03-16T17:00Z'],
-        [newYork, '2026-10-26', '2026-10-26T12:00Z', '2026-10-26T21:00Z'],
+        [newYork, '2026-10-26', '2026-10-26T13:30Z', '2026-10-26T20:00Z'],
         [london, '2026-10-26', '2026-10-26T08:00Z', '2026-10-26T17:00Z'],
     ])('converts %s on %s to absolute instants', (definition, date, start, end) => {
         const window = sessionWindowOn(definition, date)!;
@@ -28,19 +28,19 @@ describe('reference session windows', () => {
     });
 
     it('uses start-inclusive and end-exclusive boundaries', () => {
-        expect(getSessionsSnapshot(at('2026-07-06T11:59:59.999Z'), [newYork]).active).toHaveLength(0);
-        const opening = getSessionsSnapshot(at('2026-07-06T12:00Z'), [newYork]);
+        expect(getSessionsSnapshot(at('2026-07-06T13:29:59.999Z'), [newYork]).active).toHaveLength(0);
+        const opening = getSessionsSnapshot(at('2026-07-06T13:30Z'), [newYork]);
         expect(opening.active).toHaveLength(1);
         expect(opening.active[0].progress).toBe(0);
-        expect(getSessionsSnapshot(at('2026-07-06T20:59:59.999Z'), [newYork]).active).toHaveLength(1);
-        expect(getSessionsSnapshot(at('2026-07-06T21:00Z'), [newYork]).active).toHaveLength(0);
+        expect(getSessionsSnapshot(at('2026-07-06T19:59:59.999Z'), [newYork]).active).toHaveLength(1);
+        expect(getSessionsSnapshot(at('2026-07-06T20:00Z'), [newYork]).active).toHaveLength(0);
     });
 
     it('keeps overlaps and sorts the next closing first', () => {
-        const state = getSessionsSnapshot(at('2026-07-06T13:00Z'));
+        const state = getSessionsSnapshot(at('2026-07-06T14:00Z'));
         expect(state.active.map(s => s.definition.id)).toEqual(['london', 'new-york']);
-        expect(state.active[0].progress).toBeCloseTo(100 * 6 / 9);
-        expect(state.active[1].progress).toBeCloseTo(100 / 9);
+        expect(state.active[0].progress).toBeCloseTo(100 * 7 / 9);
+        expect(state.active[1].progress).toBeCloseTo(100 / 13);
         expect(state.next?.definition.id).toBe('asia');
         expect(state.next?.opensAt).toBe(at('2026-07-07T00:00Z'));
     });
@@ -95,7 +95,7 @@ describe('reference session windows', () => {
 
     it('finds a once-a-week window seven days ahead', () => {
         const state = getSessionsSnapshot(at('2026-07-06T23:00Z'), [{ ...newYork, weekdays: [1] }]);
-        expect(state.next?.opensAt).toBe(at('2026-07-13T12:00Z'));
+        expect(state.next?.opensAt).toBe(at('2026-07-13T13:30Z'));
     });
 
     it('handles no scheduled sessions without inventing an opening', () => {

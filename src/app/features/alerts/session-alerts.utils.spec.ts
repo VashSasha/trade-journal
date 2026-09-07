@@ -3,10 +3,10 @@ import { crossedSessionAlerts, DEFAULT_SESSION_SOUNDS, parseSoundPreferences } f
 
 describe('session alert boundaries', () => {
     it('detects an opening once, including a DST-shifted New York opening', () => {
-        const before = getSessionsSnapshot(Date.parse('2026-03-16T11:59:50Z'));
-        const now = Date.parse('2026-03-16T12:00:05Z');
+        const before = getSessionsSnapshot(Date.parse('2026-03-16T13:29:50Z'));
+        const now = Date.parse('2026-03-16T13:30:05Z');
         expect(crossedSessionAlerts(before, now)).toEqual([expect.objectContaining({
-            kind: 'open', at: Date.parse('2026-03-16T12:00Z'), text: 'New York reference window started.',
+            kind: 'open', at: Date.parse('2026-03-16T13:30Z'), text: 'New York reference window started.',
         })]);
         expect(crossedSessionAlerts(getSessionsSnapshot(now), now + 10_000)).toEqual([]);
     });
