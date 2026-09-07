@@ -66,6 +66,7 @@ const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SB_SECRE
     }) },
 });
 const allowed = new Set(['http://localhost:4200', Deno.env.get('APP_ORIGIN') ?? ''].filter(Boolean));
+const pagesOrigin = /^https:\/\/(?:[a-z0-9-]+\.)?trade-journal-2go\.pages\.dev$/i;
 
 function dateOnly(value: unknown, fallback: string): string {
     if (value === undefined) return fallback;
@@ -198,7 +199,7 @@ function uniqueSorted(events: MarketEvent[]): MarketEvent[] {
 
 Deno.serve(async req => {
     const origin = req.headers.get('Origin');
-    const cors: Record<string, string> = origin && allowed.has(origin) ? {
+    const cors: Record<string, string> = origin && (allowed.has(origin) || pagesOrigin.test(origin)) ? {
         'Access-Control-Allow-Origin': origin, Vary: 'Origin',
         'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',

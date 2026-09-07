@@ -11,10 +11,11 @@ const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SB_SECRE
         signal: AbortSignal.any([...(init?.signal ? [init.signal] : []), AbortSignal.timeout(10_000)]) }) },
 });
 const origins = new Set(['http://localhost:4200', Deno.env.get('APP_ORIGIN') ?? ''].filter(Boolean));
+const pagesOrigin = /^https:\/\/(?:[a-z0-9-]+\.)?trade-journal-2go\.pages\.dev$/i;
 
 Deno.serve(async req => {
     const origin = req.headers.get('Origin');
-    const cors: Record<string, string> = origin && origins.has(origin) ? {
+    const cors: Record<string, string> = origin && (origins.has(origin) || pagesOrigin.test(origin)) ? {
         'Access-Control-Allow-Origin': origin, Vary: 'Origin',
         'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
