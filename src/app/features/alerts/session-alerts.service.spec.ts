@@ -13,7 +13,7 @@ describe('session sound coordinator', () => {
         running: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn>; setVolume: ReturnType<typeof vi.fn> };
     beforeEach(() => {
         vi.useFakeTimers();
-        vi.setSystemTime(new Date('2026-07-06T11:59:50Z'));
+        vi.setSystemTime(new Date('2026-07-06T13:29:50Z'));
         localStorage.clear();
         held = false;
         Object.defineProperty(window.navigator, 'locks', { configurable: true, value: {
@@ -66,7 +66,7 @@ describe('session sound coordinator', () => {
     });
     it('skips missed events after wake, even when the event was recent', async () => {
         const sounds = service(); await sounds.enable();
-        vi.setSystemTime(new Date('2026-07-06T12:00:05Z'));
+        vi.setSystemTime(new Date('2026-07-06T13:30:05Z'));
         document.dispatchEvent(new Event('visibilitychange'));
         vi.advanceTimersByTime(10_000);
         expect(audio.play).not.toHaveBeenCalled();
@@ -79,7 +79,7 @@ describe('session sound coordinator', () => {
     });
     it('does not repeat a handled event after the clock moves back', async () => {
         await service().enable(); vi.advanceTimersByTime(10_000);
-        vi.setSystemTime(new Date('2026-07-06T11:59:40Z'));
+        vi.setSystemTime(new Date('2026-07-06T13:29:40Z'));
         vi.advanceTimersByTime(40_000);
         expect(audio.play).toHaveBeenCalledOnce();
     });

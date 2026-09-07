@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { SessionsWidgetComponent } from './sessions-widget.component';
 
 describe('Sessions widget', () => {
-    function setup(instant = '2026-07-06T13:00Z') {
+    function setup(instant = '2026-07-06T14:00Z') {
         const fixture = TestBed.createComponent(SessionsWidgetComponent);
         fixture.componentInstance.clock.now.set(Date.parse(instant));
         fixture.componentInstance.displayZone.set('UTC');
@@ -13,7 +13,7 @@ describe('Sessions widget', () => {
     it('renders independently with overlap progress and explicit reference-window caveats', () => {
         const { element, widget } = setup();
         expect(widget.title()).toBe('London + New York');
-        expect(widget.detail()).toBe('London ends in 3h');
+        expect(widget.detail()).toBe('London ends in 2h');
         expect(element.querySelectorAll('[role="progressbar"]')).toHaveLength(3);
         expect(element.textContent).toContain('holidays, maintenance and early closes are not');
         expect(element.textContent).toContain('Mon–Fri · 09:00–18:00 · Asia/Tokyo');

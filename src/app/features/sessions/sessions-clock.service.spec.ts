@@ -5,7 +5,7 @@ import { SessionsClockService } from './sessions-clock.service';
 describe('scoped sessions clock', () => {
     beforeEach(() => {
         vi.useFakeTimers();
-        vi.setSystemTime(new Date('2026-07-06T11:59:45Z'));
+        vi.setSystemTime(new Date('2026-07-06T13:29:45Z'));
         vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
         TestBed.configureTestingModule({ providers: [SessionsClockService] });
     });
@@ -19,7 +19,7 @@ describe('scoped sessions clock', () => {
         const clock = TestBed.inject(SessionsClockService);
         expect(clock.state().snapshot?.active.map(s => s.definition.id)).toEqual(['london']);
         vi.advanceTimersByTime(15_000);
-        expect(clock.now()).toBe(Date.parse('2026-07-06T12:00Z'));
+        expect(clock.now()).toBe(Date.parse('2026-07-06T13:30Z'));
         expect(clock.state().snapshot?.active.map(s => s.definition.id)).toEqual(['london', 'new-york']);
     });
 
