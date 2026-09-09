@@ -11,6 +11,8 @@ import { TradovateLiveAccountMetric } from '../integrations/tradovate-live/trado
 import { TradovateLiveService } from '../integrations/tradovate-live/tradovate-live.service';
 import { SessionAlertsService } from './session-alerts.service';
 import { PerformanceAlertsService } from './performance-alerts.service';
+import { AccountAlertPreferencesService } from './account-alert-preferences.service';
+import { parsePerformanceAlertPreferences } from './performance-alerts.utils';
 
 function closed(id: string, accountId: string, pnl: number): Trade {
     const date = '2026-08-04T14:00:00';
@@ -29,6 +31,8 @@ describe('performance alert coordinator', () => {
     const liveMetrics = signal<TradovateLiveAccountMetric[]>([]);
     const setLiveRequested = vi.fn();
     const announce = vi.fn();
+    const performancePreferences = signal(parsePerformanceAlertPreferences(null));
+    const updatePerformance = vi.fn();
 
     beforeEach(() => {
         vi.useFakeTimers();
@@ -36,6 +40,9 @@ describe('performance alert coordinator', () => {
         localStorage.clear(); setCacheSuspended(false);
         trades.set([]); userId.set('A'); loaded.set(true);
         liveMetrics.set([]); setLiveRequested.mockReset();
+        performancePreferences.set(parsePerformanceAlertPreferences(null));
+        updatePerformance.mockReset();
+        updatePerformance.mockImplementation(updater => performancePreferences.set(updater(performancePreferences())));
         filters.set({ dateRange: { start: null, end: null }, symbols: [], setups: [], sides: [], accountIds: [] });
         announce.mockReset();
         TestBed.configureTestingModule({ providers: [
@@ -45,6 +52,11 @@ describe('performance alert coordinator', () => {
             { provide: UserSessionService, useValue: { userId } },
             { provide: SessionAlertsService, useValue: { announce } },
             { provide: TradovateLiveService, useValue: { metrics: liveMetrics, setRequested: setLiveRequested } },
+            { provide: AccountAlertPreferencesService, useValue: {
+                performance: performancePreferences,
+                loading: signal(false), syncWarning: signal(false), storageWarning: signal(false),
+                updatePerformance,
+            } },
         ] });
     });
 
@@ -77,13 +89,11 @@ describe('performance alert coordinator', () => {
         expect(service.event()?.text).toContain('Daily profit target');
     });
 
-    it('keeps browser preferences separated by signed-in owner', () => {
+    it('sends preference edits through the account-synced store', () => {
         const service = TestBed.inject(PerformanceAlertsService); TestBed.tick();
         service.setEnabled('dailyLoss', true);
-        expect(localStorage.getItem('nvzn_performance_alert_preferences_v1:A')).toContain('"enabled":true');
-
-        userId.set('B'); TestBed.tick();
-        expect(service.preferences().dailyLoss.enabled).toBe(false);
+        expect(updatePerformance).toHaveBeenCalledOnce();
+        expect(service.preferences().dailyLoss.enabled).toBe(true);
     });
 
     it('baselines the initial broker snapshot, then alerts on a live P&L crossing', () => {

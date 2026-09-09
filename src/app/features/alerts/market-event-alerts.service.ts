@@ -5,12 +5,11 @@ import { UserSessionService } from '../../core/services/user-session.service';
 import { economicEventTimestamp } from '../../core/utils/economic-events';
 import { AlertCenterService } from './alert-center.service';
 import { SessionAlertsService } from './session-alerts.service';
+import { AccountAlertPreferencesService } from './account-alert-preferences.service';
 import {
     crossedMarketEventAlerts, MARKET_EVENT_LEADS, MarketEventAlertPreferences,
-    parseMarketEventAlertPreferences,
 } from './market-event-alerts.utils';
 
-const PREFERENCES_PREFIX = 'nvzn_market_event_alerts_v1:';
 const FIRED_PREFIX = 'nvzn_market_event_alerts_fired_v1:';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -20,10 +19,14 @@ export class MarketEventAlertsService {
     private readonly session = inject(UserSessionService);
     private readonly sounds = inject(SessionAlertsService);
     private readonly center = inject(AlertCenterService);
+    private readonly accountPreferences = inject(AccountAlertPreferencesService);
     private readonly document = inject(DOCUMENT);
     private readonly destroyRef = inject(DestroyRef);
     private readonly view = this.document.defaultView;
-    readonly preferences = signal(parseMarketEventAlertPreferences(null));
+    readonly preferences = this.accountPreferences.marketEvents;
+    readonly preferencesLoading = this.accountPreferences.loading;
+    readonly syncWarning = this.accountPreferences.syncWarning;
+    readonly storageWarning = this.accountPreferences.storageWarning;
     readonly error = signal<string | null>(null);
     readonly lastAlert = signal<string | null>(null);
     readonly desktopSupported = !!this.notificationApi();
@@ -33,6 +36,7 @@ export class MarketEventAlertsService {
     readonly active = computed(() => this.preferences().enabled && !!this.session.userId());
     readonly leadOptions = MARKET_EVENT_LEADS;
     private owner: string | null = null;
+    private preferencesSignature = '';
     private previousAt = Date.now();
     private fired = new Set<string>();
     private readonly timer = this.view?.setInterval(() => this.tick(), 10_000);
@@ -42,17 +46,21 @@ export class MarketEventAlertsService {
             const owner = this.session.userId();
             if (owner === this.owner) return;
             this.owner = owner;
-            this.preferences.set(this.loadPreferences(owner));
             this.fired = this.loadFired(owner);
             this.previousAt = Date.now();
             this.error.set(null);
         });
+        effect(() => {
+            const preferences = this.preferences();
+            const signature = `${preferences.enabled}:${preferences.leadMinutes}:${preferences.highOnly}`;
+            if (signature === this.preferencesSignature) return;
+            this.preferencesSignature = signature;
+            // Loading or changing rules establishes a new baseline and never
+            // replays a warning whose threshold passed before this preference.
+            this.previousAt = Date.now();
+        });
         const onStorage = (event: StorageEvent) => {
             if (!this.owner) return;
-            if (event.key === PREFERENCES_PREFIX + this.owner) {
-                this.preferences.set(this.loadPreferences(this.owner));
-                this.previousAt = Date.now();
-            }
             if (event.key === FIRED_PREFIX + this.owner) this.fired = this.loadFired(this.owner);
         };
         this.view?.addEventListener('storage', onStorage);
@@ -63,32 +71,28 @@ export class MarketEventAlertsService {
     }
 
     setEnabled(enabled: boolean): void {
-        this.preferences.update(current => ({ ...current, enabled }));
+        this.accountPreferences.updateMarketAccount(current => ({ ...current, enabled }));
         this.previousAt = Date.now();
-        this.persistPreferences();
     }
 
     setLeadMinutes(value: number): void {
         if (!MARKET_EVENT_LEADS.includes(value as typeof MARKET_EVENT_LEADS[number])) return;
-        this.preferences.update(current => ({
+        this.accountPreferences.updateMarketAccount(current => ({
             ...current,
             leadMinutes: value as MarketEventAlertPreferences['leadMinutes'],
         }));
         this.previousAt = Date.now();
-        this.persistPreferences();
     }
 
     setHighOnly(highOnly: boolean): void {
-        this.preferences.update(current => ({ ...current, highOnly }));
+        this.accountPreferences.updateMarketAccount(current => ({ ...current, highOnly }));
         this.previousAt = Date.now();
-        this.persistPreferences();
     }
 
     async setDesktopNotifications(enabled: boolean): Promise<void> {
         this.error.set(null);
         if (!enabled) {
-            this.preferences.update(current => ({ ...current, desktopNotifications: false }));
-            this.persistPreferences();
+            this.accountPreferences.updateMarketDevice(current => ({ ...current, desktopNotifications: false }));
             return;
         }
         const api = this.notificationApi();
@@ -101,8 +105,7 @@ export class MarketEventAlertsService {
             const permission = await api.requestPermission();
             this.desktopPermission.set(permission);
             const granted = permission === 'granted';
-            this.preferences.update(current => ({ ...current, desktopNotifications: granted }));
-            this.persistPreferences();
+            this.accountPreferences.updateMarketDevice(current => ({ ...current, desktopNotifications: granted }));
             if (!granted) this.error.set('Desktop notification permission was not granted. In-app alerts still work.');
         } catch {
             this.error.set('Desktop notifications could not be enabled. In-app alerts still work.');
@@ -156,18 +159,6 @@ export class MarketEventAlertsService {
 
     private notificationApi(): typeof Notification | null {
         return this.view && 'Notification' in this.view ? this.view.Notification : null;
-    }
-
-    private loadPreferences(owner: string | null): MarketEventAlertPreferences {
-        if (!owner) return parseMarketEventAlertPreferences(null);
-        try { return parseMarketEventAlertPreferences(this.view?.localStorage.getItem(PREFERENCES_PREFIX + owner) ?? null); }
-        catch { return parseMarketEventAlertPreferences(null); }
-    }
-
-    private persistPreferences(): void {
-        if (!this.owner) return;
-        try { this.view?.localStorage.setItem(PREFERENCES_PREFIX + this.owner, JSON.stringify(this.preferences())); }
-        catch { this.error.set('Alert preferences could not be saved. They still apply to this page.'); }
     }
 
     private loadFired(owner: string | null): Set<string> {
