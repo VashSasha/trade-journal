@@ -9,7 +9,7 @@ describe('session sound controls', () => {
         const sounds = {
             attach: vi.fn(), supported, state: signal('off'), enabled: signal(false), waitingForGesture: signal(false), previewing: signal(false),
             preferences: signal({ volume: 45, opens: true, closes: true, armed: false }), lastAlert: signal<string | null>(null),
-            error: signal<string | null>(null), storageWarning: signal(false),
+            error: signal<string | null>(null), preferencesLoading: signal(false), storageWarning: signal(false), syncWarning: signal(false),
             enable: vi.fn(), mute: vi.fn(), preview: vi.fn(), setVolume: vi.fn(), setKind: vi.fn(),
         };
         TestBed.configureTestingModule({ providers: [{ provide: SessionAlertsService, useValue: sounds }] });

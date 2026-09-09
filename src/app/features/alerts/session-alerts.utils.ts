@@ -17,19 +17,24 @@ export interface SessionSoundPreferences {
     armed: boolean;
 }
 export const DEFAULT_SESSION_SOUNDS: Readonly<SessionSoundPreferences> = { volume: 45, opens: true, closes: true, armed: false };
-export const MAX_ALERT_GAP_MS = 90_000;
+/** Absorb normal background-tab timer throttling without replaying stale bells. */
+export const MAX_ALERT_GAP_MS = 5 * 60_000;
+
+/** Validate preferences received from either browser storage or Postgres. */
+export function normalizeSoundPreferences(value: unknown): SessionSoundPreferences | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const p = value as Partial<SessionSoundPreferences>;
+    const volume = typeof p.volume === 'number' && Number.isFinite(p.volume)
+        ? Math.round(Math.max(0, Math.min(100, p.volume))) : DEFAULT_SESSION_SOUNDS.volume;
+    const opens = typeof p.opens === 'boolean' ? p.opens : true;
+    const closes = typeof p.closes === 'boolean' ? p.closes : true;
+    return { volume, opens, closes, armed: p.armed === true && volume > 0 };
+}
 
 /** Persist non-sensitive preferences and opt-in intent, never runtime audio/permission state. */
 export function parseSoundPreferences(raw: string | null): SessionSoundPreferences {
     try {
-        const value: unknown = JSON.parse(raw ?? 'null');
-        if (!value || typeof value !== 'object') return { ...DEFAULT_SESSION_SOUNDS };
-        const p = value as Partial<SessionSoundPreferences>;
-        const volume = typeof p.volume === 'number' && Number.isFinite(p.volume)
-            ? Math.round(Math.max(0, Math.min(100, p.volume))) : DEFAULT_SESSION_SOUNDS.volume;
-        const opens = typeof p.opens === 'boolean' ? p.opens : true;
-        const closes = typeof p.closes === 'boolean' ? p.closes : true;
-        return { volume, opens, closes, armed: p.armed === true && volume > 0 };
+        return normalizeSoundPreferences(JSON.parse(raw ?? 'null')) ?? { ...DEFAULT_SESSION_SOUNDS };
     } catch { return { ...DEFAULT_SESSION_SOUNDS }; }
 }
 

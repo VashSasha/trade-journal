@@ -1,9 +1,9 @@
 <details class="session-sounds" [class.session-sounds--settings]="settingsView()" [open]="expanded()">
-    <summary class="session-sounds__summary">{{ settingsView() ? 'Sound controls' : 'Session bell alerts' }} <span>{{ sounds.error() ? 'Needs attention' : sounds.enabled() ? 'On' : sounds.waitingForGesture() ? 'Ready' : 'Off' }}</span></summary>
+    <summary class="session-sounds__summary">{{ settingsView() ? 'Sound controls' : 'Session bell alerts' }} <span>{{ sounds.error() ? 'Needs attention' : sounds.preferencesLoading() ? 'Syncing' : sounds.enabled() ? 'On' : sounds.waitingForGesture() ? 'Ready' : 'Off' }}</span></summary>
     <div class="session-sounds__body">
     <div class="session-sounds__head">
         <div>
-            <p>{{ sounds.enabled() ? 'Enabled in this tab' : sounds.waitingForGesture() ? 'Waiting for your first click' : 'Off in this tab' }}</p>
+            <p>{{ sounds.preferencesLoading() ? 'Loading your saved sound settings' : sounds.enabled() ? 'Enabled in this tab' : sounds.waitingForGesture() ? 'Waiting for your first click' : 'Off in this tab' }}</p>
         </div>
         @if (sounds.state() !== 'off') {
             <button type="button" (click)="sounds.mute()">{{ sounds.state() === 'enabling' ? 'Cancel' : 'Mute' }}</button>
@@ -27,16 +27,19 @@
             <button type="button" (click)="sounds.preview('open')" [disabled]="sounds.previewing() || sounds.state() === 'enabling' || !sounds.preferences().volume">Test opening bell</button>
             <button type="button" (click)="sounds.preview('close')" [disabled]="sounds.previewing() || sounds.state() === 'enabling' || !sounds.preferences().volume">Test closing bell</button>
         </div>
-        <p class="session-sounds__note">Keep this tab open. After reloading, your first click or keypress reactivates bells. Sleeping or suspended browsers can miss alerts; missed alerts are never replayed.</p>
-        <p class="session-sounds__note">Your on/off choice, volume and alert types are saved in this browser. Session times are reference windows only.</p>
+        <p class="session-sounds__note">Keep this tab open. After reloading, your first click or keypress reactivates bells. Brief browser timer delays are handled; alerts missed by a longer sleep or suspension are not replayed.</p>
+        <p class="session-sounds__note">Your on/off choice, volume and alert types are synced to your NVZN account. A new browser waits for your first click before playing audio.</p>
+        <p class="session-sounds__note">Session times are reference windows only.</p>
         @if (!sounds.preferences().volume) { <p class="session-sounds__note">Increase volume to enable or test sounds.</p> }
         @if (!sounds.preferences().opens && !sounds.preferences().closes) { <p class="session-sounds__note">Session bells are off. Performance and market-event alerts can still use sound.</p> }
         @if (sounds.lastAlert(); as alert) { <p class="session-sounds__last">Last alert: {{ alert }}</p> }
     }
     @if (sounds.state() === 'enabling') { <p class="session-sounds__note" role="status">Enabling audio…</p> }
     @if (sounds.previewing()) { <p class="session-sounds__note" role="status">Playing test sound…</p> }
+    @if (sounds.preferencesLoading()) { <p class="session-sounds__note" role="status">Syncing sound preferences…</p> }
     @if (sounds.error(); as error) { <p class="session-sounds__error" role="status">{{ error }}</p> }
-    @if (sounds.storageWarning()) { <p class="session-sounds__note" role="status">Preferences could not be saved. They still apply until this page closes.</p> }
+    @if (sounds.syncWarning()) { <p class="session-sounds__note" role="status">Could not sync sound preferences. This browser copy still works and will retry when you reconnect.</p> }
+    @if (sounds.storageWarning()) { <p class="session-sounds__note" role="status">This browser could not cache your sound preferences.</p> }
     </div>
 </details>
 @if (sounds.lastAlert(); as alert) { <p class="session-sounds__sr-only" role="status">{{ alert }}</p> }
