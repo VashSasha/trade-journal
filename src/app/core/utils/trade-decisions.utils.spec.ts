@@ -1,4 +1,4 @@
-import { Trade } from '../../../../core/models/trade.model';
+import { Trade } from '../models/trade.model';
 import { inferTradeDecisions } from './trade-decisions.utils';
 
 function execution(

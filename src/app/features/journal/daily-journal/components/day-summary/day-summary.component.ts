@@ -22,7 +22,7 @@ import { AccessPolicyService } from '../../../../../core/services/access-policy.
 import {
   inferTradeDecisions,
   TradeDecisionSummary,
-} from '../../utils/trade-decisions.utils';
+} from '../../../../../core/utils/trade-decisions.utils';
 
 type AnalysisState = { status: 'idle' | 'streaming' | 'complete' | 'error'; content: string; error: string | null };
 type ConfidenceTier = 'high' | 'medium' | 'low' | null;

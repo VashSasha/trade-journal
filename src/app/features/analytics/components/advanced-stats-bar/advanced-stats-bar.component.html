@@ -1,50 +1,76 @@
 <div class="stats-bar">
     <div class="stats-bar__card">
+        <span class="stats-bar__label">Combined Net P&amp;L</span>
+        <span class="stats-bar__value"
+            [class.stats-bar__value--positive]="stats().netPnl > 0"
+            [class.stats-bar__value--negative]="stats().netPnl < 0">
+            {{ stats().netPnl | currency:'USD':'symbol':'1.0-0' }}
+        </span>
+        <span class="stats-bar__sub">Every selected account</span>
+    </div>
+    <div class="stats-bar__card">
+        <span class="stats-bar__label">{{ unitTitle() }} Win Rate</span>
+        <span class="stats-bar__value">{{ stats().winRate | number:'1.0-1' }}%</span>
+        <span class="stats-bar__sub">{{ stats().winners }}W · {{ stats().losers }}L</span>
+    </div>
+    <div class="stats-bar__card">
         <span class="stats-bar__label">Profit Factor</span>
         <span class="stats-bar__value"
-            [class.stats-bar__value--positive]="stats().pfInfinite || stats().profitFactor >= 1"
-            [class.stats-bar__value--negative]="!stats().pfInfinite && stats().profitFactor > 0 && stats().profitFactor < 1">
-            {{ stats().pfInfinite ? '∞' : (stats().profitFactor | number:'1.2-2') }}
+            [class.stats-bar__value--positive]="stats().profitFactorInfinite || stats().profitFactor >= 1"
+            [class.stats-bar__value--negative]="!stats().profitFactorInfinite && stats().profitFactor > 0 && stats().profitFactor < 1">
+            {{ stats().profitFactorInfinite ? '∞' : (stats().profitFactor | number:'1.2-2') }}
+        </span>
+    </div>
+    <div class="stats-bar__card">
+        <span class="stats-bar__label">Expectancy / {{ unitTitle() }}</span>
+        <span class="stats-bar__value"
+            [class.stats-bar__value--positive]="stats().expectancy > 0"
+            [class.stats-bar__value--negative]="stats().expectancy < 0">
+            {{ stats().expectancy | currency:'USD':'symbol':'1.0-0' }}
         </span>
     </div>
     <div class="stats-bar__card">
         <span class="stats-bar__label">Max Drawdown</span>
-        <span class="stats-bar__value stats-bar__value--negative">{{ stats().maxDrawdown | currency }}</span>
+        <span class="stats-bar__value" [class.stats-bar__value--negative]="stats().maxDrawdown < 0">
+            {{ stats().maxDrawdown | currency:'USD':'symbol':'1.0-0' }}
+        </span>
     </div>
     <div class="stats-bar__card">
         <span class="stats-bar__label">Avg Win</span>
-        <span class="stats-bar__value stats-bar__value--positive">{{ stats().avgWin | currency }}</span>
+        <span class="stats-bar__value stats-bar__value--positive">
+            {{ stats().averageWin | currency:'USD':'symbol':'1.0-0' }}
+        </span>
     </div>
     <div class="stats-bar__card">
         <span class="stats-bar__label">Avg Loss</span>
-        <span class="stats-bar__value stats-bar__value--negative">{{ stats().avgLoss | currency }}</span>
-    </div>
-    <div class="stats-bar__card">
-        <span class="stats-bar__label">Best Streak</span>
-        <span class="stats-bar__value stats-bar__value--positive">{{ stats().bestStreak }}W</span>
-    </div>
-    <div class="stats-bar__card">
-        <span class="stats-bar__label">Worst Streak</span>
-        <span class="stats-bar__value stats-bar__value--negative">{{ stats().worstStreak }}L</span>
-    </div>
-    <div class="stats-bar__card">
-        <span class="stats-bar__label">Best Trade</span>
-        @if (stats().bestTrade; as t) {
-        <span class="stats-bar__value stats-bar__value--positive">
-            {{ (t.netPnl ?? t.pnl ?? 0) >= 0 ? '+' : '' }}{{ (t.netPnl ?? t.pnl ?? 0) | currency:'USD':'symbol':'1.0-0' }}
+        <span class="stats-bar__value" [class.stats-bar__value--negative]="stats().averageLoss < 0">
+            {{ stats().averageLoss | currency:'USD':'symbol':'1.0-0' }}
         </span>
-        <span class="stats-bar__sub">{{ t.symbol }}</span>
+    </div>
+    <div class="stats-bar__card">
+        <span class="stats-bar__label">Win / Loss Streak</span>
+        <span class="stats-bar__value stats-bar__value--split">
+            <span>{{ stats().bestStreak }}W</span><span>{{ stats().worstStreak }}L</span>
+        </span>
+    </div>
+    <div class="stats-bar__card">
+        <span class="stats-bar__label">Best {{ unitTitle() }}</span>
+        @if (stats().best; as result) {
+        <span class="stats-bar__value stats-bar__value--positive">
+            {{ result.pnl >= 0 ? '+' : '' }}{{ result.pnl | currency:'USD':'symbol':'1.0-0' }}
+        </span>
+        <span class="stats-bar__sub">{{ result.symbol }} · {{ result.executionCount }} execution{{ result.executionCount === 1 ? '' : 's' }}</span>
         } @else {
         <span class="stats-bar__value">—</span>
         }
     </div>
     <div class="stats-bar__card">
-        <span class="stats-bar__label">Worst Trade</span>
-        @if (stats().worstTrade; as t) {
-        <span class="stats-bar__value" [class.stats-bar__value--negative]="(t.netPnl ?? t.pnl ?? 0) < 0" [class.stats-bar__value--positive]="(t.netPnl ?? t.pnl ?? 0) >= 0">
-            {{ (t.netPnl ?? t.pnl ?? 0) >= 0 ? '+' : '' }}{{ (t.netPnl ?? t.pnl ?? 0) | currency:'USD':'symbol':'1.0-0' }}
+        <span class="stats-bar__label">Worst {{ unitTitle() }}</span>
+        @if (stats().worst; as result) {
+        <span class="stats-bar__value" [class.stats-bar__value--negative]="result.pnl < 0" [class.stats-bar__value--positive]="result.pnl >= 0">
+            {{ result.pnl >= 0 ? '+' : '' }}{{ result.pnl | currency:'USD':'symbol':'1.0-0' }}
         </span>
-        <span class="stats-bar__sub">{{ t.symbol }}</span>
+        <span class="stats-bar__sub">{{ result.symbol }} · {{ result.executionCount }} execution{{ result.executionCount === 1 ? '' : 's' }}</span>
         } @else {
         <span class="stats-bar__value">—</span>
         }

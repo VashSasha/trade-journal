@@ -72,4 +72,12 @@
         &--pos { color: var(--color-positive); }
         &--neg { color: var(--color-negative); }
     }
+
+    @media (max-width: 560px) {
+        grid-template-columns: 1fr;
+
+        &__panel {
+            padding: 1rem;
+        }
+    }
 }

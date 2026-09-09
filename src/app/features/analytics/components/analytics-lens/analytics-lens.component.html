@@ -1,0 +1,31 @@
+<section class="analytics-lens" aria-label="Analytics grouping">
+    <div class="analytics-lens__control">
+        <span class="analytics-lens__label">Group results by</span>
+        <div class="analytics-lens__switch" role="group" aria-label="Group analytics results by">
+            <button type="button" [class.is-active]="unit() === 'decision'"
+                [attr.aria-pressed]="unit() === 'decision'" (click)="select('decision')">
+                Decisions
+            </button>
+            <button type="button" [class.is-active]="unit() === 'position'"
+                [attr.aria-pressed]="unit() === 'position'" (click)="select('position')">
+                Positions
+            </button>
+            <button type="button" [class.is-active]="unit() === 'execution'"
+                [attr.aria-pressed]="unit() === 'execution'" (click)="select('execution')">
+                Executions
+            </button>
+        </div>
+    </div>
+
+    <div class="analytics-lens__context">
+        <span>{{ description() }}</span>
+        @if (activity().executionCount === 0) {
+            <strong>No closed trades in this period</strong>
+        } @else if (hasGroupedActivity()) {
+            <strong>
+                {{ activity().decisionCount }} decisions · {{ positionCount() }} positions ·
+                {{ activity().executionCount }} executions
+            </strong>
+        }
+    </div>
+</section>
