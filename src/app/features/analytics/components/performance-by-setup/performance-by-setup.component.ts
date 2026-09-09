@@ -1,6 +1,11 @@
 import { Component, computed, input, effect, ViewChild, ElementRef, AfterViewInit, OnDestroy } from '@angular/core';
 import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } from 'chart.js';
 import { Trade } from '../../../../core/models/trade.model';
+import {
+    AnalyticsUnit,
+    analyticsUnitLabel,
+    buildAnalyticsObservations,
+} from '../../utils/analytics-performance.utils';
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
 
@@ -26,7 +31,8 @@ interface SetupStat {
     styleUrl: './performance-by-setup.component.scss'
 })
 export class PerformanceBySetupComponent implements AfterViewInit, OnDestroy {
-    trades = input.required<Trade[]>();
+    readonly trades = input.required<Trade[]>();
+    readonly unit = input<AnalyticsUnit>('decision');
 
     @ViewChild('chartCanvas') chartCanvas!: ElementRef<HTMLCanvasElement>;
     private chart: Chart<'bar'> | undefined;
@@ -34,14 +40,14 @@ export class PerformanceBySetupComponent implements AfterViewInit, OnDestroy {
     chartData = computed((): SetupStat[] => {
         const map = new Map<string, { pnl: number; wins: number; total: number }>();
 
-        this.trades()
-            .filter(t => t.status === 'closed' && t.setup)
-            .forEach(t => {
-                const key = t.setup!;
+        buildAnalyticsObservations(this.trades(), this.unit())
+            .filter(observation => observation.setup)
+            .forEach(observation => {
+                const key = observation.setup!;
                 const s = map.get(key) ?? { pnl: 0, wins: 0, total: 0 };
-                s.pnl += (t.netPnl ?? 0);
+                s.pnl += observation.pnl;
                 s.total++;
-                if ((t.netPnl ?? 0) > 0) s.wins++;
+                if (observation.pnl > 0) s.wins++;
                 map.set(key, s);
             });
 
@@ -88,7 +94,9 @@ export class PerformanceBySetupComponent implements AfterViewInit, OnDestroy {
                             label: (ctx) => {
                                 const d = this.chartData()[ctx.dataIndex];
                                 const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
-                                return [`P&L: ${fmt.format(ctx.parsed.x ?? 0)}`, `Win Rate: ${d?.winRate ?? 0}%`, `Trades: ${d?.count ?? 0}`];
+                                const unit = analyticsUnitLabel(this.unit());
+                                const label = unit.charAt(0).toUpperCase() + unit.slice(1);
+                                return [`P&L: ${fmt.format(ctx.parsed.x ?? 0)}`, `Win Rate: ${d?.winRate ?? 0}%`, `${label}: ${d?.count ?? 0}`];
                             }
                         }
                     }

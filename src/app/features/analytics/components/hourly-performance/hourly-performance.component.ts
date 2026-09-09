@@ -1,4 +1,4 @@
-import { Component, computed, input, effect, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, computed, input, effect, ViewChild, ElementRef, AfterViewInit, OnDestroy } from '@angular/core';
 
 import {
     Chart, ChartConfiguration,
@@ -8,6 +8,10 @@ import {
     Legend, Tooltip
 } from 'chart.js';
 import { Trade } from '../../../../core/models/trade.model';
+import {
+    AnalyticsUnit,
+    buildAnalyticsObservations,
+} from '../../utils/analytics-performance.utils';
 
 Chart.register(BarController, LineController, BarElement, LineElement, PointElement, CategoryScale, LinearScale, Legend, Tooltip);
 
@@ -16,20 +20,26 @@ Chart.register(BarController, LineController, BarElement, LineElement, PointElem
     standalone: true,
     imports: [],
     template: `
-        <div class="relative h-64 w-full">
+        <div class="hourly-chart">
             <canvas #chartCanvas></canvas>
+            @if (hasNoData()) {
+                <div class="hourly-chart__empty">No closed trades to display</div>
+            }
         </div>
-    `
+    `,
+    styleUrl: './hourly-performance.component.scss',
 })
-export class HourlyPerformanceComponent implements AfterViewInit {
-    trades = input.required<Trade[]>();
+export class HourlyPerformanceComponent implements AfterViewInit, OnDestroy {
+    readonly trades = input.required<Trade[]>();
+    readonly unit = input<AnalyticsUnit>('decision');
 
     @ViewChild('chartCanvas') chartCanvas!: ElementRef<HTMLCanvasElement>;
     private chart: Chart | undefined;
+    readonly hasNoData = computed(() => this.chartData().every(item => item.total === 0));
 
     // Computed data for the chart
     chartData = computed(() => {
-        const trades = this.trades();
+        const observations = buildAnalyticsObservations(this.trades(), this.unit());
 
         // Initialize hours 0-23
         const hours = Array.from({ length: 24 }, (_, i) => i);
@@ -40,16 +50,12 @@ export class HourlyPerformanceComponent implements AfterViewInit {
             total: 0
         }));
 
-        trades.forEach(t => {
-            const date = new Date(t.entryDate);
+        observations.forEach(observation => {
+            const date = new Date(observation.entryTimestamp);
             const hour = date.getHours();
-
-            // Only count closed trades for PnL/Win Rate
-            if (t.status === 'closed' && t.netPnl !== undefined) {
-                data[hour].pnl += t.netPnl;
-                data[hour].total++;
-                if (t.netPnl > 0) data[hour].wins++;
-            }
+            data[hour].pnl += observation.pnl;
+            data[hour].total++;
+            if (observation.pnl > 0) data[hour].wins++;
         });
 
         // Filter out empty hours to keep chart clean? Or keep all?
@@ -70,6 +76,10 @@ export class HourlyPerformanceComponent implements AfterViewInit {
 
     ngAfterViewInit() {
         this.initChart();
+    }
+
+    ngOnDestroy(): void {
+        this.chart?.destroy();
     }
 
     private initChart() {

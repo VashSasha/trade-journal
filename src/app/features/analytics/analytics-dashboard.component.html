@@ -1,58 +1,86 @@
 <div class="page-shell">
     <div class="page-container-xl">
+        <header class="analytics__header">
+            <div>
+                <h1 class="page-title">Analytics</h1>
+                <p class="page-subtitle">Understand the behavior behind your performance</p>
+            </div>
+            <button type="button" class="analytics__customize" [class.is-active]="layout.editing()"
+                (click)="toggleEditing()">
+                @if (layout.editing()) {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M5 12l4 4L19 6"/>
+                    </svg>
+                    Done
+                } @else {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M4 7h10M18 7h2M10 17h10M4 17h2M14 4v6M10 14v6"/>
+                    </svg>
+                    Customize
+                }
+            </button>
+        </header>
 
-        <div class="analytics__header">
-            <h1 class="page-title">Analytics</h1>
-            <p class="page-subtitle">Deep dive into your trading performance</p>
+        <app-filter-toolbar />
+
+        <div class="analytics__lens">
+            <app-analytics-lens [trades]="data.filteredTrades()" [unit]="data.unit()"
+                (unitChange)="data.unit.set($event)" />
         </div>
 
-        <app-filter-toolbar></app-filter-toolbar>
-
-        <!-- Advanced Stats Bar -->
         <div class="analytics__stats-bar">
-            <app-advanced-stats-bar [trades]="filteredTrades()"></app-advanced-stats-bar>
+            <app-advanced-stats-bar [trades]="data.filteredTrades()" [unit]="data.unit()" />
         </div>
 
-        <!-- Row 1: Equity Curve + Long vs Short -->
-        <div class="analytics__row analytics__row--6040">
-            <div class="card analytics__card">
-                <h3 class="analytics__card-title">Equity Curve</h3>
-                <div class="analytics__chart-tall">
-                    <app-equity-curve-chart
-                        [equityData]="equityCurveData()"
-                        [baseline]="equityBaseline()">
-                    </app-equity-curve-chart>
+        @if (layout.editing()) {
+            <section class="analytics-layout-editor" aria-label="Analytics layout controls">
+                <header class="analytics-layout-editor__header">
+                    <div>
+                        <h2>Arrange your analytics</h2>
+                        <p>
+                            @if (canArrange()) {
+                                Drag by a widget header and resize its width from the edges. Height adapts automatically.
+                            } @else {
+                                Choose visible widgets here. Open this page on a larger screen to drag and resize.
+                            }
+                        </p>
+                    </div>
+                    <button type="button" class="analytics-layout-editor__reset"
+                        (click)="layout.reset()">Reset layout</button>
+                </header>
+
+                <div class="analytics-layout-editor__widgets">
+                    @for (definition of widgetDefinitions; track definition.id) {
+                        <label class="analytics-layout-editor__widget"
+                            [class.is-hidden]="layout.widgets()[$index].hidden">
+                            <input type="checkbox" [checked]="!layout.widgets()[$index].hidden"
+                                (change)="setWidgetVisible(definition.id, $any($event.target).checked)" />
+                            <span>
+                                <strong>{{ definition.label }}</strong>
+                                <small>{{ definition.description }}</small>
+                            </span>
+                        </label>
+                    }
                 </div>
-            </div>
-            <div class="card analytics__card">
-                <h3 class="analytics__card-title">Long vs Short</h3>
-                <app-long-short-breakdown [trades]="filteredTrades()"></app-long-short-breakdown>
-            </div>
-        </div>
 
-        <!-- Row 2: Symbol + Weekday -->
-        <div class="analytics__row analytics__row--5050">
-            <div class="card analytics__card">
-                <h3 class="analytics__card-title">Performance by Symbol</h3>
-                <app-performance-by-symbol [trades]="filteredTrades()"></app-performance-by-symbol>
-            </div>
-            <div class="card analytics__card">
-                <h3 class="analytics__card-title">Performance by Day of Week</h3>
-                <app-performance-by-weekday [trades]="filteredTrades()"></app-performance-by-weekday>
-            </div>
-        </div>
+                <footer class="analytics-layout-editor__status">
+                    @switch (layout.saveState()) {
+                        @case ('saving') { <span>Saving layout…</span> }
+                        @case ('saved') { <span class="is-saved">Saved across your devices</span> }
+                        @case ('local-only') { <span>Saved on this device</span> }
+                        @default { <span>Move a widget to save your layout</span> }
+                    }
+                    @if (layout.error(); as error) { <small>{{ error }}</small> }
+                </footer>
+            </section>
+        }
 
-        <!-- Row 3: Hourly + Setup -->
-        <div class="analytics__row analytics__row--5050">
-            <div class="card analytics__card">
-                <h3 class="analytics__card-title">Performance by Hour</h3>
-                <app-hourly-performance [trades]="filteredTrades()"></app-hourly-performance>
+        <gridstack class="analytics__grid" [class.analytics__grid--editing]="layout.editing()"
+            [options]="gridOptions" (changeCB)="onLayoutChange($event)" (resizeStopCB)="onResizeStop()">
+            <div empty-content class="analytics__empty-layout">
+                <strong>Your analytics workspace is empty.</strong>
+                <span>Choose Customize to bring a widget back.</span>
             </div>
-            <div class="card analytics__card">
-                <h3 class="analytics__card-title">Performance by Setup</h3>
-                <app-performance-by-setup [trades]="filteredTrades()"></app-performance-by-setup>
-            </div>
-        </div>
-
+        </gridstack>
     </div>
 </div>

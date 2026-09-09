@@ -7,6 +7,11 @@ import {
     Legend, Tooltip
 } from 'chart.js';
 import { Trade } from '../../../../core/models/trade.model';
+import { tradeSessionDateStr } from '../../../../core/utils/market-holidays';
+import {
+    AnalyticsUnit,
+    buildAnalyticsObservations,
+} from '../../utils/analytics-performance.utils';
 
 Chart.register(BarController, LineController, BarElement, LineElement, PointElement, CategoryScale, LinearScale, Legend, Tooltip);
 
@@ -34,7 +39,8 @@ interface DayStat {
     styleUrl: './performance-by-weekday.component.scss'
 })
 export class PerformanceByWeekdayComponent implements AfterViewInit, OnDestroy {
-    trades = input.required<Trade[]>();
+    readonly trades = input.required<Trade[]>();
+    readonly unit = input<AnalyticsUnit>('decision');
 
     @ViewChild('chartCanvas') chartCanvas!: ElementRef<HTMLCanvasElement>;
     private chart: Chart | undefined;
@@ -46,13 +52,13 @@ export class PerformanceByWeekdayComponent implements AfterViewInit, OnDestroy {
             day: i, avgPnl: 0, winRate: 0, total: 0, wins: 0, totalPnl: 0
         }));
 
-        this.trades()
-            .filter(t => t.status === 'closed')
-            .forEach(t => {
-                const dow = new Date(t.entryDate).getDay();
+        buildAnalyticsObservations(this.trades(), this.unit())
+            .forEach(observation => {
+                const sessionDate = tradeSessionDateStr(new Date(observation.exitTimestamp).toISOString());
+                const dow = new Date(`${sessionDate}T12:00:00`).getDay();
                 days[dow].total++;
-                days[dow].totalPnl += (t.netPnl ?? 0);
-                if ((t.netPnl ?? 0) > 0) days[dow].wins++;
+                days[dow].totalPnl += observation.pnl;
+                if (observation.pnl > 0) days[dow].wins++;
             });
 
         return days.slice(1, 6).map(d => ({

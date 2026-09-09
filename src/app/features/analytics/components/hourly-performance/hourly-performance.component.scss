@@ -1,0 +1,24 @@
+.hourly-chart {
+    position: relative;
+    width: 100%;
+    height: 280px;
+
+    canvas {
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    &__empty {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: var(--color-text-muted);
+        font-size: 0.875rem;
+        pointer-events: none;
+    }
+
+    @media (max-width: 560px) {
+        height: 240px;
+    }
+}

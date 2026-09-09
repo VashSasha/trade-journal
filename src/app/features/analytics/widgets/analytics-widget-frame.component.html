@@ -1,0 +1,22 @@
+<section class="analytics-widget-frame" [class.analytics-widget-frame--editing]="layout.editing()">
+    @if (layout.editing()) {
+        <header class="analytics-widget-frame__toolbar">
+            <button type="button" class="analytics-widget-frame__drag-handle"
+                [attr.aria-label]="'Drag ' + label()" [title]="'Drag ' + label()">
+                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <circle cx="6" cy="5" r="1.2"/><circle cx="14" cy="5" r="1.2"/>
+                    <circle cx="6" cy="10" r="1.2"/><circle cx="14" cy="10" r="1.2"/>
+                    <circle cx="6" cy="15" r="1.2"/><circle cx="14" cy="15" r="1.2"/>
+                </svg>
+                <span>{{ label() }}</span>
+            </button>
+            <button type="button" class="analytics-widget-frame__hide" (click)="hide()"
+                [attr.aria-label]="'Hide ' + label()">Hide</button>
+        </header>
+    }
+    <div class="analytics-widget-frame__body">
+        <div class="analytics-widget-frame__content">
+            <ng-content />
+        </div>
+    </div>
+</section>

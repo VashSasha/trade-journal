@@ -2,7 +2,7 @@
     <div class="lsb__panel lsb__panel--long">
         <div class="lsb__header">
             <span class="lsb__badge lsb__badge--long">Long</span>
-            <span class="lsb__trade-count">{{ breakdown().long.count }} trades</span>
+            <span class="lsb__trade-count">{{ breakdown().long.count }} {{ unitLabel() }}</span>
         </div>
         <div class="lsb__rows">
             <div class="lsb__row">
@@ -28,7 +28,7 @@
             <div class="lsb__row">
                 <span class="lsb__row-label">Wins / Losses</span>
                 <span class="lsb__row-value">
-                    {{ breakdown().long.wins }} / {{ breakdown().long.count - breakdown().long.wins }}
+                    {{ breakdown().long.wins }} / {{ breakdown().long.losses }}
                 </span>
             </div>
         </div>
@@ -37,7 +37,7 @@
     <div class="lsb__panel lsb__panel--short">
         <div class="lsb__header">
             <span class="lsb__badge lsb__badge--short">Short</span>
-            <span class="lsb__trade-count">{{ breakdown().short.count }} trades</span>
+            <span class="lsb__trade-count">{{ breakdown().short.count }} {{ unitLabel() }}</span>
         </div>
         <div class="lsb__rows">
             <div class="lsb__row">
@@ -63,7 +63,7 @@
             <div class="lsb__row">
                 <span class="lsb__row-label">Wins / Losses</span>
                 <span class="lsb__row-value">
-                    {{ breakdown().short.wins }} / {{ breakdown().short.count - breakdown().short.wins }}
+                    {{ breakdown().short.wins }} / {{ breakdown().short.losses }}
                 </span>
             </div>
         </div>

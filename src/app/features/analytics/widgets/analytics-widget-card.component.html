@@ -1,0 +1,11 @@
+<app-analytics-widget-frame [widgetId]="widgetId()" [label]="title()">
+    <section class="analytics-widget-card card">
+        <header class="analytics-widget-card__header">
+            <h2>{{ title() }}</h2>
+            <span>{{ meta() }}</span>
+        </header>
+        <div class="analytics-widget-card__body">
+            <ng-content />
+        </div>
+    </section>
+</app-analytics-widget-frame>

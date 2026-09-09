@@ -1,0 +1,64 @@
+<section class="monthly-performance card">
+    <header class="monthly-performance__header">
+        <div>
+            <h2 class="monthly-performance__title">Monthly performance</h2>
+            <p class="monthly-performance__subtitle">P&amp;L and consistency by trading month.</p>
+        </div>
+        <span class="monthly-performance__grouping">Grouped by {{ unitLabel() }}</span>
+    </header>
+
+    @if (rows().length === 0) {
+        <div class="monthly-performance__empty">
+            <strong>No monthly performance yet</strong>
+            <span>Closed trades in the selected period will appear here.</span>
+        </div>
+    } @else {
+        <div class="monthly-performance__table" role="table" aria-label="Monthly trading performance">
+            <div class="monthly-performance__table-header" role="row">
+                <span role="columnheader">Year</span>
+                @for (month of monthLabels; track month) {
+                    <span role="columnheader">{{ month }}</span>
+                }
+                <span role="columnheader">Total</span>
+            </div>
+
+            @for (row of rows(); track row.year) {
+                <div class="monthly-performance__year-row" role="row">
+                    <div class="monthly-performance__year" role="rowheader">
+                        <strong>{{ row.year }}</strong>
+                        <span>{{ row.count }} {{ unitCountLabel(row.count) }}</span>
+                    </div>
+
+                    @for (month of row.months; track month.month) {
+                        <div
+                            class="monthly-performance__month"
+                            role="cell"
+                            [attr.data-tone]="monthTone(month)"
+                            [attr.aria-label]="monthSummary(month, row.year)"
+                            [attr.title]="monthSummary(month, row.year)">
+                            <span class="monthly-performance__month-label">{{ monthLabels[month.month] }}</span>
+                            @if (month.count > 0) {
+                                <strong>{{ formatCompactCurrency(month.pnl) }}</strong>
+                                <span>{{ month.count }} · {{ formatPercent(month.winRate) }} WR</span>
+                            } @else {
+                                <strong>—</strong>
+                                <span>No activity</span>
+                            }
+                        </div>
+                    }
+
+                    <div
+                        class="monthly-performance__total"
+                        role="cell"
+                        [class.monthly-performance__total--positive]="row.pnl > 0"
+                        [class.monthly-performance__total--negative]="row.pnl < 0"
+                        [attr.aria-label]="row.year + ' total: ' + formatFullCurrency(row.pnl)">
+                        <span>Total</span>
+                        <strong>{{ formatCompactCurrency(row.pnl) }}</strong>
+                        <small>{{ formatPercent(row.winRate) }} WR</small>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</section>

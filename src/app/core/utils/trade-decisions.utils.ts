@@ -1,4 +1,4 @@
-import { Trade } from '../../../../core/models/trade.model';
+import { Trade } from '../models/trade.model';
 
 const ENTRY_TOLERANCE_MS = 15_000;
 const EXIT_TOLERANCE_MS = 30_000;
