@@ -1,11 +1,11 @@
 import { DOCUMENT } from '@angular/common';
-import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
+import { computed, DestroyRef, effect, inject, Injectable, signal } from '@angular/core';
 import { getSessionsSnapshot } from '../sessions/sessions.utils';
 import { SessionsSnapshot } from '../sessions/sessions.model';
 import { AlertAudioService } from './alert-audio.service';
-import { AlertSoundKind, crossedSessionAlerts, parseSoundPreferences, SessionAlertKind } from './session-alerts.utils';
+import { SessionSoundPreferencesService } from './session-sound-preferences.service';
+import { AlertSoundKind, crossedSessionAlerts, SessionAlertKind } from './session-alerts.utils';
 
-const PREFERENCES_KEY = 'nvzn_session_sound_preferences_v1';
 const OWNER_LOCK = 'nvzn_session_sound_owner_v1';
 
 /** One coordinator per app, shared by independently renderable controls/widgets. */
@@ -13,15 +13,18 @@ const OWNER_LOCK = 'nvzn_session_sound_owner_v1';
 export class SessionAlertsService {
     private readonly document = inject(DOCUMENT);
     private readonly audio = inject(AlertAudioService);
+    private readonly preferenceStore = inject(SessionSoundPreferencesService);
     private readonly destroyRef = inject(DestroyRef);
     private readonly view = this.document.defaultView;
-    readonly preferences = signal(this.loadPreferences());
+    readonly preferences = this.preferenceStore.preferences;
+    readonly preferencesLoading = this.preferenceStore.loading;
+    readonly storageWarning = this.preferenceStore.storageWarning;
+    readonly syncWarning = this.preferenceStore.syncWarning;
     readonly state = signal<'off' | 'enabling' | 'on'>('off');
     readonly enabled = computed(() => this.state() === 'on');
     readonly waitingForGesture = computed(() => this.state() === 'off' && this.preferences().armed);
     readonly previewing = signal(false);
     readonly error = signal<string | null>(null);
-    readonly storageWarning = signal(false);
     readonly lastAlert = signal<string | null>(null);
     readonly supported = this.audio.supported() && !!this.view?.navigator.locks;
     private generation = 0;
@@ -32,29 +35,42 @@ export class SessionAlertsService {
     private previous: SessionsSnapshot | null = null;
     private highWater = 0;
     private restoreGesture: (() => void) | null = null;
+    private observedOwner = this.preferenceStore.owner();
+    private observedPreferences = this.preferences();
 
     constructor() {
-        const wake = () => this.rebase();
+        // A background tab may not receive its regular timer tick. Process a
+        // recent boundary when it becomes visible instead of rebasing past it.
+        const wake = () => { if (!this.document.hidden) this.tick(); };
         const pageExit = () => this.stopRuntime();
-        const storage = (event: StorageEvent) => {
-            if (event.key !== PREFERENCES_KEY && event.key !== null) return;
-            this.preferences.set(this.loadPreferences());
-            this.audio.setVolume(this.preferences().volume);
-            if (!this.preferences().armed) this.stopRuntime(false);
-            else if (!this.enabled()) this.armRestoreGesture();
-            else this.rebase();
-        };
         this.document.addEventListener('visibilitychange', wake);
         this.view?.addEventListener('focus', wake);
         this.view?.addEventListener('pagehide', pageExit);
-        this.view?.addEventListener('storage', storage);
         this.destroyRef.onDestroy(() => {
             this.stopRuntime(false);
             this.disarmRestoreGesture();
             this.document.removeEventListener('visibilitychange', wake);
             this.view?.removeEventListener('focus', wake);
             this.view?.removeEventListener('pagehide', pageExit);
-            this.view?.removeEventListener('storage', storage);
+        });
+        effect(() => {
+            const owner = this.preferenceStore.owner();
+            const preferences = this.preferences();
+            const ownerChanged = owner !== this.observedOwner;
+            const kindsChanged = preferences.opens !== this.observedPreferences.opens
+                || preferences.closes !== this.observedPreferences.closes;
+            this.observedOwner = owner;
+            this.observedPreferences = preferences;
+            this.audio.setVolume(preferences.volume);
+            if (ownerChanged) this.stopRuntime(false);
+            if (!preferences.armed) {
+                this.disarmRestoreGesture();
+                if (this.state() !== 'off') this.stopRuntime(false);
+            } else if (!this.enabled()) {
+                this.armRestoreGesture();
+            } else if (kindsChanged) {
+                this.rebase();
+            }
         });
         if (this.preferences().armed) this.armRestoreGesture();
     }
@@ -81,8 +97,7 @@ export class SessionAlertsService {
             this.previous = getSessionsSnapshot(Date.now());
             this.highWater = this.previous.now;
             this.state.set('on');
-            this.preferences.update(p => ({ ...p, armed: true }));
-            this.savePreferences();
+            this.preferenceStore.update(p => ({ ...p, armed: true }));
             this.timer = this.view!.setInterval(() => this.tick(), 10_000);
         } catch (error) {
             if (generation !== this.generation) return;
@@ -93,8 +108,7 @@ export class SessionAlertsService {
 
     /** Explicit user opt-out. Runtime shutdowns preserve their opt-in intent. */
     mute(): void {
-        this.preferences.update(p => ({ ...p, armed: false }));
-        this.savePreferences();
+        this.preferenceStore.update(p => ({ ...p, armed: false }));
         this.error.set(null);
         this.stopRuntime(false);
     }
@@ -148,15 +162,13 @@ export class SessionAlertsService {
     setVolume(value: number): void {
         if (!Number.isFinite(value)) return;
         const volume = Math.round(Math.max(0, Math.min(100, value)));
-        this.preferences.update(p => ({ ...p, volume, armed: volume > 0 && p.armed }));
+        this.preferenceStore.update(p => ({ ...p, volume, armed: volume > 0 && p.armed }), false);
         this.audio.setVolume(volume);
         if (!volume) this.stopRuntime(false);
-        this.savePreferences();
     }
 
     setKind(kind: SessionAlertKind, enabled: boolean): void {
-        this.preferences.update(p => ({ ...p, [kind === 'open' ? 'opens' : 'closes']: enabled }));
-        this.savePreferences();
+        this.preferenceStore.update(p => ({ ...p, [kind === 'open' ? 'opens' : 'closes']: enabled }));
         this.rebase();
     }
 
@@ -216,15 +228,4 @@ export class SessionAlertsService {
         this.restoreGesture = null;
     }
 
-    private loadPreferences() {
-        try { return parseSoundPreferences(this.view?.localStorage.getItem(PREFERENCES_KEY) ?? null); }
-        catch { return parseSoundPreferences(null); }
-    }
-
-    private savePreferences(): void {
-        try {
-            this.view?.localStorage.setItem(PREFERENCES_KEY, JSON.stringify(this.preferences()));
-            this.storageWarning.set(false);
-        } catch { this.storageWarning.set(true); }
-    }
 }

@@ -15,9 +15,10 @@ describe('session alert boundaries', () => {
         expect(crossedSessionAlerts(before, Date.parse('2026-07-06T16:00Z'))[0])
             .toMatchObject({ kind: 'close', text: 'London reference window ended.' });
     });
-    it('does not replay a backlog after sleep or a backwards clock change', () => {
-        const before = getSessionsSnapshot(Date.parse('2026-07-06T11:59:50Z'));
-        expect(crossedSessionAlerts(before, before.now + 91_000)).toEqual([]);
+    it('allows short timer throttling but not stale, invalid, or backwards clocks', () => {
+        const before = getSessionsSnapshot(Date.parse('2026-07-06T13:29:50Z'));
+        expect(crossedSessionAlerts(before, before.now + 4 * 60_000)).toHaveLength(1);
+        expect(crossedSessionAlerts(before, before.now + 5 * 60_000 + 1)).toEqual([]);
         expect(crossedSessionAlerts(before, before.now - 10_000)).toEqual([]);
         expect(crossedSessionAlerts(before, NaN)).toEqual([]);
     });

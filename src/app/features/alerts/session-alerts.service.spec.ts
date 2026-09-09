@@ -1,8 +1,10 @@
-import { DestroyRef } from '@angular/core';
+import { DestroyRef, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 import { AlertAudioService } from './alert-audio.service';
 import { SessionAlertsService } from './session-alerts.service';
+import { SessionSoundPreferencesService } from './session-sound-preferences.service';
+import { normalizeSoundPreferences, parseSoundPreferences, SessionSoundPreferences } from './session-alerts.utils';
 
 const KEY = 'nvzn_session_sound_preferences_v1';
 
@@ -11,6 +13,14 @@ describe('session sound coordinator', () => {
     let held: boolean;
     let audio: { supported: ReturnType<typeof vi.fn>; activate: ReturnType<typeof vi.fn>; play: ReturnType<typeof vi.fn>;
         running: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn>; setVolume: ReturnType<typeof vi.fn> };
+    let preferenceStore: {
+        owner: ReturnType<typeof signal<string | null>>;
+        preferences: ReturnType<typeof signal<SessionSoundPreferences>>;
+        loading: ReturnType<typeof signal<boolean>>;
+        storageWarning: ReturnType<typeof signal<boolean>>;
+        syncWarning: ReturnType<typeof signal<boolean>>;
+        update: (updater: (value: SessionSoundPreferences) => SessionSoundPreferences, immediate?: boolean) => void;
+    };
     beforeEach(() => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date('2026-07-06T13:29:50Z'));
@@ -25,7 +35,26 @@ describe('session sound coordinator', () => {
         } });
         audio = { supported: vi.fn(() => true), activate: vi.fn(async () => {}), play: vi.fn(() => 1850),
             running: vi.fn(() => true), stop: vi.fn(), setVolume: vi.fn() };
-        TestBed.configureTestingModule({ providers: [{ provide: AlertAudioService, useValue: audio }] });
+        TestBed.configureTestingModule({ providers: [
+            { provide: AlertAudioService, useValue: audio },
+            { provide: SessionSoundPreferencesService, useFactory: () => {
+                let raw: string | null = null;
+                let blocked = false;
+                try { raw = localStorage.getItem(KEY); } catch { blocked = true; }
+                const preferences = signal(parseSoundPreferences(raw));
+                preferenceStore = {
+                    owner: signal('test-owner'), preferences, loading: signal(false),
+                    storageWarning: signal(blocked), syncWarning: signal(false),
+                    update: updater => {
+                        const next = normalizeSoundPreferences(updater(preferences()))!;
+                        preferences.set(next);
+                        try { localStorage.setItem(KEY, JSON.stringify(next)); }
+                        catch { preferenceStore.storageWarning.set(true); }
+                    },
+                };
+                return preferenceStore;
+            } },
+        ] });
     });
     afterEach(() => {
         TestBed.resetTestingModule(); vi.useRealTimers(); vi.restoreAllMocks();
@@ -64,12 +93,14 @@ describe('session sound coordinator', () => {
         vi.advanceTimersByTime(10_000);
         expect(audio.play).toHaveBeenCalledExactlyOnceWith('close', 45);
     });
-    it('skips missed events after wake, even when the event was recent', async () => {
+    it('plays a recent opening after a background timer was throttled', async () => {
         const sounds = service(); await sounds.enable();
-        vi.setSystemTime(new Date('2026-07-06T13:30:05Z'));
+        vi.setSystemTime(new Date('2026-07-06T13:32:00Z'));
         document.dispatchEvent(new Event('visibilitychange'));
-        vi.advanceTimersByTime(10_000);
-        expect(audio.play).not.toHaveBeenCalled();
+        expect(audio.play).toHaveBeenCalledExactlyOnceWith('open', 45);
+        expect(sounds.lastAlert()).toBe('New York reference window started.');
+        window.dispatchEvent(new Event('focus'));
+        expect(audio.play).toHaveBeenCalledOnce();
     });
     it('skips a large timer gap without a visibility event', async () => {
         await service().enable();
@@ -180,8 +211,8 @@ describe('session sound coordinator', () => {
     });
     it('applies other-tab preference updates without automatically enabling sounds', () => {
         const sounds = service();
-        localStorage.setItem(KEY, '{"volume":65,"opens":false}');
-        window.dispatchEvent(new StorageEvent('storage', { key: KEY }));
+        preferenceStore.preferences.set(parseSoundPreferences('{"volume":65,"opens":false}'));
+        TestBed.tick();
         expect(sounds.preferences()).toEqual({ volume: 65, opens: false, closes: true, armed: false });
         expect(sounds.enabled()).toBe(false);
         expect(audio.activate).not.toHaveBeenCalled();
