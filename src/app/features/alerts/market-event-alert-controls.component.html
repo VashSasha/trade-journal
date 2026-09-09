@@ -4,7 +4,7 @@
             <h3>Economic event warnings</h3>
             <p>Get a heads-up before scheduled U.S. releases that can increase volatility.</p>
         </div>
-        <span class="event-alerts__badge">This browser</span>
+        <span class="event-alerts__badge">Account synced</span>
     </div>
 
     <div class="event-alerts__rows">
@@ -35,8 +35,11 @@
 
     <div class="event-alerts__actions">
         <button type="button" (click)="alerts.testAlert()">Test warning</button>
-        <p>Schedules refresh automatically and use cached/reference dates if an official source is unavailable.</p>
+        <p>Warning choices sync to your account. Desktop-notification permission stays specific to each browser.</p>
     </div>
     @if (alerts.lastAlert(); as alert) { <p class="event-alerts__last">Last alert: {{ alert }}</p> }
+    @if (alerts.preferencesLoading()) { <p class="event-alerts__last" role="status">Syncing warning preferences…</p> }
+    @if (alerts.syncWarning()) { <p class="event-alerts__error" role="status">Warning preferences could not sync. This browser copy remains available.</p> }
+    @if (alerts.storageWarning()) { <p class="event-alerts__error" role="status">This browser could not cache your warning preferences.</p> }
     @if (alerts.error(); as error) { <p class="event-alerts__error" role="status">{{ error }}</p> }
 </section>

@@ -43,7 +43,10 @@ export class SessionSoundPreferencesService {
     constructor() {
         effect(() => this.startOwnerLoad(this.session.userId()));
         const storage = (event: StorageEvent) => this.onStorage(event);
-        const online = () => this.flushCurrent();
+        const online = () => {
+            const owner = this.session.userId();
+            if (owner) this.startOwnerLoad(owner);
+        };
         this.view?.addEventListener('storage', storage);
         this.view?.addEventListener('online', online);
         this.destroyRef.onDestroy(() => {

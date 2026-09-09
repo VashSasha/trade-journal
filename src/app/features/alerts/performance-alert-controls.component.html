@@ -44,6 +44,9 @@
     </div>
 
     <p class="guardrails__note">
-        {{ alerts.live.statusDetail() }} Sound uses the master control above. Live monitoring works while NVZN is open; saved trades reconcile shortly after a position closes.
+        {{ alerts.live.statusDetail() }} Targets sync to your NVZN account. Sound uses the master control above. Live monitoring works while NVZN is open; saved trades reconcile shortly after a position closes.
     </p>
+    @if (alerts.preferencesLoading()) { <p class="guardrails__note" role="status">Syncing guardrails…</p> }
+    @if (alerts.syncWarning()) { <p class="guardrails__note" role="status">Guardrails could not sync. This browser copy remains available and will retry when reconnected.</p> }
+    @if (alerts.storageWarning()) { <p class="guardrails__note" role="status">This browser could not cache your guardrails.</p> }
 </section>

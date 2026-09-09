@@ -8,12 +8,10 @@ import { TradovateLiveAccountMetric } from '../integrations/tradovate-live/trado
 import { TradovateLiveService } from '../integrations/tradovate-live/tradovate-live.service';
 import { SessionAlertsService } from './session-alerts.service';
 import { AlertCenterService } from './alert-center.service';
+import { AccountAlertPreferencesService } from './account-alert-preferences.service';
 import {
-    crossedPerformanceAlerts, parsePerformanceAlertPreferences, performanceMetrics,
-    PerformanceAlertPreferences, PerformanceAlertRule, PerformanceMetrics, weekStartFor,
+    crossedPerformanceAlerts, performanceMetrics, PerformanceAlertRule, PerformanceMetrics, weekStartFor,
 } from './performance-alerts.utils';
-
-const STORAGE_PREFIX = 'nvzn_performance_alert_preferences_v1:';
 
 export interface PerformanceAlertEvent {
     id: number;
@@ -30,9 +28,13 @@ export class PerformanceAlertsService {
     private readonly session = inject(UserSessionService);
     private readonly sounds = inject(SessionAlertsService);
     private readonly alertCenter = inject(AlertCenterService);
+    private readonly accountPreferences = inject(AccountAlertPreferencesService);
     readonly live = inject(TradovateLiveService);
 
-    readonly preferences = signal(parsePerformanceAlertPreferences(null));
+    readonly preferences = this.accountPreferences.performance;
+    readonly preferencesLoading = this.accountPreferences.loading;
+    readonly syncWarning = this.accountPreferences.syncWarning;
+    readonly storageWarning = this.accountPreferences.storageWarning;
     readonly event = signal<PerformanceAlertEvent | null>(null);
     readonly anyEnabled = computed(() => Object.values(this.preferences()).some(rule => rule.enabled));
 
@@ -51,7 +53,6 @@ export class PerformanceAlertsService {
             const owner = this.session.userId();
             if (owner !== this.owner) {
                 this.owner = owner;
-                this.preferences.set(this.load(owner));
                 this.resetEvaluation();
             }
         });
@@ -107,11 +108,10 @@ export class PerformanceAlertsService {
     }
 
     setEnabled(rule: PerformanceAlertRule, enabled: boolean): void {
-        this.preferences.update(current => ({
+        this.accountPreferences.updatePerformance(current => ({
             ...current,
             [rule]: { ...current[rule], enabled },
         }));
-        this.persist();
     }
 
     setValue(rule: PerformanceAlertRule, value: number): void {
@@ -120,11 +120,10 @@ export class PerformanceAlertsService {
         const normalized = count
             ? Math.round(Math.max(1, Math.min(1000, value)))
             : Math.round(Math.max(1, Math.min(10_000_000, value)) * 100) / 100;
-        this.preferences.update(current => ({
+        this.accountPreferences.updatePerformance(current => ({
             ...current,
             [rule]: { ...current[rule], value: normalized },
         }));
-        this.persist();
     }
 
     dismiss(): void {
@@ -153,18 +152,6 @@ export class PerformanceAlertsService {
         this.previous = null;
         this.fired.clear();
         this.dismiss();
-    }
-
-    private load(owner: string | null): PerformanceAlertPreferences {
-        if (!owner) return parsePerformanceAlertPreferences(null);
-        try { return parsePerformanceAlertPreferences(localStorage.getItem(STORAGE_PREFIX + owner)); }
-        catch { return parsePerformanceAlertPreferences(null); }
-    }
-
-    private persist(): void {
-        if (!this.owner) return;
-        try { localStorage.setItem(STORAGE_PREFIX + this.owner, JSON.stringify(this.preferences())); }
-        catch { /* Browser-local preferences remain active for this page. */ }
     }
 
     private selectedLiveMetrics(

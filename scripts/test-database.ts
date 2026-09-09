@@ -25,8 +25,11 @@ try {
     await migration('0018_user_goals');
     await migration('0019_ai_request_reservations');
     await migration('0020_discord_entitlement_expiry');
+    await migration('0023_session_sound_preferences');
+    await migration('0024_account_alert_preferences');
     await db.exec(`grant usage on schema auth, public to authenticated, service_role;
         grant select,insert,update,delete on public.trades to authenticated;
+        grant select,insert,update on public.user_settings to authenticated;
         grant all on all tables in schema public to service_role;`);
     await query('insert into auth.users values ($1), ($2)', [A, B]);
     await query('insert into profiles(id) values ($1), ($2)', [A, B]);
@@ -40,6 +43,31 @@ try {
         entry_price: 100, exit_price: 101, quantity: 1, pnl: 20, account_id: '123', source: 'tradovate', external_id: 'fill-1',
         status: 'closed', notes: 'Keep my journal', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     const save = (rows: unknown[]) => query('select * from upsert_user_trades($1::jsonb)', [JSON.stringify(rows)]);
+    await setUser(A);
+    await query('select set_my_session_sound_preferences($1::jsonb)', [JSON.stringify({
+        volume: 55, opens: true, closes: false, armed: true,
+    })]);
+    await query('select set_my_account_alert_preferences($1,$2::jsonb)', ['market_event_alerts', JSON.stringify({
+        enabled: true, leadMinutes: 30, highOnly: false, desktopNotifications: true,
+    })]);
+    await query('select set_my_account_alert_preferences($1,$2::jsonb)', ['performance_alerts', JSON.stringify({
+        dailyProfit: { enabled: true, value: 500 }, dailyLoss: { enabled: false, value: 300 },
+        weeklyProfit: { enabled: false, value: 1500 }, weeklyLoss: { enabled: true, value: 750 },
+        dailyTrades: { enabled: true, value: 8 },
+    })]);
+    const alertPrefs = (await query('select prefs from user_settings where user_id=$1', [A]))[0].prefs;
+    assert.equal(alertPrefs.session_sounds.volume, 55);
+    assert.equal(alertPrefs.market_event_alerts.leadMinutes, 30);
+    assert.equal(alertPrefs.market_event_alerts.desktopNotifications, undefined);
+    assert.equal(alertPrefs.performance_alerts.dailyTrades.value, 8);
+    await assert.rejects(
+        query('select set_my_account_alert_preferences($1,$2::jsonb)', [
+            'market_event_alerts', JSON.stringify({ enabled: true, leadMinutes: 7, highOnly: true }),
+        ]),
+        /Unsupported market-event lead time/,
+    );
+    await setUser(B);
+    assert.equal((await query('select * from user_settings')).length, 0);
     await setUser(A);
     await save([trade]);
     const replay = await save([{ ...trade, id: 'different-tab-id', notes: 'Do not overwrite' }]);
