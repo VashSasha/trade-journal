@@ -87,6 +87,16 @@ describe('account-synced session sound preferences', () => {
         expect(localStorage.getItem('nvzn_session_sound_preferences_v2:someone-else')).toBeNull();
     });
 
+    it('coalesces duplicate flushes of the same pending preference snapshot', async () => {
+        const { service, rpc } = setup({ volume: 45, opens: true, closes: true, armed: false });
+        await vi.waitFor(() => expect(service.loading()).toBe(false));
+
+        service.update(value => ({ ...value, armed: true }));
+        (service as any).flushCurrent();
+
+        await vi.waitFor(() => expect(rpc).toHaveBeenCalledOnce());
+    });
+
     it('keeps the local preference and reports a retryable cloud failure', async () => {
         const { service, rpcResult } = setup(
             { volume: 45, opens: true, closes: true, armed: false },
