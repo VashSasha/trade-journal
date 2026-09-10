@@ -65,7 +65,7 @@ describe('account-synced alert preferences', () => {
         };
         const market = { enabled: true, leadMinutes: 30, highOnly: false };
         const coach = {
-            enabled: true, entries: true, sizing: false, exits: true, guardrails: true,
+            enabled: true, aiCommentary: true, entries: true, sizing: false, exits: true, guardrails: true,
             cooldownSeconds: 20, speechRate: 1.2,
         };
         const { service, rpc } = setup({ [A]: {
@@ -131,7 +131,7 @@ describe('account-synced alert preferences', () => {
     it('syncs portable Live Coach controls through the validated alert RPC', async () => {
         const { service, rpc } = setup({ [A]: {
             live_coach: {
-                enabled: false, entries: true, sizing: true, exits: true, guardrails: true,
+                enabled: false, aiCommentary: false, entries: true, sizing: true, exits: true, guardrails: true,
                 cooldownSeconds: 10, speechRate: 1,
             },
         } });
@@ -143,7 +143,7 @@ describe('account-synced alert preferences', () => {
         expect(rpc).toHaveBeenCalledWith('set_my_account_alert_preferences', {
             p_kind: 'live_coach',
             p_preferences: {
-                enabled: true, entries: true, sizing: true, exits: true, guardrails: true,
+                enabled: true, aiCommentary: false, entries: true, sizing: true, exits: true, guardrails: true,
                 cooldownSeconds: 20, speechRate: 1,
             },
         });

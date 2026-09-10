@@ -11,15 +11,17 @@ import { cacheSuspended, setCacheSuspended } from './user-data/user-data.cache';
 
 describe('paid AI access and streaming failures', () => {
     const plan = signal('premium');
+    const invoke = vi.fn(async () => ({ data: { text: 'Stay selective.' }, error: null }));
     let ai: OpenAiService;
     beforeEach(() => {
         plan.set('premium'); setCacheSuspended(false);
+        invoke.mockClear();
         const controller = new AbortController();
         TestBed.configureTestingModule({ providers: [
             { provide: AuthService, useValue: { plan, isAuthenticated: () => true, refreshProfile: async () => {} } },
             { provide: SupabaseService, useValue: { client: { auth: { getSession: async () => ({ data: {
                 session: { user: { id: 'A' }, access_token: 'test' },
-            } }) } } } },
+            } }) }, functions: { invoke } } } },
             { provide: UserSessionService, useValue: { capture: () => ({ userId: 'A', signal: controller.signal }), assertCurrent: () => {} } },
             { provide: DemoModeService, useValue: { active: cacheSuspended } },
         ] });
@@ -56,5 +58,16 @@ describe('paid AI access and streaming failures', () => {
         expect(await lastValueFrom(ai.analyzeTrade([], {}))).toContain('Example only');
         expect(fetch).not.toHaveBeenCalled();
         expect(ai.hasApiKey()).toBe(true); // The preview is available without a paid subscription.
+    });
+
+    it('sends Live Coach context through the authenticated AI proxy', async () => {
+        const signal = new AbortController().signal;
+        await expect(ai.generateLiveCoachComment({ observation: {}, session: {} }, signal))
+            .resolves.toBe('Stay selective.');
+        expect(invoke).toHaveBeenCalledWith('ai-report', expect.objectContaining({
+            body: { type: 'live-coach', payload: { observation: {}, session: {} } },
+            headers: { Authorization: 'Bearer test' },
+            signal: expect.any(AbortSignal),
+        }));
     });
 });

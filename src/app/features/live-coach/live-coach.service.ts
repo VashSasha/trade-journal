@@ -1,6 +1,9 @@
-import { DestroyRef, effect, inject, Injectable, signal, untracked } from '@angular/core';
+import { computed, DestroyRef, effect, inject, Injectable, signal, untracked } from '@angular/core';
 import { firstValueFrom, of } from 'rxjs';
 import { catchError, timeout } from 'rxjs/operators';
+import { AccessPolicyService } from '../../core/services/access-policy.service';
+import { OpenAiService } from '../../core/services/openai.service';
+import { TradeService } from '../../core/services/trade.service';
 import { TradovateService } from '../../core/services/tradovate.service';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { AccountAlertPreferencesService } from '../alerts/account-alert-preferences.service';
@@ -9,15 +12,19 @@ import { PerformanceAlertsService } from '../alerts/performance-alerts.service';
 import { TradovateLivePositionEvent } from '../integrations/tradovate-live/tradovate-live.models';
 import { TradovateLiveService } from '../integrations/tradovate-live/tradovate-live.service';
 import { LiveCoachNarratorService } from './live-coach-narrator.service';
-import { LiveCoachNarration, LiveCoachPreferences } from './live-coach.models';
+import { LiveCoachAiState, LiveCoachNarration, LiveCoachPreferences } from './live-coach.models';
 import {
+    buildLiveCoachAiPayload,
     buildLiveCoachNarration,
     liveCoachEventBucket,
     liveCoachEventEnabled,
+    normalizeLiveCoachAiText,
+    shouldPersonalizeLiveCoachEvent,
 } from './live-coach.utils';
 
 const GROUP_WINDOW_MS = 900;
 const MAX_PROCESSED_EVENTS = 250;
+const AI_COMMENT_TIMEOUT_MS = 5_500;
 
 interface PendingBucket {
     events: TradovateLivePositionEvent[];
@@ -30,6 +37,9 @@ export class LiveCoachService {
     private readonly preferenceStore = inject(AccountAlertPreferencesService);
     private readonly live = inject(TradovateLiveService);
     private readonly tradovate = inject(TradovateService);
+    private readonly trades = inject(TradeService);
+    private readonly ai = inject(OpenAiService);
+    private readonly access = inject(AccessPolicyService);
     private readonly session = inject(UserSessionService);
     private readonly alerts = inject(AlertCenterService);
     private readonly performanceAlerts = inject(PerformanceAlertsService);
@@ -45,6 +55,16 @@ export class LiveCoachService {
     readonly error = this.narrator.error;
     readonly lastComment = signal<LiveCoachNarration | null>(null);
     readonly lastSpokenText = signal<string | null>(null);
+    readonly aiState = signal<LiveCoachAiState>('off');
+    readonly aiAvailable = computed(() => this.access.canAct('ai'));
+    readonly aiStatusLabel = computed(() => {
+        if (!this.preferences().aiCommentary) return 'Off';
+        if (!this.preferences().enabled) return 'Coach is off';
+        if (!this.aiAvailable()) return 'Paid plan required';
+        if (this.aiState() === 'thinking') return 'Personalizing…';
+        if (this.aiState() === 'fallback') return 'Factual fallback active';
+        return 'Ready';
+    });
     readonly liveState = this.live.state;
     readonly liveStatus = this.live.statusLabel;
     readonly liveDetail = this.live.statusDetail;
@@ -57,6 +77,8 @@ export class LiveCoachService {
     private readonly contractNames = new Map<string, Promise<string | null>>();
     private lastPerformanceEventId = 0;
     private guardrailTimer: ReturnType<typeof setTimeout> | null = null;
+    private aiController: AbortController | null = null;
+    private aiGeneration = 0;
 
     constructor() {
         effect(() => {
@@ -68,11 +90,25 @@ export class LiveCoachService {
         });
 
         effect(() => {
+            const enabled = this.preferences().enabled
+                && this.preferences().aiCommentary
+                && this.aiAvailable();
+            if (!enabled) {
+                this.cancelAi();
+                this.aiState.set('off');
+            } else if (this.aiState() === 'off') {
+                this.aiState.set('ready');
+            }
+        });
+
+        effect(() => {
             const event = this.performanceAlerts.event();
             const preferences = this.preferences();
             if (!event || event.id === this.lastPerformanceEventId) return;
             this.lastPerformanceEventId = event.id;
             if (!preferences.enabled || !preferences.guardrails) return;
+            this.cancelAi();
+            this.aiState.set(preferences.aiCommentary && this.aiAvailable() ? 'ready' : 'off');
             const owner = this.owner;
             this.guardrailTimer = setTimeout(() => {
                 this.guardrailTimer = null;
@@ -114,6 +150,11 @@ export class LiveCoachService {
         this.update(current => ({ ...current, [kind]: enabled }));
     }
 
+    setAiCommentary(enabled: boolean): void {
+        if (enabled && !this.access.requestAction('ai')) return;
+        this.update(current => ({ ...current, aiCommentary: enabled }));
+    }
+
     setCooldown(seconds: number): void {
         if (!Number.isFinite(seconds)) return;
         this.update(current => ({ ...current, cooldownSeconds: Math.round(seconds) }));
@@ -152,15 +193,68 @@ export class LiveCoachService {
         if (!owner || owner !== this.owner || owner !== this.session.userId() || !this.preferences().enabled) return;
         const narration = buildLiveCoachNarration(bucket.events, contractName);
         if (!narration) return;
+        if (!shouldPersonalizeLiveCoachEvent(narration.kind) && this.aiController) {
+            this.cancelAi();
+            this.aiState.set(this.preferences().aiCommentary && this.aiAvailable() ? 'ready' : 'off');
+        }
 
         const now = Date.now();
         const previous = this.lastSpokenAt.get(narration.key) ?? 0;
         if (now - previous < this.preferences().cooldownSeconds * 1000) return;
         this.lastSpokenAt.set(narration.key, now);
-        this.lastComment.set(narration);
-        this.lastSpokenText.set(narration.text);
-        this.alerts.publish({ tone: narration.tone, title: narration.title, text: narration.text });
-        await this.narrator.speak(narration.text, this.preferences().speechRate);
+        const finalNarration = await this.personalize(bucket.events, narration, contractName);
+        if (!finalNarration || !owner || owner !== this.owner || owner !== this.session.userId()
+            || !this.preferences().enabled) return;
+        this.lastComment.set(finalNarration);
+        this.lastSpokenText.set(finalNarration.text);
+        this.alerts.publish({
+            tone: finalNarration.tone,
+            title: finalNarration.title,
+            text: finalNarration.text,
+        });
+        await this.narrator.speak(finalNarration.text, this.preferences().speechRate);
+    }
+
+    private async personalize(
+        events: readonly TradovateLivePositionEvent[],
+        narration: LiveCoachNarration,
+        contractName: string | null,
+    ): Promise<LiveCoachNarration | null> {
+        const preferences = this.preferences();
+        if (!preferences.aiCommentary || !this.aiAvailable()
+            || !shouldPersonalizeLiveCoachEvent(narration.kind)) return narration;
+
+        this.cancelAi();
+        const generation = ++this.aiGeneration;
+        const controller = new AbortController();
+        this.aiController = controller;
+        this.aiState.set('thinking');
+        const deadline = setTimeout(() => controller.abort(), AI_COMMENT_TIMEOUT_MS);
+        try {
+            const owner = this.owner;
+            if (!owner) return null;
+            const payload = buildLiveCoachAiPayload(
+                events,
+                narration,
+                this.trades.trades().filter(trade => trade.userId === owner),
+                this.live.metrics(),
+                contractName ?? 'Position',
+            );
+            const response = await this.ai.generateLiveCoachComment(payload, controller.signal);
+            if (generation !== this.aiGeneration || controller.signal.aborted
+                || owner !== this.owner || owner !== this.session.userId()) return null;
+            const text = normalizeLiveCoachAiText(response);
+            if (!text) throw new Error('Empty Coach response.');
+            this.aiState.set('ready');
+            return { ...narration, text, personalized: true };
+        } catch {
+            if (generation !== this.aiGeneration || this.owner !== this.session.userId()) return null;
+            this.aiState.set('fallback');
+            return narration;
+        } finally {
+            clearTimeout(deadline);
+            if (generation === this.aiGeneration) this.aiController = null;
+        }
     }
 
     private resolveContractName(event: TradovateLivePositionEvent): Promise<string | null> {
@@ -198,6 +292,8 @@ export class LiveCoachService {
         this.lastComment.set(null);
         this.lastSpokenText.set(null);
         this.lastPerformanceEventId = 0;
+        this.cancelAi();
+        this.aiState.set('off');
         this.clearPending();
         this.narrator.stop();
     }
@@ -207,5 +303,11 @@ export class LiveCoachService {
         this.pending.clear();
         if (this.guardrailTimer) clearTimeout(this.guardrailTimer);
         this.guardrailTimer = null;
+    }
+
+    private cancelAi(): void {
+        this.aiGeneration++;
+        this.aiController?.abort();
+        this.aiController = null;
     }
 }
