@@ -94,7 +94,7 @@ describe('TradovateLiveService', () => {
 
     it('authorizes, starts user sync and projects broker updates without storing raw events', async () => {
         const service = TestBed.inject(TradovateLiveService);
-        service.setRequested(true);
+        service.setRequested('test', true);
         TestBed.tick();
         await Promise.resolve();
         TestBed.tick();
@@ -131,7 +131,7 @@ describe('TradovateLiveService', () => {
 
     it('marks rejected broker tokens for reauthentication instead of reconnecting forever', async () => {
         const service = TestBed.inject(TradovateLiveService);
-        service.setRequested(true);
+        service.setRequested('test', true);
         TestBed.tick();
         await Promise.resolve();
         TestBed.tick();
@@ -148,7 +148,7 @@ describe('TradovateLiveService', () => {
 
     it('keeps REST sync available when only user-stream permission is denied', async () => {
         const service = TestBed.inject(TradovateLiveService);
-        service.setRequested(true);
+        service.setRequested('test', true);
         TestBed.tick();
         await Promise.resolve();
         TestBed.tick();
@@ -161,5 +161,24 @@ describe('TradovateLiveService', () => {
         expect(markConnectionExpired).not.toHaveBeenCalled();
         expect(service.state()).toBe('unavailable');
         expect(service.statusDetail()).toContain('Regular sync still works');
+    });
+
+    it('keeps one shared stream alive until every realtime feature releases it', async () => {
+        const service = TestBed.inject(TradovateLiveService);
+        service.setRequested('performance-alerts', true);
+        service.setRequested('live-coach', true);
+        TestBed.tick();
+        await Promise.resolve();
+        TestBed.tick();
+
+        const socket = FakeWebSocket.instances[0];
+        service.setRequested('performance-alerts', false);
+        TestBed.tick();
+        expect(socket.readyState).toBe(FakeWebSocket.OPEN);
+
+        service.setRequested('live-coach', false);
+        TestBed.tick();
+        expect(socket.readyState).toBe(FakeWebSocket.CLOSED);
+        expect(service.state()).toBe('off');
     });
 });

@@ -1,6 +1,7 @@
 import type { TradovateCashBalance } from '../../../core/services/tradovate.service';
 import {
     TradovateLiveAccountMetric,
+    TradovateLivePositionEvent,
     TradovateSocketFrame,
     TradovateSocketResponse,
 } from './tradovate-live.models';
@@ -10,7 +11,9 @@ type UnknownRecord = Record<string, unknown>;
 interface LivePosition {
     id: number;
     accountId: number;
+    contractId: number | null;
     netPos: number;
+    netPrice: number | null;
     tradeDate: string | null;
 }
 
@@ -23,7 +26,15 @@ export interface TradovateLiveUpdate {
     changed: boolean;
     completedAccountIds: number[];
     balances: TradovateCashBalance[];
+    positionEvents: TradovateLivePositionEvent[];
 }
+
+const EMPTY_UPDATE: TradovateLiveUpdate = {
+    changed: false,
+    completedAccountIds: [],
+    balances: [],
+    positionEvents: [],
+};
 
 function record(value: unknown): UnknownRecord | null {
     return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -87,6 +98,7 @@ export class TradovateLiveAccumulator {
     private positions = new Map<number, LivePosition>();
     private metrics = new Map<number, TradovateLiveAccountMetric>();
     private epochs = new Map<number, number>();
+    private eventSequence = 0;
 
     constructor(
         private readonly connectionId: string,
@@ -103,7 +115,7 @@ export class TradovateLiveAccumulator {
 
     replaceFromInitial(payload: unknown): TradovateLiveUpdate {
         const data = record(payload);
-        if (!data) return { changed: false, completedAccountIds: [], balances: [] };
+        if (!data) return { ...EMPTY_UPDATE };
         this.positions.clear();
 
         const accountIds = new Set(this.metrics.keys());
@@ -124,7 +136,7 @@ export class TradovateLiveAccumulator {
         }
         for (const item of this.array(data['positions'])) this.storeInitialPosition(item);
 
-        return { changed: true, completedAccountIds: [], balances };
+        return { changed: true, completedAccountIds: [], balances, positionEvents: [] };
     }
 
     applyProps(payload: unknown): TradovateLiveUpdate {
@@ -133,7 +145,7 @@ export class TradovateLiveAccumulator {
         const entityType = typeof event?.['entityType'] === 'string'
             ? event['entityType'].toLowerCase()
             : '';
-        if (!entity) return { changed: false, completedAccountIds: [], balances: [] };
+        if (!entity) return { ...EMPTY_UPDATE };
 
         if (entityType === 'cashbalance') {
             const projection = this.applyCashBalance(entity, false);
@@ -141,10 +153,11 @@ export class TradovateLiveAccumulator {
                 changed: projection.changed,
                 completedAccountIds: [],
                 balances: projection.balance ? [projection.balance] : [],
+                positionEvents: [],
             };
         }
         if (entityType === 'position') return this.applyPosition(entity);
-        return { changed: false, completedAccountIds: [], balances: [] };
+        return { ...EMPTY_UPDATE };
     }
 
     private applyCashBalance(value: unknown, initial: boolean): CashBalanceProjection {
@@ -195,14 +208,26 @@ export class TradovateLiveAccumulator {
 
     private applyPosition(value: unknown): TradovateLiveUpdate {
         const incoming = this.position(value);
-        if (!incoming) return { changed: false, completedAccountIds: [], balances: [] };
+        if (!incoming) return { ...EMPTY_UPDATE };
         const previous = this.positions.get(incoming.id);
         this.positions.set(incoming.id, incoming);
-        if (!previous) return { changed: false, completedAccountIds: [], balances: [] };
+        if (!previous) {
+            if (incoming.netPos === 0) return { ...EMPTY_UPDATE };
+            return {
+                ...EMPTY_UPDATE,
+                positionEvents: [this.positionEvent(incoming, null, 'opened')],
+            };
+        }
+
+        if (incoming.netPos === previous.netPos) return { ...EMPTY_UPDATE };
 
         const completed = previous.netPos !== 0
             && (incoming.netPos === 0 || Math.sign(previous.netPos) !== Math.sign(incoming.netPos));
-        if (!completed) return { changed: false, completedAccountIds: [], balances: [] };
+        const kind = this.positionEventKind(previous.netPos, incoming.netPos);
+        const positionEvent = this.positionEvent(incoming, previous, kind);
+        if (!completed) {
+            return { ...EMPTY_UPDATE, positionEvents: [positionEvent] };
+        }
 
         let metric = this.metrics.get(incoming.accountId) ?? this.resetAccount(incoming.accountId, incoming.tradeDate);
         if (incoming.tradeDate && incoming.tradeDate !== metric.tradeDate) {
@@ -213,7 +238,12 @@ export class TradovateLiveAccumulator {
             completedTrades: metric.completedTrades + 1,
             updatedAt: this.now(),
         });
-        return { changed: true, completedAccountIds: [incoming.accountId], balances: [] };
+        return {
+            changed: true,
+            completedAccountIds: [incoming.accountId],
+            balances: [],
+            positionEvents: [positionEvent],
+        };
     }
 
     private position(value: unknown): LivePosition | null {
@@ -222,7 +252,44 @@ export class TradovateLiveAccumulator {
         const accountId = finiteNumber(entity?.['accountId']);
         const netPos = finiteNumber(entity?.['netPos']);
         if (!entity || id === null || accountId === null || netPos === null) return null;
-        return { id, accountId, netPos, tradeDate: tradovateTradeDate(entity['tradeDate']) };
+        return {
+            id,
+            accountId,
+            contractId: finiteNumber(entity['contractId']),
+            netPos,
+            netPrice: finiteNumber(entity['netPrice']),
+            tradeDate: tradovateTradeDate(entity['tradeDate']),
+        };
+    }
+
+    private positionEventKind(previous: number, current: number): TradovateLivePositionEvent['kind'] {
+        if (current === 0) return 'closed';
+        if (previous === 0) return 'opened';
+        if (Math.sign(previous) !== Math.sign(current)) return 'reversed';
+        return Math.abs(current) > Math.abs(previous) ? 'increased' : 'reduced';
+    }
+
+    private positionEvent(
+        incoming: LivePosition,
+        previous: LivePosition | null,
+        kind: TradovateLivePositionEvent['kind'],
+    ): TradovateLivePositionEvent {
+        const directionValue = kind === 'closed' ? previous?.netPos ?? incoming.netPos : incoming.netPos;
+        const observedAt = this.now();
+        return {
+            eventId: `${this.connectionId}:${this.baselineNamespace}:${++this.eventSequence}:${observedAt}`,
+            connectionId: this.connectionId,
+            accountId: incoming.accountId,
+            positionId: incoming.id,
+            contractId: incoming.contractId ?? previous?.contractId ?? null,
+            tradeDate: incoming.tradeDate ?? previous?.tradeDate ?? null,
+            kind,
+            direction: directionValue < 0 ? 'short' : 'long',
+            previousQuantity: Math.abs(previous?.netPos ?? 0),
+            quantity: Math.abs(incoming.netPos),
+            averagePrice: incoming.netPrice ?? previous?.netPrice ?? null,
+            observedAt,
+        };
     }
 
     private resetAccount(accountId: number, tradeDate: string | null): TradovateLiveAccountMetric {

@@ -19,6 +19,32 @@ export interface TradovateLiveAccountMetric {
     updatedAt: number;
 }
 
+export type TradovateLivePositionEventKind =
+    | 'opened'
+    | 'increased'
+    | 'reduced'
+    | 'closed'
+    | 'reversed';
+
+/**
+ * Token-free position context derived from a realtime broker update. Raw
+ * WebSocket payloads and credentials never leave TradovateLiveService.
+ */
+export interface TradovateLivePositionEvent {
+    eventId: string;
+    connectionId: string;
+    accountId: number;
+    positionId: number;
+    contractId: number | null;
+    tradeDate: string | null;
+    kind: TradovateLivePositionEventKind;
+    direction: 'long' | 'short';
+    previousQuantity: number;
+    quantity: number;
+    averagePrice: number | null;
+    observedAt: number;
+}
+
 export interface TradovateLiveConnectionStatus {
     connectionId: string;
     connectionName: string;

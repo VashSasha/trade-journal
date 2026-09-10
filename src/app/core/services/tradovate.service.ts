@@ -1058,6 +1058,15 @@ export class TradovateService {
         );
     }
 
+    /** Resolve a contract label using the connection that produced a live event. */
+    getContractForConnection(connectionId: string, contractId: number): Observable<{ id: number; name: string }> {
+        const connection = this.connections().find(item => item.id === connectionId);
+        if (!connection) return throwError(() => new Error('Broker connection is unavailable.'));
+        return this.authGetFor<{ id: number; name: string }>(connection, '/contract/item', {
+            id: contractId.toString(),
+        });
+    }
+
     getCashBalances(): Observable<TradovateCashBalance[]> {
         return this.authGet<TradovateCashBalance[]>('/cashBalance/list');
     }

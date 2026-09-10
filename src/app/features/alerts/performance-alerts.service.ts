@@ -62,7 +62,7 @@ export class PerformanceAlertsService {
                 && this.userData.dataLoaded()
                 && !cacheSuspended()
                 && this.anyEnabled();
-            this.live.setRequested(shouldMonitor);
+            this.live.setRequested('performance-alerts', shouldMonitor);
         });
 
         effect(() => {

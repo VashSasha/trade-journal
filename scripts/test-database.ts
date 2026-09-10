@@ -27,6 +27,7 @@ try {
     await migration('0020_discord_entitlement_expiry');
     await migration('0023_session_sound_preferences');
     await migration('0024_account_alert_preferences');
+    await migration('0025_live_coach_preferences');
     await db.exec(`grant usage on schema auth, public to authenticated, service_role;
         grant select,insert,update,delete on public.trades to authenticated;
         grant select,insert,update on public.user_settings to authenticated;
@@ -55,16 +56,30 @@ try {
         weeklyProfit: { enabled: false, value: 1500 }, weeklyLoss: { enabled: true, value: 750 },
         dailyTrades: { enabled: true, value: 8 },
     })]);
+    await query('select set_my_account_alert_preferences($1,$2::jsonb)', ['live_coach', JSON.stringify({
+        enabled: true, entries: true, sizing: true, exits: true, guardrails: true,
+        cooldownSeconds: 10, speechRate: 1,
+    })]);
     const alertPrefs = (await query('select prefs from user_settings where user_id=$1', [A]))[0].prefs;
     assert.equal(alertPrefs.session_sounds.volume, 55);
     assert.equal(alertPrefs.market_event_alerts.leadMinutes, 30);
     assert.equal(alertPrefs.market_event_alerts.desktopNotifications, undefined);
     assert.equal(alertPrefs.performance_alerts.dailyTrades.value, 8);
+    assert.equal(alertPrefs.live_coach.enabled, true);
     await assert.rejects(
         query('select set_my_account_alert_preferences($1,$2::jsonb)', [
             'market_event_alerts', JSON.stringify({ enabled: true, leadMinutes: 7, highOnly: true }),
         ]),
         /Unsupported market-event lead time/,
+    );
+    await assert.rejects(
+        query('select set_my_account_alert_preferences($1,$2::jsonb)', [
+            'live_coach', JSON.stringify({
+                enabled: true, entries: true, sizing: true, exits: true, guardrails: true,
+                cooldownSeconds: 1, speechRate: 1,
+            }),
+        ]),
+        /Live Coach cooldown/,
     );
     await setUser(B);
     assert.equal((await query('select * from user_settings')).length, 0);
