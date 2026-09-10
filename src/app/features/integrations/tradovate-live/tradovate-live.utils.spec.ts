@@ -42,10 +42,30 @@ describe('Tradovate live stream utilities', () => {
             positions: [{ id: 7, accountId: 10, netPos: 3, tradeDate: date }],
         });
 
-        expect(live.applyProps({ entityType: 'position', entity: { id: 7, accountId: 10, netPos: 1, tradeDate: date } }).changed).toBe(false);
-        expect(live.applyProps({ entityType: 'position', entity: { id: 7, accountId: 10, netPos: 0, tradeDate: date } }).completedAccountIds).toEqual([10]);
-        expect(live.applyProps({ entityType: 'position', entity: { id: 8, accountId: 10, netPos: -1, tradeDate: date } }).changed).toBe(false);
-        expect(live.applyProps({ entityType: 'position', entity: { id: 8, accountId: 10, netPos: 2, tradeDate: date } }).completedAccountIds).toEqual([10]);
+        const reduced = live.applyProps({ entityType: 'position', entity: { id: 7, accountId: 10, contractId: 44, netPos: 1, netPrice: 23_100, tradeDate: date } });
+        expect(reduced.changed).toBe(false);
+        expect(reduced.positionEvents[0]).toEqual(expect.objectContaining({
+            kind: 'reduced', direction: 'long', previousQuantity: 3, quantity: 1,
+            contractId: 44, averagePrice: 23_100,
+        }));
+
+        const closed = live.applyProps({ entityType: 'position', entity: { id: 7, accountId: 10, contractId: 44, netPos: 0, tradeDate: date } });
+        expect(closed.completedAccountIds).toEqual([10]);
+        expect(closed.positionEvents[0]).toEqual(expect.objectContaining({
+            kind: 'closed', direction: 'long', previousQuantity: 1, quantity: 0,
+        }));
+
+        const opened = live.applyProps({ entityType: 'position', entity: { id: 8, accountId: 10, contractId: 44, netPos: -1, tradeDate: date } });
+        expect(opened.changed).toBe(false);
+        expect(opened.positionEvents[0]).toEqual(expect.objectContaining({
+            kind: 'opened', direction: 'short', previousQuantity: 0, quantity: 1,
+        }));
+
+        const reversed = live.applyProps({ entityType: 'position', entity: { id: 8, accountId: 10, contractId: 44, netPos: 2, tradeDate: date } });
+        expect(reversed.completedAccountIds).toEqual([10]);
+        expect(reversed.positionEvents[0]).toEqual(expect.objectContaining({
+            kind: 'reversed', direction: 'long', previousQuantity: 1, quantity: 2,
+        }));
         expect(live.snapshot()[0].completedTrades).toBe(2);
     });
 

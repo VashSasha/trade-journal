@@ -14,6 +14,7 @@ import { PostSignupModalComponent } from '../../demo/post-signup-modal/post-sign
 import { UpgradePromptComponent } from '../../demo/upgrade-prompt/upgrade-prompt.component';
 import { PerformanceAlertToastComponent } from '../../alerts/performance-alert-toast.component';
 import { MarketAwarenessDrawerComponent } from '../../market-events/market-awareness-drawer.component';
+import { LiveCoachService } from '../../live-coach/live-coach.service';
 
 const DISMISSED_KEY = 'tj_banner_dismissed_connections';
 
@@ -39,6 +40,8 @@ export class MainLayoutComponent {
     });
 
     constructor() {
+        // Construct once for the authenticated shell so coaching survives route changes.
+        inject(LiveCoachService);
         effect(() => {
             if (this.demo.transitioning() || this.pageAllowed()) return;
             void this.router.navigate(['/upgrade'], {

@@ -1,0 +1,100 @@
+<section class="live-coach">
+    <div class="live-coach__glow" aria-hidden="true"></div>
+    <header class="live-coach__head">
+        <div class="live-coach__heading">
+            <span class="live-coach__eyebrow">Voice beta</span>
+            <h3>Live Coach</h3>
+            <p>Hear short, copy-trade-aware observations as your position changes.</p>
+        </div>
+        <label class="live-coach__switch">
+            <input
+                type="checkbox"
+                [checked]="coach.preferences().enabled"
+                [disabled]="!coach.supported() || coach.preferencesLoading()"
+                (change)="coach.setEnabled(checked($event))"
+            />
+            <span aria-hidden="true"></span>
+            {{ coach.preferences().enabled ? 'On' : 'Off' }}
+        </label>
+    </header>
+
+    <div class="live-coach__status-row">
+        <span class="live-coach__status live-coach__status--{{ coach.liveState() }}">
+            <i aria-hidden="true"></i>{{ coach.liveStatus() }}
+        </span>
+        <button
+            class="live-coach__test"
+            type="button"
+            [disabled]="!coach.supported() || coach.narratorState() === 'speaking'"
+            (click)="coach.preview()"
+        >{{ coach.narratorState() === 'speaking' ? 'Speaking…' : 'Test voice' }}</button>
+    </div>
+
+    <div class="live-coach__events" aria-label="Spoken event types">
+        <label>
+            <input type="checkbox" [checked]="coach.preferences().entries"
+                   (change)="coach.setEvent('entries', checked($event))" />
+            <span><strong>Entries</strong><small>Opening direction and total size</small></span>
+        </label>
+        <label>
+            <input type="checkbox" [checked]="coach.preferences().sizing"
+                   (change)="coach.setEvent('sizing', checked($event))" />
+            <span><strong>Size changes</strong><small>Scale-ins and reductions</small></span>
+        </label>
+        <label>
+            <input type="checkbox" [checked]="coach.preferences().exits"
+                   (change)="coach.setEvent('exits', checked($event))" />
+            <span><strong>Exits</strong><small>Closes and reversals</small></span>
+        </label>
+        <label>
+            <input type="checkbox" [checked]="coach.preferences().guardrails"
+                   (change)="coach.setEvent('guardrails', checked($event))" />
+            <span><strong>Guardrails</strong><small>Profit, loss and activity limits</small></span>
+        </label>
+    </div>
+
+    <div class="live-coach__tuning">
+        <label>
+            <span>Repeat gap</span>
+            <select [value]="coach.preferences().cooldownSeconds"
+                    (change)="coach.setCooldown(numberValue($event))">
+                <option value="5">5 seconds</option>
+                <option value="10">10 seconds</option>
+                <option value="20">20 seconds</option>
+                <option value="30">30 seconds</option>
+                <option value="60">60 seconds</option>
+            </select>
+        </label>
+        <label>
+            <span>Voice pace</span>
+            <select [value]="coach.preferences().speechRate"
+                    (change)="coach.setSpeechRate(numberValue($event))">
+                <option value="0.8">Calm</option>
+                <option value="1">Natural</option>
+                <option value="1.2">Quick</option>
+            </select>
+        </label>
+    </div>
+
+    @if (coach.lastSpokenText(); as comment) {
+        <div class="live-coach__last" aria-live="polite">
+            <span>Last observation</span>
+            <p>{{ comment }}</p>
+        </div>
+    }
+
+    <p class="live-coach__note">
+        {{ coach.liveDetail() }} This first version uses your device voice and factual broker events; personalized AI coaching is the next layer.
+    </p>
+    @if (!coach.supported()) {
+        <p class="live-coach__message live-coach__message--error" role="status">Voice narration is unavailable in this browser.</p>
+    } @else if (coach.error()) {
+        <p class="live-coach__message live-coach__message--error" role="status">{{ coach.error() }}</p>
+    }
+    @if (coach.syncWarning()) {
+        <p class="live-coach__message" role="status">Coach settings could not sync. This browser copy is safe and will retry online.</p>
+    }
+    @if (coach.storageWarning()) {
+        <p class="live-coach__message" role="status">This browser could not cache your Coach settings.</p>
+    }
+</section>

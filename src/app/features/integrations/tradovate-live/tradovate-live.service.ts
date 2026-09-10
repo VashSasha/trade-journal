@@ -22,6 +22,7 @@ import {
     TradovateLiveAccountMetric,
     TradovateLiveBroadcastMessage,
     TradovateLiveConnectionStatus,
+    TradovateLivePositionEvent,
     TradovateLiveState,
     TradovateSocketResponse,
 } from './tradovate-live.models';
@@ -81,9 +82,11 @@ export class TradovateLiveService {
     private readonly access = inject(AccessPolicyService);
     private readonly destroyRef = inject(DestroyRef);
 
-    private readonly requested = signal(false);
+    private readonly requesters = signal<ReadonlySet<string>>(new Set());
     readonly state = signal<TradovateLiveState>('off');
     readonly metrics = signal<TradovateLiveAccountMetric[]>([]);
+    /** Recent leader-tab events consumed by realtime coaching. Never persisted. */
+    readonly positionEvents = signal<readonly TradovateLivePositionEvent[]>([]);
     readonly connectionStatuses = signal<TradovateLiveConnectionStatus[]>([]);
     readonly statusLabel = computed(() => {
         switch (this.state()) {
@@ -134,7 +137,7 @@ export class TradovateLiveService {
     constructor() {
         effect(() => {
             const owner = this.session.userId();
-            const requested = this.requested();
+            const requested = this.requesters().size > 0;
             const allowed = this.access.canAct('sync');
             const connections = this.tradovate.connections();
             const signature = connections.map(connection => this.connectionSignature(connection)).sort().join('|');
@@ -167,8 +170,15 @@ export class TradovateLiveService {
         });
     }
 
-    setRequested(requested: boolean): void {
-        this.requested.set(requested);
+    /** Multiple realtime features may independently hold the stream open. */
+    setRequested(requester: string, requested: boolean): void {
+        this.requesters.update(current => {
+            if (current.has(requester) === requested) return current;
+            const next = new Set(current);
+            if (requested) next.add(requester);
+            else next.delete(requester);
+            return next;
+        });
     }
 
     private configure(
@@ -506,6 +516,12 @@ export class TradovateLiveService {
     private applyUpdate(managed: ManagedConnection, update: TradovateLiveUpdate, realtime: boolean): void {
         if (update.balances.length) this.account.applyLiveBalances(managed.connectionId, update.balances);
         if (update.changed) this.publishMetrics();
+        if (realtime && update.positionEvents.length) {
+            this.positionEvents.update(current => [
+                ...current.slice(-49),
+                ...update.positionEvents,
+            ]);
+        }
         if (realtime && update.completedAccountIds.length) this.scheduleTradeReconciliation();
     }
 
@@ -682,6 +698,7 @@ export class TradovateLiveService {
         for (const managed of this.managed.values()) this.stopManaged(managed, false);
         this.managed.clear();
         this.connectionStatuses.set([]);
+        this.positionEvents.set([]);
         if (this.reconcileTimer) clearTimeout(this.reconcileTimer);
         this.reconcileTimer = null;
     }

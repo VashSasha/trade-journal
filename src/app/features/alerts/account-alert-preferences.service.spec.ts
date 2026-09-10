@@ -9,6 +9,7 @@ const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const PERFORMANCE_KEY = 'nvzn_performance_alert_preferences_v1:';
 const MARKET_KEY = 'nvzn_market_event_alerts_v1:';
+const COACH_KEY = 'nvzn_live_coach_preferences_v1:';
 const PENDING_KEY = 'nvzn_account_alert_preferences_pending_v1:';
 
 describe('account-synced alert preferences', () => {
@@ -63,15 +64,21 @@ describe('account-synced alert preferences', () => {
             dailyTrades: { enabled: true, value: 8 },
         };
         const market = { enabled: true, leadMinutes: 30, highOnly: false };
+        const coach = {
+            enabled: true, entries: true, sizing: false, exits: true, guardrails: true,
+            cooldownSeconds: 20, speechRate: 1.2,
+        };
         const { service, rpc } = setup({ [A]: {
             performance_alerts: performance,
             market_event_alerts: market,
+            live_coach: coach,
         } });
 
         await vi.waitFor(() => expect(service.loading()).toBe(false));
 
         expect(service.performance()).toEqual(performance);
         expect(service.marketEvents()).toEqual({ ...market, desktopNotifications: false });
+        expect(service.liveCoach()).toEqual(coach);
         expect(rpc).not.toHaveBeenCalled();
     });
 
@@ -121,6 +128,29 @@ describe('account-synced alert preferences', () => {
         expect(service.marketEvents().desktopNotifications).toBe(true);
     });
 
+    it('syncs portable Live Coach controls through the validated alert RPC', async () => {
+        const { service, rpc } = setup({ [A]: {
+            live_coach: {
+                enabled: false, entries: true, sizing: true, exits: true, guardrails: true,
+                cooldownSeconds: 10, speechRate: 1,
+            },
+        } });
+        await vi.waitFor(() => expect(service.loading()).toBe(false));
+
+        service.updateLiveCoach(current => ({ ...current, enabled: true, cooldownSeconds: 20 }));
+        await vi.waitFor(() => expect(rpc).toHaveBeenCalledOnce());
+
+        expect(rpc).toHaveBeenCalledWith('set_my_account_alert_preferences', {
+            p_kind: 'live_coach',
+            p_preferences: {
+                enabled: true, entries: true, sizing: true, exits: true, guardrails: true,
+                cooldownSeconds: 20, speechRate: 1,
+            },
+        });
+        expect(localStorage.getItem(COACH_KEY + A)).not.toBeNull();
+        expect(localStorage.getItem(`${PENDING_KEY}${A}:coach`)).toBeNull();
+    });
+
     it('does not leak one account settings into the next signed-in account', async () => {
         const { service, userId } = setup({
             [A]: { market_event_alerts: { enabled: true, leadMinutes: 5, highOnly: false } },
@@ -135,6 +165,7 @@ describe('account-synced alert preferences', () => {
 
         expect(service.marketEvents().enabled).toBe(false);
         expect(service.performance().dailyProfit.enabled).toBe(false);
+        expect(service.liveCoach().enabled).toBe(false);
     });
 
     it('retains pending browser settings when cloud sync fails', async () => {

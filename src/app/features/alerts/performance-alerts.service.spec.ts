@@ -99,7 +99,7 @@ describe('performance alert coordinator', () => {
     it('baselines the initial broker snapshot, then alerts on a live P&L crossing', () => {
         const service = TestBed.inject(PerformanceAlertsService); TestBed.tick();
         service.setValue('dailyProfit', 500); service.setEnabled('dailyProfit', true); TestBed.tick();
-        expect(setLiveRequested).toHaveBeenLastCalledWith(true);
+        expect(setLiveRequested).toHaveBeenLastCalledWith('performance-alerts', true);
 
         liveMetrics.set([{
             connectionId: 'c1', accountId: 10, tradeDate: '2026-08-04',
