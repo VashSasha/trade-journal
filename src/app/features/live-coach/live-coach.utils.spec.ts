@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { Trade } from '../../core/models/trade.model';
 import { TradovateLivePositionEvent } from '../integrations/tradovate-live/tradovate-live.models';
 import {
+    buildLiveCoachAiPayload,
     buildLiveCoachNarration,
     liveCoachEventBucket,
+    normalizeLiveCoachAiText,
     parseLiveCoachPreferences,
+    shouldPersonalizeLiveCoachEvent,
 } from './live-coach.utils';
 
 function event(overrides: Partial<TradovateLivePositionEvent> = {}): TradovateLivePositionEvent {
@@ -15,13 +19,23 @@ function event(overrides: Partial<TradovateLivePositionEvent> = {}): TradovateLi
     };
 }
 
+function trade(id: string, accountId: string, entryTime: string, pnl: number): Trade {
+    return {
+        id, userId: 'owner', symbol: 'MNQ', assetType: 'futures', direction: 'long',
+        entryDate: '2026-09-09', entryTime, entryPrice: 23_000, quantity: 1,
+        exitDate: '2026-09-09', exitTime: entryTime, exitPrice: 23_001,
+        pnl, netPnl: pnl, accountId, status: 'closed',
+        createdAt: '2026-09-09T12:00:00', updatedAt: '2026-09-09T12:00:00',
+    };
+}
+
 describe('live coach utilities', () => {
     it('normalizes account-synced preferences into safe limits', () => {
         expect(parseLiveCoachPreferences(JSON.stringify({
-            enabled: true, entries: false, sizing: true, exits: false, guardrails: false,
+            enabled: true, aiCommentary: true, entries: false, sizing: true, exits: false, guardrails: false,
             cooldownSeconds: 999, speechRate: 0.1,
         }))).toEqual({
-            enabled: true, entries: false, sizing: true, exits: false, guardrails: false,
+            enabled: true, aiCommentary: true, entries: false, sizing: true, exits: false, guardrails: false,
             cooldownSeconds: 60, speechRate: 0.8,
         });
     });
@@ -57,5 +71,39 @@ describe('live coach utilities', () => {
             .toBe(liveCoachEventBucket(event({ kind: 'increased' })));
         expect(liveCoachEventBucket(event({ kind: 'closed' })))
             .not.toBe(liveCoachEventBucket(event({ kind: 'increased' })));
+    });
+
+    it('builds identity-free context using decisions instead of copied executions', () => {
+        const events = [
+            event({ accountId: 10, quantity: 1 }),
+            event({ eventId: 'event-2', accountId: 11, positionId: 21, quantity: 1 }),
+        ];
+        const narration = buildLiveCoachNarration(events, 'MNQZ6')!;
+        const payload = buildLiveCoachAiPayload(events, narration, [
+            trade('a1', '10', '09:30:00', -10),
+            trade('a2', '11', '09:30:00', -10),
+            trade('b1', '10', '10:00:00', 20),
+            trade('b2', '11', '10:00:00', 20),
+        ], [], 'MNQZ6', new Date('2026-09-09T12:00:00'));
+
+        expect(payload.observation).toEqual(expect.objectContaining({ accountCount: 2, quantity: 2 }));
+        expect(payload.session).toEqual(expect.objectContaining({
+            executionCount: 4,
+            decisionCount: 2,
+            accountCount: 2,
+            winRate: 50,
+            recentDecisionPnls: [-20, 40],
+            typicalContractsPerAccount: 1,
+            currentContractsPerAccount: 1,
+        }));
+        expect(JSON.stringify(payload)).not.toContain('owner');
+        expect(JSON.stringify(payload)).not.toContain('accountId');
+    });
+
+    it('limits personalization to lifecycle moments and normalizes spoken output', () => {
+        expect(shouldPersonalizeLiveCoachEvent('opened')).toBe(true);
+        expect(shouldPersonalizeLiveCoachEvent('increased')).toBe(false);
+        expect(normalizeLiveCoachAiText('**Keep size consistent.**\n')).toBe('Keep size consistent.');
+        expect(normalizeLiveCoachAiText('Buy another contract now.')).toBeNull();
     });
 });

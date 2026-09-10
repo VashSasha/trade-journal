@@ -19,6 +19,67 @@ function candles(value: unknown): void {
         ['string', 'number'].includes(typeof c.timestamp) && Number.isFinite(new Date(c.timestamp).getTime())), 'Invalid candle data.');
 }
 
+function finite(value: unknown, min: number, max: number): value is number {
+    return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
+}
+
+function integer(value: unknown, min: number, max: number): value is number {
+    return finite(value, min, max) && Number.isInteger(value);
+}
+
+function liveCoachPayload(payload: Record<string, any>): Record<string, any> {
+    const observation = payload.observation;
+    const session = payload.session;
+    requireValue(object(observation) && object(session), 'Live Coach context is required.');
+    requireValue(['opened', 'closed', 'reversed'].includes(observation.kind), 'Unsupported Live Coach event.');
+    requireValue(text(observation.symbol, 32), 'A valid symbol is required.');
+    requireValue(['long', 'short'].includes(observation.direction), 'Invalid position direction.');
+    requireValue(integer(observation.previousQuantity, 0, 100_000)
+        && integer(observation.quantity, 0, 100_000), 'Invalid position size.');
+    requireValue(integer(observation.accountCount, 1, 1_000), 'Invalid account count.');
+    requireValue(observation.averagePrice === null || finite(observation.averagePrice, 0, 1_000_000_000), 'Invalid average price.');
+
+    requireValue(session.tradeDate === null
+        || (typeof session.tradeDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(session.tradeDate)), 'Invalid trading date.');
+    requireValue(finite(session.dailyPnl, -100_000_000, 100_000_000)
+        && finite(session.weeklyPnl, -100_000_000, 100_000_000), 'Invalid session P&L.');
+    requireValue(integer(session.executionCount, 0, 100_000)
+        && integer(session.decisionCount, 0, session.executionCount), 'Invalid session trade counts.');
+    requireValue(integer(session.accountCount, 0, 1_000)
+        && finite(session.winRate, 0, 100)
+        && integer(session.consecutiveLosses, 0, 100_000), 'Invalid session metrics.');
+    requireValue(Array.isArray(session.recentDecisionPnls) && session.recentDecisionPnls.length <= 5
+        && session.recentDecisionPnls.every((value: unknown) => finite(value, -100_000_000, 100_000_000)), 'Invalid recent outcomes.');
+    requireValue(session.typicalContractsPerAccount === null
+        || finite(session.typicalContractsPerAccount, 0, 100_000), 'Invalid typical size.');
+    requireValue(finite(session.currentContractsPerAccount, 0, 100_000), 'Invalid current size.');
+
+    return {
+        observation: {
+            kind: observation.kind,
+            symbol: observation.symbol.trim(),
+            direction: observation.direction,
+            previousQuantity: observation.previousQuantity,
+            quantity: observation.quantity,
+            accountCount: observation.accountCount,
+            averagePrice: observation.averagePrice,
+        },
+        session: {
+            tradeDate: session.tradeDate,
+            dailyPnl: session.dailyPnl,
+            weeklyPnl: session.weeklyPnl,
+            executionCount: session.executionCount,
+            decisionCount: session.decisionCount,
+            accountCount: session.accountCount,
+            winRate: session.winRate,
+            consecutiveLosses: session.consecutiveLosses,
+            recentDecisionPnls: session.recentDecisionPnls,
+            typicalContractsPerAccount: session.typicalContractsPerAccount,
+            currentContractsPerAccount: session.currentContractsPerAccount,
+        },
+    };
+}
+
 /** Reject invalid/expensive input BEFORE reserving quota or contacting OpenAI. */
 export function validateAiBody(body: unknown): { type: string; payload: Record<string, any> } {
     requireValue(object(body) && object(body.payload), 'A report type and payload are required.');
@@ -54,6 +115,8 @@ export function validateAiBody(body: unknown): { type: string; payload: Record<s
             requireValue(messages.some(m => m.role === 'user'), 'A user message is required.');
             return { type, payload: { messages, maxTokens: max } };
         }
+        case 'live-coach':
+            return { type, payload: liveCoachPayload(payload) };
         case 'analyze-trade':
             candles(payload.marketData);
             requireValue(object(payload.tradeDetails), 'Trade details are required.');

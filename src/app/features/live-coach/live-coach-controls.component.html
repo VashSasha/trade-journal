@@ -30,6 +30,20 @@
         >{{ coach.narratorState() === 'speaking' ? 'Speaking…' : 'Test voice' }}</button>
     </div>
 
+    <label class="live-coach__ai" [class.live-coach__ai--active]="coach.preferences().aiCommentary">
+        <input
+            type="checkbox"
+            [checked]="coach.preferences().aiCommentary"
+            [disabled]="!coach.preferences().enabled || !coach.aiAvailable() || coach.preferencesLoading()"
+            (change)="coach.setAiCommentary(checked($event))"
+        />
+        <span class="live-coach__ai-mark" aria-hidden="true">AI</span>
+        <span class="live-coach__ai-copy">
+            <span><strong>Personalized coaching</strong><small>{{ coach.aiStatusLabel() }}</small></span>
+            <small>Uses decision count, copied-account size, session P&amp;L and recent outcomes for grouped entries and exits.</small>
+        </span>
+    </label>
+
     <div class="live-coach__events" aria-label="Spoken event types">
         <label>
             <input type="checkbox" [checked]="coach.preferences().entries"
@@ -84,7 +98,7 @@
     }
 
     <p class="live-coach__note">
-        {{ coach.liveDetail() }} This first version uses your device voice and factual broker events; personalized AI coaching is the next layer.
+        {{ coach.liveDetail() }} Speech stays on this device. With AI personalization on, only bounded aggregate metrics—not account IDs—reach the secure AI service. Limited to 30 comments per UTC day with factual fallback.
     </p>
     @if (!coach.supported()) {
         <p class="live-coach__message live-coach__message--error" role="status">Voice narration is unavailable in this browser.</p>

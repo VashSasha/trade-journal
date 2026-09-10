@@ -1,7 +1,7 @@
 // Paid AI proxy: validated bounded input, atomic quota, deadlines and explicit SSE errors.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import OpenAI from 'npm:openai@7.9.0';
-import { buildParams } from '../_shared/ai-prompts.ts';
+import { buildParams, normalizeCoachModelText } from '../_shared/ai-prompts.ts';
 import { validateAiBody, MAX_AI_BODY_BYTES } from '../_shared/ai-validation.ts';
 import { readJson, RequestError } from '../_shared/request-body.ts';
 import { aiTextStream } from '../_shared/ai-stream.ts';
@@ -12,10 +12,11 @@ const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SB_SECRE
         signal: AbortSignal.any([...(init?.signal ? [init.signal] : []), AbortSignal.timeout(10_000)]) }) },
 });
 const allowed = new Set(['http://localhost:4200', Deno.env.get('APP_ORIGIN') ?? ''].filter(Boolean));
+const pagesOrigin = /^https:\/\/(?:[a-z0-9-]+\.)?trade-journal-2go\.pages\.dev$/i;
 
 Deno.serve(async req => {
     const origin = req.headers.get('Origin');
-    const cors: Record<string, string> = origin && allowed.has(origin) ? {
+    const cors: Record<string, string> = origin && (allowed.has(origin) || pagesOrigin.test(origin)) ? {
         'Access-Control-Allow-Origin': origin, Vary: 'Origin',
         'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -32,6 +33,7 @@ Deno.serve(async req => {
     const deadline = setTimeout(abort, 75_000);
     let firstByteDeadline: ReturnType<typeof setTimeout> | undefined;
     let userId: string | undefined, requestId: string | undefined;
+    let requestKind: 'report' | 'live-coach' = 'report';
     let settlement: Promise<void> | undefined;
     const cleanup = () => {
         clearTimeout(deadline); clearTimeout(firstByteDeadline);
@@ -41,8 +43,11 @@ Deno.serve(async req => {
     const finish = (success: boolean): Promise<void> => settlement ??= (async () => {
         try {
             if (requestId && userId) {
+                const rpc = requestKind === 'live-coach'
+                    ? 'finish_live_coach_ai_request'
+                    : 'finish_ai_request';
                 for (let attempt = 0; attempt < 2; attempt++) {
-                    const result = await admin.rpc('finish_ai_request', {
+                    const result = await admin.rpc(rpc, {
                         p_user_id: userId, p_request_id: requestId, p_success: success,
                     }).abortSignal(AbortSignal.timeout(5000));
                     if (!result.error) return;
@@ -62,23 +67,35 @@ Deno.serve(async req => {
         const plan = await admin.rpc('effective_user_plan', { p_user_id: userId }).abortSignal(controller.signal);
         if (plan.error) throw new RequestError('Unable to verify your plan. Please try again.', 503);
         if (plan.data !== 'premium' && plan.data !== 'lifetime') {
-            throw new RequestError('AI reports require a paid plan. Discord members: sign in with Discord again to refresh membership.', 403);
+            throw new RequestError('AI features require a paid plan. Discord members: sign in with Discord again to refresh membership.', 403);
         }
 
         const body = validateAiBody(await readJson(req, MAX_AI_BODY_BYTES));
+        requestKind = body.type === 'live-coach' ? 'live-coach' : 'report';
         const params = buildParams(body.type, body.payload)!;
         const key = Deno.env.get('OPENAI_API_KEY');
         if (!key) throw new RequestError('AI service is temporarily unavailable.', 503);
-        const openai = new OpenAI({ apiKey: key, maxRetries: 0, timeout: 40_000 });
+        const openai = new OpenAI({
+            apiKey: key,
+            maxRetries: 0,
+            timeout: requestKind === 'live-coach' ? 8_000 : 40_000,
+        });
         const candidate = crypto.randomUUID();
-        const reservation = await admin.rpc('reserve_ai_request', {
+        const reserveRpc = requestKind === 'live-coach'
+            ? 'reserve_live_coach_ai_request'
+            : 'reserve_ai_request';
+        const reservation = await admin.rpc(reserveRpc, {
             p_user_id: userId, p_request_id: candidate,
         }).abortSignal(controller.signal);
         if (reservation.error) throw new RequestError('Unable to check AI usage. Please try again.', 503);
         if (reservation.data !== 'reserved') {
-            const message = reservation.data === 'busy' ? 'An analysis is already running. Please wait for it to finish.'
-                : reservation.data === 'attempt_limit' ? 'Too many analysis attempts today. Please try again after midnight UTC.'
-                : 'Daily AI limit reached (10 analyses). Your quota resets at midnight UTC.';
+            const message = requestKind === 'live-coach'
+                ? reservation.data === 'busy' ? 'Another Coach comment is being prepared.'
+                    : reservation.data === 'attempt_limit' ? 'Live Coach AI attempt limit reached for today.'
+                    : 'Live Coach AI daily limit reached (30 comments).'
+                : reservation.data === 'busy' ? 'An analysis is already running. Please wait for it to finish.'
+                    : reservation.data === 'attempt_limit' ? 'Too many analysis attempts today. Please try again after midnight UTC.'
+                    : 'Daily AI limit reached (10 analyses). Your quota resets at midnight UTC.';
             throw new RequestError(message, 429);
         }
         requestId = candidate;
@@ -101,7 +118,8 @@ Deno.serve(async req => {
             });
         }
         const completion = await openai.chat.completions.create({ ...params, stream: false }, { signal: controller.signal });
-        const text = completion.choices[0]?.message?.content;
+        const rawText = completion.choices[0]?.message?.content;
+        const text = requestKind === 'live-coach' ? normalizeCoachModelText(rawText) : rawText;
         if (!text?.trim()) throw new Error('Empty AI response');
         await finish(true);
         return json({ text });

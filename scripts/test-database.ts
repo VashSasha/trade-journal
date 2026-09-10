@@ -28,6 +28,7 @@ try {
     await migration('0023_session_sound_preferences');
     await migration('0024_account_alert_preferences');
     await migration('0025_live_coach_preferences');
+    await migration('0026_live_coach_ai');
     await db.exec(`grant usage on schema auth, public to authenticated, service_role;
         grant select,insert,update,delete on public.trades to authenticated;
         grant select,insert,update on public.user_settings to authenticated;
@@ -57,7 +58,7 @@ try {
         dailyTrades: { enabled: true, value: 8 },
     })]);
     await query('select set_my_account_alert_preferences($1,$2::jsonb)', ['live_coach', JSON.stringify({
-        enabled: true, entries: true, sizing: true, exits: true, guardrails: true,
+        enabled: true, aiCommentary: true, entries: true, sizing: true, exits: true, guardrails: true,
         cooldownSeconds: 10, speechRate: 1,
     })]);
     const alertPrefs = (await query('select prefs from user_settings where user_id=$1', [A]))[0].prefs;
@@ -66,6 +67,7 @@ try {
     assert.equal(alertPrefs.market_event_alerts.desktopNotifications, undefined);
     assert.equal(alertPrefs.performance_alerts.dailyTrades.value, 8);
     assert.equal(alertPrefs.live_coach.enabled, true);
+    assert.equal(alertPrefs.live_coach.aiCommentary, true);
     await assert.rejects(
         query('select set_my_account_alert_preferences($1,$2::jsonb)', [
             'market_event_alerts', JSON.stringify({ enabled: true, leadMinutes: 7, highOnly: true }),
@@ -75,7 +77,7 @@ try {
     await assert.rejects(
         query('select set_my_account_alert_preferences($1,$2::jsonb)', [
             'live_coach', JSON.stringify({
-                enabled: true, entries: true, sizing: true, exits: true, guardrails: true,
+                enabled: true, aiCommentary: true, entries: true, sizing: true, exits: true, guardrails: true,
                 cooldownSeconds: 1, speechRate: 1,
             }),
         ]),
@@ -119,6 +121,7 @@ try {
     assert.equal((await query('select * from goals')).length, 0);
     await assert.rejects(query("insert into goals(user_id,id,type,label,target,deadline,period) values ($1,$2,'monthly_pnl','Forged',100,now(),'month')", [A, other]), /row-level security/);
     await assert.rejects(query('select reserve_ai_request($1,$2)', [B, token]), /permission denied/);
+    await assert.rejects(query('select reserve_live_coach_ai_request($1,$2)', [B, token]), /permission denied/);
     await assert.rejects(query('select effective_user_plan($1)', [A]), /permission denied/);
     await db.exec('reset role; set role service_role');
 
@@ -141,6 +144,20 @@ try {
     }
     assert.equal(await count(B), 0);
     assert.equal(await reserve(B, other), 'attempt_limit');
+
+    const coachReserve = async (uid: string, id: string) =>
+        (await query('select reserve_live_coach_ai_request($1,$2) as result', [uid, id]))[0].result;
+    const coachFinish = (uid: string, id: string, success: boolean) =>
+        query('select finish_live_coach_ai_request($1,$2,$3)', [uid, id, success]);
+    assert.equal(await coachReserve(A, token), 'reserved');
+    assert.equal(await coachReserve(A, token), 'duplicate');
+    assert.equal(await coachReserve(A, other), 'busy');
+    await coachFinish(A, token, false);
+    assert.equal((await query('select count from live_coach_ai_usage where user_id=$1', [A]))[0].count, 0);
+    await query(`insert into live_coach_ai_usage(user_id,day,count)
+        values ($1,(now() at time zone 'UTC')::date,30)
+        on conflict (user_id,day) do update set count=30`, [B]);
+    assert.equal(await coachReserve(B, other), 'daily_limit');
 
     await db.exec('reset role');
     await query("insert into auth.identities(id,user_id,provider,provider_id) values ($1,$2,'discord','123456789012345678')", [token, A]);

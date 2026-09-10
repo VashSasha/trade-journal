@@ -2,6 +2,7 @@ import { TradovateLivePositionEventKind } from '../integrations/tradovate-live/t
 
 export interface LiveCoachPreferences {
     enabled: boolean;
+    aiCommentary: boolean;
     entries: boolean;
     sizing: boolean;
     exits: boolean;
@@ -19,10 +20,40 @@ export interface LiveCoachNarration {
     accountCount: number;
     previousQuantity: number;
     quantity: number;
+    personalized: boolean;
+}
+
+export type LiveCoachAiState = 'off' | 'ready' | 'thinking' | 'fallback';
+
+/** Bounded, identity-free context sent to the paid AI proxy. */
+export interface LiveCoachAiPayload {
+    observation: {
+        kind: TradovateLivePositionEventKind;
+        symbol: string;
+        direction: 'long' | 'short';
+        previousQuantity: number;
+        quantity: number;
+        accountCount: number;
+        averagePrice: number | null;
+    };
+    session: {
+        tradeDate: string | null;
+        dailyPnl: number;
+        weeklyPnl: number;
+        executionCount: number;
+        decisionCount: number;
+        accountCount: number;
+        winRate: number;
+        consecutiveLosses: number;
+        recentDecisionPnls: number[];
+        typicalContractsPerAccount: number | null;
+        currentContractsPerAccount: number;
+    };
 }
 
 export const DEFAULT_LIVE_COACH_PREFERENCES: Readonly<LiveCoachPreferences> = {
     enabled: false,
+    aiCommentary: false,
     entries: true,
     sizing: true,
     exits: true,

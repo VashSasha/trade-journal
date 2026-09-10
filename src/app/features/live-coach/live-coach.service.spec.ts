@@ -2,6 +2,9 @@ import { computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AccessPolicyService } from '../../core/services/access-policy.service';
+import { OpenAiService } from '../../core/services/openai.service';
+import { TradeService } from '../../core/services/trade.service';
 import { TradovateService } from '../../core/services/tradovate.service';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { AccountAlertPreferencesService } from '../alerts/account-alert-preferences.service';
@@ -26,7 +29,7 @@ function positionEvent(overrides: Partial<TradovateLivePositionEvent> = {}): Tra
 
 describe('LiveCoachService', () => {
     const preferences = signal<LiveCoachPreferences>({
-        enabled: true, entries: true, sizing: true, exits: true, guardrails: true,
+        enabled: true, aiCommentary: false, entries: true, sizing: true, exits: true, guardrails: true,
         cooldownSeconds: 10, speechRate: 1,
     });
     const events = signal<readonly TradovateLivePositionEvent[]>([]);
@@ -34,12 +37,13 @@ describe('LiveCoachService', () => {
     const userId = signal<string | null>(OWNER);
     const publish = vi.fn();
     const speak = vi.fn(async () => true);
+    const generateLiveCoachComment = vi.fn(async () => 'Stay selective and keep your size consistent.');
     const setRequested = vi.fn();
 
     beforeEach(() => {
         vi.useFakeTimers();
         preferences.set({
-            enabled: true, entries: true, sizing: true, exits: true, guardrails: true,
+            enabled: true, aiCommentary: false, entries: true, sizing: true, exits: true, guardrails: true,
             cooldownSeconds: 10, speechRate: 1,
         });
         events.set([]);
@@ -47,6 +51,7 @@ describe('LiveCoachService', () => {
         userId.set(OWNER);
         publish.mockReset();
         speak.mockClear();
+        generateLiveCoachComment.mockClear();
         setRequested.mockReset();
 
         TestBed.configureTestingModule({ providers: [
@@ -60,6 +65,7 @@ describe('LiveCoachService', () => {
             } },
             { provide: TradovateLiveService, useValue: {
                 positionEvents: events,
+                metrics: signal([]),
                 state: signal('live'),
                 statusLabel: computed(() => 'Live'),
                 statusDetail: computed(() => 'Broker updates are live.'),
@@ -69,6 +75,12 @@ describe('LiveCoachService', () => {
                 getContractForConnection: vi.fn(() => of({ id: 30, name: 'MNQZ6' })),
             } },
             { provide: UserSessionService, useValue: { userId } },
+            { provide: TradeService, useValue: { trades: signal([]) } },
+            { provide: OpenAiService, useValue: { generateLiveCoachComment } },
+            { provide: AccessPolicyService, useValue: {
+                canAct: () => true,
+                requestAction: () => true,
+            } },
             { provide: AlertCenterService, useValue: { publish } },
             { provide: PerformanceAlertsService, useValue: { event: performanceEvent } },
             { provide: LiveCoachNarratorService, useValue: {
@@ -130,5 +142,41 @@ describe('LiveCoachService', () => {
         await vi.advanceTimersByTimeAsync(1_600);
 
         expect(speak).toHaveBeenCalledWith('Daily loss limit reached at $300.', 1);
+    });
+
+    it('personalizes a grouped entry with decision-aware aggregate context', async () => {
+        preferences.update(current => ({ ...current, aiCommentary: true }));
+        const service = TestBed.inject(LiveCoachService);
+        TestBed.tick();
+        events.set([
+            positionEvent(),
+            positionEvent({ eventId: 'event-2', accountId: 11, positionId: 21, quantity: 2, observedAt: 110 }),
+        ]);
+        TestBed.tick();
+        await vi.advanceTimersByTimeAsync(900);
+        await vi.waitFor(() => expect(speak).toHaveBeenCalledOnce());
+
+        expect(generateLiveCoachComment).toHaveBeenCalledWith(expect.objectContaining({
+            observation: expect.objectContaining({ symbol: 'MNQZ6', quantity: 3, accountCount: 2 }),
+            session: expect.objectContaining({ executionCount: 0, decisionCount: 0, currentContractsPerAccount: 1.5 }),
+        }), expect.any(AbortSignal));
+        expect(speak).toHaveBeenCalledWith('Stay selective and keep your size consistent.', 1);
+        expect(service.lastComment()?.personalized).toBe(true);
+        expect(service.aiState()).toBe('ready');
+    });
+
+    it('keeps factual narration when personalization is unavailable', async () => {
+        preferences.update(current => ({ ...current, aiCommentary: true }));
+        generateLiveCoachComment.mockRejectedValueOnce(new Error('offline'));
+        const service = TestBed.inject(LiveCoachService);
+        TestBed.tick();
+        events.set([positionEvent()]);
+        TestBed.tick();
+        await vi.advanceTimersByTimeAsync(900);
+        await vi.waitFor(() => expect(speak).toHaveBeenCalledOnce());
+
+        expect(speak).toHaveBeenCalledWith('Opened MNQZ6 long with 1 contract.', 1);
+        expect(service.lastComment()?.personalized).toBe(false);
+        expect(service.aiState()).toBe('fallback');
     });
 });

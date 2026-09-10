@@ -51,7 +51,7 @@ CORS. No new secret or database migration is required.
 ## ai-report
 
 Server-side proxy for all AI features (trade analysis, chart image analysis,
-market prediction, streaming report generation). The OpenAI API key exists
+market prediction, streaming reports, and short Live Coach comments). The OpenAI API key exists
 **only** as a function secret — never in the repo or the client. The function:
 
 - Rejects requests without a valid Supabase JWT (401).
@@ -63,6 +63,10 @@ market prediction, streaming report generation). The OpenAI API key exists
   `finish_ai_request()` refunds failures before output exactly once. Partial or
   cancelled responses with generated text count. At most one pending reservation
   younger than two minutes and 30 reserved attempts/day prevent retry abuse.
+- Live Coach uses a separate 30-comment daily quota and `gpt-4o-mini`, so a
+  trading session cannot consume the user's 10 full reports. Only validated,
+  identity-free aggregate context is accepted; failed comments fall back to
+  the local factual narration and refundable reservations are settled once.
 - No automatic upstream retries; first streamed text has a 35-second deadline
   and the overall invocation a 75-second deadline. Cancellation aborts upstream.
 - `stream-analysis` requests return Server-Sent Events. OpenAI stream chunks
@@ -70,8 +74,8 @@ market prediction, streaming report generation). The OpenAI API key exists
   `message_stop`) the client parser reads. An interrupted stream emits `error`;
   EOF without `message_stop` is also a client error, never an auto-save success.
 
-Apply migrations 0018–0020 and follow [P2 rollout](../../docs/P2-fixes-rollout.md)
-before deploying this version.
+Apply migrations 0018–0020 and 0026, then follow
+[P2 rollout](../../docs/P2-fixes-rollout.md) before deploying this version.
 
 ### Deploy
 

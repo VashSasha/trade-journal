@@ -53,6 +53,12 @@ export class OpenAiService {
         return this.invokeReport('predict-market', { candles, symbol, timeframe }, 'No prediction generated.');
     }
 
+    /** Short, non-streaming coaching copy. The caller owns timeout/fallback UX. */
+    generateLiveCoachComment(payload: unknown, signal?: AbortSignal): Promise<string> {
+        if (this.access.demo()) return Promise.reject(new Error('Live coaching is unavailable in demo mode.'));
+        return this.callFunction('live-coach', payload, signal);
+    }
+
     private invokeReport(type: string, payload: unknown, emptyMessage: string): Observable<string> {
         return from(this.callFunction(type, payload)).pipe(
             map(text => text || emptyMessage),
@@ -63,7 +69,7 @@ export class OpenAiService {
         );
     }
 
-    private async callFunction(type: string, payload: unknown): Promise<string> {
+    private async callFunction(type: string, payload: unknown, signal?: AbortSignal): Promise<string> {
         if (this.access.demo()) return `Example only — not an analysis of your data.\n\n${DEMO_RESPONSES[0]}`;
         this.access.assertAction('ai');
         const scope = this.access.capture();
@@ -72,10 +78,11 @@ export class OpenAiService {
         const { data: { session } } = await this.supabase.auth.getSession();
         this.userSession.assertCurrent(scope);
         if (!session || session.user.id !== scope.userId) throw new Error('Please sign in again.');
+        const requestSignal = signal ? AbortSignal.any([scope.signal, signal]) : scope.signal;
         const { data, error } = await this.supabase.functions.invoke('ai-report', {
             body: { type, payload },
             headers: { Authorization: `Bearer ${session.access_token}` },
-            signal: scope.signal
+            signal: requestSignal
         });
         this.userSession.assertCurrent(scope);
         if (error) {

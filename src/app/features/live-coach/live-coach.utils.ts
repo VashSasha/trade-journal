@@ -1,12 +1,18 @@
 import {
+    TradovateLiveAccountMetric,
     TradovateLivePositionEvent,
     TradovateLivePositionEventKind,
 } from '../integrations/tradovate-live/tradovate-live.models';
 import {
     DEFAULT_LIVE_COACH_PREFERENCES,
+    LiveCoachAiPayload,
     LiveCoachNarration,
     LiveCoachPreferences,
 } from './live-coach.models';
+import { Trade } from '../../core/models/trade.model';
+import { inferTradeDecisions } from '../../core/utils/trade-decisions.utils';
+import { tradeSessionDateStr } from '../../core/utils/market-holidays';
+import { performanceMetrics } from '../alerts/performance-alerts.utils';
 
 function boundedNumber(value: unknown, fallback: number, min: number, max: number): number {
     return typeof value === 'number' && Number.isFinite(value)
@@ -22,6 +28,7 @@ export function parseLiveCoachPreferences(raw: string | null): LiveCoachPreferen
             : {};
         return {
             enabled: source.enabled === true,
+            aiCommentary: source.aiCommentary === true,
             entries: source.entries !== false,
             sizing: source.sizing !== false,
             exits: source.exits !== false,
@@ -124,5 +131,114 @@ export function buildLiveCoachNarration(
         accountCount,
         previousQuantity,
         quantity,
+        personalized: false,
     };
+}
+
+/** AI is intentionally reserved for meaningful lifecycle moments, not every tick. */
+export function shouldPersonalizeLiveCoachEvent(kind: TradovateLivePositionEventKind): boolean {
+    return kind === 'opened' || kind === 'closed' || kind === 'reversed';
+}
+
+/**
+ * Build aggregate coaching context without user/account identifiers. Copied
+ * executions remain visible, but decisionCount is the behavioral trade count.
+ */
+export function buildLiveCoachAiPayload(
+    events: readonly TradovateLivePositionEvent[],
+    narration: LiveCoachNarration,
+    trades: readonly Trade[],
+    liveMetrics: readonly TradovateLiveAccountMetric[],
+    symbol: string,
+    now = new Date(),
+): LiveCoachAiPayload {
+    const current = performanceMetrics([...trades], now);
+    let dailyPnl = current.dailyPnl;
+    let weeklyPnl = current.weeklyPnl;
+    const newestByAccount = new Map<number, TradovateLiveAccountMetric>();
+
+    for (const metric of liveMetrics) {
+        const existing = newestByAccount.get(metric.accountId);
+        if (!existing || metric.updatedAt > existing.updatedAt) newestByAccount.set(metric.accountId, metric);
+    }
+    for (const metric of newestByAccount.values()) {
+        const persisted = performanceMetrics(
+            trades.filter(trade => trade.accountId === String(metric.accountId)),
+            now,
+        );
+        if (metric.tradeDate === current.day && metric.dailyPnl !== null) {
+            dailyPnl += metric.dailyPnl - persisted.dailyPnl;
+        }
+        if (metric.tradeDate && metric.tradeDate >= current.week && metric.tradeDate <= current.day
+            && metric.weeklyPnl !== null) {
+            weeklyPnl += metric.weeklyPnl - persisted.weeklyPnl;
+        }
+    }
+
+    const dailyTrades = trades.filter(trade => {
+        if (trade.status !== 'closed') return false;
+        const closedAt = trade.exitDate ?? trade.entryDate;
+        return !!closedAt && tradeSessionDateStr(closedAt) === current.day;
+    });
+    const decisions = inferTradeDecisions(dailyTrades);
+    const recentDecisionPnls = decisions.decisions.slice(-5).map(decision => roundMoney(decision.totalPnl));
+    let consecutiveLosses = 0;
+    for (let index = recentDecisionPnls.length - 1; index >= 0 && recentDecisionPnls[index] < 0; index--) {
+        consecutiveLosses++;
+    }
+    const sizedDecisions = decisions.decisions.filter(decision => decision.maxQuantity > 0).slice(-20);
+    const typicalContractsPerAccount = sizedDecisions.length
+        ? roundQuantity(sizedDecisions.reduce((total, decision) => total + decision.maxQuantity, 0) / sizedDecisions.length)
+        : null;
+    const event = events[events.length - 1];
+
+    return {
+        observation: {
+            kind: narration.kind,
+            symbol: symbol.trim().slice(0, 32) || 'Position',
+            direction: event.direction,
+            previousQuantity: narration.previousQuantity,
+            quantity: narration.quantity,
+            accountCount: narration.accountCount,
+            averagePrice: event.averagePrice === null ? null : roundQuantity(event.averagePrice),
+        },
+        session: {
+            tradeDate: event.tradeDate ?? current.day,
+            dailyPnl: roundMoney(dailyPnl),
+            weeklyPnl: roundMoney(weeklyPnl),
+            executionCount: decisions.executionCount,
+            decisionCount: decisions.decisionCount,
+            accountCount: decisions.accountCount,
+            winRate: roundQuantity(decisions.winRate),
+            consecutiveLosses,
+            recentDecisionPnls,
+            typicalContractsPerAccount,
+            currentContractsPerAccount: roundQuantity(narration.quantity / Math.max(1, narration.accountCount)),
+        },
+    };
+}
+
+/** Keep model output short, single-line and safe for speech/alert surfaces. */
+export function normalizeLiveCoachAiText(value: unknown): string | null {
+    if (typeof value !== 'string') return null;
+    const normalized = value
+        .replace(/[`*_#>\[\]]/g, '')
+        .replace(/\s+/g, ' ')
+        .replace(/^['\"]|['\"]$/g, '')
+        .trim();
+    if (normalized.length < 4) return null;
+    if (/(?:^(?:buy|sell|enter|exit|hold|close|add)\b|\b(?:should|must|consider|avoid|do not|don't)\s+(?:buy|sell|enter|exit|hold|close|add)\b|\bgo (?:long|short)\b|\bmove (?:the|your) stop\b)/i.test(normalized)) {
+        return null;
+    }
+    const words = normalized.split(' ').slice(0, 32).join(' ');
+    if (words.length <= 220) return words;
+    return words.slice(0, 220).replace(/\s+\S*$/, '').trim() || null;
+}
+
+function roundMoney(value: number): number {
+    return Math.round(value * 100) / 100;
+}
+
+function roundQuantity(value: number): number {
+    return Math.round(value * 100) / 100;
 }

@@ -3,9 +3,22 @@ import { validateAiBody, MAX_AI_BODY_BYTES } from './ai-validation.ts';
 import { readJson, RequestError } from './request-body.ts';
 import { discordBotRoles, discordIdentity, discordRoles } from './discord-identity.ts';
 import { aiTextStream } from './ai-stream.ts';
+import { buildParams, normalizeCoachModelText } from './ai-prompts.ts';
 
 const input = (maxTokens: unknown = 600) => ({ type: 'stream-analysis', payload: {
     messages: [{ role: 'system', content: 'Coach the trader.' }, { role: 'user', content: '2 wins, 1 loss.' }], maxTokens,
+} });
+const coachInput = () => ({ type: 'live-coach', payload: {
+    observation: {
+        kind: 'opened', symbol: 'MNQZ6', direction: 'long', previousQuantity: 0,
+        quantity: 5, accountCount: 5, averagePrice: 23_000,
+    },
+    session: {
+        tradeDate: '2026-09-09', dailyPnl: -120, weeklyPnl: 340,
+        executionCount: 20, decisionCount: 4, accountCount: 5, winRate: 50,
+        consecutiveLosses: 1, recentDecisionPnls: [200, -100],
+        typicalContractsPerAccount: 1, currentContractsPerAccount: 1,
+    },
 } });
 Deno.test('AI validation allows the journal and image-report shapes', () => {
     assert.equal(validateAiBody(input()).payload.maxTokens, 600);
@@ -24,6 +37,29 @@ Deno.test('invalid tokens, roles, image URLs, and oversized prompts cannot reser
         { type: 'stream-analysis', payload: { messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'https://example.com/private' } }] }] } },
         { type: 'analyze-trade', payload: { marketData: [{ timestamp: 'bad' }], tradeDetails: {} } },
     ]) assert.throws(() => validateAiBody(body), RequestError);
+});
+Deno.test('Live Coach accepts only bounded aggregate context and uses the short model', () => {
+    const input = coachInput();
+    (input.payload as any).userId = 'must-be-dropped';
+    const validated = validateAiBody(input);
+    assert.equal(validated.payload.session.decisionCount, 4);
+    assert.equal(validated.payload.userId, undefined);
+    const params = buildParams(validated.type, validated.payload)!;
+    assert.equal(params.model, 'gpt-4o-mini');
+    assert.equal(params.max_tokens, 80);
+    assert.equal(normalizeCoachModelText('**Stay selective.**\n'), 'Stay selective.');
+    assert.equal(normalizeCoachModelText('Buy another contract now.'), '');
+});
+Deno.test('Live Coach rejects malformed counts, identifiers in fields, and unsupported events', () => {
+    const invalidCount = coachInput();
+    invalidCount.payload.session.decisionCount = 21;
+    assert.throws(() => validateAiBody(invalidCount), RequestError);
+    const badEvent = coachInput();
+    badEvent.payload.observation.kind = 'increased';
+    assert.throws(() => validateAiBody(badEvent), RequestError);
+    const badSymbol = coachInput();
+    badSymbol.payload.observation.symbol = 'x'.repeat(33);
+    assert.throws(() => validateAiBody(badSymbol), RequestError);
 });
 Deno.test('JSON body byte limits apply without Content-Length', async () => {
     const req = new Request('https://local.test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input()) });
