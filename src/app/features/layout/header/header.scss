@@ -54,6 +54,7 @@
     }
     .app-header__logo { height: 2rem; max-width: 100%; object-fit: contain; }
     .app-header__right { display: contents; }
+    .app-header--coach { grid-template-columns: minmax(0, 1fr) auto auto auto; }
     .app-header app-account-selector { grid-column: 1 / -1; grid-row: 2; }
     .app-header__icon-btn { width: 2rem; }
 }

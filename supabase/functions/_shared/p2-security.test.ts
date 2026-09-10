@@ -61,6 +61,17 @@ Deno.test('Live Coach rejects malformed counts, identifiers in fields, and unsup
     badSymbol.payload.observation.symbol = 'x'.repeat(33);
     assert.throws(() => validateAiBody(badSymbol), RequestError);
 });
+Deno.test('Coach voice accepts only built-in voices and previews cannot speak arbitrary text', () => {
+    const input = coachInput();
+    assert.equal(validateAiBody(input).payload.voice, 'browser');
+    (input.payload as any).voice = 'marin';
+    assert.equal(validateAiBody(input).payload.voice, 'marin');
+    (input.payload as any).voice = 'voice_untrusted';
+    assert.throws(() => validateAiBody(input), RequestError);
+    assert.deepEqual(validateAiBody({ type: 'live-coach-preview', payload: { voice: 'cedar', text: 'Untrusted text' } }),
+        { type: 'live-coach-preview', payload: { voice: 'cedar' } });
+    assert.throws(() => validateAiBody({ type: 'live-coach-preview', payload: { voice: 'browser' } }), RequestError);
+});
 Deno.test('JSON body byte limits apply without Content-Length', async () => {
     const req = new Request('https://local.test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input()) });
     assert.equal((await readJson(req, MAX_AI_BODY_BYTES) as any).type, 'stream-analysis');

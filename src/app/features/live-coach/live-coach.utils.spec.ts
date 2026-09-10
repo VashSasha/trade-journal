@@ -36,7 +36,7 @@ describe('live coach utilities', () => {
             cooldownSeconds: 999, speechRate: 0.1,
         }))).toEqual({
             enabled: true, aiCommentary: true, entries: false, sizing: true, exits: false, guardrails: false,
-            cooldownSeconds: 60, speechRate: 0.8,
+            cooldownSeconds: 60, speechRate: 0.8, voice: 'browser',
         });
     });
 

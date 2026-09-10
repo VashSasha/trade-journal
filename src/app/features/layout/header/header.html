@@ -1,4 +1,4 @@
-<header class="app-header">
+<header class="app-header" [class.app-header--coach]="coach.preferences().enabled">
     <div class="app-header__left">
         <a routerLink="/dashboard" class="app-header__brand" aria-label="NVZN Journal home">
             <img class="app-header__logo" src="NVZN_Trading_logo_transparent_noshine.png" alt="NVZN Journal" />
@@ -6,6 +6,7 @@
     </div>
     <div class="app-header__right">
         <app-sessions-widget />
+        <app-live-coach-toggle />
         <button class="app-header__icon-btn app-header__market-btn"
             [class.is-active]="marketPanel.open()"
             (click)="marketPanel.toggle('calendar')"

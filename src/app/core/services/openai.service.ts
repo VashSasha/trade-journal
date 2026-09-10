@@ -7,6 +7,7 @@ import { SupabaseService } from './supabase.service';
 import { DemoModeService } from './demo-mode.service';
 import { AccessPolicyService } from './access-policy.service';
 import { UserSessionService } from './user-session.service';
+import type { LiveCoachReply, LiveCoachVoice } from '../../features/live-coach/live-coach.models';
 
 /**
  * All AI calls go through the ai-report Supabase Edge Function — the
@@ -59,6 +60,16 @@ export class OpenAiService {
         return this.callFunction('live-coach', payload, signal);
     }
 
+    async generateLiveCoachReply(payload: unknown, signal?: AbortSignal): Promise<LiveCoachReply> {
+        if (this.access.demo()) throw new Error('Live coaching is unavailable in demo mode.');
+        return this.callFunctionData('live-coach', payload, signal);
+    }
+
+    async previewLiveCoachVoice(voice: LiveCoachVoice, signal?: AbortSignal): Promise<LiveCoachReply> {
+        if (this.access.demo()) throw new Error('Live coaching is unavailable in demo mode.');
+        return this.callFunctionData('live-coach-preview', { voice }, signal);
+    }
+
     private invokeReport(type: string, payload: unknown, emptyMessage: string): Observable<string> {
         return from(this.callFunction(type, payload)).pipe(
             map(text => text || emptyMessage),
@@ -71,6 +82,10 @@ export class OpenAiService {
 
     private async callFunction(type: string, payload: unknown, signal?: AbortSignal): Promise<string> {
         if (this.access.demo()) return `Example only — not an analysis of your data.\n\n${DEMO_RESPONSES[0]}`;
+        return (await this.callFunctionData(type, payload, signal)).text;
+    }
+
+    private async callFunctionData(type: string, payload: unknown, signal?: AbortSignal): Promise<LiveCoachReply> {
         this.access.assertAction('ai');
         const scope = this.access.capture();
         await this.auth.refreshProfile();
@@ -79,19 +94,21 @@ export class OpenAiService {
         this.userSession.assertCurrent(scope);
         if (!session || session.user.id !== scope.userId) throw new Error('Please sign in again.');
         const requestSignal = signal ? AbortSignal.any([scope.signal, signal]) : scope.signal;
+        requestSignal.throwIfAborted();
         const { data, error } = await this.supabase.functions.invoke('ai-report', {
             body: { type, payload },
             headers: { Authorization: `Bearer ${session.access_token}` },
             signal: requestSignal
         });
         this.userSession.assertCurrent(scope);
+        requestSignal.throwIfAborted();
         if (error) {
             // FunctionsHttpError carries the function's JSON body (plan/rate-limit
             // messages) on its context Response — surface that to the user.
             const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
             throw new Error(body?.error || 'AI request failed.');
         }
-        return data?.text ?? '';
+        return { text: typeof data?.text === 'string' ? data.text : '', audio: data?.audio };
     }
 
     // ── Streaming ─────────────────────────────────────────────────────────────

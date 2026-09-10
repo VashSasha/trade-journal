@@ -74,7 +74,7 @@ market prediction, streaming reports, and short Live Coach comments). The OpenAI
   `message_stop`) the client parser reads. An interrupted stream emits `error`;
   EOF without `message_stop` is also a client error, never an auto-save success.
 
-Apply migrations 0018–0020 and 0026, then follow
+Apply migrations 0018–0020 and 0025–0027, then follow
 [P2 rollout](../../docs/P2-fixes-rollout.md) before deploying this version.
 
 ### Deploy
@@ -92,9 +92,67 @@ supabase secrets set \
 
 | Secret | Purpose |
 |---|---|
-| `OPENAI_API_KEY` | OpenAI API key used for every completion |
+| `OPENAI_API_KEY` | OpenAI API key used for completions and optional Coach speech |
 | `SB_SECRET_KEY` | Shared with resolve-plan (see below) — validates JWTs, reads plans, writes `ai_usage` |
 | `APP_ORIGIN` | Shared with resolve-plan — production web origin allowed for CORS |
+
+### Live Coach natural voices
+
+Live Coach supports the browser voice plus optional AI-generated **Marin** and
+**Cedar** voices. Short, personalized entry/exit comments use `gpt-4o-mini` for
+text and `gpt-4o-mini-tts` for speech. Size changes and performance guardrails
+keep immediate browser narration. These are observations, not trade signals.
+
+From the repository root:
+
+1. Apply `supabase/migrations/0027_live_coach_voice.sql` in the Supabase SQL
+   editor. It replaces the preference RPC without deleting user data. Earlier
+   migrations, including 0025 and 0026, must already be applied. Do not rerun
+   the older migrations over the new RPC.
+2. Deploy the updated function:
+
+   ```bash
+   npx supabase functions deploy ai-report --project-ref elbcjsewyqptrckdydha
+   ```
+
+3. Deploy the frontend normally. In **Settings → Alerts → Live Coach**, enable
+   the coach and **Personalized coaching**, choose an AI voice, then click
+   **Test voice**. This also unlocks audio playback for that browser.
+
+No new secret, storage bucket, or broker permission is required. The existing
+server-only `OPENAI_API_KEY` needs access to the speech model and funded API
+billing. See the [OpenAI speech guide](https://developers.openai.com/api/docs/guides/text-to-speech).
+
+- AI voice previews use fixed server text, never arbitrary client text. They
+  share the coach's 30-successful-comment/UTC-day allowance, separate from full
+  reports; failed reservations are refunded subject to the attempt cap.
+- Browser speech stays available when AI text or audio fails, times out, or
+  reaches its allowance. The settings show fallback status. Browser audio
+  permissions still apply; **Test voice** may be needed after opening a fresh
+  browser. The 12-second client deadline discards late replies.
+- The enabled state, event choices, pace, repeat gap, and selected voice sync
+  to the user's account. Pause is local to the current tab. The header offers
+  a quick pause/resume button while the coach is enabled.
+- The last 10 observations are kept in memory for the current tab only and
+  cleared on logout/reload. NVZN does not persist this comment history or its
+  generated audio. Only bounded performance context is sent to the AI service;
+  no broker credentials or account identifiers are included.
+- Keep NVZN open and the broker stream connected. Only the tab owning the
+  live stream narrates position events; follower tabs do not duplicate them.
+  Reconnect snapshots and paused events are not replayed. Copied position
+  changes are grouped before generating a comment, and performance guardrails
+  interrupt less important speech.
+
+After deployment, smoke-test a funded paid account in a supported browser:
+preview each voice; observe one real position update when otherwise trading;
+pause/resume; change size or close before a comment finishes; confirm a second
+tab does not repeat it; then reload to verify the voice selection persists.
+Test mobile audio activation and the header pause button separately. Do not
+place trades solely to test this feature. Automated tests cover mocked broker
+and speech responses, not a paid provider call or live broker session.
+
+To disable natural speech, select **Browser voice**. To stop all coaching,
+switch **Live Coach** off; no rollback or removal of stored data is needed.
 
 ## Dashboard prerequisites (account linking + Google sign-in)
 
