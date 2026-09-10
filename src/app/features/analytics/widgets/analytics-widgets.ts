@@ -5,6 +5,7 @@ import { AnalyticsDataService } from '../analytics-data.service';
 import { HourlyPerformanceComponent } from '../components/hourly-performance/hourly-performance.component';
 import { LongShortBreakdownComponent } from '../components/long-short-breakdown/long-short-breakdown.component';
 import { MonthlyPerformanceGridComponent } from '../components/monthly-performance-grid/monthly-performance-grid.component';
+import { PnlDistributionComponent } from '../components/pnl-distribution/pnl-distribution.component';
 import { PerformanceBySetupComponent } from '../components/performance-by-setup/performance-by-setup.component';
 import { PerformanceBySymbolComponent } from '../components/performance-by-symbol/performance-by-symbol.component';
 import { PerformanceByWeekdayComponent } from '../components/performance-by-weekday/performance-by-weekday.component';
@@ -65,6 +66,23 @@ export class AnalyticsLongShortWidgetComponent extends BaseWidget {
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AnalyticsMonthlyWidgetComponent extends BaseWidget {
+    readonly data = inject(AnalyticsDataService);
+}
+
+@Component({
+    selector: 'app-analytics-distribution-widget',
+    standalone: true,
+    host: { class: 'analytics-grid-widget' },
+    imports: [AnalyticsWidgetCardComponent, PnlDistributionComponent],
+    template: `
+        <app-analytics-widget-card widgetId="distribution" title="P&amp;L distribution"
+            [meta]="data.observations().length + ' outcomes'">
+            <app-pnl-distribution [observations]="data.observations()" [unit]="data.unit()" />
+        </app-analytics-widget-card>
+    `,
+    changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class AnalyticsDistributionWidgetComponent extends BaseWidget {
     readonly data = inject(AnalyticsDataService);
 }
 
@@ -140,6 +158,7 @@ export const ANALYTICS_WIDGET_COMPONENTS = [
     AnalyticsEquityWidgetComponent,
     AnalyticsLongShortWidgetComponent,
     AnalyticsMonthlyWidgetComponent,
+    AnalyticsDistributionWidgetComponent,
     AnalyticsSymbolWidgetComponent,
     AnalyticsWeekdayWidgetComponent,
     AnalyticsHourlyWidgetComponent,

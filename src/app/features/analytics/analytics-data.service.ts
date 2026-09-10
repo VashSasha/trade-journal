@@ -3,7 +3,11 @@ import { AccountService } from '../../core/services/account.service';
 import { FilterService } from '../../core/services/filter.service';
 import { TradeService } from '../../core/services/trade.service';
 import { buildEquityCurve } from '../../core/utils/trade-stats.utils';
-import { AnalyticsUnit, analyticsUnitLabel } from './utils/analytics-performance.utils';
+import {
+    AnalyticsUnit,
+    analyticsUnitLabel,
+    buildAnalyticsObservations,
+} from './utils/analytics-performance.utils';
 
 /** Shared, scoped projections consumed independently by Analytics widgets. */
 @Injectable()
@@ -15,6 +19,9 @@ export class AnalyticsDataService {
     readonly unit = signal<AnalyticsUnit>('decision');
     readonly unitLabel = computed(() => analyticsUnitLabel(this.unit()));
     readonly filteredTrades = computed(() => this.filters.filterTrades(this.trades.trades()));
+    readonly observations = computed(() =>
+        buildAnalyticsObservations(this.filteredTrades(), this.unit()),
+    );
     readonly equityBaseline = computed(() => this.accounts.openingBalance());
     readonly equityCurveData = computed(() => {
         const filtered = this.filteredTrades();

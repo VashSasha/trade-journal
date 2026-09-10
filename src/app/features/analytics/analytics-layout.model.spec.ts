@@ -19,6 +19,9 @@ describe('normalizeAnalyticsLayout', () => {
         expect(result.find(widget => widget.id === 'monthly')).toEqual({
             id: 'monthly', x: 0, y: 2, w: 8, h: 7, hidden: true,
         });
+        expect(result.find(widget => widget.id === 'distribution')).toEqual(
+            DEFAULT_ANALYTICS_LAYOUT.find(widget => widget.id === 'distribution'),
+        );
     });
 
     it('clamps positions and dimensions to the widget catalog', () => {
