@@ -1,0 +1,64 @@
+@let model = distribution();
+
+<div class="pnl-distribution">
+    @if (model.count >= 3) {
+        <div class="pnl-distribution__visual">
+            <div class="pnl-distribution__chart">
+                <canvas #chartCanvas role="img" [attr.aria-label]="chartLabel()"></canvas>
+            </div>
+            <div class="pnl-distribution__legend" aria-hidden="true">
+                <span><i class="pnl-distribution__key pnl-distribution__key--loss"></i>Loss outcomes</span>
+                <span><i class="pnl-distribution__key pnl-distribution__key--profit"></i>Profit outcomes</span>
+            </div>
+        </div>
+
+        <aside class="pnl-distribution__readout" aria-label="Distribution interpretation">
+            <div class="pnl-distribution__insight">
+                <h3>What the shape says</h3>
+                <p>{{ takeaway() }}</p>
+            </div>
+
+            <dl class="pnl-distribution__metrics">
+                <div class="pnl-distribution__metric">
+                    <dt>Median outcome</dt>
+                    <dd [class.pnl-distribution__value--positive]="(model.median ?? 0) > 0"
+                        [class.pnl-distribution__value--negative]="(model.median ?? 0) < 0">
+                        {{ model.median ?? 0 | currency:'USD':'symbol':'1.0-0' }}
+                    </dd>
+                    <small>Your middle result</small>
+                </div>
+                <div class="pnl-distribution__metric">
+                    <dt>Middle 50%</dt>
+                    <dd>
+                        {{ model.lowerQuartile ?? 0 | currency:'USD':'symbol':'1.0-0' }}
+                        <span>to</span>
+                        {{ model.upperQuartile ?? 0 | currency:'USD':'symbol':'1.0-0' }}
+                    </dd>
+                    <small>Your usual outcome range</small>
+                </div>
+                <div class="pnl-distribution__metric">
+                    <dt>Best 10% share</dt>
+                    @if (model.topWinnerShare !== null) {
+                        <dd>{{ model.topWinnerShare | number:'1.0-0' }}%</dd>
+                        <small>
+                            {{ model.topWinnerCount }} of {{ model.winnerCount }} winning
+                            {{ model.winnerCount === 1 ? 'result' : 'results' }}
+                        </small>
+                    } @else {
+                        <dd>—</dd>
+                        <small>No profitable outcomes</small>
+                    }
+                </div>
+            </dl>
+        </aside>
+    } @else {
+        <div class="pnl-distribution__empty">
+            <svg viewBox="0 0 32 24" fill="none" aria-hidden="true">
+                <path d="M3 21V13M9.5 21V7M16 21V3M22.5 21V10M29 21V16" stroke="currentColor"
+                    stroke-width="2.5" stroke-linecap="round" />
+            </svg>
+            <strong>Not enough outcomes yet</strong>
+            <span>At least three closed {{ unitLabel() }} are needed to show their distribution.</span>
+        </div>
+    }
+</div>

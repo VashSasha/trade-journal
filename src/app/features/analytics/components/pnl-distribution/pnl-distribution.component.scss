@@ -1,0 +1,189 @@
+:host {
+    display: block;
+    min-width: 0;
+    container-type: inline-size;
+}
+
+.pnl-distribution {
+    display: grid;
+    min-height: 17rem;
+    grid-template-columns: minmax(0, 1fr) 15rem;
+    gap: 1.4rem;
+
+    &__visual {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+    }
+
+    &__chart {
+        position: relative;
+        min-width: 0;
+        height: 15rem;
+    }
+
+    &__legend {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        margin-top: 0.4rem;
+        color: var(--color-text-muted);
+        font-size: 0.66rem;
+
+        span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+    }
+
+    &__key {
+        width: 0.48rem;
+        height: 0.48rem;
+        border-radius: 0.1rem;
+        background: var(--color-text-muted);
+
+        &--loss { background: var(--color-negative); }
+        &--profit { background: var(--color-positive); }
+    }
+
+    &__readout {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        border-left: 1px solid var(--color-border);
+        padding-left: 1.25rem;
+    }
+
+    &__insight {
+        padding-bottom: 1rem;
+
+        h3 {
+            margin: 0 0 0.3rem;
+            color: var(--color-text-primary);
+            font-size: 0.76rem;
+            font-weight: 700;
+        }
+
+        p {
+            margin: 0;
+            color: var(--color-text-secondary);
+            font-size: 0.72rem;
+            line-height: 1.48;
+        }
+    }
+
+    &__metrics {
+        display: flex;
+        margin: 0;
+        flex: 1;
+        flex-direction: column;
+        border-top: 1px solid var(--color-border);
+    }
+
+    &__metric {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.08rem 0.65rem;
+        padding: 0.72rem 0;
+        border-bottom: 1px solid var(--color-border);
+
+        &:last-child { border-bottom: 0; }
+
+        dt {
+            color: var(--color-text-secondary);
+            font-size: 0.68rem;
+            font-weight: 600;
+        }
+
+        dd {
+            margin: 0;
+            color: var(--color-text-primary);
+            font-size: 0.75rem;
+            font-variant-numeric: tabular-nums;
+            font-weight: 700;
+            text-align: right;
+            white-space: nowrap;
+
+            span { color: var(--color-text-muted); font-size: 0.62rem; font-weight: 500; }
+
+            &.pnl-distribution__value--positive { color: var(--color-positive); }
+            &.pnl-distribution__value--negative { color: var(--color-negative); }
+        }
+
+        small {
+            grid-column: 1 / -1;
+            color: var(--color-text-muted);
+            font-size: 0.6rem;
+            line-height: 1.35;
+        }
+    }
+
+    &__empty {
+        grid-column: 1 / -1;
+        display: flex;
+        min-height: 17rem;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 0.35rem;
+        color: var(--color-text-muted);
+        text-align: center;
+
+        svg { width: 2.2rem; margin-bottom: 0.25rem; color: var(--color-accent); }
+        strong { color: var(--color-text-primary); font-size: 0.82rem; }
+        span { max-width: 24rem; font-size: 0.7rem; }
+    }
+}
+
+@container (max-width: 720px) {
+    .pnl-distribution {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+
+        &__readout {
+            border-top: 1px solid var(--color-border);
+            border-left: 0;
+            padding-top: 1rem;
+            padding-left: 0;
+        }
+
+        &__metrics {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        &__metric {
+            display: flex;
+            min-width: 0;
+            flex-direction: column;
+            border-right: 1px solid var(--color-border);
+            border-bottom: 0;
+            padding: 0.7rem;
+
+            &:first-child { padding-left: 0; }
+            &:last-child { border-right: 0; padding-right: 0; }
+            dd { text-align: left; white-space: normal; }
+        }
+    }
+}
+
+@container (max-width: 480px) {
+    .pnl-distribution {
+        &__chart { height: 13rem; }
+        &__legend { align-items: flex-start; flex-direction: column; gap: 0.25rem; }
+        &__metrics { grid-template-columns: 1fr; }
+
+        &__metric {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            border-right: 0;
+            border-bottom: 1px solid var(--color-border);
+            padding: 0.65rem 0;
+
+            &:last-child { border-bottom: 0; }
+            dd { text-align: right; white-space: nowrap; }
+        }
+    }
+}
