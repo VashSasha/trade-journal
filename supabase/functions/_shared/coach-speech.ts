@@ -1,4 +1,5 @@
 import type OpenAI from 'npm:openai@7.9.0';
+import { isCoachAiVoice } from './coach-voices.ts';
 
 export const COACH_VOICE_PREVIEW = 'This is your AI coach. Position updates will be short and focused. Keep your decisions deliberate and your size consistent.';
 const MAX_AUDIO_BYTES = 384 * 1024;
@@ -11,7 +12,7 @@ export async function coachSpeech(
     signal: AbortSignal,
 ): Promise<{ mimeType: 'audio/mpeg'; base64: string } | undefined> {
     if (voice === 'browser') return undefined;
-    if (!['marin', 'cedar'].includes(voice) || !text.trim() || text.length > 220) {
+    if (!isCoachAiVoice(voice) || !text.trim() || text.length > 220) {
         throw new Error('Invalid Coach speech input.');
     }
     const response = await openai.audio.speech.create({

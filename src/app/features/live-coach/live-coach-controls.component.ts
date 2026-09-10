@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { LiveCoachService } from './live-coach.service';
+import { LIVE_COACH_AI_VOICE_OPTIONS } from './live-coach-voices';
 
 @Component({
     selector: 'app-live-coach-controls',
@@ -10,6 +11,7 @@ import { LiveCoachService } from './live-coach.service';
 })
 export class LiveCoachControlsComponent {
     readonly coach = inject(LiveCoachService);
+    readonly aiVoices = LIVE_COACH_AI_VOICE_OPTIONS;
 
     checked(event: Event): boolean {
         return (event.target as HTMLInputElement).checked;

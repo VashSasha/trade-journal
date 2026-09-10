@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Trade } from '../../core/models/trade.model';
 import { TradovateLivePositionEvent } from '../integrations/tradovate-live/tradovate-live.models';
+import { LIVE_COACH_AI_VOICES, LIVE_COACH_AI_VOICE_OPTIONS } from './live-coach-voices';
 import {
     buildLiveCoachAiPayload,
     buildLiveCoachNarration,
@@ -36,8 +37,23 @@ describe('live coach utilities', () => {
             cooldownSeconds: 999, speechRate: 0.1,
         }))).toEqual({
             enabled: true, aiCommentary: true, entries: false, sizing: true, exits: false, guardrails: false,
-            cooldownSeconds: 60, speechRate: 0.8, voice: 'browser',
+            cooldownSeconds: 60, speechRate: 0.8, voice: 'cedar',
         });
+    });
+
+    it('defaults unconfigured or invalid voices to Cedar without opting users into coaching', () => {
+        for (const raw of [null, '{}', '{', JSON.stringify({ voice: 'unknown' })]) {
+            expect(parseLiveCoachPreferences(raw)).toEqual(expect.objectContaining({
+                enabled: false, aiCommentary: false, voice: 'cedar',
+            }));
+        }
+        expect(LIVE_COACH_AI_VOICE_OPTIONS[0]).toEqual({ id: 'cedar', label: 'Cedar · Default' });
+    });
+
+    it('preserves every supported saved voice, including an explicit browser selection', () => {
+        for (const voice of ['browser', ...LIVE_COACH_AI_VOICES]) {
+            expect(parseLiveCoachPreferences(JSON.stringify({ voice })).voice).toBe(voice);
+        }
     });
 
     it('coalesces copied openings into one account-aware narration', () => {

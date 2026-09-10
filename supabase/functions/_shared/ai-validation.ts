@@ -1,4 +1,5 @@
 import { RequestError } from './request-body.ts';
+import { isCoachAiVoice } from './coach-voices.ts';
 
 export const MAX_AI_BODY_BYTES = 4 * 1024 * 1024;
 const object = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -28,7 +29,8 @@ function integer(value: unknown, min: number, max: number): value is number {
 }
 
 function coachVoice(value: unknown): string {
-    requireValue(value === undefined || ['browser', 'marin', 'cedar'].includes(value as string), 'Unsupported Coach voice.');
+    requireValue(value === undefined || value === 'browser' || isCoachAiVoice(value), 'Unsupported Coach voice.');
+    // Older clients omit voice and cannot play generated audio. New clients send Cedar explicitly.
     return typeof value === 'string' ? value : 'browser';
 }
 
@@ -124,7 +126,7 @@ export function validateAiBody(body: unknown): { type: string; payload: Record<s
         case 'live-coach':
             return { type, payload: liveCoachPayload(payload) };
         case 'live-coach-preview':
-            requireValue(['marin', 'cedar'].includes(payload.voice), 'Choose an AI voice to preview.');
+            requireValue(isCoachAiVoice(payload.voice), 'Choose an AI voice to preview.');
             return { type, payload: { voice: coachVoice(payload.voice) } };
         case 'analyze-trade':
             candles(payload.marketData);

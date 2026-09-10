@@ -293,4 +293,14 @@ describe('LiveCoachService', () => {
         expect(previewLiveCoachVoice).toHaveBeenCalledExactlyOnceWith('cedar', expect.any(AbortSignal));
         expect(service.previewing()).toBe(false);
     });
+
+    it('selects and previews an additional AI voice while rejecting unknown values', async () => {
+        const service = TestBed.inject(LiveCoachService); TestBed.tick();
+        service.setVoice('coral'); TestBed.tick();
+        expect(preferences().voice).toBe('coral');
+        service.setVoice('untrusted_voice');
+        expect(preferences().voice).toBe('coral');
+        await service.preview();
+        expect(previewLiveCoachVoice).toHaveBeenCalledExactlyOnceWith('coral', expect.any(AbortSignal));
+    });
 });
