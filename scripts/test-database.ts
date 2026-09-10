@@ -2,6 +2,7 @@
 // Run: npx deno run --no-lock --node-modules-dir=none --allow-read --allow-env scripts/test-database.ts
 import { PGlite } from 'npm:@electric-sql/pglite@0.3.14';
 import assert from 'node:assert/strict';
+import { COACH_AI_VOICES } from '../supabase/functions/_shared/coach-voices.ts';
 const db = new PGlite();
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -77,6 +78,26 @@ try {
     assert.equal((await query('select prefs from user_settings where user_id=$1', [A]))[0].prefs.live_coach.voice, 'cedar');
     await assert.rejects(query('select set_my_account_alert_preferences($1,$2::jsonb)',
         ['live_coach', JSON.stringify({ ...voicePrefs, voice: 'unknown' })]), /Unsupported Coach voice/);
+
+    const beforeVoiceMigration = (await query('select prefs from user_settings where user_id=$1', [A]))[0].prefs;
+    await db.exec('reset role');
+    await migration('0028_live_coach_voice_options');
+    await migration('0028_live_coach_voice_options'); // Safe to re-run; no saved choices are rewritten.
+    await setUser(A);
+    assert.deepEqual((await query('select prefs from user_settings where user_id=$1', [A]))[0].prefs, beforeVoiceMigration);
+    for (const voice of [...COACH_AI_VOICES, 'browser']) {
+        await query('select set_my_account_alert_preferences($1,$2::jsonb)', ['live_coach', JSON.stringify({ ...voicePrefs, voice })]);
+        await query('select set_my_account_alert_preferences($1,$2::jsonb)', ['live_coach', JSON.stringify(voicePrefs)]);
+        assert.equal((await query('select prefs from user_settings where user_id=$1', [A]))[0].prefs.live_coach.voice, voice);
+    }
+    // Simulate old preferences with no selected voice; unrelated preferences survive the new default.
+    await query("update user_settings set prefs=jsonb_set(prefs, '{live_coach}', (prefs->'live_coach') - 'voice') where user_id=$1", [A]);
+    await query('select set_my_account_alert_preferences($1,$2::jsonb)', ['live_coach', JSON.stringify(voicePrefs)]);
+    assert.deepEqual((await query('select prefs from user_settings where user_id=$1', [A]))[0].prefs, beforeVoiceMigration);
+    for (const voice of ['untrusted', null, { id: 'custom_voice' }]) {
+        await assert.rejects(query('select set_my_account_alert_preferences($1,$2::jsonb)',
+            ['live_coach', JSON.stringify({ ...voicePrefs, voice })]), /Unsupported Coach voice/);
+    }
     await assert.rejects(
         query('select set_my_account_alert_preferences($1,$2::jsonb)', [
             'market_event_alerts', JSON.stringify({ enabled: true, leadMinutes: 7, highOnly: true }),

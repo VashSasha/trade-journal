@@ -13,7 +13,8 @@ import { PerformanceAlertsService } from '../alerts/performance-alerts.service';
 import { TradovateLivePositionEvent } from '../integrations/tradovate-live/tradovate-live.models';
 import { TradovateLiveService } from '../integrations/tradovate-live/tradovate-live.service';
 import { LiveCoachNarratorService } from './live-coach-narrator.service';
-import { LiveCoachAiState, LiveCoachNarration, LiveCoachPreferences, LiveCoachReply, LiveCoachVoice } from './live-coach.models';
+import { LiveCoachAiState, LiveCoachNarration, LiveCoachPreferences, LiveCoachReply } from './live-coach.models';
+import { isLiveCoachVoice } from './live-coach-voices';
 import {
     buildLiveCoachAiPayload,
     buildLiveCoachNarration,
@@ -185,10 +186,10 @@ export class LiveCoachService {
     }
 
     setVoice(voice: string): void {
-        if (!['browser', 'marin', 'cedar'].includes(voice)) return;
+        if (!isLiveCoachVoice(voice)) return;
         if (voice !== 'browser' && !this.access.requestAction('ai')) return;
         this.interrupt();
-        this.update(current => ({ ...current, voice: voice as LiveCoachVoice }));
+        this.update(current => ({ ...current, voice }));
         if (voice !== 'browser') void this.narrator.activate();
     }
 

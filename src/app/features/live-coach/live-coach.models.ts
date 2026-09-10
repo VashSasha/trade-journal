@@ -1,6 +1,7 @@
 import { TradovateLivePositionEventKind } from '../integrations/tradovate-live/tradovate-live.models';
+import { DEFAULT_LIVE_COACH_VOICE, LiveCoachVoice } from './live-coach-voices';
 
-export type LiveCoachVoice = 'browser' | 'marin' | 'cedar';
+export type { LiveCoachVoice } from './live-coach-voices';
 export interface LiveCoachAudio { mimeType: 'audio/mpeg'; base64: string; }
 export interface LiveCoachReply { text: string; audio?: LiveCoachAudio; }
 
@@ -66,5 +67,5 @@ export const DEFAULT_LIVE_COACH_PREFERENCES: Readonly<LiveCoachPreferences> = {
     guardrails: true,
     cooldownSeconds: 10,
     speechRate: 1,
-    voice: 'browser',
+    voice: DEFAULT_LIVE_COACH_VOICE,
 };

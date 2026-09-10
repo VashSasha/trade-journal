@@ -105,6 +105,26 @@ describe('account-synced alert preferences', () => {
         expect(localStorage.getItem(`${PENDING_KEY}${A}:market`)).toBeNull();
     });
 
+    it('defaults a fresh account to Cedar without automatically enabling coaching', async () => {
+        const { service, rpc } = setup();
+        await vi.waitFor(() => expect(service.loading()).toBe(false));
+        expect(service.liveCoach()).toEqual(expect.objectContaining({
+            voice: 'cedar', enabled: false, aiCommentary: false,
+        }));
+        expect(rpc).not.toHaveBeenCalled();
+    });
+
+    it('loads an additional saved AI voice in a fresh browser and preserves it on edits', async () => {
+        const { service, rpc } = setup({ [A]: { live_coach: { voice: 'coral' } } });
+        await vi.waitFor(() => expect(service.loading()).toBe(false));
+        expect(service.liveCoach().voice).toBe('coral');
+        service.updateLiveCoach(current => ({ ...current, speechRate: 1.2 }));
+        await vi.waitFor(() => expect(rpc).toHaveBeenCalledOnce());
+        expect(rpc).toHaveBeenCalledWith('set_my_account_alert_preferences', {
+            p_kind: 'live_coach', p_preferences: expect.objectContaining({ voice: 'coral', speechRate: 1.2 }),
+        });
+    });
+
     it('syncs account edits but keeps desktop-notification opt-in on this browser', async () => {
         const { service, rpc } = setup({ [A]: {
             performance_alerts: {

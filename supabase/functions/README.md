@@ -74,7 +74,7 @@ market prediction, streaming reports, and short Live Coach comments). The OpenAI
   `message_stop`) the client parser reads. An interrupted stream emits `error`;
   EOF without `message_stop` is also a client error, never an auto-save success.
 
-Apply migrations 0018–0020 and 0025–0027, then follow
+Apply migrations 0018–0020 and 0025–0028, then follow
 [P2 rollout](../../docs/P2-fixes-rollout.md) before deploying this version.
 
 ### Deploy
@@ -98,16 +98,19 @@ supabase secrets set \
 
 ### Live Coach natural voices
 
-Live Coach supports the browser voice plus optional AI-generated **Marin** and
-**Cedar** voices. Short, personalized entry/exit comments use `gpt-4o-mini` for
+Live Coach defaults unconfigured voice selections to **Cedar** and offers 13
+built-in AI voices: Cedar, Marin, Alloy, Ash, Ballad, Coral, Echo, Fable, Nova,
+Onyx, Sage, Shimmer, and Verse. Browser voice remains available. Existing saved
+selections are preserved, and coaching/personalization remain opt-in.
+Short, personalized entry/exit comments use `gpt-4o-mini` for
 text and `gpt-4o-mini-tts` for speech. Size changes and performance guardrails
 keep immediate browser narration. These are observations, not trade signals.
 
 From the repository root:
 
-1. Apply `supabase/migrations/0027_live_coach_voice.sql` in the Supabase SQL
+1. Apply `supabase/migrations/0028_live_coach_voice_options.sql` in the Supabase SQL
    editor. It replaces the preference RPC without deleting user data. Earlier
-   migrations, including 0025 and 0026, must already be applied. Do not rerun
+   migrations, including 0025–0027, must already be applied. Do not rerun
    the older migrations over the new RPC.
 2. Deploy the updated function:
 

@@ -64,8 +64,10 @@ Deno.test('Live Coach rejects malformed counts, identifiers in fields, and unsup
 Deno.test('Coach voice accepts only built-in voices and previews cannot speak arbitrary text', () => {
     const input = coachInput();
     assert.equal(validateAiBody(input).payload.voice, 'browser');
-    (input.payload as any).voice = 'marin';
-    assert.equal(validateAiBody(input).payload.voice, 'marin');
+    for (const voice of ['cedar', 'marin', 'alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse', 'browser']) {
+        (input.payload as any).voice = voice;
+        assert.equal(validateAiBody(input).payload.voice, voice);
+    }
     (input.payload as any).voice = 'voice_untrusted';
     assert.throws(() => validateAiBody(input), RequestError);
     assert.deepEqual(validateAiBody({ type: 'live-coach-preview', payload: { voice: 'cedar', text: 'Untrusted text' } }),

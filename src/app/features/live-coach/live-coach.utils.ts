@@ -13,6 +13,7 @@ import { Trade } from '../../core/models/trade.model';
 import { inferTradeDecisions } from '../../core/utils/trade-decisions.utils';
 import { tradeSessionDateStr } from '../../core/utils/market-holidays';
 import { performanceMetrics } from '../alerts/performance-alerts.utils';
+import { DEFAULT_LIVE_COACH_VOICE, isLiveCoachVoice } from './live-coach-voices';
 
 function boundedNumber(value: unknown, fallback: number, min: number, max: number): number {
     return typeof value === 'number' && Number.isFinite(value)
@@ -29,7 +30,7 @@ export function parseLiveCoachPreferences(raw: string | null): LiveCoachPreferen
         return {
             enabled: source.enabled === true,
             aiCommentary: source.aiCommentary === true,
-            voice: source.voice === 'marin' || source.voice === 'cedar' ? source.voice : 'browser',
+            voice: isLiveCoachVoice(source.voice) ? source.voice : DEFAULT_LIVE_COACH_VOICE,
             entries: source.entries !== false,
             sizing: source.sizing !== false,
             exits: source.exits !== false,
