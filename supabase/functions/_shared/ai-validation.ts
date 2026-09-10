@@ -27,6 +27,11 @@ function integer(value: unknown, min: number, max: number): value is number {
     return finite(value, min, max) && Number.isInteger(value);
 }
 
+function coachVoice(value: unknown): string {
+    requireValue(value === undefined || ['browser', 'marin', 'cedar'].includes(value as string), 'Unsupported Coach voice.');
+    return typeof value === 'string' ? value : 'browser';
+}
+
 function liveCoachPayload(payload: Record<string, any>): Record<string, any> {
     const observation = payload.observation;
     const session = payload.session;
@@ -55,6 +60,7 @@ function liveCoachPayload(payload: Record<string, any>): Record<string, any> {
     requireValue(finite(session.currentContractsPerAccount, 0, 100_000), 'Invalid current size.');
 
     return {
+        voice: coachVoice(payload.voice),
         observation: {
             kind: observation.kind,
             symbol: observation.symbol.trim(),
@@ -117,6 +123,9 @@ export function validateAiBody(body: unknown): { type: string; payload: Record<s
         }
         case 'live-coach':
             return { type, payload: liveCoachPayload(payload) };
+        case 'live-coach-preview':
+            requireValue(['marin', 'cedar'].includes(payload.voice), 'Choose an AI voice to preview.');
+            return { type, payload: { voice: coachVoice(payload.voice) } };
         case 'analyze-trade':
             candles(payload.marketData);
             requireValue(object(payload.tradeDetails), 'Trade details are required.');

@@ -70,4 +70,14 @@ describe('paid AI access and streaming failures', () => {
             signal: expect.any(AbortSignal),
         }));
     });
+
+    it('retains voice audio in Coach replies and rejects requests aborted during auth', async () => {
+        const audio = { mimeType: 'audio/mpeg' as const, base64: 'YWJj' };
+        invoke.mockResolvedValueOnce({ data: { text: 'Stay selective.', audio } as any, error: null });
+        await expect(ai.generateLiveCoachReply({ voice: 'marin' })).resolves.toEqual({ text: 'Stay selective.', audio });
+        invoke.mockClear();
+        const controller = new AbortController(); controller.abort();
+        await expect(ai.previewLiveCoachVoice('cedar', controller.signal)).rejects.toThrow();
+        expect(invoke).not.toHaveBeenCalled();
+    });
 });

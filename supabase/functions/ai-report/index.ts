@@ -5,6 +5,7 @@ import { buildParams, normalizeCoachModelText } from '../_shared/ai-prompts.ts';
 import { validateAiBody, MAX_AI_BODY_BYTES } from '../_shared/ai-validation.ts';
 import { readJson, RequestError } from '../_shared/request-body.ts';
 import { aiTextStream } from '../_shared/ai-stream.ts';
+import { coachSpeech, COACH_VOICE_PREVIEW } from '../_shared/coach-speech.ts';
 
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SB_SECRET_KEY')!, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -71,7 +72,7 @@ Deno.serve(async req => {
         }
 
         const body = validateAiBody(await readJson(req, MAX_AI_BODY_BYTES));
-        requestKind = body.type === 'live-coach' ? 'live-coach' : 'report';
+        requestKind = body.type.startsWith('live-coach') ? 'live-coach' : 'report';
         const params = buildParams(body.type, body.payload)!;
         const key = Deno.env.get('OPENAI_API_KEY');
         if (!key) throw new RequestError('AI service is temporarily unavailable.', 503);
@@ -99,6 +100,11 @@ Deno.serve(async req => {
             throw new RequestError(message, 429);
         }
         requestId = candidate;
+        if (body.type === 'live-coach-preview') {
+            const audio = await coachSpeech(openai, COACH_VOICE_PREVIEW, body.payload.voice, controller.signal);
+            await finish(true);
+            return json({ text: COACH_VOICE_PREVIEW, audio });
+        }
         if (body.type === 'stream-analysis') {
             // Validate the first actual text before committing 200 response headers.
             firstByteDeadline = setTimeout(abort, 35_000);
@@ -121,8 +127,12 @@ Deno.serve(async req => {
         const rawText = completion.choices[0]?.message?.content;
         const text = requestKind === 'live-coach' ? normalizeCoachModelText(rawText) : rawText;
         if (!text?.trim()) throw new Error('Empty AI response');
+        // Text remains useful if speech times out; never lose a valid comment.
+        const audio = requestKind === 'live-coach'
+            ? await coachSpeech(openai, text, body.payload.voice, controller.signal).catch(() => undefined)
+            : undefined;
         await finish(true);
-        return json({ text });
+        return json({ text, ...(audio ? { audio } : {}) });
     } catch (error) {
         abort();
         await finish(false);

@@ -29,6 +29,7 @@ try {
     await migration('0024_account_alert_preferences');
     await migration('0025_live_coach_preferences');
     await migration('0026_live_coach_ai');
+    await migration('0027_live_coach_voice');
     await db.exec(`grant usage on schema auth, public to authenticated, service_role;
         grant select,insert,update,delete on public.trades to authenticated;
         grant select,insert,update on public.user_settings to authenticated;
@@ -68,6 +69,14 @@ try {
     assert.equal(alertPrefs.performance_alerts.dailyTrades.value, 8);
     assert.equal(alertPrefs.live_coach.enabled, true);
     assert.equal(alertPrefs.live_coach.aiCommentary, true);
+    assert.equal(alertPrefs.live_coach.voice, 'browser');
+    const voicePrefs = { ...alertPrefs.live_coach, voice: 'cedar' };
+    await query('select set_my_account_alert_preferences($1,$2::jsonb)', ['live_coach', JSON.stringify(voicePrefs)]);
+    delete voicePrefs.voice;
+    await query('select set_my_account_alert_preferences($1,$2::jsonb)', ['live_coach', JSON.stringify(voicePrefs)]);
+    assert.equal((await query('select prefs from user_settings where user_id=$1', [A]))[0].prefs.live_coach.voice, 'cedar');
+    await assert.rejects(query('select set_my_account_alert_preferences($1,$2::jsonb)',
+        ['live_coach', JSON.stringify({ ...voicePrefs, voice: 'unknown' })]), /Unsupported Coach voice/);
     await assert.rejects(
         query('select set_my_account_alert_preferences($1,$2::jsonb)', [
             'market_event_alerts', JSON.stringify({ enabled: true, leadMinutes: 7, highOnly: true }),

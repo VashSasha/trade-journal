@@ -66,7 +66,7 @@ describe('account-synced alert preferences', () => {
         const market = { enabled: true, leadMinutes: 30, highOnly: false };
         const coach = {
             enabled: true, aiCommentary: true, entries: true, sizing: false, exits: true, guardrails: true,
-            cooldownSeconds: 20, speechRate: 1.2,
+            cooldownSeconds: 20, speechRate: 1.2, voice: 'browser',
         };
         const { service, rpc } = setup({ [A]: {
             performance_alerts: performance,
@@ -132,7 +132,7 @@ describe('account-synced alert preferences', () => {
         const { service, rpc } = setup({ [A]: {
             live_coach: {
                 enabled: false, aiCommentary: false, entries: true, sizing: true, exits: true, guardrails: true,
-                cooldownSeconds: 10, speechRate: 1,
+                cooldownSeconds: 10, speechRate: 1, voice: 'browser',
             },
         } });
         await vi.waitFor(() => expect(service.loading()).toBe(false));
@@ -144,7 +144,7 @@ describe('account-synced alert preferences', () => {
             p_kind: 'live_coach',
             p_preferences: {
                 enabled: true, aiCommentary: false, entries: true, sizing: true, exits: true, guardrails: true,
-                cooldownSeconds: 20, speechRate: 1,
+                cooldownSeconds: 20, speechRate: 1, voice: 'browser',
             },
         });
         expect(localStorage.getItem(COACH_KEY + A)).not.toBeNull();
