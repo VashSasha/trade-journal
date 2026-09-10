@@ -1749,7 +1749,8 @@ export class TradovateService {
         accountId?: number,
         attempt: number = 0,
         pTicket?: string,
-        conn?: TradovateConnection
+        conn?: TradovateConnection,
+        confirmingEmptyReport: boolean = false
     ): Observable<any[]> {
         const scope = this.captureBroker();
         if (conn) {
@@ -1793,8 +1794,33 @@ export class TradovateService {
                 try { return JSON.parse(raw); } catch { return { data: raw }; }
             }),
             switchMap((res: any): Observable<any[]> => {
-                if (res.data && typeof res.data === 'string') {
+                if (typeof res.data === 'string') {
                     const raw = res.data;
+                    // Tradovate returns a successful blank report for brand-new
+                    // accounts with no completed trades. Confirm it with a second,
+                    // independent request before accepting [] so a single truncated
+                    // response cannot advance the historical-sync watermark.
+                    if (!raw.trim()) {
+                        if (confirmingEmptyReport) {
+                            if (isDevMode()) {
+                                console.info(`[TradovateService] Confirmed no Performance trades for ${accountName ?? 'account'}`);
+                            }
+                            return of([]);
+                        }
+                        if (isDevMode()) {
+                            console.info(`[TradovateService] Blank Performance report for ${accountName ?? 'account'}; confirming...`);
+                        }
+                        return this.getPerformanceTrades(
+                            startDate,
+                            endDate,
+                            accountName,
+                            accountId,
+                            0,
+                            undefined,
+                            conn,
+                            true
+                        );
+                    }
                     const looksHtml = raw.trim().startsWith('<') || raw.toLowerCase().includes('<table') || raw.includes('performance-chart');
                     if (looksHtml) {
                         // Fallback: Tradovate ignored csv and rendered the HTML template.
@@ -1814,7 +1840,16 @@ export class TradovateService {
                     const nextWait = Math.max((res['p-time'] || 2) * 1000, 2000);
                     if (isDevMode()) { console.log(`[TradovateService] Performance p-ticket poll #${attempt + 1}, waiting ${nextWait / 1000}s...`); }
                     return timer(nextWait).pipe(
-                        switchMap(() => this.getPerformanceTrades(startDate, endDate, accountName, accountId, attempt + 1, res['p-ticket'], conn))
+                        switchMap(() => this.getPerformanceTrades(
+                            startDate,
+                            endDate,
+                            accountName,
+                            accountId,
+                            attempt + 1,
+                            res['p-ticket'],
+                            conn,
+                            confirmingEmptyReport
+                        ))
                     );
                 }
                 if (res.errorText) {

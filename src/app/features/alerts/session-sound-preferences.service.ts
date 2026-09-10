@@ -39,6 +39,7 @@ export class SessionSoundPreferencesService {
     private cacheUpdatedAt = 0;
     private saveTimer: number | undefined;
     private saveChain: Promise<void> = Promise.resolve();
+    private readonly queuedSaveKeys = new Set<string>();
 
     constructor() {
         effect(() => this.startOwnerLoad(this.session.userId()));
@@ -170,6 +171,9 @@ export class SessionSoundPreferencesService {
         revision: number,
         updatedAt: number,
     ): void {
+        const saveKey = `${owner}:${updatedAt}`;
+        if (this.queuedSaveKeys.has(saveKey)) return;
+        this.queuedSaveKeys.add(saveKey);
         this.saveChain = this.saveChain.catch(() => undefined).then(async () => {
             if (this.session.userId() !== owner) return;
             const operation = this.session.capture();
@@ -186,6 +190,8 @@ export class SessionSoundPreferencesService {
             this.syncWarning.set(false);
         }).catch(() => {
             if (this.session.userId() === owner) this.syncWarning.set(true);
+        }).finally(() => {
+            this.queuedSaveKeys.delete(saveKey);
         });
     }
 
