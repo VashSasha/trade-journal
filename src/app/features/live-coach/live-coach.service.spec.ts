@@ -9,6 +9,7 @@ import { TradovateService } from '../../core/services/tradovate.service';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { AccountAlertPreferencesService } from '../alerts/account-alert-preferences.service';
 import { AlertCenterService } from '../alerts/alert-center.service';
+import { SessionAlertsService } from '../alerts/session-alerts.service';
 import { PerformanceAlertsService } from '../alerts/performance-alerts.service';
 import { TradovateLivePositionEvent } from '../integrations/tradovate-live/tradovate-live.models';
 import { TradovateLiveService } from '../integrations/tradovate-live/tradovate-live.service';
@@ -32,12 +33,13 @@ describe('LiveCoachService', () => {
         enabled: true, aiCommentary: false, entries: true, sizing: true, exits: true, guardrails: true,
         cooldownSeconds: 10, speechRate: 1, voice: 'browser',
     });
+    const masterEnabled = signal(true);
     const events = signal<readonly TradovateLivePositionEvent[]>([]);
     const performanceEvent = signal<{ id: number; tone: 'target' | 'risk'; text: string } | null>(null);
     const userId = signal<string | null>(OWNER);
     const publish = vi.fn();
     const speak = vi.fn(async () => true);
-    const generateLiveCoachReply = vi.fn(async (): Promise<LiveCoachReply> => ({ text: 'Stay selective and keep your size consistent.' }));
+    const generateLiveCoachReply = vi.fn(async (_payload: unknown, _signal: AbortSignal): Promise<LiveCoachReply> => ({ text: 'Stay selective and keep your size consistent.' }));
     const setRequested = vi.fn();
     const liveState = signal('live');
     const stop = vi.fn();
@@ -50,6 +52,7 @@ describe('LiveCoachService', () => {
             enabled: true, aiCommentary: false, entries: true, sizing: true, exits: true, guardrails: true,
             cooldownSeconds: 10, speechRate: 1, voice: 'browser',
         });
+        masterEnabled.set(true);
         events.set([]);
         performanceEvent.set(null);
         userId.set(OWNER);
@@ -63,6 +66,7 @@ describe('LiveCoachService', () => {
         setRequested.mockReset();
 
         TestBed.configureTestingModule({ providers: [
+            { provide: SessionAlertsService, useValue: { enabled: masterEnabled } },
             { provide: AccountAlertPreferencesService, useValue: {
                 liveCoach: preferences,
                 loading: signal(false),
@@ -138,6 +142,39 @@ describe('LiveCoachService', () => {
         TestBed.tick();
         await vi.advanceTimersByTimeAsync(1_000);
 
+        expect(speak).not.toHaveBeenCalled();
+    });
+    it('preserves coach preferences and drops all events and previews while master-muted', async () => {
+        const service = TestBed.inject(LiveCoachService); TestBed.tick();
+        const saved = preferences();
+        masterEnabled.set(false); TestBed.tick();
+        events.set([positionEvent()]); TestBed.tick();
+        performanceEvent.set({ id: 1, tone: 'risk', text: 'Loss limit reached.' }); TestBed.tick();
+        await service.preview();
+        await vi.advanceTimersByTimeAsync(2000);
+        expect(speak).not.toHaveBeenCalled();
+        expect(previewLiveCoachVoice).not.toHaveBeenCalled();
+        masterEnabled.set(true); TestBed.tick();
+        await vi.advanceTimersByTimeAsync(2000);
+        expect(speak).not.toHaveBeenCalled();
+        expect(preferences()).toBe(saved);
+        events.set([positionEvent({ eventId: 'fresh-event' })]); TestBed.tick();
+        await vi.advanceTimersByTimeAsync(900);
+        expect(speak).toHaveBeenCalledOnce();
+    });
+    it('aborts a pending AI reply on master mute and never speaks it after unmute', async () => {
+        preferences.update(p => ({ ...p, aiCommentary: true }));
+        let resolve!: (value: LiveCoachReply) => void;
+        generateLiveCoachReply.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+        TestBed.inject(LiveCoachService); TestBed.tick();
+        events.set([positionEvent()]); TestBed.tick();
+        await vi.advanceTimersByTimeAsync(900);
+        const requestSignal = generateLiveCoachReply.mock.calls[0][1] as AbortSignal;
+        masterEnabled.set(false); TestBed.tick();
+        expect(requestSignal.aborted).toBe(true);
+        masterEnabled.set(true); TestBed.tick();
+        resolve({ text: 'Stale comment.', audio: { mimeType: 'audio/mpeg', base64: 'YWJj' } });
+        await vi.advanceTimersByTimeAsync(1000);
         expect(speak).not.toHaveBeenCalled();
     });
 
@@ -250,9 +287,9 @@ describe('LiveCoachService', () => {
     it('stops on pause, remote disable, and logout without replaying buffered trades', async () => {
         const service = TestBed.inject(LiveCoachService); TestBed.tick();
         events.set([positionEvent()]); TestBed.tick();
-        service.togglePause(); TestBed.tick();
+        masterEnabled.update(value => !value); TestBed.tick();
         await vi.advanceTimersByTimeAsync(1000);
-        service.togglePause(); TestBed.tick();
+        masterEnabled.update(value => !value); TestBed.tick();
         await vi.advanceTimersByTimeAsync(1000);
         expect(speak).not.toHaveBeenCalled();
         preferences.update(value => ({ ...value, enabled: false })); TestBed.tick();

@@ -18,7 +18,7 @@ describe('custom alert sound controls', () => {
             removeCustomSound: vi.fn(async () => {}),
         };
         const sounds = {
-            previewing: signal(false), state: signal('off'), preferences: signal({ volume: 45 }), preview: vi.fn(async () => {}),
+            enabled: signal(true), previewing: signal(false), state: signal('off'), preferences: signal({ volume: 45 }), preview: vi.fn(async () => {}),
         };
         TestBed.configureTestingModule({ providers: [
             { provide: AlertAudioService, useValue: audio },

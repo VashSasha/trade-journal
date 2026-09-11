@@ -1,0 +1,49 @@
+<section class="session-settings" aria-labelledby="session-settings-title">
+    <header class="session-settings__header">
+        <h3 id="session-settings-title">Sessions</h3>
+        <p>Choose what appears in the header and triggers session bells.</p>
+    </header>
+    @for (session of schedule.presets; track session.id) {
+        @let pref = schedule.preferences()[session.id];
+        <div class="session-settings__row">
+            <div class="session-settings__summary">
+                <label class="session-settings__identity">
+                    <input type="checkbox" role="switch" [checked]="pref.enabled" [disabled]="schedule.loading()"
+                        (change)="setEnabled(session.id, $event)" [attr.aria-label]="'Track ' + session.name" />
+                    <span><strong>{{ session.name }}</strong><small>{{ session.city }} time · {{ session.id === 'asia' ? 'Sun–Thu starts' : 'Mon–Fri' }}</small></span>
+                </label>
+                <span class="session-settings__hours">{{ time(pref.openMinute) }} – {{ time(pref.closeMinute) }}@if (pref.closeMinute < pref.openMinute) { <small>next day</small> }</span>
+                <button type="button" class="session-settings__edit" [disabled]="schedule.loading()"
+                    [attr.aria-label]="'Edit ' + session.name + ' hours'" [attr.aria-expanded]="editing() === session.id"
+                    [attr.aria-controls]="'session-editor-' + session.id"
+                    (click)="editing() === session.id ? editing.set(null) : edit(session.id)">Edit</button>
+            </div>
+            @if (editing() === session.id) {
+                <form class="session-settings__editor" [id]="'session-editor-' + session.id" (submit)="save(session.id, $event)">
+                    <fieldset [disabled]="schedule.loading()">
+                        <legend class="session-settings__editor-label">Hours in {{ session.timeZone }}</legend>
+                        <label>Opens<input type="text" required autocomplete="off" spellcheck="false" placeholder="5:00 PM"
+                            [value]="opening()" (input)="opening.set($any($event.target).value)" [attr.aria-invalid]="!!errors()[session.id]" /></label>
+                        <label>Closes<input type="text" required autocomplete="off" spellcheck="false" placeholder="2:00 AM"
+                            [value]="closing()" (input)="closing.set($any($event.target).value)" [attr.aria-invalid]="!!errors()[session.id]" /></label>
+                        <div class="session-settings__actions">
+                            <button type="submit" class="session-settings__save">Save</button>
+                            <button type="button" (click)="editing.set(null)">Cancel</button>
+                            <button type="button" (click)="reset(session.id)">Reset hours</button>
+                        </div>
+                    </fieldset>
+                    @if (errors()[session.id]) { <p role="alert">{{ errors()[session.id] }}</p> }
+                </form>
+            }
+        </div>
+    }
+    <app-session-alert-controls section="bells" [expanded]="true" [settingsView]="true" />
+    <details class="session-settings__help">
+        <summary>About session hours</summary>
+        <p>Asia / Overnight defaults to 5 PM–2 AM Central, an editable NVZN reference—not Tokyo exchange hours. Changes affect the header and bells, not trade dates or P&amp;L.</p>
+        <p>Daylight saving is automatic. Windows with a boundary in a missing spring-forward hour are skipped. Holidays and early closes are not included. Preferences sync to your account.</p>
+    </details>
+    @if (schedule.loading()) { <p role="status">Loading session preferences…</p> }
+    @if (schedule.syncWarning()) { <p role="status">Session settings could not sync. Your browser copy will retry when online.</p> }
+    @if (schedule.storageWarning()) { <p role="status">This browser could not cache session settings.</p> }
+</section>

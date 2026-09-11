@@ -4,18 +4,16 @@ import { ThemeService } from '../../../core/services/theme.service';
 import { AccountSelectorComponent } from './account-selector/account-selector.component';
 import { SessionsWidgetComponent } from '../../sessions/sessions-widget.component';
 import { MarketPanelService } from '../../market-events/market-panel.service';
-import { LiveCoachToggleComponent } from '../../live-coach/live-coach-toggle.component';
-import { LiveCoachService } from '../../live-coach/live-coach.service';
+import { MasterSoundToggleComponent } from '../../alerts/master-sound-toggle.component';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [AccountSelectorComponent, SessionsWidgetComponent, RouterLink, LiveCoachToggleComponent],
+  imports: [AccountSelectorComponent, SessionsWidgetComponent, RouterLink, MasterSoundToggleComponent],
   templateUrl: './header.html',
   styleUrl: './header.scss',
 })
 export class Header {
-  coach = inject(LiveCoachService);
   theme = inject(ThemeService);
   marketPanel = inject(MarketPanelService);
 }

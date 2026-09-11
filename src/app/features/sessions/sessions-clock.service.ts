@@ -1,15 +1,17 @@
 import { DOCUMENT } from '@angular/common';
 import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { getSessionsSnapshot } from './sessions.utils';
+import { SessionScheduleService } from './session-schedule.service';
 
 /** Scoped to the widget: no background work after its host is destroyed. */
 @Injectable()
 export class SessionsClockService {
     private readonly document = inject(DOCUMENT);
     private readonly destroyRef = inject(DestroyRef);
+    private readonly schedule = inject(SessionScheduleService);
     readonly now = signal(Date.now());
     readonly state = computed(() => {
-        try { return { snapshot: getSessionsSnapshot(this.now()), error: null }; }
+        try { return { snapshot: getSessionsSnapshot(this.now(), this.schedule.definitions()), error: null }; }
         catch { return { snapshot: null, error: 'Session times are unavailable on this device.' }; }
     });
 

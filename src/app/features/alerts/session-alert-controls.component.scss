@@ -43,4 +43,11 @@
         .session-sounds__head p { font-size: 0.75rem; }
         .session-sounds__kinds label, .session-sounds__volume { font-size: 0.8125rem; }
     }
+    &--bells {
+        border-top: 1px solid var(--color-border);
+        .session-sounds__body { padding: 0.5rem 0 0.75rem; }
+        .session-sounds__kinds { margin-top: 0; }
+        .session-sounds__kinds label { min-height: 44px; }
+        .session-sounds__tests button { min-height: 44px; }
+    }
 }

@@ -10,10 +10,10 @@ const overnight: SessionDefinition = {
 
 describe('reference session windows', () => {
     it.each([
-        [asia, '2026-01-12', '2026-01-12T00:00Z', '2026-01-12T09:00Z'],
+        [asia, '2026-01-12', '2026-01-12T23:00Z', '2026-01-13T08:00Z'],
         [london, '2026-01-12', '2026-01-12T08:00Z', '2026-01-12T17:00Z'],
         [newYork, '2026-01-12', '2026-01-12T14:30Z', '2026-01-12T21:00Z'],
-        [asia, '2026-07-06', '2026-07-06T00:00Z', '2026-07-06T09:00Z'],
+        [asia, '2026-07-06', '2026-07-06T22:00Z', '2026-07-07T07:00Z'],
         [london, '2026-07-06', '2026-07-06T07:00Z', '2026-07-06T16:00Z'],
         [newYork, '2026-07-06', '2026-07-06T13:30Z', '2026-07-06T20:00Z'],
         // US and UK change clocks on different weekends.
@@ -42,22 +42,23 @@ describe('reference session windows', () => {
         expect(state.active[0].progress).toBeCloseTo(100 * 7 / 9);
         expect(state.active[1].progress).toBeCloseTo(100 / 13);
         expect(state.next?.definition.id).toBe('asia');
-        expect(state.next?.opensAt).toBe(at('2026-07-07T00:00Z'));
+        expect(state.next?.opensAt).toBe(at('2026-07-06T22:00Z'));
     });
 
-    it('includes the Asia/London overlap', () => {
+    it('ends the overnight reference before the London morning in summer', () => {
         expect(getSessionsSnapshot(at('2026-07-06T08:00Z')).active.map(s => s.definition.id))
-            .toEqual(['asia', 'london']);
+            .toEqual(['london']);
     });
 
     it('finds Monday after the weekend using each city’s calendar', () => {
         const weekend = getSessionsSnapshot(at('2026-07-04T14:00Z'));
         expect(weekend.active).toHaveLength(0);
-        expect(weekend.next?.opensAt).toBe(at('2026-07-06T00:00Z'));
-        // Sunday evening in the Americas is already Monday morning in Tokyo.
+        expect(weekend.next?.opensAt).toBe(at('2026-07-05T22:00Z'));
+        // The overnight reference starts on Sunday, in Chicago's calendar.
         const mondayTokyo = getSessionsSnapshot(at('2026-07-05T19:00-05:00'));
         expect(mondayTokyo.active.map(s => s.definition.id)).toEqual(['asia']);
-        expect(mondayTokyo.active[0].current?.localDate).toBe('2026-07-06');
+        expect(mondayTokyo.active[0].current?.localDate).toBe('2026-07-05');
+        expect(sessionWindowOn(asia, '2026-07-03')).toBeNull();
     });
 
     it('does not imply that a public holiday means every exchange is closed', () => {
@@ -84,6 +85,13 @@ describe('reference session windows', () => {
     it('rejects a nonexistent DST boundary rather than silently shifting it', () => {
         expect(() => sessionWindowOn({ ...overnight, openMinute: 150, weekdays: [0] }, '2026-03-08'))
             .toThrow('does not exist');
+    });
+
+    it('skips a custom DST-gap window without breaking other sessions', () => {
+        const custom = { ...asia, openMinute: 150, closeMinute: 360, weekdays: [0] };
+        const state = getSessionsSnapshot(at('2026-03-08T07:00Z'), [custom, london]);
+        expect(state.sessions).toHaveLength(2);
+        expect(state.sessions[0].next?.localDate).toBe('2026-03-15');
     });
 
     it('uses the first repeated-hour opening and the last repeated-hour closing', () => {
@@ -120,7 +128,9 @@ describe('session labels', () => {
             expect(sessionCountdown(duration)).toBe(label);
         });
     it('formats local preset hours', () => {
-        expect(sessionWallTime(9 * 60)).toBe('09:00');
-        expect(sessionWallTime(17 * 60 + 30)).toBe('17:30');
+        expect(sessionWallTime(9 * 60)).toBe('9:00 AM');
+        expect(sessionWallTime(17 * 60 + 30)).toBe('5:30 PM');
+        expect(sessionWallTime(0)).toBe('12:00 AM');
+        expect(sessionWallTime(720)).toBe('12:00 PM');
     });
 });

@@ -16,6 +16,7 @@ interface SoundOption {
     templateUrl: './custom-alert-sound-controls.component.html',
     styleUrl: './custom-alert-sound-controls.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
+    host: { 'data-sound-controls': '' },
 })
 export class CustomAlertSoundControlsComponent {
     readonly audio = inject(AlertAudioService);
@@ -48,7 +49,7 @@ export class CustomAlertSoundControlsComponent {
         try {
             const saved = await this.audio.installCustomSound(kind, file);
             this.message.set(`${saved.name} is now used for ${this.option(kind).label.toLowerCase()} alerts.`);
-            await this.sounds.preview(kind);
+            if (this.sounds.enabled()) await this.sounds.preview(kind);
         } catch (error) {
             this.error.set(error instanceof Error ? error.message : 'The custom sound could not be saved.');
         } finally {

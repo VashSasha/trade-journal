@@ -78,7 +78,14 @@ export function getSessionsSnapshot(now: number, definitions = REFERENCE_SESSION
         // Yesterday includes overnight windows; seven days ahead finds the next
         // opening even when a preset is scheduled only once a week.
         for (let day = -1; day <= 7; day++) {
-            const window = sessionWindowOn(definition, dateKey(today + day * DAY));
+            let window: SessionWindow | null;
+            try { window = sessionWindowOn(definition, dateKey(today + day * DAY)); }
+            catch (error) {
+                // A custom time in a spring-forward gap has no real instant.
+                // Skip that day's window without shifting it or breaking other sessions.
+                if (error instanceof RangeError && error.message.includes('boundary does not exist')) continue;
+                throw error;
+            }
             if (window) windows.push(window);
         }
         const current = windows.find(w => w.opensAt <= now && now < w.closesAt) ?? null;
@@ -104,5 +111,6 @@ export function sessionCountdown(milliseconds: number): string {
 }
 
 export function sessionWallTime(minute: number): string {
-    return `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+    const hour = Math.floor(minute / 60);
+    return `${hour % 12 || 12}:${String(minute % 60).padStart(2, '0')} ${hour < 12 ? 'AM' : 'PM'}`;
 }
