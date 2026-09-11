@@ -25,11 +25,14 @@
         <button
             class="live-coach__test"
             type="button"
-            [disabled]="!coach.supported() || coach.preferencesLoading() || coach.previewing() || coach.narratorState() === 'speaking'
+            [disabled]="coach.paused() || !coach.supported() || coach.preferencesLoading() || coach.previewing() || coach.narratorState() === 'speaking'
                 || (coach.preferences().voice !== 'browser' && !coach.aiAvailable())"
             (click)="coach.preview()"
         >{{ coach.previewing() ? 'Preparing…' : coach.narratorState() === 'speaking' ? 'Speaking…' : 'Test voice' }}</button>
     </div>
+    @if (coach.paused()) {
+        <p class="live-coach__message" role="status">Master sound is off. Enable all sounds in the header or Sound settings to hear the coach. Your coaching preferences are unchanged.</p>
+    }
 
     <div class="live-coach__voice">
         <label for="coach-voice">Coaching voice</label>
@@ -122,13 +125,6 @@
         </div>
     }
 
-    @if (coach.preferences().enabled) {
-        <div class="live-coach__playback">
-            <button type="button" class="live-coach__test" (click)="coach.togglePause()"
-                [attr.aria-pressed]="coach.paused()">{{ coach.paused() ? 'Resume voice' : 'Pause voice' }}</button>
-            <span>{{ coach.paused() ? 'Paused in this tab. No comments will be replayed.' : 'Pause affects this tab only.' }}</span>
-        </div>
-    }
     @if (coach.recentComments().length > 1) {
         <details class="live-coach__history">
             <summary>Recent observations (this session)</summary>

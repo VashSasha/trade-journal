@@ -38,7 +38,8 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
 // NVZN reference presets. Zone-local hours intentionally shift in UTC with DST.
 // Holidays, exchange maintenance and special closes are not inferred here.
 export const REFERENCE_SESSIONS: readonly SessionDefinition[] = [
-    { id: 'asia', name: 'Asia', city: 'Tokyo', timeZone: 'Asia/Tokyo', openMinute: 9 * 60, closeMinute: 18 * 60, weekdays: WEEKDAYS },
+    // Futures-oriented overnight reference, not the Tokyo exchange session.
+    { id: 'asia', name: 'Asia / Overnight', city: 'Chicago', timeZone: 'America/Chicago', openMinute: 17 * 60, closeMinute: 2 * 60, weekdays: [0, 1, 2, 3, 4] },
     { id: 'london', name: 'London', city: 'London', timeZone: 'Europe/London', openMinute: 8 * 60, closeMinute: 17 * 60, weekdays: WEEKDAYS },
     // U.S. core cash session: 09:30–16:00 ET (08:30–15:00 CT).
     { id: 'new-york', name: 'New York', city: 'New York', timeZone: 'America/New_York', openMinute: 9 * 60 + 30, closeMinute: 16 * 60, weekdays: WEEKDAYS },

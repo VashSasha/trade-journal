@@ -12,9 +12,11 @@
             </div>
             <span class="alerts-settings__badge">Account synced</span>
         </div>
-        <app-session-alert-controls [expanded]="true" [settingsView]="true" />
+        <app-session-alert-controls section="master" [expanded]="true" [settingsView]="true" />
         <app-custom-alert-sound-controls />
     </div>
+
+    <app-session-schedule-controls />
 
     <app-live-coach-controls />
 

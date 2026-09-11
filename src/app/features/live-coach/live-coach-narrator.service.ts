@@ -1,6 +1,7 @@
 import { DOCUMENT } from '@angular/common';
-import { DestroyRef, inject, Injectable, signal } from '@angular/core';
+import { DestroyRef, effect, inject, Injectable, signal, untracked } from '@angular/core';
 import { LiveCoachAudio } from './live-coach.models';
+import { SessionAlertsService } from '../alerts/session-alerts.service';
 
 export type LiveCoachNarratorState = 'idle' | 'speaking' | 'unsupported' | 'error';
 
@@ -9,17 +10,30 @@ export type LiveCoachNarratorState = 'idle' | 'speaking' | 'unsupported' | 'erro
 export class LiveCoachNarratorService {
     private readonly view = inject(DOCUMENT).defaultView;
     private readonly destroyRef = inject(DestroyRef);
+    private readonly sounds = inject(SessionAlertsService);
     readonly supported = signal(!!this.view?.speechSynthesis && typeof SpeechSynthesisUtterance !== 'undefined');
     readonly state = signal<LiveCoachNarratorState>(this.supported() ? 'idle' : 'unsupported');
     readonly error = signal<string | null>(null);
     readonly audioReady = signal(false);
     readonly voiceFallback = signal(false);
     private context: AudioContext | null = null;
+    private output: GainNode | null = null;
+    private utterance: SpeechSynthesisUtterance | null = null;
     private source: AudioBufferSourceNode | null = null;
     private finishActive: (() => void) | null = null;
     private generation = 0;
 
     constructor() {
+        this.sounds.registerPlayback({ activate: () => this.activate(), stop: () => this.stop() }, this.destroyRef);
+        effect(() => {
+            const enabled = this.sounds.enabled();
+            const volume = this.sounds.preferences().volume / 100;
+            untracked(() => {
+                if (this.output) this.output.gain.value = enabled ? volume : 0;
+                if (this.utterance) this.utterance.volume = enabled ? volume : 0;
+                if (!enabled || !volume) this.stop();
+            });
+        });
         this.destroyRef.onDestroy(() => {
             this.stop();
             if (this.context) {
@@ -36,6 +50,11 @@ export class LiveCoachNarratorService {
         try {
             this.context ??= new AudioContext({ latencyHint: 'interactive' });
             const context = this.context;
+            if (!this.output) {
+                this.output = context.createGain();
+                this.output.connect(context.destination);
+            }
+            this.output.gain.value = this.sounds.enabled() ? this.sounds.preferences().volume / 100 : 0;
             context.onstatechange = () => this.audioReady.set(context.state === 'running');
             await Promise.race([
                 context.state === 'running' ? Promise.resolve() : context.resume(),
@@ -49,6 +68,7 @@ export class LiveCoachNarratorService {
 
     async speak(text: string, rate = 1, audio?: LiveCoachAudio): Promise<boolean> {
         this.stop();
+        if (!this.sounds.enabled() || !this.sounds.preferences().volume) return false;
         const generation = this.generation;
         const pace = Number.isFinite(rate) ? Math.max(0.8, Math.min(1.2, rate)) : 1;
         this.voiceFallback.set(false);
@@ -66,12 +86,13 @@ export class LiveCoachNarratorService {
                     context.decodeAudioData(bytes.buffer),
                     new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Audio decode timed out')), 2000); }),
                 ]).finally(() => clearTimeout(timer));
-                if (generation !== this.generation) return false;
+                if (generation !== this.generation || !this.sounds.enabled()) return false;
                 if (!Number.isFinite(buffer.duration) || buffer.duration <= 0 || buffer.duration > 30) throw new Error('Invalid voice duration');
                 const source = context.createBufferSource();
                 source.buffer = buffer;
                 source.playbackRate.value = pace;
-                source.connect(context.destination);
+                this.output!.gain.value = this.sounds.preferences().volume / 100;
+                source.connect(this.output!);
                 this.source = source;
                 const spoken = await this.play(done => {
                     source.onended = () => {
@@ -85,7 +106,7 @@ export class LiveCoachNarratorService {
                 if (spoken) return true;
                 throw new Error('Audio playback failed');
             } catch {
-                if (generation !== this.generation) return false;
+                if (generation !== this.generation || !this.sounds.enabled()) return false;
                 this.releaseSource();
                 this.voiceFallback.set(true);
             }
@@ -99,7 +120,8 @@ export class LiveCoachNarratorService {
         const utterance = new SpeechSynthesisUtterance(text.trim());
         utterance.rate = pace;
         utterance.pitch = 1;
-        utterance.volume = 1;
+        utterance.volume = this.sounds.preferences().volume / 100;
+        this.utterance = utterance;
         return this.play(done => {
             utterance.onend = () => done(true);
             utterance.onerror = event => done(false, event.error === 'not-allowed'
@@ -115,6 +137,7 @@ export class LiveCoachNarratorService {
         this.finishActive = null;
         this.releaseSource();
         this.view?.speechSynthesis?.cancel();
+        this.utterance = null;
         if (this.supported()) this.state.set('idle');
     }
 

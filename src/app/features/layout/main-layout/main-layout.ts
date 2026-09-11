@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -15,6 +15,7 @@ import { UpgradePromptComponent } from '../../demo/upgrade-prompt/upgrade-prompt
 import { PerformanceAlertToastComponent } from '../../alerts/performance-alert-toast.component';
 import { MarketAwarenessDrawerComponent } from '../../market-events/market-awareness-drawer.component';
 import { LiveCoachService } from '../../live-coach/live-coach.service';
+import { SessionAlertsService } from '../../alerts/session-alerts.service';
 
 const DISMISSED_KEY = 'tj_banner_dismissed_connections';
 
@@ -40,6 +41,8 @@ export class MainLayoutComponent {
     });
 
     constructor() {
+        // Keep session bells alive across pages, independently of Settings UI.
+        inject(SessionAlertsService).attach(inject(DestroyRef));
         // Construct once for the authenticated shell so coaching survives route changes.
         inject(LiveCoachService);
         effect(() => {

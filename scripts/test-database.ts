@@ -116,6 +116,28 @@ try {
     await setUser(B);
     assert.equal((await query('select * from user_settings')).length, 0);
     await setUser(A);
+    await db.exec('reset role');
+    await migration('0029_session_schedule_preferences');
+    await migration('0029_session_schedule_preferences');
+    await setUser(A);
+    const schedulePrefs = {
+        asia: { enabled: false, openMinute: 1020, closeMinute: 120 },
+        london: { enabled: true, openMinute: 480, closeMinute: 1020 },
+        'new-york': { enabled: true, openMinute: 570, closeMinute: 960 },
+    };
+    const saveSchedule = (prefs: unknown) => query('select set_my_account_alert_preferences($1,$2::jsonb)', ['session_schedule', JSON.stringify(prefs)]);
+    await saveSchedule(schedulePrefs);
+    const withSchedule = (await query('select prefs from user_settings where user_id=$1', [A]))[0].prefs;
+    assert.deepEqual(withSchedule.session_schedule, schedulePrefs);
+    assert.deepEqual(withSchedule.live_coach, beforeVoiceMigration.live_coach);
+    assert.equal(withSchedule.session_sounds.volume, 55);
+    for (const hours of [{ openMinute: -1 }, { closeMinute: 1440 }, { openMinute: 120 }, { openMinute: 1.5 }, { enabled: 'yes' }]) {
+        await assert.rejects(saveSchedule({ ...schedulePrefs, asia: { ...schedulePrefs.asia, ...hours } }), /Invalid session/);
+    }
+    await assert.rejects(saveSchedule({ asia: schedulePrefs.asia }), /Invalid session/);
+    await setUser(B);
+    assert.equal((await query('select * from user_settings')).length, 0);
+    await setUser(A);
     await save([trade]);
     const replay = await save([{ ...trade, id: 'different-tab-id', notes: 'Do not overwrite' }]);
     assert.equal(replay[0].id, 'local-1');

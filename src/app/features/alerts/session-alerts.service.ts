@@ -1,7 +1,8 @@
 import { DOCUMENT } from '@angular/common';
-import { computed, DestroyRef, effect, inject, Injectable, signal } from '@angular/core';
+import { computed, DestroyRef, effect, inject, Injectable, signal, untracked } from '@angular/core';
 import { getSessionsSnapshot } from '../sessions/sessions.utils';
 import { SessionsSnapshot } from '../sessions/sessions.model';
+import { SessionScheduleService } from '../sessions/session-schedule.service';
 import { AlertAudioService } from './alert-audio.service';
 import { SessionSoundPreferencesService } from './session-sound-preferences.service';
 import { AlertSoundKind, crossedSessionAlerts, SessionAlertKind } from './session-alerts.utils';
@@ -14,6 +15,7 @@ export class SessionAlertsService {
     private readonly document = inject(DOCUMENT);
     private readonly audio = inject(AlertAudioService);
     private readonly preferenceStore = inject(SessionSoundPreferencesService);
+    private readonly schedule = inject(SessionScheduleService);
     private readonly destroyRef = inject(DestroyRef);
     private readonly view = this.document.defaultView;
     readonly preferences = this.preferenceStore.preferences;
@@ -27,14 +29,40 @@ export class SessionAlertsService {
     readonly error = signal<string | null>(null);
     readonly lastAlert = signal<string | null>(null);
     readonly supported = this.audio.supported() && !!this.view?.navigator.locks;
+    /** Shared presentation for every sound indicator; stored opt-in is not playback. */
+    readonly status = computed(() => {
+        if (!this.supported) return { label: 'Unavailable', detail: 'Audio is not supported in this browser.' };
+        if (this.state() === 'enabling') return { label: 'Enabling', detail: 'Activating audio in this tab…' };
+        if (this.error()) return { label: 'Needs attention', detail: this.error()! };
+        if (this.enabled()) return { label: 'On', detail: 'Audio is active in this tab.' };
+        if (this.preferencesLoading()) return { label: 'Syncing', detail: 'Loading your saved sound settings.' };
+        if (this.waitingForGesture()) return { label: 'Ready', detail: 'Your sound preference is on. Waiting for your first click or keypress in this browser.' };
+        return { label: 'Off', detail: 'Sounds are turned off.' };
+    });
+    readonly toggleLabel = computed(() => this.state() === 'enabling' ? 'Cancel enabling sounds'
+        : this.enabled() ? 'Mute all sounds' : 'Enable all sounds');
+
+    async toggle(): Promise<void> {
+        if (this.state() !== 'off') { this.mute(); return; }
+        // Unmuting from a zero slider value must produce audible sound.
+        if (!this.preferences().volume) this.setVolume(45);
+        await this.enable();
+    }
     private generation = 0;
+    private readonly playbackClients = new Set<{ activate: () => Promise<unknown>; stop: () => void }>();
+
+    /** Audio engines share the same user gesture and immediate master stop. */
+    registerPlayback(client: { activate: () => Promise<unknown>; stop: () => void }, owner: DestroyRef): void {
+        this.playbackClients.add(client);
+        owner.onDestroy(() => this.playbackClients.delete(client));
+    }
     private hosts = 0;
     private releaseLease: (() => void) | null = null;
     private timer: number | undefined;
     private previewTimer: number | undefined;
     private previous: SessionsSnapshot | null = null;
     private highWater = 0;
-    private restoreGesture: (() => void) | null = null;
+    private restoreGesture: ((event: Event) => void) | null = null;
     private observedOwner = this.preferenceStore.owner();
     private observedPreferences = this.preferences();
 
@@ -57,28 +85,39 @@ export class SessionAlertsService {
             const owner = this.preferenceStore.owner();
             const preferences = this.preferences();
             const ownerChanged = owner !== this.observedOwner;
+            const disarmed = this.observedPreferences.armed && !preferences.armed;
             const kindsChanged = preferences.opens !== this.observedPreferences.opens
                 || preferences.closes !== this.observedPreferences.closes;
             this.observedOwner = owner;
             this.observedPreferences = preferences;
-            this.audio.setVolume(preferences.volume);
-            if (ownerChanged) this.stopRuntime(false);
-            if (!preferences.armed) {
-                this.disarmRestoreGesture();
-                if (this.state() !== 'off') this.stopRuntime(false);
-            } else if (!this.enabled()) {
-                this.armRestoreGesture();
-            } else if (kindsChanged) {
-                this.rebase();
-            }
+            // Only saved preferences drive this effect. Runtime transitions must
+            // not rerun it and cancel an explicit, still-pending activation.
+            untracked(() => {
+                this.audio.setVolume(preferences.volume);
+                if (ownerChanged) this.stopRuntime(false);
+                if (!preferences.armed) {
+                    this.disarmRestoreGesture();
+                    if (disarmed) this.stopRuntime(false);
+                } else if (!this.enabled()) {
+                    this.armRestoreGesture();
+                } else if (kindsChanged) {
+                    this.rebase();
+                }
+            });
         });
         if (this.preferences().armed) this.armRestoreGesture();
     }
 
-    /** Stop on logout/navigation out of the app, or when the last widget is removed. */
+    /** Attach to the authenticated shell, never to transient Settings controls. */
     attach(host: DestroyRef): void {
         this.hosts++;
-        host.onDestroy(() => { if (--this.hosts === 0) this.stopRuntime(); });
+        if (!this.enabled()) this.armRestoreGesture();
+        host.onDestroy(() => {
+            if (--this.hosts === 0) {
+                this.stopRuntime(false);
+                this.disarmRestoreGesture();
+            }
+        });
     }
 
     async enable(): Promise<void> {
@@ -90,11 +129,13 @@ export class SessionAlertsService {
         this.disarmRestoreGesture();
         this.state.set('enabling');
         try {
-            await this.audio.activate();
+            const activation = this.audio.activate();
+            const voices = [...this.playbackClients].map(client => client.activate().catch(() => false));
+            await Promise.all([activation, ...voices]);
             if (generation !== this.generation) return;
             if (!await this.acquireLease(generation)) throw new Error('Sounds are enabled in another NVZN tab. Mute them there first.');
             if (generation !== this.generation) return;
-            this.previous = getSessionsSnapshot(Date.now());
+            this.previous = getSessionsSnapshot(Date.now(), this.schedule.definitions());
             this.highWater = this.previous.now;
             this.state.set('on');
             this.preferenceStore.update(p => ({ ...p, armed: true }));
@@ -124,11 +165,12 @@ export class SessionAlertsService {
         this.releaseLease?.();
         this.releaseLease = null;
         this.audio.stop();
+        this.playbackClients.forEach(client => client.stop());
         if (rearm && this.preferences().armed) this.armRestoreGesture();
     }
 
     async preview(kind: AlertSoundKind): Promise<void> {
-        if (this.previewing() || this.state() === 'enabling' || !this.preferences().volume) return;
+        if (!this.enabled() || this.previewing() || !this.preferences().volume) return;
         this.previewing.set(true);
         this.error.set(null);
         const generation = this.generation;
@@ -177,9 +219,17 @@ export class SessionAlertsService {
         try {
             if (!this.audio.running()) throw new Error('Your browser paused audio. Enable sounds again.');
             const now = Date.now();
+            const snapshot = getSessionsSnapshot(now, this.schedule.definitions());
+            // Schedule edits/cloud restoration establish a fresh baseline, never retroactive bells.
+            if (this.schedule.loading() || JSON.stringify(snapshot.sessions.map(s => s.definition))
+                !== JSON.stringify(this.previous.sessions.map(s => s.definition))) {
+                this.previous = snapshot;
+                this.highWater = Math.max(this.highWater, now);
+                return;
+            }
             const events = crossedSessionAlerts(this.previous, now).filter(event =>
                 event.at > this.highWater && (event.kind === 'open' ? this.preferences().opens : this.preferences().closes));
-            this.previous = getSessionsSnapshot(now);
+            this.previous = snapshot;
             this.highWater = Math.max(this.highWater, now);
             if (!events.length || this.previewing()) return;
             // Coalesce simultaneous boundaries into one chime; never queue audio.
@@ -195,7 +245,7 @@ export class SessionAlertsService {
     private rebase(): void {
         if (!this.enabled()) return;
         try {
-            this.previous = getSessionsSnapshot(Date.now());
+            this.previous = getSessionsSnapshot(Date.now(), this.schedule.definitions());
             this.highWater = Math.max(this.highWater, this.previous.now);
         } catch { this.stopRuntime(); this.error.set('Session times are unavailable. Check your device clock.'); }
     }
@@ -212,7 +262,11 @@ export class SessionAlertsService {
     /** Browsers allow Web Audio after a click/key press, so re-arm on that gesture. */
     private armRestoreGesture(): void {
         if (this.restoreGesture || !this.supported || !this.preferences().armed) return;
-        const restore = () => {
+        const restore = (event: Event) => {
+            // Let Enable/Mute/Test handlers finish their own user gesture. A
+            // capture-phase restore must not replace the button before click.
+            const target = event.target;
+            if (target instanceof Element && target.closest('[data-sound-controls]')) return;
             this.disarmRestoreGesture();
             if (this.preferences().armed && !this.enabled()) void this.enable();
         };

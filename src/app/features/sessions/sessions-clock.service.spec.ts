@@ -1,13 +1,17 @@
 import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 import { SessionsClockService } from './sessions-clock.service';
+import { SessionScheduleService } from './session-schedule.service';
+import { REFERENCE_SESSIONS } from './sessions.model';
 
 describe('scoped sessions clock', () => {
     beforeEach(() => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date('2026-07-06T13:29:45Z'));
         vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
-        TestBed.configureTestingModule({ providers: [SessionsClockService] });
+        TestBed.configureTestingModule({ providers: [SessionsClockService,
+            { provide: SessionScheduleService, useValue: { definitions: () => REFERENCE_SESSIONS } },
+        ] });
     });
     afterEach(() => {
         TestBed.resetTestingModule();
@@ -38,7 +42,7 @@ describe('scoped sessions clock', () => {
 
     it('also catches up on window focus', () => {
         const clock = TestBed.inject(SessionsClockService);
-        vi.setSystemTime(new Date('2026-07-06T22:00Z'));
+        vi.setSystemTime(new Date('2026-07-06T21:00Z'));
         window.dispatchEvent(new Event('focus'));
         expect(clock.now()).toBe(Date.now());
         expect(clock.state().snapshot?.active).toEqual([]);

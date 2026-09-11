@@ -13,7 +13,9 @@ import {
 import { LiveCoachPreferences } from '../live-coach/live-coach.models';
 import { parseLiveCoachPreferences } from '../live-coach/live-coach.utils';
 
-type PreferenceKind = 'performance' | 'market' | 'coach';
+import { parseSessionPreferences, SessionPreferences } from '../sessions/session-preferences';
+
+type PreferenceKind = 'performance' | 'market' | 'coach' | 'sessions';
 
 interface LocalPreference<T> {
     value: T;
@@ -23,6 +25,8 @@ interface LocalPreference<T> {
 
 const PERFORMANCE_KEY = 'nvzn_performance_alert_preferences_v1:';
 const MARKET_KEY = 'nvzn_market_event_alerts_v1:';
+const SESSIONS_KEY = 'nvzn_session_schedule_v1:';
+const CLOUD_SESSIONS = 'session_schedule';
 const COACH_KEY = 'nvzn_live_coach_preferences_v1:';
 const PENDING_KEY = 'nvzn_account_alert_preferences_pending_v1:';
 const CLOUD_PERFORMANCE = 'performance_alerts';
@@ -39,6 +43,7 @@ export class AccountAlertPreferencesService {
     private readonly view = this.document.defaultView;
     readonly performance = signal(parsePerformanceAlertPreferences(null));
     readonly marketEvents = signal(parseMarketEventAlertPreferences(null));
+    readonly sessions = signal(parseSessionPreferences(null));
     readonly liveCoach = signal(parseLiveCoachPreferences(null));
     readonly loading = signal(false);
     readonly syncWarning = signal(false);
@@ -48,9 +53,11 @@ export class AccountAlertPreferencesService {
     private performanceRevision = 0;
     private marketRevision = 0;
     private coachRevision = 0;
+    private sessionsRevision = 0;
     private performanceSave: Promise<void> = Promise.resolve();
     private marketSave: Promise<void> = Promise.resolve();
     private coachSave: Promise<void> = Promise.resolve();
+    private sessionsSave: Promise<void> = Promise.resolve();
 
     constructor() {
         effect(() => this.startOwnerLoad(this.session.userId()));
@@ -103,6 +110,16 @@ export class AccountAlertPreferencesService {
         this.queueCoachSave(this.owner);
     }
 
+    updateSessions(updater: (current: SessionPreferences) => SessionPreferences): void {
+        const next = parseSessionPreferences(JSON.stringify(updater(this.sessions())));
+        this.sessions.set(next);
+        this.sessionsRevision++;
+        if (!this.owner) return;
+        this.markPending('sessions', this.owner);
+        this.writeLocal('sessions', this.owner, next);
+        this.queueSessionsSave(this.owner);
+    }
+
     private startOwnerLoad(owner: string | null): void {
         const generation = ++this.generation;
         this.owner = owner;
@@ -111,6 +128,7 @@ export class AccountAlertPreferencesService {
             this.performance.set(parsePerformanceAlertPreferences(null));
             this.marketEvents.set(parseMarketEventAlertPreferences(null));
             this.liveCoach.set(parseLiveCoachPreferences(null));
+            this.sessions.set(parseSessionPreferences(null));
             this.loading.set(false);
             return;
         }
@@ -118,9 +136,11 @@ export class AccountAlertPreferencesService {
         const localPerformance = this.readPerformance(owner);
         const localMarket = this.readMarket(owner);
         const localCoach = this.readCoach(owner);
+        const localSessions = this.readSessions(owner);
         this.performance.set(localPerformance.value);
         this.marketEvents.set(localMarket.value);
         this.liveCoach.set(localCoach.value);
+        this.sessions.set(localSessions.value);
         this.loading.set(true);
         void this.loadCloud(
             owner,
@@ -131,6 +151,8 @@ export class AccountAlertPreferencesService {
             localPerformance,
             localMarket,
             localCoach,
+            this.sessionsRevision,
+            localSessions,
         );
     }
 
@@ -143,6 +165,8 @@ export class AccountAlertPreferencesService {
         localPerformance: LocalPreference<PerformanceAlertPreferences>,
         localMarket: LocalPreference<MarketEventAlertPreferences>,
         localCoach: LocalPreference<LiveCoachPreferences>,
+        sessionsRevision: number,
+        localSessions: LocalPreference<SessionPreferences>,
     ): Promise<void> {
         let operation: UserOperation;
         try { operation = this.session.capture(); }
@@ -163,6 +187,7 @@ export class AccountAlertPreferencesService {
             this.reconcilePerformance(owner, prefs, localPerformance, performanceRevision);
             this.reconcileMarket(owner, prefs, localMarket, marketRevision);
             this.reconcileCoach(owner, prefs, localCoach, coachRevision);
+            this.reconcileSessions(owner, prefs, localSessions, sessionsRevision);
         } catch {
             if (this.session.isCurrent(operation) && this.isCurrent(owner, generation)) {
                 this.syncWarning.set(true);
@@ -238,6 +263,27 @@ export class AccountAlertPreferencesService {
         }
     }
 
+    private reconcileSessions(
+        owner: string,
+        cloud: Record<string, unknown>,
+        local: LocalPreference<SessionPreferences>,
+        revision: number,
+    ): void {
+        if (this.sessionsRevision !== revision || local.pending) {
+            this.queueSessionsSave(owner);
+            return;
+        }
+        const value = this.objectValue(cloud, CLOUD_SESSIONS);
+        if (value) {
+            const preferences = parseSessionPreferences(JSON.stringify(value));
+            this.sessions.set(preferences);
+            this.writeLocal('sessions', owner, preferences);
+        } else if (local.exists) {
+            this.markPending('sessions', owner);
+            this.queueSessionsSave(owner);
+        }
+    }
+
     private queuePerformanceSave(owner: string): void {
         const preferences = structuredClone(this.performance());
         const revision = this.performanceRevision;
@@ -264,6 +310,13 @@ export class AccountAlertPreferencesService {
             this.saveCloud('coach', owner, preferences, revision));
     }
 
+    private queueSessionsSave(owner: string): void {
+        const preferences = structuredClone(this.sessions());
+        const revision = this.sessionsRevision;
+        this.sessionsSave = this.sessionsSave.catch(() => undefined).then(() =>
+            this.saveCloud('sessions', owner, preferences, revision));
+    }
+
     private async saveCloud(
         kind: PreferenceKind,
         owner: string,
@@ -281,7 +334,7 @@ export class AccountAlertPreferencesService {
             if (error) throw error;
             const currentRevision = kind === 'performance'
                 ? this.performanceRevision
-                : kind === 'market' ? this.marketRevision : this.coachRevision;
+                : kind === 'market' ? this.marketRevision : kind === 'coach' ? this.coachRevision : this.sessionsRevision;
             if (currentRevision === revision) this.clearPending(kind, owner);
             this.syncWarning.set(this.hasPending(owner));
         } catch {
@@ -294,6 +347,7 @@ export class AccountAlertPreferencesService {
         const performanceKey = this.localKey('performance', this.owner);
         const marketKey = this.localKey('market', this.owner);
         const coachKey = this.localKey('coach', this.owner);
+        const sessionsKey = this.localKey('sessions', this.owner);
         if (event.key === performanceKey || event.key === this.pendingKey('performance', this.owner)) {
             const local = this.readPerformance(this.owner);
             if (local.exists) {
@@ -316,6 +370,14 @@ export class AccountAlertPreferencesService {
                 this.liveCoach.set(local.value);
                 this.coachRevision++;
                 if (local.pending) this.queueCoachSave(this.owner);
+            }
+        }
+        if (event.key === sessionsKey || event.key === this.pendingKey('sessions', this.owner)) {
+            const local = this.readSessions(this.owner);
+            if (local.exists) {
+                this.sessions.set(local.value);
+                this.sessionsRevision++;
+                if (local.pending) this.queueSessionsSave(this.owner);
             }
         }
     }
@@ -344,6 +406,15 @@ export class AccountAlertPreferencesService {
             value: parseLiveCoachPreferences(raw),
             exists: raw !== null,
             pending: this.isPending('coach', owner),
+        };
+    }
+
+    private readSessions(owner: string): LocalPreference<SessionPreferences> {
+        const raw = this.readLocal('sessions', owner);
+        return {
+            value: parseSessionPreferences(raw),
+            exists: raw !== null,
+            pending: this.isPending('sessions', owner),
         };
     }
 
@@ -377,7 +448,8 @@ export class AccountAlertPreferencesService {
     private hasPending(owner: string): boolean {
         return this.isPending('performance', owner)
             || this.isPending('market', owner)
-            || this.isPending('coach', owner);
+            || this.isPending('coach', owner)
+            || this.isPending('sessions', owner);
     }
 
     private cloudPreferences(data: unknown): Record<string, unknown> {
@@ -399,12 +471,12 @@ export class AccountAlertPreferencesService {
     }
 
     private localKey(kind: PreferenceKind, owner: string): string {
-        const prefix = kind === 'performance' ? PERFORMANCE_KEY : kind === 'market' ? MARKET_KEY : COACH_KEY;
+        const prefix = kind === 'performance' ? PERFORMANCE_KEY : kind === 'market' ? MARKET_KEY : kind === 'coach' ? COACH_KEY : SESSIONS_KEY;
         return `${prefix}${owner}`;
     }
 
     private cloudKey(kind: PreferenceKind): string {
-        return kind === 'performance' ? CLOUD_PERFORMANCE : kind === 'market' ? CLOUD_MARKET : CLOUD_COACH;
+        return kind === 'performance' ? CLOUD_PERFORMANCE : kind === 'market' ? CLOUD_MARKET : kind === 'coach' ? CLOUD_COACH : CLOUD_SESSIONS;
     }
 
     private pendingKey(kind: PreferenceKind, owner: string): string {

@@ -2,7 +2,7 @@
     <div class="guardrails__head">
         <div>
             <h3>Performance guardrails</h3>
-            <p>Get one alert when a selected-account threshold is crossed.</p>
+            <p>Limits apply to the combined totals of the accounts selected in the header, not separately to each account.</p>
         </div>
         <span
             class="guardrails__status"
@@ -43,6 +43,9 @@
         </div>
     </div>
 
+    <p class="guardrails__note">
+        With two accounts selected, $200 profit on each counts as $400 toward the target. Completed trades also add up across accounts, including copied trades. Select a single account to monitor only that account.
+    </p>
     <p class="guardrails__note">
         {{ alerts.live.statusDetail() }} Targets sync to your NVZN account. Sound uses the master control above. Live monitoring works while NVZN is open; saved trades reconcile shortly after a position closes.
     </p>

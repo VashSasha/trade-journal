@@ -39,7 +39,7 @@
 
                     <div class="custom-sound__actions">
                         <button type="button" (click)="test(option.kind)"
-                            [disabled]="busy() || audio.customSoundsLoading() || sounds.previewing() || sounds.state() === 'enabling' || !sounds.preferences().volume">
+                            [disabled]="!sounds.enabled() || busy() || audio.customSoundsLoading() || sounds.previewing() || sounds.state() === 'enabling' || !sounds.preferences().volume">
                             Test
                         </button>
                         <label class="custom-sound__upload" [class.is-disabled]="busy() || audio.customSoundsLoading() || sounds.previewing()">

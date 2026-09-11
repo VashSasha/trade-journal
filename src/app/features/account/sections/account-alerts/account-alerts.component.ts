@@ -4,15 +4,16 @@ import { PerformanceAlertControlsComponent } from '../../../alerts/performance-a
 import { MarketEventAlertControlsComponent } from '../../../alerts/market-event-alert-controls.component';
 import { CustomAlertSoundControlsComponent } from '../../../alerts/custom-alert-sound-controls.component';
 import { LiveCoachControlsComponent } from '../../../live-coach/live-coach-controls.component';
+import { SessionScheduleControlsComponent } from '../../../sessions/session-schedule-controls.component';
 
-/** Full alert configuration; the header keeps only the quick session control. */
+/** Full alert configuration; the header shows read-only session status. */
 @Component({
     selector: 'app-account-alerts',
     standalone: true,
     imports: [
         SessionAlertControlsComponent, CustomAlertSoundControlsComponent,
         PerformanceAlertControlsComponent, MarketEventAlertControlsComponent,
-        LiveCoachControlsComponent,
+        LiveCoachControlsComponent, SessionScheduleControlsComponent,
     ],
     templateUrl: './account-alerts.component.html',
     styleUrl: './account-alerts.component.scss',

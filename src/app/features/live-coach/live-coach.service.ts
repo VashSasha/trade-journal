@@ -9,6 +9,7 @@ import { TradovateService } from '../../core/services/tradovate.service';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { AccountAlertPreferencesService } from '../alerts/account-alert-preferences.service';
 import { AlertCenterService } from '../alerts/alert-center.service';
+import { SessionAlertsService } from '../alerts/session-alerts.service';
 import { PerformanceAlertsService } from '../alerts/performance-alerts.service';
 import { TradovateLivePositionEvent } from '../integrations/tradovate-live/tradovate-live.models';
 import { TradovateLiveService } from '../integrations/tradovate-live/tradovate-live.service';
@@ -50,6 +51,7 @@ export class LiveCoachService {
     private readonly destroyRef = inject(DestroyRef);
     private readonly document = inject(DOCUMENT);
 
+    readonly sounds = inject(SessionAlertsService);
     readonly preferences = this.preferenceStore.liveCoach;
     readonly preferencesLoading = this.preferenceStore.loading;
     readonly syncWarning = this.preferenceStore.syncWarning;
@@ -61,7 +63,7 @@ export class LiveCoachService {
     readonly voiceFallback = this.narrator.voiceFallback;
     readonly voiceWarning = signal<string | null>(null);
     readonly previewing = signal(false);
-    readonly paused = signal(false);
+    readonly paused = computed(() => !this.sounds.enabled());
     readonly recentComments = signal<readonly { text: string; time: number; personalized: boolean }[]>([]);
     readonly lastComment = signal<LiveCoachNarration | null>(null);
     readonly lastSpokenText = signal<string | null>(null);
@@ -70,7 +72,7 @@ export class LiveCoachService {
     readonly aiStatusLabel = computed(() => {
         if (!this.preferences().aiCommentary) return 'Off';
         if (!this.preferences().enabled) return 'Coach is off';
-        if (this.paused()) return 'Paused in this tab';
+        if (this.paused()) return 'Master sound is off';
         if (!this.aiAvailable()) return 'Paid plan required';
         if (this.aiState() === 'thinking') return 'Personalizing…';
         if (this.aiState() === 'fallback') return 'Factual fallback active';
@@ -154,7 +156,7 @@ export class LiveCoachService {
         });
 
         const activate = () => {
-            if (this.preferences().enabled && !this.audioReady() && this.preferences().voice !== 'browser') {
+            if (this.preferences().enabled && !this.paused() && !this.audioReady() && this.preferences().voice !== 'browser') {
                 void this.narrator.activate();
             }
         };
@@ -174,15 +176,9 @@ export class LiveCoachService {
 
     setEnabled(enabled: boolean): void {
         if (enabled && !this.supported()) return;
-        if (enabled) { this.paused.set(false); void this.narrator.activate(); }
+        if (enabled && !this.paused()) void this.narrator.activate();
         this.update(current => ({ ...current, enabled }));
         if (!enabled) this.interrupt();
-    }
-
-    togglePause(): void {
-        this.paused.update(value => !value);
-        this.interrupt();
-        if (!this.paused()) void this.narrator.activate();
     }
 
     setVoice(voice: string): void {
@@ -213,7 +209,7 @@ export class LiveCoachService {
     }
 
     async preview(): Promise<void> {
-        if (this.previewing()) return;
+        if (this.paused() || this.previewing()) return;
         this.interrupt();
         const activated = this.narrator.activate();
         const owner = this.owner;
@@ -379,7 +375,6 @@ export class LiveCoachService {
         this.guardrailUntil = 0;
         this.recentComments.set([]);
         this.voiceWarning.set(null);
-        this.paused.set(false);
         this.cancelAi();
         this.aiState.set('off');
         this.interrupt();

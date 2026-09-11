@@ -4,6 +4,7 @@ import { vi } from 'vitest';
 import { SupabaseService } from '../../core/services/supabase.service';
 import { UserOperation, UserSessionService } from '../../core/services/user-session.service';
 import { AccountAlertPreferencesService } from './account-alert-preferences.service';
+import { parseSessionPreferences } from '../sessions/session-preferences';
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -186,6 +187,22 @@ describe('account-synced alert preferences', () => {
         expect(service.marketEvents().enabled).toBe(false);
         expect(service.performance().dailyProfit.enabled).toBe(false);
         expect(service.liveCoach().enabled).toBe(false);
+    });
+
+    it('loads and saves session selection/hours under their own cloud key', async () => {
+        const schedule = parseSessionPreferences(JSON.stringify({ asia: { enabled: false, openMinute: 1080, closeMinute: 180 } }));
+        const { service, rpc, userId } = setup({ [A]: { session_schedule: schedule }, [B]: {} });
+        await vi.waitFor(() => expect(service.loading()).toBe(false));
+        expect(service.sessions()).toEqual(schedule);
+        service.updateSessions(current => ({ ...current, london: { ...current['london'], enabled: false } }));
+        await vi.waitFor(() => expect(rpc).toHaveBeenCalledOnce());
+        expect(rpc).toHaveBeenCalledWith('set_my_account_alert_preferences', {
+            p_kind: 'session_schedule', p_preferences: service.sessions(),
+        });
+        expect(localStorage.getItem('nvzn_session_schedule_v1:' + A)).not.toBeNull();
+        userId.set(B); TestBed.tick();
+        await vi.waitFor(() => expect(service.loading()).toBe(false));
+        expect(service.sessions()).toEqual(parseSessionPreferences(null));
     });
 
     it('retains pending browser settings when cloud sync fails', async () => {
