@@ -1,6 +1,7 @@
 .journal-layout {
     min-height: 100%;
-    background: var(--color-bg-base);
+    min-width: 0;
+    background: transparent;
 }
 
 .journal-container {
@@ -38,4 +39,10 @@
 
 .journal-content {
     margin-top: 1.5rem;
+}
+
+@media (max-width: 700px) {
+    .journal-tabs { gap: 1.25rem; }
+    .journal-tab { padding-block: 0.75rem; min-height: 2.75rem; }
+    .journal-content { margin-top: 0.75rem; }
 }

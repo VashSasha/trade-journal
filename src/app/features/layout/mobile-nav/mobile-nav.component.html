@@ -1,0 +1,52 @@
+<nav class="mobile-nav" aria-label="Main navigation">
+    <a routerLink="/dashboard" routerLinkActive="is-active" ariaCurrentWhenActive="page">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9" /></svg>
+        <span>Dashboard</span>
+    </a>
+    <a routerLink="/journal" routerLinkActive="is-active" ariaCurrentWhenActive="page">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v16M12 5C8 2 5 3 2 4v15c3-1 6-2 10 1 4-3 7-2 10-1V4c-3-1-6-2-10 1Z" /></svg>
+        <span>Journal</span>
+    </a>
+    <a routerLink="/analytics" routerLinkActive="is-active" ariaCurrentWhenActive="page"
+        [attr.aria-label]="access.canOpen('analytics') ? 'Analytics' : 'Analytics — upgrade required'">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V11h4v10M10 21V7h4v14M16 21V3h4v18" /></svg>
+        <span>Analytics @if (!access.canOpen('analytics')) { <span class="mobile-nav__lock" aria-hidden="true">+</span> }</span>
+    </a>
+    <button type="button" (click)="openMore()" [class.is-active]="moreOpen() || moreActive()"
+        aria-haspopup="dialog" aria-controls="mobile-more" [attr.aria-expanded]="moreOpen()">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+        <span>More</span>
+    </button>
+</nav>
+
+<!-- Native modal supplies focus trapping, Escape and focus restoration. -->
+<dialog #moreDialog id="mobile-more" class="mobile-more" aria-labelledby="mobile-more-title"
+    (close)="moreOpen.set(false)" (click)="closeBackdrop($event)">
+    <section class="mobile-more__body">
+        <header class="mobile-more__header">
+            <h2 id="mobile-more-title">Your workspace</h2>
+            <button type="button" autofocus (click)="closeMore()" aria-label="Close navigation">×</button>
+        </header>
+        <nav class="mobile-more__links" aria-label="More destinations">
+            <a routerLink="/reports" routerLinkActive="is-active" ariaCurrentWhenActive="page">
+                AI Analyzer @if (!access.canOpen('ai')) { <span>Upgrade</span> }
+            </a>
+            <a routerLink="/account/alerts" routerLinkActive="is-active" ariaCurrentWhenActive="page">Live coach & sounds</a>
+            <a routerLink="/account/integrations" routerLinkActive="is-active" ariaCurrentWhenActive="page">
+                Broker connections @if (!access.canOpen('broker')) { <span>Upgrade</span> }
+            </a>
+            <a routerLink="/account/plan" routerLinkActive="is-active" ariaCurrentWhenActive="page">Plan & billing</a>
+            <a routerLink="/account/profile" routerLinkActive="is-active" ariaCurrentWhenActive="page">Settings</a>
+        </nav>
+        <div class="mobile-more__footer">
+            <button type="button" (click)="closeMore(); demo.active() ? demo.exit() : demo.enter()">
+                {{ demo.active() ? 'Leave demo' : 'Try demo' }}
+            </button>
+            @if (auth.isAuthenticated()) {
+                <button type="button" (click)="logout()">Log out</button>
+            } @else {
+                <a routerLink="/login">Sign in</a>
+            }
+        </div>
+    </section>
+</dialog>
