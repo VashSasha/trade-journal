@@ -5,6 +5,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
 import { AccessPolicyService } from '../../../core/services/access-policy.service';
 import { Sidebar } from '../sidebar/sidebar';
+import { MobileNavComponent } from '../mobile-nav/mobile-nav.component';
 import { Header } from '../header/header';
 import { TradovateService } from '../../../core/services/tradovate.service';
 import { SyncNoticeComponent } from '../../../shared/components/sync-notice/sync-notice.component';
@@ -22,7 +23,7 @@ const DISMISSED_KEY = 'tj_banner_dismissed_connections';
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, FormsModule, Sidebar, Header, SyncNoticeComponent, DemoBannerComponent, PostSignupModalComponent, UpgradePromptComponent, PerformanceAlertToastComponent, MarketAwarenessDrawerComponent],
+  imports: [RouterOutlet, FormsModule, Sidebar, MobileNavComponent, Header, SyncNoticeComponent, DemoBannerComponent, PostSignupModalComponent, UpgradePromptComponent, PerformanceAlertToastComponent, MarketAwarenessDrawerComponent],
   templateUrl: './main-layout.html',
   styleUrl: './main-layout.scss'
 })

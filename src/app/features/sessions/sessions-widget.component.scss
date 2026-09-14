@@ -125,7 +125,8 @@ button:focus-visible, select:focus-visible, a:focus-visible {
 }
 
 @media (max-width: 700px) {
-    .sessions__trigger { width: 8.5rem; }
+    .sessions__trigger { width: 100%; min-height: 3.5rem; }
+    .sessions__caption span:nth-child(2) { display: none; }
     .sessions__countdown { display: none; }
     .sessions__panel { border-radius: 0.65rem; }
 }

@@ -24,7 +24,7 @@
     <div class="acct-widget__divider"></div>
 
     <!-- Refresh balance -->
-    <button class="acct-widget__icon-btn"
+    <button class="acct-widget__icon-btn acct-widget__icon-btn--refresh"
         (click)="accountService.refreshBalances()"
         [disabled]="accountService.isRefreshing()"
         title="Refresh balance">
@@ -54,6 +54,8 @@
                 </button>
             </div>
             <div class="acct-dropdown__actions">
+                <button class="acct-dropdown__action acct-dropdown__action--refresh" (click)="accountService.refreshBalances()"
+                    [disabled]="accountService.isRefreshing()">{{ accountService.isRefreshing() ? 'Refreshing…' : 'Refresh balances' }}</button>
                 <button class="acct-dropdown__action acct-dropdown__action--select"
                     (click)="accountService.selectAll()">Select All</button>
                 <span class="acct-dropdown__sep">|</span>

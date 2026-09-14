@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TradeTableComponent } from '../../../shared/components/trade-table/trade-table.component';
@@ -25,6 +25,7 @@ import { SafeHtmlPipe } from '../../../shared/pipes/safe-html.pipe';
     styleUrl: './daily-journal.component.scss'
 })
 export class DailyJournalComponent {
+    readonly timelineOpen = signal(false);
     form      = inject(JournalFormState);
     news      = inject(JournalNewsState);
     rules     = inject(JournalRulesState);

@@ -1,7 +1,15 @@
 <div class="dj-wrapper" (click)="templates.openDropdown.set(null); tagsState.showTagDropdown.set(false)">
 
     <!-- Timeline Sidebar -->
-    <div class="dj-sidebar">
+    <button class="dj-timeline-toggle" type="button" (click)="timelineOpen.set(!timelineOpen())"
+        [attr.aria-expanded]="timelineOpen()" aria-controls="journal-timeline">
+        <span>{{ timelineOpen() ? 'Hide timeline' : 'Browse journal' }}</span>
+        <span>{{ tagsState.activeTagFilter() || 'Dates & tags' }}</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path [attr.d]="timelineOpen() ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'" stroke-width="2" />
+        </svg>
+    </button>
+    <div class="dj-sidebar" id="journal-timeline" [class.dj-sidebar--open]="timelineOpen()">
 
         <!-- Tags Panel -->
         <div class="dj-sidebar__card dj-sidebar-tags">
@@ -40,7 +48,7 @@
         </div>
 
         <!-- Timeline Card -->
-        <div class="dj-sidebar__card">
+        <div class="dj-sidebar__card dj-sidebar__card--timeline">
             <div class="dj-sidebar__header">
                 <h3>Journal Timeline</h3>
                 @if (tagsState.activeTagFilter()) {
@@ -104,14 +112,14 @@
         <!-- Header Bar -->
         <div class="dj-header">
             <div class="dj-header__nav">
-                <button (click)="form.changeDate(-1)" class="dj-header__nav-btn">
+                <button (click)="form.changeDate(-1)" class="dj-header__nav-btn" aria-label="Previous day">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
                 <input type="date" [ngModel]="form.selectedDate()" (change)="form.onDateChange($event)"
-                    class="dj-header__date-input" />
-                <button (click)="form.changeDate(1)" class="dj-header__nav-btn">
+                    class="dj-header__date-input" aria-label="Journal date" />
+                <button (click)="form.changeDate(1)" class="dj-header__nav-btn" aria-label="Next day">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                     </svg>

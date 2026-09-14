@@ -1,5 +1,13 @@
 :host {
     display: block;
+    min-width: 0;
+}
+
+@media (max-width: 700px) {
+    :host ::ng-deep .ql-editor { font-size: 1rem; overflow-wrap: anywhere; }
+    :host ::ng-deep .ql-toolbar.ql-snow { padding: 0.25rem; }
+    :host ::ng-deep .ql-toolbar.ql-snow button { width: 2.75rem; height: 2.75rem; padding: 0.6875rem; }
+    :host ::ng-deep .ql-toolbar.ql-snow .ql-formats { margin-right: 0.25rem; }
 }
 
 .re-wrap {

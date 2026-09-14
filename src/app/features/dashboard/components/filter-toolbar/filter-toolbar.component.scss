@@ -1,4 +1,5 @@
 .filter-toolbar {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -58,6 +59,17 @@
 
         &:hover { color: var(--color-text-secondary); }
     }
+}
+
+@media (max-width: 700px) {
+    .filter-toolbar { padding: 0.75rem; gap: 0.5rem; margin-bottom: 1rem; }
+    .filter-toolbar__presets { flex-wrap: wrap; gap: 0.25rem; width: 100%; }
+    .filter-toolbar__divider { display: none; }
+    .filter-toolbar .filter-preset, .filter-toolbar .filter-side-btn, .filter-toolbar__reset { min-height: 2.75rem; white-space: nowrap; }
+    .filter-toolbar .filter-preset { padding-inline: 0.5rem; }
+    .filter-toolbar .filter-dropdown { position: static; }
+    .filter-toolbar .filter-dropdown__panel--wide { left: 0; width: 100%; max-height: 55dvh; overflow-y: auto; }
+    .filter-toolbar .filter-dropdown__date-input { font-size: 1rem; min-height: 2.75rem; }
 }
 
 .filter-preset {
