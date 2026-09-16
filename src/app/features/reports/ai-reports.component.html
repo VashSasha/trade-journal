@@ -32,8 +32,8 @@
             @if (analysisMode() === 'screenshot') {
 
                 <div class="air-config__section">
-                    <label class="air-label">Symbol <span class="air-label__hint">(optional)</span></label>
-                    <input class="air-input" type="text"
+                    <label class="air-label" for="chart-symbol">Symbol <span class="air-label__hint">(optional)</span></label>
+                    <input class="air-input" type="text" id="chart-symbol" autocapitalize="characters" spellcheck="false"
                            [ngModel]="symbol()" (ngModelChange)="symbol.set($event)"
                            placeholder="e.g., MNQH6" />
                 </div>
@@ -57,9 +57,9 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                   d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                         </svg>
-                        <span class="air-upload-zone__label"><strong>Click to upload</strong> or drag and drop</span>
+                        <span class="air-upload-zone__label"><strong>Choose chart image</strong> or drag and drop</span>
                         <span class="air-upload-zone__hint">PNG, JPG or JPEG (max 10 MB)</span>
-                        <input type="file" class="air-upload-zone__input" accept="image/*" (change)="onImageSelected($event)" />
+                        <input type="file" class="air-upload-zone__input" accept="image/*" aria-label="Choose chart image" (change)="onImageSelected($event)" />
                     </label>
                 }
 

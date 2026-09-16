@@ -99,6 +99,7 @@
         &__switch {
             width: 100%;
             min-width: 0;
+            button { min-height: 2.75rem; padding-inline: 0.35rem; font-size: 0.75rem; }
         }
     }
 }

@@ -286,3 +286,20 @@
     color: var(--color-text-muted);
     line-height: 1.5;
 }
+
+:host { display: block; min-width: 0; }
+.air-verdict { min-width: 0; overflow-wrap: anywhere; }
+.air-verdict__title-block, .air-verdict__level { min-width: 0; }
+.air-verdict__contingency-toggle:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+
+@media (max-width: 700px) {
+    .air-verdict, :host(.air-vc--compact) .air-verdict { padding: 0.875rem; }
+    .air-verdict__header { flex-wrap: wrap; }
+    .air-verdict__symbol { font-size: 1.25rem; }
+    .air-verdict__badge { max-width: 100%; white-space: normal; }
+    .air-verdict__quality { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; }
+    .air-verdict__quality-value { white-space: normal; text-align: right; }
+    .air-verdict__bar { grid-column: 1 / -1; grid-row: 2; }
+    .air-verdict__contingency-toggle { min-height: 2.75rem; flex-wrap: wrap; }
+    .air-verdict__contingency-toggle-right { min-width: 0; max-width: 100%; }
+}

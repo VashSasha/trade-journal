@@ -139,6 +139,7 @@
 // ── Upload Zone ───────────────────────────────────────────────────────────────
 
 .air-upload-zone {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -176,7 +177,9 @@
         color: var(--color-text-muted);
     }
 
-    &__input { display: none; }
+    // Retain the native picker in the keyboard/accessibility tree.
+    &__input { position: absolute; width: 1px; height: 1px; padding: 0; clip-path: inset(50%); overflow: hidden; }
+    &:focus-within { outline: 2px solid var(--color-accent); outline-offset: 3px; }
 }
 
 // ── Image Preview ─────────────────────────────────────────────────────────────
@@ -621,3 +624,26 @@
     }
 }
 
+@media (max-width: 700px) {
+    .air-page { padding: 0; }
+    .air-container { min-width: 0; gap: 1rem; }
+    .air-header .page-title { margin: 0; font-size: 1.5rem; line-height: 1.3; }
+    .air-header .page-subtitle { font-size: 0.875rem; line-height: 1.5; }
+    .air-mode-toggle { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .air-mode-toggle__btn { min-width: 0; min-height: 2.75rem; padding: 0.5rem; }
+    .air-mode-toggle__btn--soon { flex-wrap: wrap; gap: 0.25rem; }
+    .air-config { padding: 0.875rem; }
+    .air-input { min-width: 0; min-height: 2.75rem; font-size: 1rem; }
+    .air-upload-zone { padding: 1.5rem 0.75rem; text-align: center; }
+    .air-preview__img { max-height: 55dvh; object-fit: contain; }
+    .air-preview__remove { width: 2.75rem; height: 2.75rem; }
+    .air-chip, .air-error-card__retry, .air-analyze-btn { min-height: 2.75rem; }
+    .air-chip { max-width: 100%; white-space: normal; text-align: left; }
+    .air-error-card { flex-wrap: wrap; overflow-wrap: anywhere; }
+    .air-results, .air-follow-up { min-width: 0; overflow-wrap: anywhere; }
+    .air-follow-up ::ng-deep table { display: block; max-width: 100%; overflow-x: auto; }
+    .air-follow-up ::ng-deep pre { max-width: 100%; overflow-x: auto; }
+    .air-empty { padding: 1.5rem 0.75rem; }
+}
+
+button:focus-visible, a:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }

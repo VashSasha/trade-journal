@@ -36,6 +36,7 @@
 
                     <div class="sr-item__header">
                         <button class="sr-item__toggle" type="button" (click)="toggle(report.id)"
+                                [attr.aria-controls]="'saved-report-' + report.id"
                                 [attr.aria-expanded]="expandedId() === report.id">
                             <span class="sr-item__title">{{ report.title }}</span>
                             <span class="sr-item__meta">{{ relativeTime(report.createdAt) }}</span>
@@ -47,7 +48,7 @@
                         <button class="sr-item__delete" type="button"
                                 [disabled]="deletingId() === report.id"
                                 (click)="deleteReport(report.id)"
-                                aria-label="Delete report">
+                                [attr.aria-label]="'Delete report: ' + report.title">
                             @if (deletingId() === report.id) {
                                 <svg fill="none" viewBox="0 0 24 24">
                                     <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" style="opacity:.2"></circle>
@@ -64,7 +65,7 @@
                     </div>
 
                     @if (expandedId() === report.id) {
-                        <div class="sr-item__body">
+                        <div class="sr-item__body" [id]="'saved-report-' + report.id">
                             <app-verdict-card [verdict]="report.verdict" [compact]="true"></app-verdict-card>
                         </div>
                     }

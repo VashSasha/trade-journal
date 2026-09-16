@@ -1,4 +1,18 @@
-<div class="filter-toolbar">
+<div class="filter-toolbar" [class.filter-toolbar--expanded]="mobileFiltersOpen()" [class.filter-toolbar--custom]="showCustomDatePicker()">
+    <div class="filter-toolbar__mobile">
+        <select aria-label="Dashboard date range" [value]="showCustomDatePicker() ? 'custom' : activeDateFilter()"
+            (change)="selectMobileDate($any($event.target).value)">
+            <option value="all">All time</option>
+            <option value="today">Today</option>
+            <option value="week">This week</option>
+            <option value="month">This month</option>
+            <option value="custom">Custom dates</option>
+        </select>
+        <button type="button" [attr.aria-expanded]="mobileFiltersOpen()" aria-controls="dashboard-side-filters"
+            (click)="toggleMobileFilters()">
+            Filters @if (filterService.filters().sides.length) { <span>{{ filterService.filters().sides.length }}</span> }
+        </button>
+    </div>
     <!-- Label -->
     <div class="filter-toolbar__label">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,7 +66,7 @@
     <div class="filter-toolbar__divider"></div>
 
     <!-- Side Filters -->
-    <div class="filter-toolbar__sides">
+    <div class="filter-toolbar__sides" id="dashboard-side-filters">
         <button class="filter-side-btn" (click)="filterService.toggleSide('long')"
             [class.filter-side-btn--long-active]="filterService.filters().sides.includes('long')">
             Long

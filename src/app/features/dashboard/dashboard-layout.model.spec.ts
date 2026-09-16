@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_DASHBOARD_LAYOUT, normalizeDashboardLayout } from './dashboard-layout.model';
+import { dashboardStackOrder, DEFAULT_DASHBOARD_LAYOUT, normalizeDashboardLayout } from './dashboard-layout.model';
+
+describe('phone dashboard reading order', () => {
+    it('sorts visible widgets top-to-bottom, then left-to-right without changing saved coordinates', () => {
+        const widgets = normalizeDashboardLayout(null);
+        widgets.find(w => w.id === 'stats')!.hidden = true;
+        widgets.find(w => w.id === 'goals')!.y = 0;
+        const before = structuredClone(widgets);
+        expect(dashboardStackOrder(widgets).map(w => w.id)).toEqual(['goals', 'performance', 'calendar', 'recent-trades', 'market-events']);
+        expect(widgets).toEqual(before);
+    });
+
+    it('supports an empty dashboard and preserves tie order', () => {
+        expect(dashboardStackOrder(DEFAULT_DASHBOARD_LAYOUT.map(w => ({ ...w, hidden: true })))).toEqual([]);
+        const tied = DEFAULT_DASHBOARD_LAYOUT.map(w => ({ ...w, x: 0, y: 0 }));
+        expect(dashboardStackOrder(tied)).toEqual(tied);
+    });
+});
 
 describe('normalizeDashboardLayout', () => {
     it('returns a fresh default layout for invalid data', () => {

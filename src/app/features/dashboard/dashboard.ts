@@ -1,6 +1,6 @@
 import {
-    AfterViewInit,
     Component,
+    computed,
     DestroyRef,
     effect,
     inject,
@@ -8,6 +8,7 @@ import {
     signal,
     ViewChild,
 } from '@angular/core';
+import { NgComponentOutlet } from '@angular/common';
 import { GridItemHTMLElement, GridStackWidget } from 'gridstack';
 import { GridstackComponent, NgGridStackOptions, nodesCB } from 'gridstack/dist/angular';
 import { AccessPolicyService } from '../../core/services/access-policy.service';
@@ -18,22 +19,23 @@ import { FilterToolbarComponent } from './components/filter-toolbar/filter-toolb
 import { DashboardDataService } from './dashboard-data.service';
 import {
     dashboardWidgetDefinition,
+    dashboardStackOrder,
     DASHBOARD_WIDGETS,
     DashboardWidgetId,
     DashboardWidgetPlacement,
 } from './dashboard-layout.model';
 import { DashboardLayoutService } from './dashboard-layout.service';
-import { DASHBOARD_WIDGET_COMPONENTS } from './widgets/dashboard-widgets';
+import { DASHBOARD_WIDGET_COMPONENTS, DASHBOARD_WIDGET_TYPES } from './widgets/dashboard-widgets';
 
 @Component({
     selector: 'app-dashboard',
     standalone: true,
-    imports: [FilterToolbarComponent, GridstackComponent],
+    imports: [FilterToolbarComponent, GridstackComponent, NgComponentOutlet],
     providers: [DashboardDataService, DashboardLayoutService],
     templateUrl: './dashboard.html',
     styleUrl: './dashboard.scss',
 })
-export class DashboardComponent implements OnInit, AfterViewInit {
+export class DashboardComponent implements OnInit {
     private readonly access = inject(AccessPolicyService);
     private readonly tradeService = inject(TradeService);
     private readonly syncService = inject(SyncService);
@@ -41,6 +43,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     private readonly destroyRef = inject(DestroyRef);
     readonly layout = inject(DashboardLayoutService);
     readonly widgetDefinitions = DASHBOARD_WIDGETS;
+    readonly widgetTypes = DASHBOARD_WIDGET_TYPES;
+    private readonly phoneQuery = window.matchMedia('(max-width: 700px)');
+    readonly mobile = signal(this.phoneQuery.matches);
+    readonly stackedWidgets = computed(() => dashboardStackOrder(this.layout.widgets()));
     readonly canArrange = signal(false);
     readonly gridOptions: NgGridStackOptions;
     private readonly gridReady = signal(false);
@@ -48,9 +54,27 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     private gridResizeObserver?: ResizeObserver;
     private widgetContentResizeObserver?: ResizeObserver;
 
-    @ViewChild(GridstackComponent) private gridComponent?: GridstackComponent;
+    private gridComponent?: GridstackComponent;
+    @ViewChild(GridstackComponent) set mountedGrid(component: GridstackComponent | undefined) {
+        this.gridResizeObserver?.disconnect();
+        this.widgetContentResizeObserver?.disconnect();
+        this.gridComponent = component;
+        this.gridReady.set(false);
+        this.canArrange.set(false);
+        // Gridstack initializes in its own view hook; also handles desktop ↔ phone remounts.
+        queueMicrotask(() => {
+            if (!this.destroyRef.destroyed && component && this.gridComponent === component) {
+                this.initializeGrid(component);
+            }
+        });
+    }
 
     constructor() {
+        const updateViewport = () => {
+            this.canArrange.set(false);
+            this.mobile.set(this.phoneQuery.matches);
+        };
+        this.phoneQuery.addEventListener('change', updateViewport);
         GridstackComponent.registerComponents([...DASHBOARD_WIDGET_COMPONENTS]);
         this.gridOptions = {
             column: 12,
@@ -86,6 +110,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         });
 
         this.destroyRef.onDestroy(() => {
+            this.phoneQuery.removeEventListener('change', updateViewport);
             this.gridResizeObserver?.disconnect();
             this.widgetContentResizeObserver?.disconnect();
         });
@@ -100,13 +125,14 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         }
     }
 
-    ngAfterViewInit(): void {
+    private initializeGrid(component: GridstackComponent): void {
         this.gridReady.set(true);
-        const gridElement = this.gridComponent?.el;
+        const gridElement = component.el;
         if (!gridElement) return;
 
         const updateArrangeMode = () => {
-            const grid = this.gridComponent?.grid;
+            if (this.destroyRef.destroyed || this.gridComponent !== component || this.mobile()) return;
+            const grid = component.grid;
             this.canArrange.set(gridElement.clientWidth > 840 && grid?.getColumn() === 12);
         };
         updateArrangeMode();
@@ -123,7 +149,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
                     if (item) items.add(item as GridItemHTMLElement);
                 }
                 window.requestAnimationFrame(() => {
-                    const grid = this.gridComponent?.grid;
+                    if (this.destroyRef.destroyed || this.gridComponent !== component) return;
+                    const grid = component.grid;
                     if (!grid) return;
                     for (const item of items) grid.resizeToContent(item);
                 });
@@ -141,7 +168,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
 
     onLayoutChange(_data: nodesCB): void {
-        if (this.applyingLayout || !this.layout.editing() || !this.canArrange()) return;
+        if (this.mobile() || this.applyingLayout || !this.layout.editing() || !this.canArrange()) return;
         const saved = this.gridComponent?.grid?.save(false, false, undefined, 12);
         if (!Array.isArray(saved)) return;
         this.layout.updatePositions(saved.flatMap(widget => {
@@ -184,6 +211,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
 
     private fitWidgetsToContent(): void {
+        if (this.destroyRef.destroyed || this.mobile()) return;
         const grid = this.gridComponent?.grid;
         if (!grid) return;
         this.widgetContentResizeObserver?.disconnect();

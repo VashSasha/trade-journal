@@ -72,6 +72,7 @@
     <!-- 7. Contingency (collapsed by default) -->
     <div class="air-verdict__contingency">
         <button class="air-verdict__contingency-toggle"
+                type="button" [attr.aria-expanded]="contingencyExpanded()"
                 (click)="contingencyExpanded.set(!contingencyExpanded())">
             <span class="air-verdict__contingency-label">Contingency plan</span>
             <div class="air-verdict__contingency-toggle-right">
