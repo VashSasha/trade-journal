@@ -31,6 +31,7 @@ import {
     TradovateLiveAccumulator,
     TradovateLiveUpdate,
 } from './tradovate-live.utils';
+import { TradovateOpenPnlStream } from './tradovate-open-pnl';
 
 const HEARTBEAT_MS = 2_500;
 const WATCHDOG_MS = 5_000;
@@ -42,6 +43,8 @@ const CHANNEL_PREFIX = 'nvzn-tradovate-live-v1:';
 const LOCK_PREFIX = 'nvzn-tradovate-live-v1:';
 
 interface ManagedConnection {
+    openPnl?: TradovateOpenPnlStream;
+    valuationNotBefore?: number;
     ownerId: string;
     connectionId: string;
     connectionName: string;
@@ -83,6 +86,7 @@ export class TradovateLiveService {
     private readonly destroyRef = inject(DestroyRef);
 
     private readonly requesters = signal<ReadonlySet<string>>(new Set());
+    private readonly openPnlRequested = signal(false);
     readonly state = signal<TradovateLiveState>('off');
     readonly metrics = signal<TradovateLiveAccountMetric[]>([]);
     /** Recent leader-tab events consumed by realtime coaching. Never persisted. */
@@ -144,6 +148,14 @@ export class TradovateLiveService {
             untracked(() => this.configure(owner, requested && allowed, connections, signature));
         });
 
+        effect(() => {
+            this.openPnlRequested();
+            untracked(() => {
+                for (const managed of this.managed.values()) this.updateOpenPnl(managed);
+                this.publishMetrics();
+            });
+        });
+
         const online = () => this.reconnectStaleSockets();
         const visible = () => {
             if (this.document.visibilityState === 'visible') this.reconnectStaleSockets();
@@ -179,6 +191,23 @@ export class TradovateLiveService {
             else next.delete(requester);
             return next;
         });
+    }
+
+    setOpenPnlRequested(requested: boolean): void {
+        this.openPnlRequested.set(requested);
+    }
+
+    private updateOpenPnl(managed: ManagedConnection): void {
+        if (!this.openPnlRequested() || !this.leader || !managed.synced) {
+            managed.openPnl?.dispose(); managed.openPnl = undefined;
+            return;
+        }
+        const connection = this.desiredConnections.find(connection => connection.id === managed.connectionId);
+        if (!connection?.token) return;
+        managed.openPnl ??= new TradovateOpenPnlStream(connection.mdToken || connection.token,
+            id => this.tradovate.getLiveInstrument(connection.id, id),
+            () => { if (managed.synced && this.managed.get(managed.connectionId) === managed) this.publishMetrics(); });
+        managed.openPnl.updatePositions(managed.accumulator.openPositions());
     }
 
     private configure(
@@ -514,6 +543,10 @@ export class TradovateLiveService {
     }
 
     private applyUpdate(managed: ManagedConnection, update: TradovateLiveUpdate, realtime: boolean): void {
+        // Broker position and realized-P&L messages can arrive separately. Let
+        // both settle before marking open profit, avoiding a transient double count.
+        if (realtime && (update.balances.length || update.positionEvents.length)) managed.valuationNotBefore = Date.now() + 500;
+        this.updateOpenPnl(managed);
         if (update.balances.length) this.account.applyLiveBalances(managed.connectionId, update.balances);
         if (update.changed) this.publishMetrics();
         if (realtime && update.positionEvents.length) {
@@ -527,7 +560,10 @@ export class TradovateLiveService {
 
     private publishMetrics(): void {
         const next = [...this.managed.values()]
-            .flatMap(managed => managed.synced ? managed.accumulator.snapshot() : [])
+            .flatMap(managed => managed.synced ? managed.accumulator.snapshot().map(metric => ({ ...metric,
+                ...(managed.openPnl && Date.now() < (managed.valuationNotBefore ?? 0)
+                    ? { openPnl: null, openPnlState: 'waiting' as const }
+                    : managed.openPnl?.valuation(metric.accountId) ?? { openPnl: null, openPnlState: 'off' as const }) })) : [])
             .sort((a, b) => a.accountId - b.accountId || a.connectionId.localeCompare(b.connectionId));
         this.metrics.set(next);
         this.broadcastSnapshot();
@@ -555,6 +591,7 @@ export class TradovateLiveService {
         this.clearManagedTimers(managed);
         managed.socket = null;
         managed.synced = false;
+        managed.openPnl?.dispose(); managed.openPnl = undefined;
         if (wasSynced) this.publishMetrics();
         if (!managed.intentionalClose) this.scheduleReconnect(managed);
     }
@@ -647,7 +684,7 @@ export class TradovateLiveService {
             .map(account => `${account.id}:${account.userId}:${account.active !== false}`)
             .sort()
             .join(',');
-        return `${connection.id}:${connection.config.environment}:${connection.token}:${connection.tokenExpiresAt ?? ''}:${accounts}`;
+        return `${connection.id}:${connection.config.environment}:${connection.token}:${connection.mdToken ?? ''}:${connection.tokenExpiresAt ?? ''}:${accounts}`;
     }
 
     private isManagedCurrent(managed: ManagedConnection, generation: number): boolean {
@@ -660,6 +697,7 @@ export class TradovateLiveService {
     }
 
     private closeManagedSocket(managed: ManagedConnection, intentional: boolean): void {
+        managed.openPnl?.dispose(); managed.openPnl = undefined;
         managed.intentionalClose = intentional;
         const wasSynced = managed.synced;
         managed.synced = false;

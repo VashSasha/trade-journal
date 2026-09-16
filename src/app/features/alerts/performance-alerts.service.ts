@@ -42,6 +42,8 @@ export class PerformanceAlertsService {
     private context = '';
     private rules = '';
     private previous: PerformanceMetrics | null = null;
+    private previousOpenTotal: number | null = null;
+    readonly openPnlStatus = signal('Enable this option to monitor open positions.');
     private fired = new Set<string>();
     private liveBaselineSignature = '';
     private liveTradeBaselines = new Map<string, number>();
@@ -63,6 +65,8 @@ export class PerformanceAlertsService {
                 && !cacheSuspended()
                 && this.anyEnabled();
             this.live.setRequested('performance-alerts', shouldMonitor);
+            this.live.setOpenPnlRequested(shouldMonitor && this.preferences().dailyProfit.enabled
+                && this.preferences().dailyProfit.includeOpenPnl === true);
         });
 
         effect(() => {
@@ -78,6 +82,7 @@ export class PerformanceAlertsService {
             const current = this.mergeLiveMetrics(scopedTrades, liveMetrics);
             const context = `${owner ?? ''}:${filter.accountSelectionActive ? selected.join(',') : 'all'}:${current.day}:${current.week}`;
             const rules = JSON.stringify(this.preferences());
+            const openTotal = this.openTargetTotal(current, liveMetrics);
 
             // Loading, account/filter changes, a new period, and settings edits
             // establish a baseline; they never replay historical achievements.
@@ -89,6 +94,7 @@ export class PerformanceAlertsService {
                 this.rules = rules;
                 this.liveBaselineSignature = liveBaselineSignature;
                 this.previous = current;
+                this.previousOpenTotal = null;
                 // A stream reconnect establishes a new live baseline but must
                 // not replay a threshold that already fired this day/week.
                 if (contextChanged || rulesChanged || !owner) this.fired.clear();
@@ -97,6 +103,18 @@ export class PerformanceAlertsService {
 
             const crossed = crossedPerformanceAlerts(this.previous, current, this.preferences())
                 .filter(alert => !this.fired.has(`${context}:${alert.rule}`));
+            const dailyProfit = this.preferences().dailyProfit;
+            const openKey = `${context}:dailyProfitOpen`;
+            if (dailyProfit.enabled && dailyProfit.includeOpenPnl && openTotal !== null && this.previousOpenTotal !== null
+                && this.previousOpenTotal < dailyProfit.value && openTotal >= dailyProfit.value
+                && !this.fired.has(openKey) && !this.fired.has(`${context}:dailyProfit`)
+                && !crossed.some(alert => alert.rule === 'dailyProfit')) {
+                this.fired.add(openKey);
+                this.fired.add(`${context}:dailyProfit`);
+                const money = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+                this.publish('target', `Daily target touched at ${money(openTotal)} combined, including ${money(openTotal - current.dailyPnl)} open profit. Fees may not be included; open profit is not locked in.`);
+            }
+            this.previousOpenTotal = openTotal;
             this.previous = current;
             if (!crossed.length) return;
 
@@ -112,6 +130,28 @@ export class PerformanceAlertsService {
             ...current,
             [rule]: { ...current[rule], enabled },
         }));
+    }
+
+    setIncludeOpenPnl(includeOpenPnl: boolean): void {
+        this.accountPreferences.updatePerformance(current => ({ ...current,
+            dailyProfit: { ...current.dailyProfit, includeOpenPnl } }));
+    }
+
+    private openTargetTotal(current: PerformanceMetrics, metrics: TradovateLiveAccountMetric[]): number | null {
+        if (!this.preferences().dailyProfit.includeOpenPnl || !this.preferences().dailyProfit.enabled) {
+            this.openPnlStatus.set('Open-position target alerts are off.'); return null;
+        }
+        const unavailable = !metrics.length || this.live.state() !== 'live'
+            || this.live.connectionStatuses().some(status => status.state !== 'live')
+            || metrics.some(metric => metric.tradeDate !== current.day || metric.dailyPnl === null || metric.openPnlState !== 'live' || metric.openPnl == null);
+        if (unavailable) {
+            this.openPnlStatus.set('Waiting for fresh live quotes and broker data. API market-data access is required; missing quotes, unsupported currencies or disconnected accounts pause this alert.');
+            return null;
+        }
+        const count = metrics.reduce((sum, metric) => sum + (metric.openPositions ?? 0), 0);
+        this.openPnlStatus.set(count ? 'Monitoring open positions · bid/ask estimate in USD, before exit fees.' : 'Ready · waiting for an open position.');
+        if (!count) return null;
+        return current.dailyPnl + metrics.reduce((sum, metric) => sum + metric.openPnl!, 0);
     }
 
     setValue(rule: PerformanceAlertRule, value: number): void {
@@ -150,6 +190,7 @@ export class PerformanceAlertsService {
         this.liveBaselineSignature = '';
         this.liveTradeBaselines.clear();
         this.previous = null;
+        this.previousOpenTotal = null;
         this.fired.clear();
         this.dismiss();
     }

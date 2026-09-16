@@ -17,6 +17,10 @@ export interface TradovateLiveAccountMetric {
     completedTrades: number;
     baselineKey: string;
     updatedAt: number;
+    /** Estimated USD liquidation P&L; never persisted into balances or trades. */
+    openPnl?: number | null;
+    openPnlState?: 'off' | 'waiting' | 'live' | 'stale' | 'unavailable';
+    openPositions?: number;
 }
 
 export type TradovateLivePositionEventKind =

@@ -6,6 +6,7 @@ export type PerformanceAlertRule = 'dailyProfit' | 'dailyLoss' | 'weeklyProfit' 
 export interface AlertThreshold {
     enabled: boolean;
     value: number;
+    includeOpenPnl?: boolean;
 }
 
 export interface PerformanceAlertPreferences {
@@ -53,7 +54,8 @@ export function parsePerformanceAlertPreferences(raw: string | null): Performanc
         const value: unknown = JSON.parse(raw ?? 'null');
         const source = value && typeof value === 'object' ? value as Partial<PerformanceAlertPreferences> : {};
         return {
-            dailyProfit: threshold(source.dailyProfit, DEFAULT_PERFORMANCE_ALERTS.dailyProfit),
+            dailyProfit: { ...threshold(source.dailyProfit, DEFAULT_PERFORMANCE_ALERTS.dailyProfit),
+                ...(typeof source.dailyProfit?.includeOpenPnl === 'boolean' ? { includeOpenPnl: source.dailyProfit.includeOpenPnl } : {}) },
             dailyLoss: threshold(source.dailyLoss, DEFAULT_PERFORMANCE_ALERTS.dailyLoss),
             weeklyProfit: threshold(source.weeklyProfit, DEFAULT_PERFORMANCE_ALERTS.weeklyProfit),
             weeklyLoss: threshold(source.weeklyLoss, DEFAULT_PERFORMANCE_ALERTS.weeklyLoss),

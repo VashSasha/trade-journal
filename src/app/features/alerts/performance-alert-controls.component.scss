@@ -121,3 +121,8 @@
         &__value { width: 116px; }
     }
 }
+.guardrails__open-pnl {
+    display: flex; align-items: center; gap: 0.6rem; min-height: 2.75rem;
+    color: var(--color-text-primary); font-size: 0.8rem; cursor: pointer;
+    input { flex: 0 0 auto; width: 1rem; height: 1rem; accent-color: var(--color-accent); }
+}

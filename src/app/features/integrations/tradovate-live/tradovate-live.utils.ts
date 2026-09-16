@@ -8,13 +8,14 @@ import {
 
 type UnknownRecord = Record<string, unknown>;
 
-interface LivePosition {
+export interface LivePosition {
     id: number;
     accountId: number;
     contractId: number | null;
     netPos: number;
     netPrice: number | null;
     tradeDate: string | null;
+    observedAt: number;
 }
 
 interface CashBalanceProjection {
@@ -111,6 +112,10 @@ export class TradovateLiveAccumulator {
 
     snapshot(): TradovateLiveAccountMetric[] {
         return [...this.metrics.values()].map(metric => ({ ...metric }));
+    }
+
+    openPositions(): LivePosition[] {
+        return [...this.positions.values()].filter(position => position.netPos !== 0).map(position => ({ ...position }));
     }
 
     replaceFromInitial(payload: unknown): TradovateLiveUpdate {
@@ -259,6 +264,7 @@ export class TradovateLiveAccumulator {
             netPos,
             netPrice: finiteNumber(entity['netPrice']),
             tradeDate: tradovateTradeDate(entity['tradeDate']),
+            observedAt: this.now(),
         };
     }
 
