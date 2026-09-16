@@ -100,10 +100,11 @@ Deno.serve(async req => {
             throw new RequestError(message, 429);
         }
         requestId = candidate;
-        if (body.type === 'live-coach-preview') {
-            const audio = await coachSpeech(openai, COACH_VOICE_PREVIEW, body.payload.voice, controller.signal);
+        if (body.type === 'live-coach-preview' || body.type === 'live-coach-speech') {
+            const text = body.type === 'live-coach-preview' ? COACH_VOICE_PREVIEW : body.payload.text;
+            const audio = await coachSpeech(openai, text, body.payload.voice, controller.signal);
             await finish(true);
-            return json({ text: COACH_VOICE_PREVIEW, audio });
+            return json({ text, audio });
         }
         if (body.type === 'stream-analysis') {
             // Validate the first actual text before committing 200 response headers.
@@ -128,11 +129,16 @@ Deno.serve(async req => {
         const text = requestKind === 'live-coach' ? normalizeCoachModelText(rawText) : rawText;
         if (!text?.trim()) throw new Error('Empty AI response');
         // Text remains useful if speech times out; never lose a valid comment.
+        let voiceError: string | undefined;
         const audio = requestKind === 'live-coach'
-            ? await coachSpeech(openai, text, body.payload.voice, controller.signal).catch(() => undefined)
-            : undefined;
+            ? await coachSpeech(openai, text, body.payload.voice, controller.signal).catch(error => {
+                const status = (error as { status?: number })?.status;
+                console.warn('Coach speech failed', { status, requestId });
+                voiceError = status === 429 ? 'The AI speech provider is rate-limited.' : 'AI speech failed or exceeded its time limit.';
+                return undefined;
+            }) : undefined;
         await finish(true);
-        return json({ text, ...(audio ? { audio } : {}) });
+        return json({ text, ...(audio ? { audio } : {}), ...(voiceError ? { voiceError } : {}) });
     } catch (error) {
         abort();
         await finish(false);

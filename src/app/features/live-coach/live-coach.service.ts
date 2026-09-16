@@ -27,7 +27,8 @@ import {
 
 const GROUP_WINDOW_MS = 900;
 const MAX_PROCESSED_EVENTS = 250;
-const AI_COMMENT_TIMEOUT_MS = 12_000;
+// Covers session validation, text generation, speech generation and quota settlement.
+const AI_COMMENT_TIMEOUT_MS = 30_000;
 
 interface PendingBucket {
     events: TradovateLivePositionEvent[];
@@ -138,7 +139,7 @@ export class LiveCoachService {
                 this.guardrailTimer = null;
                 if (!owner || owner !== this.owner || this.paused() || !this.preferences().enabled || !this.preferences().guardrails || this.liveState() !== 'live') return;
                 this.recordComment(event.text, false);
-                void this.narrator.speak(event.text, this.preferences().speechRate).finally(() => {
+                void this.playReply({ text: event.text }).finally(() => {
                     if (sequence === this.sequence) this.guardrailUntil = Date.now() + 500;
                 });
             }, 1_600);
@@ -327,11 +328,12 @@ export class LiveCoachService {
             this.aiState.set('ready');
             this.voiceWarning.set(preferences.voice !== 'browser' && !response.audio
                 ? 'AI voice is unavailable. Using the browser voice.' : null);
-            return { ...narration, text, personalized: true, audio: response.audio };
-        } catch {
+            return { ...narration, text, personalized: true, audio: response.audio,
+                voiceError: response.voiceError ?? (preferences.voice !== 'browser' && !response.audio ? 'AI speech was not returned.' : undefined) };
+        } catch (error) {
             if (generation !== this.aiGeneration || this.owner !== this.session.userId()) return null;
             this.aiState.set('fallback');
-            return narration;
+            return { ...narration, voiceError: error instanceof Error ? error.message : 'AI coaching is unavailable.' };
         } finally {
             if (generation === this.aiGeneration) this.aiController = null;
         }
@@ -399,9 +401,35 @@ export class LiveCoachService {
         this.recentComments.update(items => [{ text, time: Date.now(), personalized }, ...items].slice(0, 10));
     }
 
-    private playReply(reply: LiveCoachReply): Promise<boolean> {
-        return reply.audio
-            ? this.narrator.speak(reply.text, this.preferences().speechRate, reply.audio)
+    private async playReply(reply: LiveCoachReply): Promise<boolean> {
+        const sequence = this.sequence;
+        const owner = this.owner;
+        const voice = this.preferences().voice;
+        let audio = reply.audio;
+        let warning = reply.voiceError;
+        if (!audio && !warning && voice !== 'browser') {
+            if (!this.aiAvailable()) warning = 'AI voice is unavailable for this account.';
+            else {
+                this.cancelAi();
+                const generation = ++this.aiGeneration;
+                const controller = new AbortController();
+                this.aiController = controller;
+                try {
+                    const response = await this.boundedReply(this.ai.generateLiveCoachSpeech(reply.text, voice, controller.signal), controller);
+                    audio = response.audio;
+                    warning = response.voiceError ?? (!audio ? 'AI speech was not returned.' : undefined);
+                } catch (error) {
+                    if (generation !== this.aiGeneration) return false;
+                    warning = error instanceof Error ? error.message : 'AI speech could not load.';
+                } finally {
+                    if (generation === this.aiGeneration) this.aiController = null;
+                }
+            }
+        }
+        if (sequence !== this.sequence || owner !== this.owner || owner !== this.session.userId()
+            || voice !== this.preferences().voice || this.paused() || !this.access.canAct('sync')) return false;
+        this.voiceWarning.set(voice !== 'browser' && !audio ? `${warning ?? 'AI voice is unavailable.'} Using browser voice.` : null);
+        return audio ? this.narrator.speak(reply.text, this.preferences().speechRate, audio)
             : this.narrator.speak(reply.text, this.preferences().speechRate);
     }
 

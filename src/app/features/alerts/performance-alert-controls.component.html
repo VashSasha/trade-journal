@@ -43,6 +43,18 @@
         </div>
     </div>
 
+    <div class="guardrails__period">
+        <label class="guardrails__open-pnl">
+            <input type="checkbox" [checked]="alerts.preferences().dailyProfit.includeOpenPnl === true"
+                (change)="alerts.setIncludeOpenPnl(checked($event))" />
+            Include open P&L in daily profit-target alerts
+        </label>
+        <p class="guardrails__note">Realized today + unrealized across the selected accounts. Enable the daily profit target above. This is an estimate, not a guaranteed exit price; no orders are placed.</p>
+        @if (alerts.preferences().dailyProfit.includeOpenPnl) {
+            <p class="guardrails__note" role="status">{{ alerts.openPnlStatus() }}</p>
+        }
+    </div>
+
     <p class="guardrails__note">
         With two accounts selected, $200 profit on each counts as $400 toward the target. Completed trades also add up across accounts, including copied trades. Select a single account to monitor only that account.
     </p>

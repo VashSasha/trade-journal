@@ -4,7 +4,7 @@ import { isCoachAiVoice } from './coach-voices.ts';
 export const COACH_VOICE_PREVIEW = 'This is your AI coach. Position updates will be short and focused. Keep your decisions deliberate and your size consistent.';
 const MAX_AUDIO_BYTES = 384 * 1024;
 
-/** Only server-generated coaching copy (or a fixed preview) reaches speech. */
+/** Bounded text-only speech; caller enforces authentication, plan and atomic quota. */
 export async function coachSpeech(
     openai: OpenAI,
     text: string,
@@ -18,7 +18,7 @@ export async function coachSpeech(
     const response = await openai.audio.speech.create({
         model: 'gpt-4o-mini-tts', voice, input: text, response_format: 'mp3',
         instructions: 'Speak in a calm, clear, concise trading coach voice. Neutral, grounded delivery. Read exactly the supplied text.',
-    }, { signal: AbortSignal.any([signal, AbortSignal.timeout(4_000)]) });
+    }, { timeout: 12_000, signal: AbortSignal.any([signal, AbortSignal.timeout(12_000)]) });
     const reader = response.body?.getReader();
     if (!reader) throw new Error('Empty Coach audio.');
     let size = 0;

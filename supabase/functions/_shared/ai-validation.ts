@@ -128,6 +128,10 @@ export function validateAiBody(body: unknown): { type: string; payload: Record<s
         case 'live-coach-preview':
             requireValue(isCoachAiVoice(payload.voice), 'Choose an AI voice to preview.');
             return { type, payload: { voice: coachVoice(payload.voice) } };
+        case 'live-coach-speech':
+            requireValue(isCoachAiVoice(payload.voice), 'Choose an AI voice.');
+            requireValue(text(payload.text, 220), 'Coach speech must contain 1–220 characters.');
+            return { type, payload: { voice: coachVoice(payload.voice), text: payload.text.trim() } };
         case 'analyze-trade':
             candles(payload.marketData);
             requireValue(object(payload.tradeDetails), 'Trade details are required.');

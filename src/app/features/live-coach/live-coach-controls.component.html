@@ -137,7 +137,7 @@
     }
 
     <p class="live-coach__note">
-        {{ coach.liveDetail() }} Keep NVZN open for voice updates. Personalized coaching sends a limited performance summary to our AI service. AI voices also generate audio there. Comments and audio are not saved to your NVZN account; preferences sync across your devices. Limited to 30 AI comments per UTC day with browser-voice fallback.
+        {{ coach.liveDetail() }} Keep NVZN open for voice updates. Personalized coaching sends a limited performance summary to our AI service. The selected AI voice also reads position and guardrail updates when personalized commentary is off. Comments and audio are not saved to your NVZN account; preferences sync across devices. Previews, AI commentary and voice-only updates share the 30-request UTC daily allowance; browser voice is the fallback if unavailable.
     </p>
     @if (coach.voiceWarning() || coach.voiceFallback()) {
         <p class="live-coach__message" role="status">{{ coach.voiceWarning() || 'AI audio could not play. Using the browser voice. Try Test voice again.' }}</p>

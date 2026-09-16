@@ -28,6 +28,15 @@ Deno.test('empty and oversized audio are rejected for factual playback fallback'
     }
 });
 
+Deno.test('voice-only requests are bounded, voice-allowlisted and cannot override the model', () => {
+    assert.deepEqual(validateAiBody({ type: 'live-coach-speech', payload: { voice: 'cedar', text: 'Daily target touched.', model: 'untrusted' } }),
+        { type: 'live-coach-speech', payload: { voice: 'cedar', text: 'Daily target touched.' } });
+    for (const text of ['', '   ', 'x'.repeat(221), null]) {
+        assert.throws(() => validateAiBody({ type: 'live-coach-speech', payload: { voice: 'cedar', text } }));
+    }
+    assert.throws(() => validateAiBody({ type: 'live-coach-speech', payload: { voice: 'unknown', text: 'Hello' } }));
+});
+
 Deno.test('every UI voice is allowlisted for preview and speech without arbitrary text', async () => {
     assert.deepEqual(LIVE_COACH_AI_VOICES, COACH_AI_VOICES);
     assert.equal(COACH_AI_VOICES.length, 13);

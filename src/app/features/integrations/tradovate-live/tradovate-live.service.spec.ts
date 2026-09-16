@@ -78,6 +78,7 @@ describe('TradovateLiveService', () => {
                 ensureFreshToken,
                 markConnectionExpired,
                 getAccountsForConnection: () => of(connection.accounts),
+                getLiveInstrument: async () => ({ valuePerPoint: 5, currency: 'USD' }),
             } },
             { provide: AccountService, useValue: { applyLiveBalances } },
             { provide: SyncService, useValue: { isSyncing: signal(false), syncTrades: vi.fn(async () => 0) } },
@@ -127,6 +128,25 @@ describe('TradovateLiveService', () => {
         socket.close();
         expect(service.state()).toBe('reconnecting');
         expect(service.metrics()).toEqual([]);
+    });
+
+    it('opens a separate quote stream only when requested and leaves user data live when quotes are denied', async () => {
+        const service = TestBed.inject(TradovateLiveService);
+        service.setRequested('test', true); TestBed.tick(); await Promise.resolve(); TestBed.tick();
+        const socket = FakeWebSocket.instances[0]; socket.emit('o'); socket.emit('a[{"i":1,"s":200}]');
+        socket.emit('a[{"i":2,"s":200,"d":{"cashBalances":[{"accountId":10,"realizedPnL":200,"tradeDate":"2026-09-15"}],"positions":[{"id":1,"accountId":10,"contractId":20,"netPos":2,"netPrice":100}]}}]');
+        expect(FakeWebSocket.instances).toHaveLength(1);
+        service.setOpenPnlRequested(true); TestBed.tick(); await vi.advanceTimersByTimeAsync(100);
+        const quotes = FakeWebSocket.instances[1];
+        expect(quotes.url).toBe('wss://md.tradovateapi.com/v1/websocket');
+        quotes.emit('o'); quotes.emit('a[{"i":1,"s":403}]'); await vi.advanceTimersByTimeAsync(100);
+        expect(service.metrics()[0].openPnlState).toBe('unavailable');
+        expect(service.state()).toBe('live'); expect(markConnectionExpired).not.toHaveBeenCalled();
+        service.setOpenPnlRequested(false); TestBed.tick();
+        expect(service.metrics()[0].openPnlState).toBe('off');
+        expect(socket.readyState).toBe(FakeWebSocket.OPEN);
+        userId.set(null); TestBed.tick();
+        expect(socket.readyState).toBe(FakeWebSocket.CLOSED); expect(service.metrics()).toEqual([]);
     });
 
     it('marks rejected broker tokens for reauthentication instead of reconnecting forever', async () => {

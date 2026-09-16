@@ -70,6 +70,11 @@ export class OpenAiService {
         return this.callFunctionData('live-coach-preview', { voice }, signal);
     }
 
+    async generateLiveCoachSpeech(text: string, voice: LiveCoachVoice, signal?: AbortSignal): Promise<LiveCoachReply> {
+        if (this.access.demo()) throw new Error('Live coaching is unavailable in demo mode.');
+        return this.callFunctionData('live-coach-speech', { text, voice }, signal);
+    }
+
     private invokeReport(type: string, payload: unknown, emptyMessage: string): Observable<string> {
         return from(this.callFunction(type, payload)).pipe(
             map(text => text || emptyMessage),
@@ -108,7 +113,8 @@ export class OpenAiService {
             const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
             throw new Error(body?.error || 'AI request failed.');
         }
-        return { text: typeof data?.text === 'string' ? data.text : '', audio: data?.audio };
+        return { text: typeof data?.text === 'string' ? data.text : '', audio: data?.audio,
+            voiceError: typeof data?.voiceError === 'string' ? data.voiceError : undefined };
     }
 
     // ── Streaming ─────────────────────────────────────────────────────────────

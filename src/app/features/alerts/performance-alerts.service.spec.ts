@@ -51,7 +51,8 @@ describe('performance alert coordinator', () => {
             { provide: UserDataService, useValue: { dataLoaded: loaded } },
             { provide: UserSessionService, useValue: { userId } },
             { provide: SessionAlertsService, useValue: { announce } },
-            { provide: TradovateLiveService, useValue: { metrics: liveMetrics, setRequested: setLiveRequested } },
+            { provide: TradovateLiveService, useValue: { metrics: liveMetrics, setRequested: setLiveRequested,
+                setOpenPnlRequested: vi.fn(), state: signal('live'), connectionStatuses: signal([]) } },
             { provide: AccountAlertPreferencesService, useValue: {
                 performance: performancePreferences,
                 loading: signal(false), syncWarning: signal(false), storageWarning: signal(false),
@@ -94,6 +95,42 @@ describe('performance alert coordinator', () => {
         service.setEnabled('dailyLoss', true);
         expect(updatePerformance).toHaveBeenCalledOnce();
         expect(service.preferences().dailyLoss.enabled).toBe(true);
+    });
+
+    it('alerts once on realized plus open profit, without replaying at close or on stale recovery', () => {
+        const service = TestBed.inject(PerformanceAlertsService); TestBed.tick();
+        service.setValue('dailyProfit', 500); service.setEnabled('dailyProfit', true); service.setIncludeOpenPnl(true); TestBed.tick();
+        const metric: TradovateLiveAccountMetric = { connectionId: 'c1', accountId: 10, tradeDate: '2026-08-04',
+            dailyPnl: 200, weeklyPnl: 200, balance: 50200, completedTrades: 0, baselineKey: 'live', updatedAt: Date.now(),
+            openPnl: 100, openPnlState: 'live', openPositions: 1 };
+        liveMetrics.set([metric]); TestBed.tick();
+        liveMetrics.set([{ ...metric, openPnl: 150 }]); TestBed.tick();
+        liveMetrics.set([{ ...metric, openPnl: 300 }]); TestBed.tick();
+        expect(service.event()?.text).toContain('$500.00 combined');
+        expect(service.event()?.text).toContain('$300.00 open profit');
+        expect(announce).toHaveBeenCalledOnce();
+        liveMetrics.set([{ ...metric, openPnl: null, openPnlState: 'stale' }]); TestBed.tick();
+        liveMetrics.set([{ ...metric, openPnl: 400 }]); TestBed.tick();
+        liveMetrics.set([{ ...metric, dailyPnl: 550, openPnl: 0, openPositions: 0 }]); TestBed.tick();
+        expect(announce).toHaveBeenCalledOnce();
+    });
+
+    it('does not alert from incomplete account coverage, initial values or a price-feed gap', () => {
+        const service = TestBed.inject(PerformanceAlertsService); TestBed.tick();
+        service.setEnabled('dailyProfit', true); service.setIncludeOpenPnl(true); TestBed.tick();
+        const metric: TradovateLiveAccountMetric = { connectionId: 'c1', accountId: 10, tradeDate: '2026-08-04',
+            dailyPnl: 100, weeklyPnl: 100, balance: 50100, completedTrades: 0, baselineKey: 'live', updatedAt: Date.now(),
+            openPnl: 600, openPnlState: 'live', openPositions: 1 };
+        liveMetrics.set([metric]); TestBed.tick();
+        liveMetrics.set([{ ...metric, openPnl: 100 }]); TestBed.tick();
+        liveMetrics.set([{ ...metric, openPnl: null, openPnlState: 'stale' }]); TestBed.tick();
+        liveMetrics.set([{ ...metric, openPnl: 600 }]); TestBed.tick();
+        expect(announce).not.toHaveBeenCalled();
+        liveMetrics.set([{ ...metric, openPnl: 100 }, { ...metric, accountId: 20, baselineKey: 'second', openPnl: null, openPnlState: 'unavailable' }]); TestBed.tick();
+        liveMetrics.set([{ ...metric, openPnl: 600 }, { ...metric, accountId: 20, baselineKey: 'second', openPnl: null, openPnlState: 'unavailable' }]); TestBed.tick();
+        expect(announce).not.toHaveBeenCalled();
+        service.setIncludeOpenPnl(false);
+        expect(service.preferences().dailyProfit.includeOpenPnl).toBe(false);
     });
 
     it('baselines the initial broker snapshot, then alerts on a live P&L crossing', () => {

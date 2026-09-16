@@ -34,12 +34,15 @@ export interface TradovateAccount {
 /** Token endpoints reply either flat or wrapped in `d` (tv-* hosts) */
 interface TradovateAuthResponse {
     access_token?: string;
+    accessToken?: string;
+    mdAccessToken?: string;
     errorText?: string;
     /** Epoch-millisecond timestamp when this token expires (direct-auth endpoints). */
-    expirationTime?: number;
+    expirationTime?: number | string;
     /** Seconds until expiry (OAuth endpoints). */
     expiresIn?: number;
-    d?: { access_token?: string; expirationTime?: number };
+    expires_in?: number;
+    d?: { access_token?: string; accessToken?: string; mdAccessToken?: string; expirationTime?: number | string };
 }
 
 export interface TradovateCashBalance {
@@ -55,6 +58,8 @@ export interface TradovateConnection {
     id: string; // UUID
     name: string; // User-friendly name (e.g., "Take Profit Trader", "Apex Funded")
     token: string;
+    /** Optional market-data credential. Device-only, never synced to Supabase. */
+    mdToken?: string;
     /**
      * ISO timestamp when the current token expires. Stored only in localStorage —
      * never sent to Supabase (connectionToRow strips it). Drives the auto-renewal
@@ -440,6 +445,7 @@ export class TradovateService {
         // Strip client-only fields — token is a secret; tokenExpiresAt is local state.
         const metadata: Record<string, unknown> = { ...conn };
         delete metadata['token'];
+        delete metadata['mdToken'];
         delete metadata['tokenExpiresAt'];
         return {
             connection_id: conn.id,
@@ -459,6 +465,7 @@ export class TradovateService {
             id: connectionId,
             name: data.name ?? cached?.name ?? 'Tradovate',
             token: cached?.token ?? '', // never stored server-side; empty → expired → re-auth
+            mdToken: cached?.mdToken,
             tokenExpiresAt: cached?.tokenExpiresAt, // client-only; restored from cache
             config: data.config ?? cached?.config ?? { authMode: 'oauth', environment: 'demo' },
             accounts: data.accounts ?? cached?.accounts ?? [],
@@ -553,7 +560,7 @@ export class TradovateService {
      * environment), it is REVIVED — removed flips back to false and its row,
      * accounts, and history are reused instead of creating a duplicate.
      */
-    addConnection(name: string, token: string, config: TradovateConnection['config'], tokenExpiresAt?: string): string {
+    addConnection(name: string, token: string, config: TradovateConnection['config'], tokenExpiresAt?: string, mdToken?: string): string {
         const revivable = this.allConnections().find(c =>
             c.removed &&
             c.config.environment === config.environment &&
@@ -565,7 +572,7 @@ export class TradovateService {
         if (revivable) {
             this.allConnections.update(conns =>
                 conns.map(c => c.id === revivable.id
-                    ? { ...c, removed: false, name, token, config, ...(tokenExpiresAt ? { tokenExpiresAt } : {}) }
+                    ? { ...c, removed: false, name, token, mdToken, config, ...(tokenExpiresAt ? { tokenExpiresAt } : {}) }
                     : c)
             );
             this.clearExpiredConnection(revivable.id);
@@ -581,6 +588,7 @@ export class TradovateService {
             id: this.generateId(),
             name,
             token,
+            mdToken,
             ...(tokenExpiresAt ? { tokenExpiresAt } : {}),
             config,
             accounts: [],
@@ -604,10 +612,10 @@ export class TradovateService {
      * Update the token for an existing connection in-place (used on re-auth / renewal).
      * Pass tokenExpiresAt to reschedule the renewal timer.
      */
-    updateConnectionToken(connectionId: string, token: string, tokenExpiresAt?: string): void {
+    updateConnectionToken(connectionId: string, token: string, tokenExpiresAt?: string, mdToken?: string): void {
         this.allConnections.update(conns =>
             conns.map(c => c.id === connectionId
-                ? { ...c, token, ...(tokenExpiresAt !== undefined ? { tokenExpiresAt } : {}) }
+                ? { ...c, token, mdToken, ...(tokenExpiresAt !== undefined ? { tokenExpiresAt } : {}) }
                 : c)
         );
         this.clearExpiredConnection(connectionId);
@@ -640,9 +648,9 @@ export class TradovateService {
         return this.http.post<TradovateAuthResponse>(authUrl, { locale: 'en', login: username, password }, { headers }).pipe(
             map(res => {
                 this.userSession.assertCurrent(scope);
-                const token = res.d?.access_token || res.access_token;
+                const token = res.d?.access_token || res.d?.accessToken || res.access_token || res.accessToken;
                 if (!token) throw new Error(res.errorText || 'No access token received');
-                this.updateConnectionToken(connectionId, token, this.parseExpiresAt(res));
+                this.updateConnectionToken(connectionId, token, this.parseExpiresAt(res), res.d?.mdAccessToken ?? res.mdAccessToken);
             }),
             catchError(err => throwError(() => new Error(
                 err.error?.errorText || err.message || 'Reconnection failed'
@@ -680,7 +688,7 @@ export class TradovateService {
         this.access.assertAction('save');
         this.clearRenewalTimer(connectionId);
         this.allConnections.update(conns =>
-            conns.map(c => c.id === connectionId ? { ...c, removed: true, token: '', tokenExpiresAt: undefined } : c)
+            conns.map(c => c.id === connectionId ? { ...c, removed: true, token: '', mdToken: undefined, tokenExpiresAt: undefined } : c)
         );
         this.clearExpiredConnection(connectionId);
 
@@ -744,7 +752,7 @@ export class TradovateService {
         );
         // Clear the stale token from storage so the app doesn't try to use it after restart
         this.allConnections.update(conns =>
-            conns.map(c => c.id === connectionId ? { ...c, token: '' } : c)
+            conns.map(c => c.id === connectionId ? { ...c, token: '', mdToken: undefined } : c)
         );
         // Token-only change (never stored server-side) — cache mirror only.
         this.writeConnectionsCache();
@@ -761,14 +769,16 @@ export class TradovateService {
 
     /** Extract an absolute ISO expiry timestamp from an auth response. */
     private parseExpiresAt(res: TradovateAuthResponse): string | undefined {
-        // Direct-auth: expirationTime is epoch ms (possibly in the `d` wrapper)
-        const epochMs = res.d?.expirationTime ?? res.expirationTime;
-        if (typeof epochMs === 'number' && epochMs > 0) {
+        // Web auth uses epoch ms; the public API returns an ISO timestamp.
+        const expiry = res.d?.expirationTime ?? res.expirationTime;
+        const epochMs = typeof expiry === 'string' ? Date.parse(expiry) : expiry;
+        if (typeof epochMs === 'number' && Number.isFinite(epochMs) && epochMs > 0) {
             return new Date(epochMs).toISOString();
         }
         // OAuth: expiresIn is seconds from now
-        if (typeof res.expiresIn === 'number' && res.expiresIn > 0) {
-            return new Date(Date.now() + res.expiresIn * 1000).toISOString();
+        const seconds = res.expiresIn ?? res.expires_in;
+        if (typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0) {
+            return new Date(Date.now() + seconds * 1000).toISOString();
         }
         return undefined;
     }
@@ -818,9 +828,9 @@ export class TradovateService {
                 this.http.post<TradovateAuthResponse>(renewUrl, {}, { headers })
             );
             this.userSession.assertCurrent(scope);
-            const token = res.d?.access_token || res.access_token;
+            const token = res.d?.access_token || res.d?.accessToken || res.access_token || res.accessToken;
             if (!token) throw new Error('No access token in renewal response');
-            this.updateConnectionToken(connectionId, token, this.parseExpiresAt(res));
+            this.updateConnectionToken(connectionId, token, this.parseExpiresAt(res), res.d?.mdAccessToken ?? res.mdAccessToken);
             if (isDevMode()) console.log(`[TradovateService] Token renewed for ${conn.name}`);
         } catch (err: any) {
             if (!this.userSession.isCurrent(scope)) return;
@@ -1015,14 +1025,15 @@ export class TradovateService {
         return this.http.post<TradovateAuthResponse>(authUrl, body, { headers }).pipe(
             tap(() => this.userSession.assertCurrent(scope)),
             map(res => {
-                const accessToken = res.d?.access_token || res.access_token;
+                const accessToken = res.d?.access_token || res.d?.accessToken || res.access_token || res.accessToken;
 
                 if (accessToken) {
                     const connectionId = this.addConnection(
                         connectionName,
                         accessToken,
                         { authMode: 'direct', environment, username },
-                        this.parseExpiresAt(res)
+                        this.parseExpiresAt(res),
+                        res.d?.mdAccessToken ?? res.mdAccessToken
                     );
                     return { connectionId };
                 } else if (res.errorText) {
@@ -1069,6 +1080,21 @@ export class TradovateService {
 
     getCashBalances(): Observable<TradovateCashBalance[]> {
         return this.authGet<TradovateCashBalance[]>('/cashBalance/list');
+    }
+
+    /** Broker metadata only; do not guess contract multipliers from a symbol prefix. */
+    async getLiveInstrument(connectionId: string, contractId: number): Promise<{ valuePerPoint: number; currency: string }> {
+        const connection = this.connections().find(item => item.id === connectionId);
+        if (!connection) throw new Error('Broker connection is unavailable.');
+        const get = <T>(endpoint: string, id: number) => {
+            if (!Number.isSafeInteger(id) || id <= 0) throw new Error('Invalid broker metadata.');
+            return firstValueFrom(this.authGetFor<T>(connection, endpoint, { id: String(id) }));
+        };
+        const contract = await get<{ contractMaturityId: number }>('/contract/item', contractId);
+        const maturity = await get<{ productId: number }>('/contractMaturity/item', contract.contractMaturityId);
+        const product = await get<{ valuePerPoint: number; currencyId: number }>('/product/item', maturity.productId);
+        const currency = await get<{ name: string }>('/currency/item', product.currencyId);
+        return { valuePerPoint: product.valuePerPoint, currency: currency.name };
     }
 
     getAccountsForConnection(conn: TradovateConnection): Observable<TradovateAccount[]> {

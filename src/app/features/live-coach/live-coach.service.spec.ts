@@ -41,6 +41,8 @@ describe('LiveCoachService', () => {
     const speak = vi.fn(async () => true);
     const generateLiveCoachReply = vi.fn(async (_payload: unknown, _signal: AbortSignal): Promise<LiveCoachReply> => ({ text: 'Stay selective and keep your size consistent.' }));
     const setRequested = vi.fn();
+    const generateLiveCoachSpeech = vi.fn(async (text: string, _voice: string, _signal: AbortSignal): Promise<LiveCoachReply> =>
+        ({ text, audio: { mimeType: 'audio/mpeg', base64: 'YWJj' } }));
     const liveState = signal('live');
     const stop = vi.fn();
     const activate = vi.fn(async () => true);
@@ -62,6 +64,7 @@ describe('LiveCoachService', () => {
         publish.mockReset();
         speak.mockClear();
         generateLiveCoachReply.mockReset();
+        generateLiveCoachSpeech.mockClear();
         generateLiveCoachReply.mockResolvedValue({ text: 'Stay selective and keep your size consistent.' });
         setRequested.mockReset();
 
@@ -88,7 +91,7 @@ describe('LiveCoachService', () => {
             } },
             { provide: UserSessionService, useValue: { userId } },
             { provide: TradeService, useValue: { trades: signal([]) } },
-            { provide: OpenAiService, useValue: { generateLiveCoachReply, previewLiveCoachVoice } },
+            { provide: OpenAiService, useValue: { generateLiveCoachReply, previewLiveCoachVoice, generateLiveCoachSpeech } },
             { provide: AccessPolicyService, useValue: {
                 canAct: () => true,
                 requestAction: () => true,
@@ -256,9 +259,45 @@ describe('LiveCoachService', () => {
         generateLiveCoachReply.mockReturnValueOnce(new Promise(() => {}));
         const service = TestBed.inject(LiveCoachService); TestBed.tick();
         events.set([positionEvent()]); TestBed.tick();
-        await vi.advanceTimersByTimeAsync(12_900);
+        await vi.advanceTimersByTimeAsync(30_900);
         expect(service.aiState()).toBe('fallback');
         expect(speak).toHaveBeenCalledWith('Opened MNQZ6 long with 1 contract.', 1);
+    });
+
+    it('uses the selected AI voice for sizing without needing personalized commentary', async () => {
+        preferences.update(value => ({ ...value, voice: 'cedar' }));
+        TestBed.inject(LiveCoachService); TestBed.tick();
+        events.set([positionEvent({ kind: 'increased', previousQuantity: 1, quantity: 2 })]); TestBed.tick();
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(generateLiveCoachReply).not.toHaveBeenCalled();
+        expect(generateLiveCoachSpeech).toHaveBeenCalledWith(expect.any(String), 'cedar', expect.any(AbortSignal));
+        expect(speak).toHaveBeenCalledWith(expect.any(String), 1, { mimeType: 'audio/mpeg', base64: 'YWJj' });
+    });
+
+    it('uses the selected voice for guardrails and makes provider failures visible', async () => {
+        preferences.update(value => ({ ...value, voice: 'marin' }));
+        const service = TestBed.inject(LiveCoachService); TestBed.tick();
+        performanceEvent.set({ id: 1, tone: 'target', text: 'Daily target touched at $500.' }); TestBed.tick();
+        await vi.advanceTimersByTimeAsync(1700);
+        expect(generateLiveCoachSpeech).toHaveBeenCalledWith('Daily target touched at $500.', 'marin', expect.any(AbortSignal));
+        generateLiveCoachSpeech.mockRejectedValueOnce(new Error('Live Coach AI daily limit reached (30 comments).'));
+        performanceEvent.set({ id: 2, tone: 'risk', text: 'Daily loss limit reached.' }); TestBed.tick();
+        await vi.advanceTimersByTimeAsync(1700);
+        expect(service.voiceWarning()).toContain('daily limit');
+        expect(speak).toHaveBeenLastCalledWith('Daily loss limit reached.', 1);
+    });
+
+    it('discards delayed voice-only audio when the position changes or the user logs out', async () => {
+        preferences.update(value => ({ ...value, voice: 'cedar', exits: false }));
+        let resolve!: (reply: LiveCoachReply) => void;
+        generateLiveCoachSpeech.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+        TestBed.inject(LiveCoachService); TestBed.tick();
+        events.set([positionEvent()]); TestBed.tick(); await vi.advanceTimersByTimeAsync(1000);
+        events.set([positionEvent({ eventId: 'closed', kind: 'closed', previousQuantity: 1, quantity: 0 })]); TestBed.tick();
+        userId.set(null); TestBed.tick();
+        resolve({ text: 'Old position.', audio: { mimeType: 'audio/mpeg', base64: 'YWJj' } });
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(speak).not.toHaveBeenCalled();
     });
 
     it('drops an outdated entry even when exit narration is muted', async () => {
