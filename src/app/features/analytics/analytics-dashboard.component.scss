@@ -175,3 +175,17 @@ input:focus-visible {
         &__status { align-items: flex-start; flex-direction: column; gap: 0.15rem; }
     }
 }
+
+@media (max-width: 700px) {
+    .page-shell { padding: 0; }
+    .analytics__header { align-items: center; margin-bottom: 1rem; }
+    .analytics__header .page-title { margin: 0; font-size: 1.5rem; }
+    .analytics__header .page-subtitle { display: none; }
+    .analytics__customize, .analytics-layout-editor__reset { min-height: 2.75rem; }
+    .analytics__lens { margin-bottom: 1rem; }
+    .analytics-layout-editor__widgets { grid-template-columns: minmax(0, 1fr); padding: 0.75rem; }
+    .analytics-layout-editor__widget { min-height: 2.75rem; align-items: center; }
+    .analytics-layout-editor__widget strong { font-size: 0.8125rem; }
+    .analytics-layout-editor__widget small { font-size: 0.75rem; }
+    .analytics-layout-editor__status { flex-wrap: wrap; }
+}

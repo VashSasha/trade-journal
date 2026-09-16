@@ -97,3 +97,8 @@ export function normalizeDashboardLayout(value: unknown): DashboardWidgetPlaceme
 export function dashboardWidgetDefinition(id: DashboardWidgetId): DashboardWidgetDefinition {
     return widgetById.get(id)!;
 }
+
+/** A reading order only: never persist phone geometry over the desktop layout. */
+export function dashboardStackOrder(widgets: readonly DashboardWidgetPlacement[]): DashboardWidgetPlacement[] {
+    return widgets.filter(widget => !widget.hidden).sort((a, b) => a.y - b.y || a.x - b.x);
+}

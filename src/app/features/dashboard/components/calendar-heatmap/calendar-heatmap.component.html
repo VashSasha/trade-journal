@@ -5,13 +5,13 @@
     <h3 class="cal-title">Performance Calendar</h3>
     <div class="cal-header-right">
       <div class="cal-nav">
-        <button (click)="prevMonth()" class="cal-nav-btn">
+        <button (click)="prevMonth()" class="cal-nav-btn" aria-label="Previous month">
           <svg class="cal-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
           </svg>
         </button>
         <span class="cal-month-label">{{ currentMonthYear() }}</span>
-        <button (click)="nextMonth()" class="cal-nav-btn">
+        <button (click)="nextMonth()" class="cal-nav-btn" aria-label="Next month">
           <svg class="cal-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
           </svg>
@@ -71,7 +71,22 @@
            [class.cal-day--open]="!day.isMarketClosed && !day.hasTrades"
            [class.cal-day--positive]="day.hasTrades && day.stats.netPnl > 0"
            [class.cal-day--negative]="day.hasTrades && day.stats.netPnl < 0"
+           [class.cal-day--selected]="selectedDay() === day"
            [style.--cal-cell-opacity]="getCellOpacity(day)">
+
+        <button type="button" class="cal-day__compact" (click)="selectDay(day)"
+                [attr.aria-pressed]="selectedDay() === day"
+                [attr.aria-label]="(day.date | date:'fullDate') + ': ' + (day.stats.netPnl | currency) + ', ' + day.stats.totalTrades + ' trades, ' + day.events.length + ' events'">
+          <span class="cal-day-num" [class.cal-day-num--today]="day.isToday">{{ day.day }}</span>
+          @if (day.hasTrades) {
+            @if (isSelected('pnl')) { <strong>{{ compact(day.stats.netPnl) }}</strong> }
+            @if (isSelected('points')) { <span>{{ compact(day.points) }}p</span> }
+            @if (isSelected('trades')) { <span>{{ compact(day.stats.totalTrades) }}t</span> }
+            @if (isSelected('winrate')) { <span>{{ day.stats.winRate.toFixed(0) }}%</span> }
+            @if (isSelected('percent')) { <span>{{ compact(day.pnlPercent) }}%</span> }
+          }
+          @if (day.events.length) { <span class="cal-day__event-dot" aria-hidden="true"></span> }
+        </button>
 
         <div class="cal-day-top">
           <span class="cal-day-num"
@@ -148,6 +163,25 @@
 
       </div>
     }
+  </div>
+
+  <div class="cal-mobile-detail" aria-live="polite">
+    @if (selectedDay(); as day) {
+      <strong>{{ day.date | date:'EEE, MMM d, y' }}</strong>
+      <dl>
+        <div><dt>Net P&L</dt><dd>{{ day.stats.netPnl | currency }}</dd></div>
+        <div><dt>Trades</dt><dd>{{ day.stats.totalTrades }}</dd></div>
+        <div><dt>Win rate</dt><dd>{{ day.stats.winRate.toFixed(1) }}%</dd></div>
+        <div><dt>Points</dt><dd>{{ day.points.toFixed(2) }}</dd></div>
+        <div><dt>Gain</dt><dd>{{ day.pnlPercent.toFixed(2) }}%</dd></div>
+      </dl>
+      @for (event of day.events; track $index) {
+        <a [href]="event.link" target="_blank" rel="noopener">{{ event.event }} · {{ event.time }} ET @if (event.estimated) { (estimated) } ↗</a>
+      }
+    } @else {
+      <span>Tap a day for exact numbers and events.</span>
+    }
+    <small>P&L in USD · Rounded cell values · Dot = economic event</small>
   </div>
 
   <!-- Event legend -->

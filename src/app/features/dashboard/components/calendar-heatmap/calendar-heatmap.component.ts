@@ -1,5 +1,5 @@
 import { Component, input, signal, computed, inject, HostListener, ElementRef } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
+import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Trade } from '../../../../core/models/trade.model';
 import { EconomicCalendarService, EconomicEvent } from '../../../../core/services/economic-calendar.service';
 import { ThemeService } from '../../../../core/services/theme.service';
@@ -33,7 +33,7 @@ const STORAGE_KEY = 'cal_selected_modes';
 @Component({
     selector: 'app-calendar-heatmap',
     standalone: true,
-    imports: [CurrencyPipe],
+    imports: [CurrencyPipe, DatePipe],
     templateUrl: './calendar-heatmap.component.html',
     styleUrl: './calendar-heatmap.component.scss'
 })
@@ -47,6 +47,17 @@ export class CalendarHeatmapComponent {
 
     currentDate = signal(new Date());
     settingsOpen = signal(false);
+    readonly selectedDate = signal<string | null>(null);
+    readonly selectedDay = computed(() => this.calendarData().find(day => localDateStr(day.date) === this.selectedDate()));
+    private readonly compactNumber = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
+
+    selectDay(day: CalendarDay): void {
+        this.selectedDate.set(localDateStr(day.date));
+    }
+
+    compact(value: number): string {
+        return this.compactNumber.format(value);
+    }
 
     selectedModes = signal<CalDisplayMode[]>((() => {
         try {

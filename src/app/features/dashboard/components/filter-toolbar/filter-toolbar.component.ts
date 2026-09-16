@@ -14,6 +14,17 @@ export class FilterToolbarComponent {
     filterService = inject(FilterService);
 
     activeDateFilter = signal<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
+    readonly mobileFiltersOpen = signal(false);
+
+    toggleMobileFilters(): void {
+        this.mobileFiltersOpen.update(open => !open);
+    }
+
+    selectMobileDate(value: string): void {
+        if (value === 'all' || value === 'today' || value === 'week' || value === 'month' || value === 'custom') {
+            this.setDateFilter(value);
+        }
+    }
 
     constructor() {
         this.setDateFilter('all');

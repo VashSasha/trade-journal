@@ -16,6 +16,7 @@
 }
 
 .perf-charts__card {
+  min-width: 0;
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
   border-radius: 0.5rem;
@@ -31,4 +32,11 @@
 
 .perf-charts__canvas-wrap {
   height: 16rem;
+}
+
+@media (max-width: 700px) {
+  .perf-charts { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  .perf-charts__card { padding: 0; border: 0; }
+  .perf-charts__title { font-size: 0.8rem; margin-bottom: 0.65rem; color: var(--color-text-secondary); }
+  .perf-charts__canvas-wrap { height: 12rem; }
 }

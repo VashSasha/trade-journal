@@ -64,6 +64,20 @@
             </section>
         }
 
+        @if (mobile()) {
+            <div class="dash__stack">
+                @for (widget of stackedWidgets(); track widget.id) {
+                    <div class="dash__stack-item" [attr.data-widget]="widget.id">
+                        <ng-container [ngComponentOutlet]="widgetTypes[widget.id]" />
+                    </div>
+                } @empty {
+                    <div class="dash__empty-layout">
+                        <strong>Your dashboard is empty.</strong>
+                        <span>Choose Customize to bring a widget back.</span>
+                    </div>
+                }
+            </div>
+        } @else {
         <gridstack class="dash__grid" [class.dash__grid--editing]="layout.editing()"
             [options]="gridOptions" (changeCB)="onLayoutChange($event)" (resizeStopCB)="onResizeStop()">
             <div empty-content class="dash__empty-layout">
@@ -71,5 +85,6 @@
                 <span>Choose Customize to bring a widget back.</span>
             </div>
         </gridstack>
+        }
     </div>
 </div>

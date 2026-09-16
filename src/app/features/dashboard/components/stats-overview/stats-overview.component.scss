@@ -136,3 +136,18 @@
 @container (min-width: 48rem) {
     .stats-overview { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+@media (max-width: 700px) {
+    .stats-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+    .stat-card {
+        position: relative;
+        padding: 0.85rem 0.75rem;
+        align-items: flex-start;
+        &__label { font-size: 0.75rem; }
+        &__value { font-size: 1.25rem; white-space: normal; overflow-wrap: anywhere; overflow: visible; margin-right: 0; font-variant-numeric: tabular-nums; }
+        &__sub { font-size: 0.68rem; overflow-wrap: anywhere; }
+        &__icon { display: none; }
+        &__share-btn { position: absolute; top: 0; right: 0; width: 2.75rem; height: 2.75rem; margin: 0; }
+        &:first-child .stat-card__label { padding-right: 1.4rem; }
+    }
+}

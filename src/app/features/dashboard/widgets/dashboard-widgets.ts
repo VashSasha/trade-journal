@@ -8,6 +8,7 @@ import { PerformanceChartsComponent } from '../components/performance-charts/per
 import { RecentTradesComponent } from '../components/recent-trades/recent-trades.component';
 import { StatsOverviewComponent } from '../components/stats-overview/stats-overview.component';
 import { DashboardDataService } from '../dashboard-data.service';
+import { DashboardWidgetId } from '../dashboard-layout.model';
 import { DashboardWidgetFrameComponent } from './dashboard-widget-frame.component';
 
 @Component({
@@ -66,6 +67,12 @@ export class DashboardStatsWidgetComponent extends BaseWidget {
         .performance-widget__tabs button:hover { color: var(--color-text-primary); }
         .performance-widget__tabs button.is-active { background: var(--color-bg-surface); color: var(--color-text-primary); }
         .performance-widget__tabs button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+        @media (max-width: 700px) {
+            .performance-widget { min-height: 0; padding: 1rem; }
+            .performance-widget__header { gap: 0.5rem; }
+            .performance-widget__header h2 { font-size: 0.9rem; }
+            .performance-widget__tabs button { min-width: 2.75rem; min-height: 2.75rem; padding-inline: 0.5rem; }
+        }
     `],
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -140,11 +147,13 @@ export class DashboardGoalsGridWidgetComponent extends BaseWidget {}
 })
 export class DashboardMarketEventsGridWidgetComponent extends BaseWidget {}
 
-export const DASHBOARD_WIDGET_COMPONENTS = [
-    DashboardStatsWidgetComponent,
-    DashboardPerformanceWidgetComponent,
-    DashboardCalendarWidgetComponent,
-    DashboardRecentTradesWidgetComponent,
-    DashboardGoalsGridWidgetComponent,
-    DashboardMarketEventsGridWidgetComponent,
-] as const;
+export const DASHBOARD_WIDGET_TYPES = {
+    stats: DashboardStatsWidgetComponent,
+    performance: DashboardPerformanceWidgetComponent,
+    calendar: DashboardCalendarWidgetComponent,
+    'recent-trades': DashboardRecentTradesWidgetComponent,
+    goals: DashboardGoalsGridWidgetComponent,
+    'market-events': DashboardMarketEventsGridWidgetComponent,
+} satisfies Record<DashboardWidgetId, unknown>;
+
+export const DASHBOARD_WIDGET_COMPONENTS = Object.values(DASHBOARD_WIDGET_TYPES);
