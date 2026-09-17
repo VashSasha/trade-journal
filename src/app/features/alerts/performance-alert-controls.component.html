@@ -64,21 +64,21 @@
     </div>
   </div>
 
-  <div class="guardrails__period">
+  <div class="guardrails__open-pnl-section">
     <label class="guardrails__open-pnl">
       <input type="checkbox" [checked]="alerts.preferences().dailyProfit.includeOpenPnl === true"
              aria-describedby="open-pnl-description"
              (change)="alerts.setIncludeOpenPnl(checked($event))"/>
       <span>Include open P&L in daily profit-target alerts</span>
     </label>
-    <div class="guardrails__note">
+    <div class="guardrails__open-pnl-details">
       <p id="open-pnl-description">
         Realized today + unrealized across the selected accounts. Enable the daily profit target
         above. This is an estimate, not a guaranteed exit price; no orders are placed.
       </p>
 
       @if (alerts.preferences().dailyProfit.includeOpenPnl) {
-        <p class="guardrails__note" role="status">{{ alerts.openPnlStatus() }}</p>
+        <p role="status">{{ alerts.openPnlStatus() }}</p>
       }
     </div>
 

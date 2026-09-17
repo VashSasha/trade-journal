@@ -46,4 +46,14 @@ describe('performance guardrail controls', () => {
         alerts.setIncludeOpenPnl(true); fixture.detectChanges();
         expect(element.querySelector('[role="status"]')?.textContent).toContain('Waiting for fresh live quotes');
     });
+
+    it('keeps the full-width open-P&L control outside the narrow period grid', () => {
+        const { alerts, fixture, element } = setup();
+        alerts.setIncludeOpenPnl(true); fixture.detectChanges();
+        const label = element.querySelector('.guardrails__open-pnl')!;
+        expect(label.closest('.guardrails__period')).toBeNull();
+        expect(label.parentElement?.classList.contains('guardrails__open-pnl-section')).toBe(true);
+        expect(element.querySelector('.guardrails__open-pnl-details [role="status"]')).not.toBeNull();
+        expect(element.querySelector('.guardrails__open-pnl-details .guardrails__note')).toBeNull();
+    });
 });
