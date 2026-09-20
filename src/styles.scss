@@ -33,15 +33,16 @@
 
 
   /* Chrome (sidebar + header) — light mode */
-  --color-chrome-bg: #1e293b;
-  --color-chrome-border: rgba(0, 0, 0, 0.08);
-  --color-chrome-text: #e3ebf6;
-  --color-chrome-text-hi: var(--color-accent-hover);
-  --color-chrome-text-muted: #94a3b8;
-  --color-chrome-hover: rgba(0, 0, 0, 0.05);
-  --color-chrome-active: rgba(0, 0, 0, 0.08);
-  --color-chrome-widget-bg: rgba(0, 0, 0, 0.04);
-  --color-chrome-widget-hover: rgba(0, 0, 0, 0.06);
+  --color-chrome-bg: #ffffff;
+  --color-chrome-border: #dfe5ed;
+  --color-chrome-text: #334155;
+  --color-chrome-text-hi: #0f172a;
+  --color-chrome-text-muted: #526379;
+  --color-chrome-accent: #0369a1;
+  --color-chrome-hover: #f1f5f9;
+  --color-chrome-active: #eaf5fc;
+  --color-chrome-widget-bg: #f4f6f9;
+  --color-chrome-widget-hover: #eaf0f6;
   --color-plan-premium: #7c86f7;
   --color-plan-lifetime: #f59e0b;
   --colorShortSoftBg: #e4e4e4;
@@ -92,10 +93,11 @@
   --color-chrome-bg: #0d1117;
   --color-chrome-border: rgba(255, 255, 255, 0.07);
   --color-chrome-text: #d7e9f3;
-  --color-chrome-text-hi: var(--color-accent-hover);
-  --color-chrome-text-muted: #6e7681;
+  --color-chrome-text-hi: #f1f5f9;
+  --color-chrome-text-muted: #9aa7b8;
+  --color-chrome-accent: var(--color-accent);
   --color-chrome-hover: rgba(255, 255, 255, 0.06);
-  --color-chrome-active: rgba(255, 255, 255, 0.10);
+  --color-chrome-active: rgba(36, 179, 255, 0.12);
   --color-chrome-widget-bg: rgba(255, 255, 255, 0.05);
   --color-chrome-widget-hover: rgba(255, 255, 255, 0.08);
 

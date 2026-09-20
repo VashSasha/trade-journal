@@ -1,66 +1,50 @@
 <div class="acct-widget">
-    <div class="acct-widget__balance">
-        <span class="acct-widget__label">
-            @if (accountService.selectedIds().length > 1) {
-                Total ({{ accountService.selectedIds().length }} accounts)
-            } @else if (accountService.selectedIds().length === 1) {
-                Account Balance
-            } @else {
-                No Account Selected
+    <button #trigger type="button" class="acct-widget__trigger" (click)="toggleDropdown()"
+        aria-haspopup="dialog" aria-controls="account-selection" [attr.aria-expanded]="dropdownOpen()"
+        [attr.aria-label]="'Select accounts. ' + selectionLabel()" [title]="selectionLabel()">
+        <span class="acct-widget__balance">
+            <span class="acct-widget__label">{{ selectionLabel() }}</span>
+            <span class="acct-widget__value">
+                @if (accountService.selectedIds().length === 0 || accountService.currentBalance() === null) {
+                    <span class="acct-widget__value--empty">—</span>
+                } @else { {{ accountService.aggregatedBalance() | currency }} }
+            </span>
+            @if (accountService.staleAsOf(); as ts) {
+                <span class="acct-widget__stale-hint">Last known · {{ relativeTime(ts) }}</span>
             }
         </span>
-        <span class="acct-widget__value">
-            @if (accountService.selectedIds().length === 0 || accountService.currentBalance() === null) {
-                <span class="acct-widget__value--empty">—</span>
-            } @else {
-                {{ accountService.aggregatedBalance() | currency }}
-            }
-        </span>
-        @if (accountService.staleAsOf(); as ts) {
-            <span class="acct-widget__stale-hint">as of {{ relativeTime(ts) }}</span>
-        }
-    </div>
-
-    <div class="acct-widget__divider"></div>
-
-    <!-- Refresh balance -->
-    <button class="acct-widget__icon-btn acct-widget__icon-btn--refresh"
-        (click)="accountService.refreshBalances()"
-        [disabled]="accountService.isRefreshing()"
-        title="Refresh balance">
-        <svg [class.is-spinning]="accountService.isRefreshing()"
-            class="acct-widget__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="acct-widget__icon acct-widget__chevron" [class.acct-widget__chevron--open]="dropdownOpen()"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+    </button>
+    <button type="button" class="acct-widget__refresh" (click)="accountService.refreshBalances()"
+        [disabled]="accountService.isRefreshing()" title="Refresh balances" aria-label="Refresh balances">
+        <svg [class.is-spinning]="accountService.isRefreshing()" class="acct-widget__icon"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
         </svg>
     </button>
 
-    <!-- Dropdown toggle -->
-    <div class="acct-widget__selector">
-        <button class="acct-widget__icon-btn" (click)="toggleDropdown()" title="Select accounts">
-            <svg class="acct-widget__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-        </button>
-
-        @if (dropdownOpen()) {
-        <div class="acct-dropdown">
+    @if (dropdownOpen()) {
+        <section id="account-selection" class="acct-dropdown" role="dialog" aria-labelledby="account-selection-title">
             <div class="acct-dropdown__header">
-                <span class="acct-dropdown__title">Select Accounts</span>
-                <button class="acct-dropdown__close" (click)="closeDropdown()">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div>
+                    <h2 id="account-selection-title">Trading accounts</h2>
+                    <p>{{ accountService.selectedIds().length }} selected across your workspace</p>
+                </div>
+                <button #closeButton type="button" class="acct-dropdown__close" (click)="closeDropdown()" aria-label="Close account selector">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>
             </div>
             <div class="acct-dropdown__actions">
-                <button class="acct-dropdown__action acct-dropdown__action--refresh" (click)="accountService.refreshBalances()"
-                    [disabled]="accountService.isRefreshing()">{{ accountService.isRefreshing() ? 'Refreshing…' : 'Refresh balances' }}</button>
-                <button class="acct-dropdown__action acct-dropdown__action--select"
-                    (click)="accountService.selectAll()">Select All</button>
-                <span class="acct-dropdown__sep">|</span>
-                <button class="acct-dropdown__action"
-                    (click)="accountService.deselectAll()">Deselect All</button>
+                <button type="button" class="acct-dropdown__action" (click)="accountService.selectAll()">Select all</button>
+                <button type="button" class="acct-dropdown__action" (click)="accountService.deselectAll()">Clear selection</button>
+                <button type="button" class="acct-dropdown__action acct-dropdown__action--refresh" (click)="accountService.refreshBalances()"
+                    [disabled]="accountService.isRefreshing()">{{ accountService.isRefreshing() ? 'Refreshing…' : 'Refresh' }}</button>
             </div>
             <div class="acct-dropdown__list">
                 @for (account of accountService.accounts(); track account.id) {
@@ -109,7 +93,7 @@
                 }
                 }
             </div>
-        </div>
-        }
-    </div>
+
+        </section>
+    }
 </div>
