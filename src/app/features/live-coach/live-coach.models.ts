@@ -3,10 +3,29 @@ import { DEFAULT_LIVE_COACH_VOICE, LiveCoachVoice } from './live-coach-voices';
 
 export type { LiveCoachVoice } from './live-coach-voices';
 export interface LiveCoachAudio { mimeType: 'audio/mpeg'; base64: string; }
-export interface LiveCoachReply { text: string; audio?: LiveCoachAudio; voiceError?: string; }
+export interface LiveCoachReply { text: string; audio?: LiveCoachAudio; voiceError?: string; followUp?: LiveCoachFollowUpAnswer; }
+
+export type LiveCoachQuestion = 'explain' | 'compare-session';
+export interface LiveCoachFollowUpAnswer { meaning: string; evidence: string; nextStep: string; }
+export interface LiveCoachObservation {
+    id: number;
+    text: string;
+    time: number;
+    personalized: boolean;
+    title: string;
+    /** Captured once with the observation, never rebuilt when a question is clicked. */
+    snapshot?: LiveCoachAiPayload;
+}
+export interface LiveCoachFollowUpPayload {
+    question: LiveCoachQuestion;
+    observedAt: string;
+    comment: string;
+    snapshot: LiveCoachAiPayload | null;
+}
 
 export interface LiveCoachPreferences {
     enabled: boolean;
+    voiceEnabled: boolean;
     aiCommentary: boolean;
     entries: boolean;
     sizing: boolean;
@@ -61,6 +80,7 @@ export interface LiveCoachAiPayload {
 
 export const DEFAULT_LIVE_COACH_PREFERENCES: Readonly<LiveCoachPreferences> = {
     enabled: false,
+    voiceEnabled: true,
     aiCommentary: false,
     entries: true,
     sizing: true,

@@ -80,4 +80,27 @@ describe('paid AI access and streaming failures', () => {
         await expect(ai.previewLiveCoachVoice('cedar', controller.signal)).rejects.toThrow();
         expect(invoke).not.toHaveBeenCalled();
     });
+
+    it('authenticates written follow-ups and validates their structured response', async () => {
+        const payload = { question: 'explain' as const, observedAt: '2026-09-18T15:00:00.000Z',
+            comment: 'Daily target touched including estimated open profit.', snapshot: null };
+        const followUp = { meaning: 'The estimate touched the target.', evidence: 'Open profit was included.',
+            nextStep: 'Review your recorded plan.' };
+        invoke.mockResolvedValueOnce({ data: { followUp } as any, error: null });
+        await expect(ai.generateLiveCoachFollowUp(payload)).resolves.toEqual(followUp);
+        expect(invoke).toHaveBeenCalledWith('ai-report', expect.objectContaining({
+            body: { type: 'live-coach-follow-up', payload }, headers: { Authorization: 'Bearer test' },
+        }));
+        invoke.mockResolvedValueOnce({ data: { followUp: { meaning: 'Partial' } } as any, error: null });
+        await expect(ai.generateLiveCoachFollowUp(payload)).rejects.toThrow('incomplete answer');
+    });
+
+    it('never requests written follow-ups from free or demo workspaces', async () => {
+        const payload = { question: 'explain' as const, observedAt: '2026-09-18T15:00:00.000Z', comment: 'Opened one contract.', snapshot: null };
+        plan.set('free');
+        await expect(ai.generateLiveCoachFollowUp(payload)).rejects.toThrow('Upgrade');
+        plan.set('premium'); setCacheSuspended(true);
+        await expect(ai.generateLiveCoachFollowUp(payload)).rejects.toThrow('demo mode');
+        expect(invoke).not.toHaveBeenCalled();
+    });
 });

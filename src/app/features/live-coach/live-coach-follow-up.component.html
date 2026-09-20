@@ -1,0 +1,37 @@
+@if (access.canAct('ai')) {
+    <div class="coach-follow-up">
+        <div class="coach-follow-up__questions" aria-label="Follow-up questions">
+            @for (question of questions(); track question) {
+                <button type="button" [attr.aria-expanded]="selected() === question"
+                        [attr.aria-controls]="'coach-answer-' + comment().id"
+                        [disabled]="!!followUps.pending() && selected() !== question"
+                        (click)="select(question)">{{ labels[question] }}</button>
+            }
+        </div>
+        @if (selected(); as question) {
+            <div class="coach-follow-up__answer" [id]="'coach-answer-' + comment().id" aria-live="polite">
+                @if (current(); as state) {
+                    @switch (state.status) {
+                        @case ('loading') {
+                            <p class="coach-follow-up__status">Reviewing the captured context…</p>
+                            <button type="button" class="coach-follow-up__text-button" (click)="followUps.cancel()">Cancel request</button>
+                        }
+                        @case ('error') {
+                            <p class="coach-follow-up__status">{{ state.message }}</p>
+                            <button type="button" class="coach-follow-up__text-button" [disabled]="!!followUps.pending()" (click)="retry()">Try again</button>
+                        }
+                        @case ('ready') {
+                            <p class="coach-follow-up__context">At {{ comment().time | date:'MMM d, h:mm a' }} · {{ comment().snapshot ? 'Captured session context' : 'Original message only' }}</p>
+                            <dl>
+                                <dt>What it means</dt><dd>{{ state.answer.meaning }}</dd>
+                                <dt>Evidence</dt><dd>{{ state.answer.evidence }}</dd>
+                                <dt>Review next</dt><dd>{{ state.answer.nextStep }}</dd>
+                            </dl>
+                            <p class="coach-follow-up__context">AI interpretation of available data, not a live position update.</p>
+                        }
+                    }
+                }
+            </div>
+        }
+    </div>
+}

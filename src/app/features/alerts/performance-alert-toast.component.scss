@@ -2,7 +2,8 @@
     position: fixed;
     z-index: 1200;
     right: 22px;
-    bottom: 22px;
+    top: var(--floating-notice-top, auto);
+    bottom: var(--floating-notice-bottom, 80px);
     pointer-events: none;
 }
 
@@ -53,5 +54,5 @@
 }
 
 @media (max-width: 700px) {
-    :host { right: 16px; bottom: calc(var(--app-bottom-nav-height, 0px) + 16px); }
+    :host { right: 16px; bottom: var(--floating-notice-bottom, calc(var(--app-bottom-nav-height, 0px) + 76px)); }
 }

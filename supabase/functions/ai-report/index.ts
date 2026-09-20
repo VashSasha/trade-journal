@@ -1,7 +1,7 @@
 // Paid AI proxy: validated bounded input, atomic quota, deadlines and explicit SSE errors.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import OpenAI from 'npm:openai@7.9.0';
-import { buildParams, normalizeCoachModelText } from '../_shared/ai-prompts.ts';
+import { buildParams, normalizeCoachModelText, normalizeCoachFollowUp } from '../_shared/ai-prompts.ts';
 import { validateAiBody, MAX_AI_BODY_BYTES } from '../_shared/ai-validation.ts';
 import { readJson, RequestError } from '../_shared/request-body.ts';
 import { aiTextStream } from '../_shared/ai-stream.ts';
@@ -126,6 +126,12 @@ Deno.serve(async req => {
         }
         const completion = await openai.chat.completions.create({ ...params, stream: false }, { signal: controller.signal });
         const rawText = completion.choices[0]?.message?.content;
+        if (body.type === 'live-coach-follow-up') {
+            const followUp = normalizeCoachFollowUp(rawText);
+            if (!followUp) throw new Error('Invalid Coach follow-up');
+            await finish(true);
+            return json({ followUp }); // Written review only: never synthesize follow-up audio.
+        }
         const text = requestKind === 'live-coach' ? normalizeCoachModelText(rawText) : rawText;
         if (!text?.trim()) throw new Error('Empty AI response');
         // Text remains useful if speech times out; never lose a valid comment.

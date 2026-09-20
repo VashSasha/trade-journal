@@ -11,10 +11,10 @@ import { AccountAlertPreferencesService } from '../alerts/account-alert-preferen
 import { AlertCenterService } from '../alerts/alert-center.service';
 import { SessionAlertsService } from '../alerts/session-alerts.service';
 import { PerformanceAlertsService } from '../alerts/performance-alerts.service';
-import { TradovateLivePositionEvent } from '../integrations/tradovate-live/tradovate-live.models';
+import { TradovateLiveAccountMetric, TradovateLivePositionEvent } from '../integrations/tradovate-live/tradovate-live.models';
 import { TradovateLiveService } from '../integrations/tradovate-live/tradovate-live.service';
 import { LiveCoachNarratorService } from './live-coach-narrator.service';
-import { LiveCoachPreferences, LiveCoachReply } from './live-coach.models';
+import { LiveCoachAiPayload, LiveCoachPreferences, LiveCoachReply } from './live-coach.models';
 import { LiveCoachService } from './live-coach.service';
 
 const OWNER = '11111111-1111-4111-8111-111111111111';
@@ -30,11 +30,13 @@ function positionEvent(overrides: Partial<TradovateLivePositionEvent> = {}): Tra
 
 describe('LiveCoachService', () => {
     const preferences = signal<LiveCoachPreferences>({
-        enabled: true, aiCommentary: false, entries: true, sizing: true, exits: true, guardrails: true,
+        enabled: true, voiceEnabled: true, aiCommentary: false, entries: true, sizing: true, exits: true, guardrails: true,
         cooldownSeconds: 10, speechRate: 1, voice: 'browser',
     });
     const masterEnabled = signal(true);
+    const allowed = signal(true);
     const events = signal<readonly TradovateLivePositionEvent[]>([]);
+    const metrics = signal<TradovateLiveAccountMetric[]>([]);
     const performanceEvent = signal<{ id: number; tone: 'target' | 'risk'; text: string } | null>(null);
     const userId = signal<string | null>(OWNER);
     const publish = vi.fn();
@@ -51,11 +53,13 @@ describe('LiveCoachService', () => {
     beforeEach(() => {
         vi.useFakeTimers();
         preferences.set({
-            enabled: true, aiCommentary: false, entries: true, sizing: true, exits: true, guardrails: true,
+            enabled: true, voiceEnabled: true, aiCommentary: false, entries: true, sizing: true, exits: true, guardrails: true,
             cooldownSeconds: 10, speechRate: 1, voice: 'browser',
         });
         masterEnabled.set(true);
+        allowed.set(true);
         events.set([]);
+        metrics.set([]);
         performanceEvent.set(null);
         userId.set(OWNER);
         liveState.set('live');
@@ -80,7 +84,7 @@ describe('LiveCoachService', () => {
             } },
             { provide: TradovateLiveService, useValue: {
                 positionEvents: events,
-                metrics: signal([]),
+                metrics,
                 state: liveState,
                 statusLabel: computed(() => 'Live'),
                 statusDetail: computed(() => 'Broker updates are live.'),
@@ -93,8 +97,8 @@ describe('LiveCoachService', () => {
             { provide: TradeService, useValue: { trades: signal([]) } },
             { provide: OpenAiService, useValue: { generateLiveCoachReply, previewLiveCoachVoice, generateLiveCoachSpeech } },
             { provide: AccessPolicyService, useValue: {
-                canAct: () => true,
-                requestAction: () => true,
+                canAct: () => allowed(),
+                requestAction: () => allowed(),
             } },
             { provide: AlertCenterService, useValue: { publish } },
             { provide: PerformanceAlertsService, useValue: { event: performanceEvent } },
@@ -147,7 +151,32 @@ describe('LiveCoachService', () => {
 
         expect(speak).not.toHaveBeenCalled();
     });
-    it('preserves coach preferences and drops all events and previews while master-muted', async () => {
+
+    it('retains the original aggregate snapshot and capture time for later follow-ups', async () => {
+        vi.setSystemTime(new Date('2026-09-18T15:00:00Z'));
+        preferences.update(p => ({ ...p, aiCommentary: true, voiceEnabled: false }));
+        metrics.set([{ connectionId: 'connection-1', accountId: 10, tradeDate: '2026-09-18', dailyPnl: 200, weeklyPnl: 800,
+            balance: 25_200, completedTrades: 2, baselineKey: 'test', updatedAt: Date.now() }]);
+        let resolve!: (reply: LiveCoachReply) => void;
+        generateLiveCoachReply.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+        const service = TestBed.inject(LiveCoachService); TestBed.tick();
+        events.set([positionEvent({ tradeDate: '2026-09-18' })]); TestBed.tick();
+        await vi.advanceTimersByTimeAsync(900);
+        const captured = generateLiveCoachReply.mock.calls[0][0] as LiveCoachAiPayload;
+        expect(captured.session.dailyPnl).toBe(200);
+        metrics.update(items => items.map(item => ({ ...item, dailyPnl: 500, weeklyPnl: 1100 }))); TestBed.tick();
+        await vi.advanceTimersByTimeAsync(2000);
+        resolve({ text: 'One contract opened.' }); await vi.advanceTimersByTimeAsync(1);
+        const comment = service.recentComments()[0];
+        expect(comment.snapshot?.session.dailyPnl).toBe(200);
+        expect(comment.snapshot?.session.weeklyPnl).toBe(800);
+        expect(comment.time).toBeLessThan(Date.now() - 1500);
+        // Stored context is independent of the object passed to the AI adapter.
+        captured.session.dailyPnl = -999;
+        expect(comment.snapshot?.session.dailyPnl).toBe(200);
+        expect(comment.snapshot).not.toBe(captured);
+    });
+    it('preserves preferences and writes guardrails while master-muted, without replaying audio', async () => {
         const service = TestBed.inject(LiveCoachService); TestBed.tick();
         const saved = preferences();
         masterEnabled.set(false); TestBed.tick();
@@ -157,6 +186,7 @@ describe('LiveCoachService', () => {
         await vi.advanceTimersByTimeAsync(2000);
         expect(speak).not.toHaveBeenCalled();
         expect(previewLiveCoachVoice).not.toHaveBeenCalled();
+        expect(service.recentComments()[0].text).toBe('Loss limit reached.');
         masterEnabled.set(true); TestBed.tick();
         await vi.advanceTimersByTimeAsync(2000);
         expect(speak).not.toHaveBeenCalled();
@@ -165,20 +195,96 @@ describe('LiveCoachService', () => {
         await vi.advanceTimersByTimeAsync(900);
         expect(speak).toHaveBeenCalledOnce();
     });
-    it('aborts a pending AI reply on master mute and never speaks it after unmute', async () => {
+    it('keeps pending AI text on master mute but never speaks its late audio after unmute', async () => {
         preferences.update(p => ({ ...p, aiCommentary: true }));
         let resolve!: (value: LiveCoachReply) => void;
         generateLiveCoachReply.mockReturnValueOnce(new Promise(done => { resolve = done; }));
-        TestBed.inject(LiveCoachService); TestBed.tick();
+        const service = TestBed.inject(LiveCoachService); TestBed.tick();
         events.set([positionEvent()]); TestBed.tick();
         await vi.advanceTimersByTimeAsync(900);
         const requestSignal = generateLiveCoachReply.mock.calls[0][1] as AbortSignal;
         masterEnabled.set(false); TestBed.tick();
-        expect(requestSignal.aborted).toBe(true);
+        expect(requestSignal.aborted).toBe(false);
         masterEnabled.set(true); TestBed.tick();
-        resolve({ text: 'Stale comment.', audio: { mimeType: 'audio/mpeg', base64: 'YWJj' } });
+        resolve({ text: 'Current written observation.', audio: { mimeType: 'audio/mpeg', base64: 'YWJj' } });
         await vi.advanceTimersByTimeAsync(1000);
         expect(speak).not.toHaveBeenCalled();
+        expect(service.recentComments()[0].text).toBe('Current written observation.');
+    });
+
+    it('keeps factual position updates without any speech request while coach-only muted', async () => {
+        preferences.update(p => ({ ...p, voice: 'cedar', voiceEnabled: false }));
+        const service = TestBed.inject(LiveCoachService); TestBed.tick();
+        events.set([positionEvent()]); TestBed.tick();
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(service.recentComments()[0].text).toContain('Opened MNQZ6');
+        expect(generateLiveCoachSpeech).not.toHaveBeenCalled();
+        expect(speak).not.toHaveBeenCalled();
+        expect(masterEnabled()).toBe(true);
+    });
+
+    it('does not speak events received while muted even if unmuted before grouping finishes', async () => {
+        masterEnabled.set(false);
+        const service = TestBed.inject(LiveCoachService); TestBed.tick();
+        events.set([positionEvent()]); TestBed.tick();
+        masterEnabled.set(true); TestBed.tick();
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(service.recentComments()).toHaveLength(1);
+        expect(speak).not.toHaveBeenCalled();
+    });
+
+    it('shows a warning and uses browser voice when voice-only generation times out', async () => {
+        preferences.update(p => ({ ...p, voice: 'cedar' }));
+        generateLiveCoachSpeech.mockReturnValueOnce(new Promise(() => {}));
+        const service = TestBed.inject(LiveCoachService); TestBed.tick();
+        events.set([positionEvent()]); TestBed.tick();
+        await vi.advanceTimersByTimeAsync(31_000);
+        expect(service.voiceWarning()).toContain('Using browser voice');
+        expect(speak).toHaveBeenCalledOnce();
+        expect(service.recentComments()).toHaveLength(1);
+    });
+
+    it('requests only AI text while muted and does not generate delayed speech on unmute', async () => {
+        preferences.update(p => ({ ...p, voice: 'cedar', aiCommentary: true, voiceEnabled: false }));
+        let resolve!: (reply: LiveCoachReply) => void;
+        generateLiveCoachReply.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+        const service = TestBed.inject(LiveCoachService); TestBed.tick();
+        events.set([positionEvent()]); TestBed.tick(); await vi.advanceTimersByTimeAsync(900);
+        expect(generateLiveCoachReply).toHaveBeenCalledWith(expect.objectContaining({ voice: 'browser' }), expect.any(AbortSignal));
+        service.setVoiceEnabled(true); TestBed.tick();
+        resolve({ text: 'Keep your size consistent.' });
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(service.recentComments()[0].personalized).toBe(true);
+        expect(speak).not.toHaveBeenCalled();
+        expect(generateLiveCoachSpeech).not.toHaveBeenCalled();
+    });
+
+    it('aborts voice-only generation immediately on mute without removing the observation', async () => {
+        preferences.update(p => ({ ...p, voice: 'cedar' }));
+        let resolve!: (reply: LiveCoachReply) => void;
+        generateLiveCoachSpeech.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+        const service = TestBed.inject(LiveCoachService); TestBed.tick();
+        events.set([positionEvent()]); TestBed.tick(); await vi.advanceTimersByTimeAsync(900);
+        const request = generateLiveCoachSpeech.mock.calls[0][2];
+        service.setVoiceEnabled(false); TestBed.tick();
+        expect(request.aborted).toBe(true);
+        service.setVoiceEnabled(true); TestBed.tick();
+        resolve({ text: 'Old audio', audio: { mimeType: 'audio/mpeg', base64: 'YWJj' } });
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(speak).not.toHaveBeenCalled();
+        expect(service.recentComments()).toHaveLength(1);
+    });
+
+    it('clears private history and stops monitoring when access is lost or entering demo', async () => {
+        const service = TestBed.inject(LiveCoachService); TestBed.tick();
+        events.set([positionEvent()]); TestBed.tick(); await vi.advanceTimersByTimeAsync(1000);
+        expect(service.recentComments()).toHaveLength(1);
+        allowed.set(false); TestBed.tick();
+        expect(service.recentComments()).toEqual([]);
+        expect(setRequested).toHaveBeenLastCalledWith('live-coach', false);
+        events.set([positionEvent({ eventId: 'denied' })]); TestBed.tick();
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(service.recentComments()).toEqual([]);
     });
 
     it('speaks an existing performance guardrail after its alert sound', async () => {
