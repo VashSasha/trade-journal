@@ -26,14 +26,14 @@
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 1.5rem;
+    padding: 1.5rem 1.5rem 5.5rem;
     scroll-padding-block: 1rem;
 }
 
 @media (max-width: 700px) {
     .app-shell { --app-bottom-nav-height: calc(4rem + env(safe-area-inset-bottom, 0px)); }
     app-sidebar { display: none; }
-    .app-content { padding: 0.75rem max(0.75rem, env(safe-area-inset-right)) 1rem max(0.75rem, env(safe-area-inset-left)); }
+    .app-content { padding: 0.75rem max(0.75rem, env(safe-area-inset-right)) 5rem max(0.75rem, env(safe-area-inset-left)); }
 }
 
 .expired-banner {

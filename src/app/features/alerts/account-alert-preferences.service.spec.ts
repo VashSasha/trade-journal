@@ -79,7 +79,7 @@ describe('account-synced alert preferences', () => {
 
         expect(service.performance()).toEqual(performance);
         expect(service.marketEvents()).toEqual({ ...market, desktopNotifications: false });
-        expect(service.liveCoach()).toEqual(coach);
+        expect(service.liveCoach()).toEqual({ ...coach, voiceEnabled: true });
         expect(rpc).not.toHaveBeenCalled();
     });
 
@@ -164,7 +164,7 @@ describe('account-synced alert preferences', () => {
         expect(rpc).toHaveBeenCalledWith('set_my_account_alert_preferences', {
             p_kind: 'live_coach',
             p_preferences: {
-                enabled: true, aiCommentary: false, entries: true, sizing: true, exits: true, guardrails: true,
+                enabled: true, voiceEnabled: true, aiCommentary: false, entries: true, sizing: true, exits: true, guardrails: true,
                 cooldownSeconds: 20, speechRate: 1, voice: 'browser',
             },
         });
@@ -187,6 +187,18 @@ describe('account-synced alert preferences', () => {
         expect(service.marketEvents().enabled).toBe(false);
         expect(service.performance().dailyProfit.enabled).toBe(false);
         expect(service.liveCoach().enabled).toBe(false);
+    });
+
+    it('restores coach-only mute in a new browser and saves it independently of coaching', async () => {
+        const { service, rpc } = setup({ [A]: { live_coach: { enabled: true, voiceEnabled: false } } });
+        await vi.waitFor(() => expect(service.loading()).toBe(false));
+        expect(service.liveCoach().voiceEnabled).toBe(false);
+        expect(service.liveCoach().enabled).toBe(true);
+        service.updateLiveCoach(p => ({ ...p, voiceEnabled: true }));
+        await vi.waitFor(() => expect(rpc).toHaveBeenCalledOnce());
+        expect(rpc).toHaveBeenCalledWith('set_my_account_alert_preferences', {
+            p_kind: 'live_coach', p_preferences: expect.objectContaining({ voiceEnabled: true, enabled: true }),
+        });
     });
 
     it('loads and saves session selection/hours under their own cloud key', async () => {

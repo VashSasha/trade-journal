@@ -16,6 +16,7 @@ import { UpgradePromptComponent } from '../../demo/upgrade-prompt/upgrade-prompt
 import { PerformanceAlertToastComponent } from '../../alerts/performance-alert-toast.component';
 import { MarketAwarenessDrawerComponent } from '../../market-events/market-awareness-drawer.component';
 import { LiveCoachService } from '../../live-coach/live-coach.service';
+import { LiveCoachWidgetComponent } from '../../live-coach/live-coach-widget.component';
 import { SessionAlertsService } from '../../alerts/session-alerts.service';
 
 const DISMISSED_KEY = 'tj_banner_dismissed_connections';
@@ -23,11 +24,12 @@ const DISMISSED_KEY = 'tj_banner_dismissed_connections';
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, FormsModule, Sidebar, MobileNavComponent, Header, SyncNoticeComponent, DemoBannerComponent, PostSignupModalComponent, UpgradePromptComponent, PerformanceAlertToastComponent, MarketAwarenessDrawerComponent],
+  imports: [RouterOutlet, FormsModule, Sidebar, MobileNavComponent, Header, SyncNoticeComponent, DemoBannerComponent, PostSignupModalComponent, UpgradePromptComponent, PerformanceAlertToastComponent, MarketAwarenessDrawerComponent, LiveCoachWidgetComponent],
   templateUrl: './main-layout.html',
   styleUrl: './main-layout.scss'
 })
 export class MainLayoutComponent {
+    readonly coachExpanded = signal(false);
     readonly tradovate = inject(TradovateService);
     readonly demo = inject(DemoModeService);
     readonly access = inject(AccessPolicyService);

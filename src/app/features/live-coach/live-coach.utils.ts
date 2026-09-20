@@ -29,6 +29,7 @@ export function parseLiveCoachPreferences(raw: string | null): LiveCoachPreferen
             : {};
         return {
             enabled: source.enabled === true,
+            voiceEnabled: source.voiceEnabled !== false,
             aiCommentary: source.aiCommentary === true,
             voice: isLiveCoachVoice(source.voice) ? source.voice : DEFAULT_LIVE_COACH_VOICE,
             entries: source.entries !== false,

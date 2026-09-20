@@ -1,0 +1,17 @@
+.coach-follow-up {
+    margin-top: .75rem;
+    font-size: .75rem;
+    &__questions { display: flex; flex-wrap: wrap; gap: .375rem; }
+    button { font: inherit; min-height: 44px; padding: .5rem .625rem; border: 1px solid var(--color-border);
+        border-radius: 6px; background: transparent; color: var(--color-text-secondary); text-align: left; cursor: pointer;
+        &:hover:not(:disabled), &[aria-expanded='true'] { background: var(--color-bg-surface-2); color: var(--color-text-primary); }
+        &:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+        &:disabled { opacity: .5; cursor: not-allowed; } }
+    &__answer { padding-top: .75rem; overflow-wrap: anywhere; }
+    &__status { margin: 0; color: var(--color-text-secondary); line-height: 1.6; }
+    &__context { margin: 0 0 .75rem; color: var(--color-text-secondary); font-size: .6875rem; line-height: 1.5; }
+    dl { margin: 0; }
+    dt { margin-top: .75rem; color: var(--color-text-primary); font-weight: 600; }
+    dd { margin: .25rem 0 .875rem; color: var(--color-text-secondary); font-size: .8125rem; line-height: 1.65; }
+    &__text-button { margin-top: .25rem; text-decoration: underline; text-underline-offset: 3px; }
+}

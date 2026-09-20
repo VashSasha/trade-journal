@@ -34,11 +34,12 @@ function coachVoice(value: unknown): string {
     return typeof value === 'string' ? value : 'browser';
 }
 
-function liveCoachPayload(payload: Record<string, any>): Record<string, any> {
+function liveCoachPayload(payload: Record<string, any>, allowSizing = false): Record<string, any> {
     const observation = payload.observation;
     const session = payload.session;
     requireValue(object(observation) && object(session), 'Live Coach context is required.');
-    requireValue(['opened', 'closed', 'reversed'].includes(observation.kind), 'Unsupported Live Coach event.');
+    requireValue((allowSizing ? ['opened', 'closed', 'reversed', 'increased', 'reduced']
+        : ['opened', 'closed', 'reversed']).includes(observation.kind), 'Unsupported Live Coach event.');
     requireValue(text(observation.symbol, 32), 'A valid symbol is required.');
     requireValue(['long', 'short'].includes(observation.direction), 'Invalid position direction.');
     requireValue(integer(observation.previousQuantity, 0, 100_000)
@@ -125,6 +126,23 @@ export function validateAiBody(body: unknown): { type: string; payload: Record<s
         }
         case 'live-coach':
             return { type, payload: liveCoachPayload(payload) };
+        case 'live-coach-follow-up': {
+            requireValue(['explain', 'compare-session'].includes(payload.question), 'Unsupported Coach question.');
+            requireValue(text(payload.comment, 1000), 'A bounded Coach observation is required.');
+            requireValue(text(payload.observedAt, 32)
+                && /^\d{4}-\d{2}-\d{2}T/.test(payload.observedAt)
+                && Number.isFinite(Date.parse(payload.observedAt)), 'Invalid observation time.');
+            requireValue(payload.snapshot === null || object(payload.snapshot), 'Invalid observation snapshot.');
+            const context = payload.snapshot === null ? null : liveCoachPayload({ ...payload.snapshot, voice: 'browser' }, true);
+            requireValue(payload.question !== 'compare-session' || (context && context.session.executionCount > 0),
+                'Session comparison needs a captured session with completed trades.');
+            return { type, payload: {
+                question: payload.question,
+                observedAt: new Date(payload.observedAt).toISOString(),
+                comment: payload.comment.trim(),
+                snapshot: context ? { observation: context.observation, session: context.session } : null,
+            } };
+        }
         case 'live-coach-preview':
             requireValue(isCoachAiVoice(payload.voice), 'Choose an AI voice to preview.');
             return { type, payload: { voice: coachVoice(payload.voice) } };

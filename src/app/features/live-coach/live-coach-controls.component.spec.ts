@@ -20,11 +20,12 @@ describe('Live Coach voice selector', () => {
             lastSpokenText: signal(null), paused: signal(false), recentComments: signal([]),
             voiceWarning: signal(null), voiceFallback: signal(false), error: signal(null),
             syncWarning: signal(false), storageWarning: signal(false),
+            sounds: { enabled: signal(true) },
         };
         TestBed.configureTestingModule({ providers: [{ provide: LiveCoachService, useValue: coach }] });
         const fixture = TestBed.createComponent(LiveCoachControlsComponent);
         fixture.detectChanges();
-        const select = fixture.nativeElement.querySelector('#coach-voice') as HTMLSelectElement;
+        const select = fixture.nativeElement.querySelector('app-live-coach-voice-select select') as HTMLSelectElement;
         return { fixture, select, preferences, aiAvailable, setVoice };
     }
 

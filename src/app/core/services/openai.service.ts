@@ -7,7 +7,8 @@ import { SupabaseService } from './supabase.service';
 import { DemoModeService } from './demo-mode.service';
 import { AccessPolicyService } from './access-policy.service';
 import { UserSessionService } from './user-session.service';
-import type { LiveCoachReply, LiveCoachVoice } from '../../features/live-coach/live-coach.models';
+import type { LiveCoachFollowUpAnswer, LiveCoachFollowUpPayload, LiveCoachReply, LiveCoachVoice } from '../../features/live-coach/live-coach.models';
+import { readCoachFollowUp } from '../../features/live-coach/live-coach-follow-up.utils';
 
 /**
  * All AI calls go through the ai-report Supabase Edge Function — the
@@ -65,6 +66,14 @@ export class OpenAiService {
         return this.callFunctionData('live-coach', payload, signal);
     }
 
+    async generateLiveCoachFollowUp(payload: LiveCoachFollowUpPayload, signal?: AbortSignal): Promise<LiveCoachFollowUpAnswer> {
+        if (this.access.demo()) throw new Error('Live coaching is unavailable in demo mode.');
+        const reply = await this.callFunctionData('live-coach-follow-up', payload, signal);
+        const answer = readCoachFollowUp(reply.followUp);
+        if (!answer) throw new Error('The Coach returned an incomplete answer. Please try again.');
+        return answer;
+    }
+
     async previewLiveCoachVoice(voice: LiveCoachVoice, signal?: AbortSignal): Promise<LiveCoachReply> {
         if (this.access.demo()) throw new Error('Live coaching is unavailable in demo mode.');
         return this.callFunctionData('live-coach-preview', { voice }, signal);
@@ -113,7 +122,7 @@ export class OpenAiService {
             const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
             throw new Error(body?.error || 'AI request failed.');
         }
-        return { text: typeof data?.text === 'string' ? data.text : '', audio: data?.audio,
+        return { text: typeof data?.text === 'string' ? data.text : '', audio: data?.audio, followUp: data?.followUp,
             voiceError: typeof data?.voiceError === 'string' ? data.voiceError : undefined };
     }
 

@@ -14,7 +14,7 @@ import { PerformanceAlertsService } from '../alerts/performance-alerts.service';
 import { TradovateLivePositionEvent } from '../integrations/tradovate-live/tradovate-live.models';
 import { TradovateLiveService } from '../integrations/tradovate-live/tradovate-live.service';
 import { LiveCoachNarratorService } from './live-coach-narrator.service';
-import { LiveCoachAiState, LiveCoachNarration, LiveCoachPreferences, LiveCoachReply } from './live-coach.models';
+import { LiveCoachAiPayload, LiveCoachAiState, LiveCoachNarration, LiveCoachObservation, LiveCoachPreferences, LiveCoachReply } from './live-coach.models';
 import { isLiveCoachVoice } from './live-coach-voices';
 import {
     buildLiveCoachAiPayload,
@@ -34,6 +34,7 @@ interface PendingBucket {
     events: TradovateLivePositionEvent[];
     timer: ReturnType<typeof setTimeout>;
     sequence: number;
+    voiceRevision: number;
 }
 
 /** Turns normalized broker events into concise, copy-trade-aware observations. */
@@ -64,8 +65,9 @@ export class LiveCoachService {
     readonly voiceFallback = this.narrator.voiceFallback;
     readonly voiceWarning = signal<string | null>(null);
     readonly previewing = signal(false);
-    readonly paused = computed(() => !this.sounds.enabled());
-    readonly recentComments = signal<readonly { text: string; time: number; personalized: boolean }[]>([]);
+    /** Audio only: written coaching continues when muted. */
+    readonly paused = computed(() => !this.sounds.enabled() || !this.preferences().voiceEnabled);
+    readonly recentComments = signal<readonly LiveCoachObservation[]>([]);
     readonly lastComment = signal<LiveCoachNarration | null>(null);
     readonly lastSpokenText = signal<string | null>(null);
     readonly aiState = signal<LiveCoachAiState>('off');
@@ -73,7 +75,6 @@ export class LiveCoachService {
     readonly aiStatusLabel = computed(() => {
         if (!this.preferences().aiCommentary) return 'Off';
         if (!this.preferences().enabled) return 'Coach is off';
-        if (this.paused()) return 'Master sound is off';
         if (!this.aiAvailable()) return 'Paid plan required';
         if (this.aiState() === 'thinking') return 'Personalizing…';
         if (this.aiState() === 'fallback') return 'Factual fallback active';
@@ -94,24 +95,38 @@ export class LiveCoachService {
     private aiController: AbortController | null = null;
     private aiGeneration = 0;
     private sequence = 0;
+    private commentSequence = 0;
+    private voiceRevision = 0;
+    private speechController: AbortController | null = null;
     private guardrailUntil = 0;
 
     constructor() {
         effect(() => {
-            const owner = this.session.userId();
+            const owner = this.access.canAct('sync') ? this.session.userId() : null;
             const enabled = this.preferences().enabled;
             this.live.setRequested('live-coach', !!owner && enabled);
             if (owner !== this.owner) untracked(() => this.reset(owner));
-            if (!enabled || this.paused() || !this.access.canAct('sync') || this.liveState() !== 'live') {
+            if (!enabled || !owner || this.liveState() !== 'live') {
                 untracked(() => this.interrupt());
             }
         });
 
         effect(() => {
-            const enabled = this.preferences().enabled
-                && this.preferences().aiCommentary
-                && this.aiAvailable();
-            this.preferences().voice;
+            if (this.paused()) untracked(() => {
+                this.stopVoice();
+                this.voiceWarning.set(null);
+                if (this.previewing()) {
+                    this.cancelAi();
+                    this.previewing.set(false);
+                }
+            });
+        });
+
+        const personalized = computed(() => this.preferences().enabled && this.preferences().aiCommentary && this.aiAvailable());
+        const selectedVoice = computed(() => this.preferences().voice);
+        effect(() => {
+            const enabled = personalized();
+            selectedVoice();
             this.cancelAi();
             if (!enabled) {
                 this.aiState.set('off');
@@ -128,18 +143,19 @@ export class LiveCoachService {
             }
             if (!event || event.id === this.lastPerformanceEventId) return;
             this.lastPerformanceEventId = event.id;
-            if (!this.owner || !preferences.enabled || !preferences.guardrails || this.paused()
+            if (!this.owner || !preferences.enabled || !preferences.guardrails
                 || !this.access.canAct('sync') || this.liveState() !== 'live') return;
             this.interrupt();
             this.guardrailUntil = Infinity;
             const sequence = this.sequence;
             this.aiState.set(preferences.aiCommentary && this.aiAvailable() ? 'ready' : 'off');
             const owner = this.owner;
+            const voiceRevision = this.paused() ? -1 : this.voiceRevision;
             this.guardrailTimer = setTimeout(() => {
                 this.guardrailTimer = null;
-                if (!owner || owner !== this.owner || this.paused() || !this.preferences().enabled || !this.preferences().guardrails || this.liveState() !== 'live') return;
-                this.recordComment(event.text, false);
-                void this.playReply({ text: event.text }).finally(() => {
+                if (!owner || owner !== this.owner || owner !== this.session.userId() || !this.access.canAct('sync') || !this.preferences().enabled || !this.preferences().guardrails || this.liveState() !== 'live') return;
+                this.recordComment(event.text, false, 'Performance guardrail');
+                void this.playReply({ text: event.text }, voiceRevision).finally(() => {
                     if (sequence === this.sequence) this.guardrailUntil = Date.now() + 500;
                 });
             }, 1_600);
@@ -150,7 +166,7 @@ export class LiveCoachService {
             const preferences = this.preferences();
             for (const event of events) {
                 if (!this.markProcessed(event.eventId)) continue;
-                if (preferences.enabled && !this.paused() && this.liveState() === 'live') {
+                if (this.owner && this.access.canAct('sync') && preferences.enabled && this.liveState() === 'live') {
                     untracked(() => this.buffer(event));
                 }
             }
@@ -176,10 +192,17 @@ export class LiveCoachService {
     }
 
     setEnabled(enabled: boolean): void {
-        if (enabled && !this.supported()) return;
+        if (enabled && !this.access.requestAction('sync')) return;
         if (enabled && !this.paused()) void this.narrator.activate();
         this.update(current => ({ ...current, enabled }));
         if (!enabled) this.interrupt();
+    }
+
+    setVoiceEnabled(enabled: boolean): void {
+        if (!this.access.requestAction('sync')) return;
+        this.update(current => ({ ...current, voiceEnabled: enabled }));
+        if (!enabled) this.stopVoice();
+        else if (this.sounds.enabled()) void this.narrator.activate();
     }
 
     setVoice(voice: string): void {
@@ -210,11 +233,13 @@ export class LiveCoachService {
     }
 
     async preview(): Promise<void> {
-        if (this.paused() || this.previewing()) return;
+        if (this.paused() || this.previewing() || !this.access.canAct('sync')) return;
+        if (this.preferences().voice !== 'browser' && !this.access.requestAction('ai')) return;
         this.interrupt();
         const activated = this.narrator.activate();
         const owner = this.owner;
         const sequence = this.sequence;
+        const voiceRevision = this.voiceRevision;
         const voice = this.preferences().voice;
         this.previewing.set(true);
         this.voiceWarning.set(null);
@@ -231,9 +256,9 @@ export class LiveCoachService {
             const reply = await this.boundedReply(this.ai.previewLiveCoachVoice(voice, controller.signal), controller);
             if (sequence !== this.sequence || owner !== this.owner || controller.signal.aborted) return;
             if (!reply.audio) this.voiceWarning.set('AI voice is unavailable. Using the browser voice.');
-            await this.playReply(reply);
+            await this.playReply(reply, voiceRevision);
         } catch {
-            if (sequence !== this.sequence || generation !== this.aiGeneration || owner !== this.owner) return;
+            if (sequence !== this.sequence || generation !== this.aiGeneration || owner !== this.owner || this.paused() || voiceRevision !== this.voiceRevision) return;
             this.voiceWarning.set('AI voice could not load. Check your connection or daily allowance. Using the browser voice.');
             await this.narrator.speak('Live Coach is ready. Position updates will be short and focused.', this.preferences().speechRate);
         } finally {
@@ -245,7 +270,7 @@ export class LiveCoachService {
         if (this.previewing() || Date.now() < this.guardrailUntil) return;
         // Even a muted event can make an earlier observation stale (e.g. a close).
         this.cancelAi();
-        this.narrator.stop();
+        this.stopVoice();
         this.aiState.set(this.preferences().aiCommentary && this.aiAvailable() ? 'ready' : 'off');
         const sequence = ++this.sequence;
         if (!liveCoachEventEnabled(event.kind, this.preferences())) {
@@ -257,7 +282,7 @@ export class LiveCoachService {
         if (existing) clearTimeout(existing.timer);
         const events = [...(existing?.events ?? []), event];
         const timer = setTimeout(() => void this.flush(key), GROUP_WINDOW_MS);
-        this.pending.set(key, { events, timer, sequence });
+        this.pending.set(key, { events, timer, sequence, voiceRevision: this.paused() ? -1 : this.voiceRevision });
     }
 
     private async flush(key: string): Promise<void> {
@@ -265,6 +290,7 @@ export class LiveCoachService {
         if (!bucket) return;
         this.pending.delete(key);
         const owner = this.owner;
+        const voiceRevision = bucket.voiceRevision;
         const preferences = this.preferences();
         if (!this.isCurrent(bucket.sequence) || !bucket.events.some(event => liveCoachEventEnabled(event.kind, preferences))) return;
 
@@ -281,25 +307,30 @@ export class LiveCoachService {
         const previous = this.lastSpokenAt.get(narration.key) ?? 0;
         if (now - previous < this.preferences().cooldownSeconds * 1000) return;
         this.lastSpokenAt.set(narration.key, now);
-        const finalNarration = await this.personalize(bucket.events, narration, contractName);
+        const snapshot = buildLiveCoachAiPayload(
+            bucket.events, narration, this.trades.trades().filter(trade => trade.userId === owner),
+            this.live.metrics(), contractName ?? 'Position', new Date(now),
+        );
+        const finalNarration = await this.personalize(narration, snapshot);
         if (!finalNarration || !owner || owner !== this.owner || owner !== this.session.userId()
             || !this.isCurrent(bucket.sequence) || !liveCoachEventEnabled(finalNarration.kind, this.preferences())) return;
         this.lastComment.set(finalNarration);
-        this.recordComment(finalNarration.text, finalNarration.personalized);
+        this.recordComment(finalNarration.text, finalNarration.personalized, finalNarration.title, snapshot, now);
         this.alerts.publish({
             tone: finalNarration.tone,
             title: finalNarration.title,
             text: finalNarration.text,
         });
-        await this.playReply(finalNarration);
+        await this.playReply(finalNarration, voiceRevision);
     }
 
     private async personalize(
-        events: readonly TradovateLivePositionEvent[],
         narration: LiveCoachNarration,
-        contractName: string | null,
+        payload: LiveCoachAiPayload,
     ): Promise<LiveCoachNarration | null> {
         const preferences = this.preferences();
+        // The server already treats browser voice as text-only: no TTS cost while muted.
+        const voice = this.paused() ? 'browser' : preferences.voice;
         if (!preferences.aiCommentary || !this.aiAvailable()
             || !shouldPersonalizeLiveCoachEvent(narration.kind)) return narration;
 
@@ -311,25 +342,18 @@ export class LiveCoachService {
         try {
             const owner = this.owner;
             if (!owner) return null;
-            const payload = buildLiveCoachAiPayload(
-                events,
-                narration,
-                this.trades.trades().filter(trade => trade.userId === owner),
-                this.live.metrics(),
-                contractName ?? 'Position',
-            );
             const response = await this.boundedReply(this.ai.generateLiveCoachReply({
-                ...payload, voice: preferences.voice,
+                ...payload, voice,
             }, controller.signal), controller);
             if (generation !== this.aiGeneration || controller.signal.aborted
                 || owner !== this.owner || owner !== this.session.userId()) return null;
             const text = normalizeLiveCoachAiText(response.text);
             if (!text) throw new Error('Empty Coach response.');
             this.aiState.set('ready');
-            this.voiceWarning.set(preferences.voice !== 'browser' && !response.audio
+            this.voiceWarning.set(!this.paused() && voice !== 'browser' && !response.audio
                 ? 'AI voice is unavailable. Using the browser voice.' : null);
             return { ...narration, text, personalized: true, audio: response.audio,
-                voiceError: response.voiceError ?? (preferences.voice !== 'browser' && !response.audio ? 'AI speech was not returned.' : undefined) };
+                voiceError: response.voiceError ?? (voice !== 'browser' && !response.audio ? 'AI speech was not returned.' : undefined) };
         } catch (error) {
             if (generation !== this.aiGeneration || this.owner !== this.session.userId()) return null;
             this.aiState.set('fallback');
@@ -383,7 +407,7 @@ export class LiveCoachService {
     }
 
     private isCurrent(sequence: number): boolean {
-        return sequence === this.sequence && this.preferences().enabled && !this.paused()
+        return sequence === this.sequence && this.preferences().enabled
             && this.access.canAct('sync') && this.liveState() === 'live' && Date.now() >= this.guardrailUntil;
     }
 
@@ -393,15 +417,25 @@ export class LiveCoachService {
         this.cancelAi();
         this.clearPending();
         this.previewing.set(false);
+        this.stopVoice();
+    }
+
+    private recordComment(text: string, personalized: boolean, title: string, snapshot?: LiveCoachAiPayload, time = Date.now()): void {
+        this.lastSpokenText.set(text);
+        this.recentComments.update(items => [{ id: ++this.commentSequence, text, time, personalized, title,
+            ...(snapshot ? { snapshot: structuredClone(snapshot) } : {}),
+        }, ...items].slice(0, 30));
+    }
+
+    private stopVoice(): void {
+        this.voiceRevision++;
+        this.speechController?.abort();
+        this.speechController = null;
         this.narrator.stop();
     }
 
-    private recordComment(text: string, personalized: boolean): void {
-        this.lastSpokenText.set(text);
-        this.recentComments.update(items => [{ text, time: Date.now(), personalized }, ...items].slice(0, 10));
-    }
-
-    private async playReply(reply: LiveCoachReply): Promise<boolean> {
+    private async playReply(reply: LiveCoachReply, voiceRevision = this.voiceRevision): Promise<boolean> {
+        if (this.paused() || voiceRevision !== this.voiceRevision || !this.access.canAct('sync')) return false;
         const sequence = this.sequence;
         const owner = this.owner;
         const voice = this.preferences().voice;
@@ -410,24 +444,22 @@ export class LiveCoachService {
         if (!audio && !warning && voice !== 'browser') {
             if (!this.aiAvailable()) warning = 'AI voice is unavailable for this account.';
             else {
-                this.cancelAi();
-                const generation = ++this.aiGeneration;
                 const controller = new AbortController();
-                this.aiController = controller;
+                this.speechController = controller;
                 try {
                     const response = await this.boundedReply(this.ai.generateLiveCoachSpeech(reply.text, voice, controller.signal), controller);
                     audio = response.audio;
                     warning = response.voiceError ?? (!audio ? 'AI speech was not returned.' : undefined);
                 } catch (error) {
-                    if (generation !== this.aiGeneration) return false;
+                    if (voiceRevision !== this.voiceRevision) return false;
                     warning = error instanceof Error ? error.message : 'AI speech could not load.';
                 } finally {
-                    if (generation === this.aiGeneration) this.aiController = null;
+                    if (this.speechController === controller) this.speechController = null;
                 }
             }
         }
         if (sequence !== this.sequence || owner !== this.owner || owner !== this.session.userId()
-            || voice !== this.preferences().voice || this.paused() || !this.access.canAct('sync')) return false;
+            || voice !== this.preferences().voice || this.paused() || voiceRevision !== this.voiceRevision || !this.access.canAct('sync')) return false;
         this.voiceWarning.set(voice !== 'browser' && !audio ? `${warning ?? 'AI voice is unavailable.'} Using browser voice.` : null);
         return audio ? this.narrator.speak(reply.text, this.preferences().speechRate, audio)
             : this.narrator.speak(reply.text, this.preferences().speechRate);

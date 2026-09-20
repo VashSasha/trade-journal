@@ -1,17 +1,17 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { LiveCoachService } from './live-coach.service';
-import { LIVE_COACH_AI_VOICE_OPTIONS } from './live-coach-voices';
+import { LiveCoachVoiceSelectComponent } from './live-coach-voice-select.component';
 
 @Component({
     selector: 'app-live-coach-controls',
     standalone: true,
+    imports: [LiveCoachVoiceSelectComponent],
     templateUrl: './live-coach-controls.component.html',
     styleUrl: './live-coach-controls.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LiveCoachControlsComponent {
     readonly coach = inject(LiveCoachService);
-    readonly aiVoices = LIVE_COACH_AI_VOICE_OPTIONS;
 
     checked(event: Event): boolean {
         return (event.target as HTMLInputElement).checked;

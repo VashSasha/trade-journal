@@ -1,0 +1,95 @@
+<div class="coach-widget" [hidden]="market.open()" (keydown.escape)="close(); $event.stopPropagation()">
+    <section class="coach-widget__panel" [class.coach-widget__panel--compact]="!available() || (!comments().length && !settings())"
+             [hidden]="!open()" role="dialog" aria-labelledby="floating-coach-title">
+        <header class="coach-widget__head">
+            <div>
+                <h2 id="floating-coach-title">Live Coach</h2>
+                <p class="coach-widget__status" role="status"><span [class.coach-widget__dot--live]="available() && coach.preferences().enabled && coach.liveState() === 'live'" class="coach-widget__dot" aria-hidden="true"></span>{{ status() }}</p>
+            </div>
+            <button type="button" class="coach-widget__icon" [attr.aria-pressed]="settings()" aria-label="Coach settings"
+                    [disabled]="!available()" (click)="settings.set(!settings())">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6" /></svg>
+            </button>
+            <button #closeButton type="button" class="coach-widget__icon" aria-label="Close Live Coach" (click)="close()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg>
+            </button>
+        </header>
+
+        <div class="coach-widget__body">
+            @if (access.demo()) {
+                <div class="coach-widget__empty">
+                    <h3>Your trading, in context.</h3>
+                    <p>Live Coach turns position changes and guardrails into short observations, with copied accounts considered together.</p>
+                    <p>Switch to your workspace and connect a broker to begin. Demo mode never monitors real accounts.</p>
+                </div>
+            } @else if (!available()) {
+                <div class="coach-widget__empty">
+                    <h3>A second perspective on your session.</h3>
+                    <p>Get concise feedback on entries, sizing, exits and performance guardrails.</p>
+                    <a class="coach-widget__link" routerLink="/upgrade" [queryParams]="{feature: 'ai'}" (click)="close(false)">Explore plans</a>
+                </div>
+            } @else if (settings()) {
+                <div class="coach-widget__settings">
+                    <h3>Coach preferences</h3>
+                    <app-live-coach-voice-select />
+                    <label class="coach-widget__choice">
+                        <span><strong>Personalized commentary</strong><small>Uses a limited performance summary. AI usage limits apply.</small></span>
+                        <input type="checkbox" [checked]="coach.preferences().aiCommentary"
+                               [disabled]="coach.preferencesLoading() || !coach.aiAvailable()"
+                               (change)="coach.setAiCommentary($any($event.target).checked)" />
+                    </label>
+                    <p>AI voices are generated, not human speakers. Voice preferences sync across devices; browser audio permission is separate.</p>
+                    <a class="coach-widget__link" routerLink="/account/alerts" (click)="close(false)">All coach &amp; guardrail settings</a>
+                </div>
+            } @else {
+                @if (coach.preferences().enabled && coach.liveState() !== 'live') {
+                    <p class="coach-widget__notice">{{ coach.liveDetail() }}</p>
+                }
+                <div class="coach-widget__feed-label"><span>This session</span><span>Newest first</span></div>
+                @if (comments().length) {
+                    <ol class="coach-widget__feed" aria-label="Recent coach observations">
+                        @for (comment of comments(); track comment.id) {
+                            <li class="coach-widget__comment" [class.coach-widget__comment--ai]="comment.personalized">
+                                <div><strong>{{ comment.personalized ? 'AI coach' : comment.title }}</strong><time [attr.datetime]="comment.time | date:'yyyy-MM-ddTHH:mm:ssZZZZZ'">{{ comment.time | date:'h:mm a' }}</time></div>
+                                <p>{{ comment.text }}</p>
+                                <app-live-coach-follow-up [comment]="comment" />
+                            </li>
+                        }
+                    </ol>
+                } @else {
+                    <div class="coach-widget__empty">
+                        <h3>{{ coach.preferences().enabled ? 'Ready for the next observation.' : 'A little perspective, as you trade.' }}</h3>
+                        <p>{{ coach.preferences().enabled ? 'New position updates and enabled guardrails will appear here while your broker is live.' : 'Turn on coaching for concise feedback on entries, size changes and exits. You choose whether to hear it.' }}</p>
+                        <p>Copied accounts are considered together. No microphone access. No orders placed.</p>
+                    </div>
+                }
+                <p class="coach-widget__footnote">Latest 30 observations in this browser session. Not saved to your account.</p>
+                @if (comments().length && access.canAct('ai')) {
+                    <p class="coach-widget__footnote">Each new follow-up sends its captured context to AI and uses one request from your daily Coach allowance. Reopening an answer is free.</p>
+                }
+            }
+            @if (warning(); as message) { <p class="coach-widget__notice" role="status">{{ message }}</p> }
+        </div>
+
+        @if (available()) {
+            <footer class="coach-widget__controls">
+                <div>
+                    <button type="button" class="coach-widget__control" [class.coach-widget__control--on]="coach.preferences().enabled"
+                            aria-label="Coaching"
+                            [attr.aria-pressed]="coach.preferences().enabled" [disabled]="coach.preferencesLoading()"
+                            (click)="toggleCoach()">{{ coach.preferences().enabled ? 'Coach on' : 'Coach off' }}</button>
+                    <button type="button" class="coach-widget__control" aria-label="Coach voice" [attr.aria-pressed]="coach.preferences().voiceEnabled"
+                            [disabled]="coach.preferencesLoading()" (click)="toggleVoice()">{{ coach.preferences().voiceEnabled ? 'Voice on' : 'Voice muted' }}</button>
+                </div>
+                <small>{{ !coach.sounds.enabled() ? 'Master sound is off. Written coaching stays on when enabled.' : 'Closing this panel does not turn coaching off.' }}</small>
+            </footer>
+        }
+    </section>
+
+    <button #launcher type="button" class="coach-widget__launcher" [attr.aria-expanded]="open()" aria-haspopup="dialog"
+            [attr.aria-label]="'Live Coach' + (unread() ? ', ' + unread() + ' unread observations' : '')" (click)="toggle()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" d="M4 10v4m4-8v12m4-15v18m4-15v12m4-8v4" /></svg>
+        <span>Live Coach</span>
+        @if (!open() && unread()) { <span class="coach-widget__badge">{{ unread() }}</span> }
+    </button>
+</div>
