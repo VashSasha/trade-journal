@@ -116,7 +116,7 @@ describe('session sound coordinator', () => {
         expect(header.componentInstance.sounds).toBe(settings.componentInstance.sounds);
         const assertStatus = (label: string) => {
             header.detectChanges(); settings.detectChanges();
-            expect(header.nativeElement.querySelector('.sessions__caption').textContent.toLowerCase()).toContain('sounds ' + label.toLowerCase());
+            expect(header.nativeElement.querySelector('.sessions__trigger').getAttribute('aria-label').toLowerCase()).toContain('sounds ' + label.toLowerCase());
             expect(settings.nativeElement.querySelector('summary').textContent).toContain(label);
         };
         assertStatus('Ready');

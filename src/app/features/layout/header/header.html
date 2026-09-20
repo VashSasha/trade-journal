@@ -1,29 +1,32 @@
 <header class="app-header">
   <div class="app-header__left">
     <a routerLink="/dashboard" class="app-header__brand" aria-label="NVZN Journal home">
-      <img class="app-header__logo" src="NVZN_Trading_logo_transparent_noshine.png" alt="NVZN Journal"/>
+      <img class="app-header__logo" src="NVZN_diamond_logo.png" alt="" width="22" height="40"/>
+      <span class="app-header__wordmark">NVZN <span>Journal</span></span>
     </a>
   </div>
-  <div class="app-header__right">
+  <div class="app-header__context" role="group" aria-label="Session and trading accounts">
     <app-sessions-widget/>
     <app-account-selector/>
-
+  </div>
+  <div class="app-header__tools" role="group" aria-label="Workspace controls">
     <app-master-sound-toggle/>
-    <button class="app-header__icon-btn" (click)="theme.toggle()"
+    <button type="button" class="app-header__icon-btn" (click)="theme.toggle()"
+            [attr.aria-label]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'"
             [title]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'">
       @if (theme.isDark()) {
-        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
         </svg>
       } @else {
-        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
         </svg>
       }
     </button>
-    <button class="app-header__icon-btn app-header__market-btn"
+    <button type="button" class="app-header__icon-btn app-header__market-btn"
             [class.is-active]="marketPanel.open()"
             (click)="marketPanel.toggle('calendar')"
             [attr.aria-expanded]="marketPanel.open()"
@@ -35,10 +38,6 @@
               d="M8 2v3m8-3v3M3.5 9h17M5 4h14a1.5 1.5 0 011.5 1.5v14A1.5 1.5 0 0119 21H5a1.5 1.5 0 01-1.5-1.5v-14A1.5 1.5 0 015 4z"/>
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 13h3m-3 4h8"/>
       </svg>
-      <span class="app-header__market-dot" aria-hidden="true"></span>
     </button>
-    <!--        <a routerLink="/journal/trade/new" class="app-header__new-trade-btn">-->
-    <!--            + New Trade-->
-    <!--        </a>-->
   </div>
 </header>

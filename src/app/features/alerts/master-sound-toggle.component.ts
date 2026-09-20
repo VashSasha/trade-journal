@@ -24,10 +24,11 @@ import { SessionAlertsService } from './session-alerts.service';
         :host { display: contents; }
         .sound-toggle {
             display: grid; place-items: center; width: 44px; height: 44px; padding: 10px;
-            border: 1px solid var(--color-border); border-radius: 9px;
-            background: var(--color-accent-subtle); color: var(--color-accent); cursor: pointer;
+            border: 1px solid transparent; border-radius: 8px;
+            background: var(--color-accent-subtle); color: var(--color-chrome-accent); cursor: pointer;
         }
-        .sound-toggle--muted { background: var(--color-bg-surface-2); color: var(--color-text-muted); }
+        .sound-toggle--muted { background: transparent; color: var(--color-chrome-text); }
+        .sound-toggle:hover:not(:disabled) { background: var(--color-chrome-hover); }
         .sound-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
         .sound-toggle svg { width: 20px; height: 20px; }
         .sound-toggle:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
