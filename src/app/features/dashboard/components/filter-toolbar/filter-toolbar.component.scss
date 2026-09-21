@@ -1,284 +1,78 @@
+:host { display: block; min-width: 0; }
+
 .filter-toolbar {
-    position: relative;
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 1rem;
-    border-radius: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    padding: 0.4rem 0.65rem;
+    margin-bottom: 0.75rem;
     border: 1px solid var(--color-border);
+    border-radius: 0.65rem;
     background: var(--color-bg-surface);
-    padding: 1rem;
-    margin-bottom: 1.5rem;
+
     &__mobile { display: none; }
-
-    &__label {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: var(--color-text-secondary);
-
-        svg {
-            width: 1.25rem;
-            height: 1.25rem;
-        }
+    &__presets, &__sides { display: flex; align-items: center; gap: 0.15rem; }
+    &__presets { flex-wrap: wrap; }
+    &__sides { padding-left: 1rem; border-left: 1px solid var(--color-border); }
+    &__label { padding-right: 0.4rem; color: var(--color-text-muted); font-size: 0.75rem; }
+    &__reset { margin-left: auto; color: var(--color-text-secondary); }
+    &__summary {
+        display: flex; flex-basis: 100%; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.75rem;
+        margin: 0; color: var(--color-text-secondary); text-align: left;
+        span { color: var(--color-text-accent); }
     }
 
-    &__presets {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
+    button {
+        min-height: 2.75rem; padding: 0.45rem 0.7rem; border-radius: 0.4rem;
+        background: transparent; font: inherit; font-size: 0.8rem; font-weight: 550; cursor: pointer;
+        &:hover { background: var(--color-bg-surface-2); }
     }
-
-    &__divider {
-        width: 1px;
-        height: 1.5rem;
-        background: var(--color-border);
+    button:focus-visible, select:focus-visible, input:focus-visible {
+        outline: 2px solid var(--color-text-accent); outline-offset: 2px;
     }
+    .filter-preset, .filter-side-btn { color: var(--color-text-secondary); }
+    .filter-preset--active { background: var(--color-accent-subtle); color: var(--color-text-accent); }
+    .filter-side-btn--long-active { background: var(--color-direction-long-bg); color: var(--color-direction-long-text); }
+    .filter-side-btn--short-active { background: var(--color-direction-short-bg); color: var(--color-direction-short-text); }
+}
 
-    &__sides {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
+.filter-dates {
+    display: flex; flex: 1 0 100%; min-width: 0; align-items: flex-end; flex-wrap: wrap; gap: 0.75rem;
+    padding: 0.9rem 0.35rem 0.35rem; border-top: 1px solid var(--color-border);
+    &__field { flex: 1 1 9rem; min-width: 0; max-width: 16rem; }
+    label { display: block; margin-bottom: 0.3rem; font-size: 0.75rem; color: var(--color-text-secondary); }
+    input {
+        display: block; width: 100%; min-width: 0; min-height: 2.75rem;
+        border: 1px solid var(--color-border); border-radius: 0.4rem;
+        background: var(--color-bg-surface); color: var(--color-text-primary); padding: 0.5rem; font: inherit;
     }
-
-    &__dropdowns {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    &__reset {
-        margin-left: auto;
-        font-size: 0.875rem;
-        color: var(--color-text-muted);
-        background: none;
-        border: none;
-        cursor: pointer;
-        transition: color 0.12s;
-
-        &:hover { color: var(--color-text-secondary); }
-    }
+    &__actions { display: flex; gap: 0.35rem; }
+    button { color: var(--color-text-secondary); }
+    .filter-dates__apply { background: var(--color-accent-subtle); color: var(--color-text-accent); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    p { flex-basis: 100%; margin: 0; font-size: 0.8rem; color: var(--color-direction-short-text); }
 }
 
 @media (max-width: 700px) {
     .filter-toolbar {
-        padding: 0.35rem 0.5rem;
-        &__label, &__divider, &__presets, &__sides, &__reset { display: none; }
+        gap: 0.4rem; padding: 0.3rem 0.5rem; margin-bottom: 1rem;
+        &__presets, &__sides, &__reset { display: none; }
         &__mobile { display: flex; gap: 0.5rem; width: 100%; min-width: 0; }
-        &__mobile select, &__mobile button {
-            min-height: 2.75rem; border: 0; border-radius: 0.4rem; padding: 0.5rem;
-            background: var(--color-bg-surface); color: var(--color-text-primary); font: inherit; font-size: 0.8rem;
+        &__mobile select {
+            flex: 1; min-width: 0; min-height: 2.75rem; padding: 0.5rem; border-radius: 0.4rem;
+            background: var(--color-bg-surface); color: var(--color-text-primary); font: inherit; font-size: 1rem;
         }
-        &__mobile select { flex: 1; min-width: 0; }
-        &__mobile button { color: var(--color-accent); cursor: pointer; }
+        &__mobile button { color: var(--color-text-accent); }
         &__mobile span { padding: 0.1rem 0.35rem; border-radius: 1rem; background: var(--color-accent-subtle); }
-        &--expanded .filter-toolbar__sides { display: flex; }
+        &--expanded .filter-toolbar__sides { display: flex; border-left: 0; padding-left: 0.25rem; }
         &--expanded .filter-toolbar__reset { display: block; }
-        &--custom .filter-toolbar__presets { display: block; }
-        &__presets .filter-preset { display: none; }
-        .filter-dropdown__panel--wide { position: static; width: 100%; max-height: none; padding: 0.5rem; box-shadow: none; }
     }
-    .filter-toolbar select:focus-visible, .filter-toolbar button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-}
-
-@media (max-width: 700px) {
-    .filter-toolbar { padding: 0.35rem 0.5rem; gap: 0.5rem; margin-bottom: 1rem; }
-    .filter-toolbar__presets { flex-wrap: wrap; gap: 0.25rem; width: 100%; }
-    .filter-toolbar__divider { display: none; }
-    .filter-toolbar .filter-preset, .filter-toolbar .filter-side-btn, .filter-toolbar__reset { min-height: 2.75rem; white-space: nowrap; }
-    .filter-toolbar .filter-preset { padding-inline: 0.5rem; }
-    .filter-toolbar .filter-dropdown { position: static; }
-    .filter-toolbar .filter-dropdown__panel--wide { left: 0; width: 100%; max-height: 55dvh; overflow-y: auto; }
-    .filter-toolbar .filter-dropdown__date-input { font-size: 1rem; min-height: 2.75rem; }
-}
-
-.filter-preset {
-    border-radius: 0.5rem;
-    padding: 0.375rem 0.75rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-text-secondary);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    transition: background 0.12s, color 0.12s;
-
-    &:hover { background: var(--color-bg-surface-2); }
-
-    &--active {
-        background: var(--color-accent-subtle);
-        color: var(--color-accent);
-    }
-
-    &--custom-active {
-        background: var(--color-accent-subtle);
-        color: var(--color-accent);
-    }
-}
-
-.filter-side-btn {
-    border-radius: 0.5rem;
-    border: 1px solid transparent;
-    padding: 0.375rem 0.75rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-text-secondary);
-    background: transparent;
-    cursor: pointer;
-    transition: background 0.12s, color 0.12s;
-
-    &:hover { background: var(--color-bg-surface-2); }
-
-    &--long-active {
-        background: var(--color-positive-subtle);
-        color: var(--color-positive);
-    }
-
-    &--short-active {
-        background: var(--color-negative-subtle);
-        color: var(--color-negative);
-    }
-}
-
-.filter-accounts-btn {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    border-radius: 0.5rem;
-    border: 1px solid transparent;
-    padding: 0.375rem 0.75rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-text-secondary);
-    background: transparent;
-    cursor: pointer;
-    transition: background 0.12s;
-
-    &:hover { background: var(--color-bg-surface-2); }
-
-    &--active {
-        background: var(--color-accent-subtle);
-        color: var(--color-accent);
-    }
-
-    svg {
-        width: 1rem;
-        height: 1rem;
-    }
-
-    &__badge {
-        margin-left: 0.25rem;
-        border-radius: 9999px;
-        background: var(--color-accent);
-        padding: 0.125rem 0.375rem;
-        font-size: 0.75rem;
-        color: #fff;
-    }
-}
-
-.filter-dropdown {
-    position: relative;
-
-    &__panel {
-        position: absolute;
-        left: 0;
-        top: calc(100% + 0.5rem);
-        z-index: 50;
-        border-radius: 0.5rem;
-        border: 1px solid var(--color-border);
-        background: var(--color-bg-surface);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    }
-
-    &__panel--wide {
-        width: 20rem;
-        padding: 1rem;
-    }
-
-    &__panel--accounts {
-        width: 14rem;
-    }
-
-    &__accounts-list {
-        padding: 0.5rem;
-        max-height: 16rem;
-        overflow-y: auto;
-    }
-
-    &__account-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem;
-        border-radius: 0.25rem;
-        cursor: pointer;
-        font-size: 0.875rem;
-        color: var(--color-text-primary);
-
-        &:hover { background: var(--color-bg-surface-2); }
-    }
-
-    &__account-empty {
-        padding: 0.5rem;
-        text-align: center;
-        font-size: 0.875rem;
-        color: var(--color-text-muted);
-    }
-
-    &__date-label {
-        display: block;
-        font-size: 0.75rem;
-        font-weight: 500;
-        color: var(--color-text-secondary);
-        margin-bottom: 0.25rem;
-    }
-
-    &__date-input {
-        width: 100%;
-        border-radius: 0.5rem;
-        border: 1px solid var(--color-border);
-        background: var(--color-bg-surface);
-        color: var(--color-text-primary);
-        padding: 0.5rem 0.75rem;
-        font-size: 0.875rem;
-        box-sizing: border-box;
-    }
-
-    &__date-field {
-        margin-bottom: 0.75rem;
-    }
-
-    &__date-actions {
-        display: flex;
-        gap: 0.5rem;
-    }
-
-    &__apply-btn {
-        flex: 1;
-        border-radius: 0.5rem;
-        background: var(--color-accent);
-        border: none;
-        padding: 0.5rem 1rem;
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: #fff;
-        cursor: pointer;
-
-        &:hover { background: var(--color-accent-hover); }
-    }
-
-    &__cancel-btn {
-        border-radius: 0.5rem;
-        border: 1px solid var(--color-border);
-        background: transparent;
-        padding: 0.5rem 1rem;
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: var(--color-text-secondary);
-        cursor: pointer;
-
-        &:hover { background: var(--color-bg-surface-2); }
+    .filter-dates {
+        gap: 0.75rem 0.5rem;
+        &__field { flex: 1 1 calc(50% - 0.5rem); max-width: none; }
+        input { font-size: 1rem; }
+        &__actions { width: 100%; }
+        button { flex: 1; }
     }
 }

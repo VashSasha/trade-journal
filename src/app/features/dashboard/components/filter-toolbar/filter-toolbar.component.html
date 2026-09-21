@@ -1,6 +1,6 @@
-<div class="filter-toolbar" [class.filter-toolbar--expanded]="mobileFiltersOpen()" [class.filter-toolbar--custom]="showCustomDatePicker()">
+<section class="filter-toolbar" aria-label="Performance filters" [class.filter-toolbar--expanded]="mobileFiltersOpen()">
     <div class="filter-toolbar__mobile">
-        <select aria-label="Dashboard date range" [value]="showCustomDatePicker() ? 'custom' : activeDateFilter()"
+        <select #mobileDate aria-label="Performance date range" [value]="showCustomDatePicker() ? 'custom' : activeDateFilter()"
             (change)="selectMobileDate($any($event.target).value)">
             <option value="all">All time</option>
             <option value="today">Today</option>
@@ -13,70 +13,59 @@
             Filters @if (filterService.filters().sides.length) { <span>{{ filterService.filters().sides.length }}</span> }
         </button>
     </div>
-    <!-- Label -->
-    <div class="filter-toolbar__label">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-        </svg>
-        Filters:
-    </div>
 
-    <!-- Date Range Presets -->
-    <div class="filter-toolbar__presets">
-        <button class="filter-preset" (click)="setDateFilter('all')"
-            [class.filter-preset--active]="activeDateFilter() === 'all'">
-            All Time
-        </button>
-        <button class="filter-preset" (click)="setDateFilter('today')"
-            [class.filter-preset--active]="activeDateFilter() === 'today'">
-            Today
-        </button>
-        <button class="filter-preset" (click)="setDateFilter('week')"
-            [class.filter-preset--active]="activeDateFilter() === 'week'">
-            This Week
-        </button>
-        <button class="filter-preset" (click)="setDateFilter('month')"
-            [class.filter-preset--active]="activeDateFilter() === 'month'">
-            This Month
-        </button>
-        <div class="filter-dropdown">
-            <button class="filter-preset" (click)="toggleCustomDatePicker()"
-                [class.filter-preset--custom-active]="activeDateFilter() === 'custom'">
-                Custom
+    <div class="filter-toolbar__presets" role="group" aria-label="Date range">
+        @for (preset of datePresets; track preset.value) {
+            <button type="button" class="filter-preset" (click)="setDateFilter(preset.value)"
+                [attr.aria-pressed]="activeDateFilter() === preset.value"
+                [class.filter-preset--active]="activeDateFilter() === preset.value">
+                {{ preset.label }}
             </button>
-            @if (showCustomDatePicker()) {
-                <div class="filter-dropdown__panel filter-dropdown__panel--wide">
-                    <div class="filter-dropdown__date-field">
-                        <label class="filter-dropdown__date-label">Start Date</label>
-                        <input class="filter-dropdown__date-input" type="date" [(ngModel)]="customStartDate" />
-                    </div>
-                    <div class="filter-dropdown__date-field">
-                        <label class="filter-dropdown__date-label">End Date</label>
-                        <input class="filter-dropdown__date-input" type="date" [(ngModel)]="customEndDate" />
-                    </div>
-                    <div class="filter-dropdown__date-actions">
-                        <button class="filter-dropdown__apply-btn" (click)="applyCustomDateRange()">Apply</button>
-                        <button class="filter-dropdown__cancel-btn" (click)="showCustomDatePicker.set(false)">Cancel</button>
-                    </div>
-                </div>
-            }
+        }
+        <button #customTrigger type="button" class="filter-preset" (click)="toggleCustomDatePicker()"
+            [attr.aria-expanded]="showCustomDatePicker()" aria-controls="performance-custom-dates"
+            [class.filter-preset--active]="activeDateFilter() === 'custom'">
+            Custom dates
+        </button>
+    </div>
+
+    <div class="filter-toolbar__sides" id="dashboard-side-filters" role="group" aria-label="Trade direction">
+        <span class="filter-toolbar__label">Direction</span>
+        <button type="button" class="filter-side-btn" (click)="filterService.toggleSide('long')"
+            [attr.aria-pressed]="filterService.filters().sides.includes('long')"
+            [class.filter-side-btn--long-active]="filterService.filters().sides.includes('long')">Long</button>
+        <button type="button" class="filter-side-btn" (click)="filterService.toggleSide('short')"
+            [attr.aria-pressed]="filterService.filters().sides.includes('short')"
+            [class.filter-side-btn--short-active]="filterService.filters().sides.includes('short')">Short</button>
+    </div>
+
+    <button type="button" class="filter-toolbar__reset" (click)="reset()">Reset</button>
+
+    @if (showCustomDatePicker()) {
+        <div class="filter-dates" id="performance-custom-dates" role="group" aria-label="Custom date range">
+            <div class="filter-dates__field">
+                <label for="performance-start">Start date</label>
+                <input id="performance-start" type="date" [(ngModel)]="customStartDate"
+                    [max]="customEndDate()" [attr.aria-invalid]="dateRangeError() ? 'true' : null"
+                    [attr.aria-describedby]="dateRangeError() ? 'performance-date-error' : null" />
+            </div>
+            <div class="filter-dates__field">
+                <label for="performance-end">End date</label>
+                <input id="performance-end" type="date" [(ngModel)]="customEndDate"
+                    [min]="customStartDate()" [attr.aria-invalid]="dateRangeError() ? 'true' : null"
+                    [attr.aria-describedby]="dateRangeError() ? 'performance-date-error' : null" />
+            </div>
+            <div class="filter-dates__actions">
+                <button type="button" class="filter-dates__apply" [disabled]="!canApplyCustomRange()"
+                    (click)="applyCustomDateRange()">Apply dates</button>
+                <button type="button" (click)="closeCustomDatePicker()">Cancel</button>
+            </div>
+            @if (dateRangeError(); as error) { <p id="performance-date-error" role="alert">{{ error }}</p> }
         </div>
-    </div>
-
-    <div class="filter-toolbar__divider"></div>
-
-    <!-- Side Filters -->
-    <div class="filter-toolbar__sides" id="dashboard-side-filters">
-        <button class="filter-side-btn" (click)="filterService.toggleSide('long')"
-            [class.filter-side-btn--long-active]="filterService.filters().sides.includes('long')">
-            Long
+    } @else if (activeDateFilter() === 'custom') {
+        <button type="button" class="filter-toolbar__summary" (click)="toggleCustomDatePicker()"
+            aria-controls="performance-custom-dates" aria-expanded="false">
+            {{ customRangeLabel() }} <span>Edit dates</span>
         </button>
-        <button class="filter-side-btn" (click)="filterService.toggleSide('short')"
-            [class.filter-side-btn--short-active]="filterService.filters().sides.includes('short')">
-            Short
-        </button>
-    </div>
-
-    <!-- Reset -->
-    <button class="filter-toolbar__reset" (click)="reset()">Reset</button>
-</div>
+    }
+</section>

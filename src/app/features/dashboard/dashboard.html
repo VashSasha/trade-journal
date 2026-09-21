@@ -1,11 +1,9 @@
 <div class="dash">
     <div class="dash__container">
-        <app-filter-toolbar />
-
         <div class="dash__layout-bar">
             <div>
-                <h1>Your dashboard</h1>
-                <p>Shape the workspace around the way you review performance.</p>
+                <h1>Dashboard</h1>
+                <p>Review performance across your selected accounts.</p>
             </div>
             <button type="button" class="dash__customize" [class.is-active]="layout.editing()"
                 (click)="toggleEditing()">
@@ -22,6 +20,8 @@
                 }
             </button>
         </div>
+
+        <app-filter-toolbar />
 
         @if (layout.editing()) {
             <section class="layout-editor" aria-label="Dashboard layout controls">
@@ -78,13 +78,13 @@
                 }
             </div>
         } @else {
-        <gridstack class="dash__grid" [class.dash__grid--editing]="layout.editing()"
+        <app-widget-grid class="dash__grid" [class.dash__grid--editing]="layout.editing()"
             [options]="gridOptions" (changeCB)="onLayoutChange($event)" (resizeStopCB)="onResizeStop()">
             <div empty-content class="dash__empty-layout">
                 <strong>Your dashboard is empty.</strong>
                 <span>Choose Customize to bring a widget back.</span>
             </div>
-        </gridstack>
+        </app-widget-grid>
         }
     </div>
 </div>

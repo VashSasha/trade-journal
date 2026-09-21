@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, ElementRef, HostListener, inject, signal, viewChild } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { FilterService } from '../../../../core/services/filter.service';
@@ -12,6 +12,12 @@ import { FilterService } from '../../../../core/services/filter.service';
 })
 export class FilterToolbarComponent {
     filterService = inject(FilterService);
+    private readonly customTrigger = viewChild<ElementRef<HTMLButtonElement>>('customTrigger');
+    private readonly mobileDate = viewChild<ElementRef<HTMLSelectElement>>('mobileDate');
+    readonly datePresets = [
+        { value: 'all', label: 'All time' }, { value: 'today', label: 'Today' },
+        { value: 'week', label: 'This week' }, { value: 'month', label: 'This month' },
+    ] as const;
 
     activeDateFilter = signal<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
     readonly mobileFiltersOpen = signal(false);
@@ -34,6 +40,30 @@ export class FilterToolbarComponent {
     showCustomDatePicker = signal(false);
     customStartDate = signal<string>('');
     customEndDate = signal<string>('');
+    readonly dateRangeError = computed(() => this.customStartDate() && this.customEndDate()
+        && this.customStartDate() > this.customEndDate() ? 'End date must be on or after start date.' : null);
+    readonly canApplyCustomRange = computed(() => Boolean(this.customStartDate() && this.customEndDate()
+        && !this.dateRangeError()
+        && Number.isFinite(Date.parse(this.customStartDate() + 'T00:00:00'))
+        && Number.isFinite(Date.parse(this.customEndDate() + 'T00:00:00'))));
+    readonly customRangeLabel = computed(() => {
+        const format = (value: Date) => value.toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric',
+        });
+        const { start, end } = this.filterService.filters().dateRange;
+        if (!start || !end) return '';
+        // Use applied dates, not draft inputs changed before Cancel.
+        return start.toDateString() === end.toDateString()
+            ? format(start) : `${format(start)} – ${format(end)}`;
+    });
+
+    @HostListener('keydown.escape')
+    closeCustomDatePicker(): void {
+        if (!this.showCustomDatePicker()) return;
+        this.showCustomDatePicker.set(false);
+        const trigger = this.customTrigger()?.nativeElement;
+        (trigger?.getClientRects().length ? trigger : this.mobileDate()?.nativeElement)?.focus();
+    }
 
     setDateFilter(type: 'all' | 'today' | 'week' | 'month' | 'custom') {
         if (type === 'custom') {
@@ -75,14 +105,15 @@ export class FilterToolbarComponent {
         const start = this.customStartDate();
         const end = this.customEndDate();
 
-        if (start && end) {
-            const startDate = new Date(start);
-            const endDate = new Date(end);
+        if (this.canApplyCustomRange()) {
+            // Date-only strings otherwise parse as UTC and shift the chosen day west of UTC.
+            const startDate = new Date(start + 'T00:00:00');
+            const endDate = new Date(end + 'T00:00:00');
             endDate.setHours(23, 59, 59, 999); // End of day
 
             this.filterService.setDateRange(startDate, endDate);
             this.activeDateFilter.set('custom');
-            this.showCustomDatePicker.set(false);
+            this.closeCustomDatePicker();
         }
     }
 
