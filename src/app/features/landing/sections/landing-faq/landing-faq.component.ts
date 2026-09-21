@@ -18,7 +18,7 @@ export class LandingFaqComponent {
     readonly items: FaqItem[] = [
         {
             question: 'Do I need the Discord membership?',
-            answer: 'No. NVZN Trading members get plan-based access automatically when they log in with Discord, but there is also a journal-only subscription — pick it in the pricing section above and you get the full journal without the community membership.'
+            answer: 'No. NVZN Trading members get plan-based access automatically when they log in with Discord, but there is also a journal-only subscription — choose Premium for the journal and analytics, or Premium+ for AI features. Community membership includes Premium; AI is separate.'
         },
         {
             question: 'Which brokers are supported?',
@@ -26,11 +26,11 @@ export class LandingFaqComponent {
         },
         {
             question: 'How does the AI coaching work?',
-            answer: 'After a session, you generate an insight from your daily journal: the AI reads that day\'s actual trades — P&L, win rate, win/loss dynamics — and returns a summary, key takeaways, and a checklist of action points for tomorrow. You can also upload a chart screenshot on the Reports page and get a structured verdict with levels and confidence, then ask follow-up questions. Everything runs server-side; there are no API keys to manage.'
+            answer: 'With Premium+ or an individual AI access grant, you generate an insight from your daily journal: the AI reads that day\'s actual trades — P&L, win rate, win/loss dynamics — and returns a summary, key takeaways, and a checklist of action points for tomorrow. You can also upload a chart screenshot on the Reports page and get a structured verdict with levels and confidence, then ask follow-up questions. Everything runs server-side; there are no API keys to manage.'
         },
         {
             question: 'Is my data safe?',
-            answer: 'Your trades and journal entries are stored in your own account with owner-scoped access rules — no other user can read them. AI analysis runs server-side on your own data only; it is never shared and never used to train anyone else\'s model.'
+            answer: 'Your trades and journal entries are stored in your own account with owner-scoped access rules — no other user can read them. AI analysis runs server-side. The necessary trade summary and any images you submit are sent to our AI provider to generate your response.'
         },
         {
             question: 'Can I cancel anytime?',

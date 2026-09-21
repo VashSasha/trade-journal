@@ -117,7 +117,7 @@
         @if (!layout.collapsed()) {
         <div class="sidebar__user-info">
             <span class="sidebar__user-name">{{ user.name }}</span>
-            <span class="sidebar__user-plan sidebar__user-plan--{{ user.plan }}">{{ user.plan | titlecase }}</span>
+            <span class="sidebar__user-plan sidebar__user-plan--{{ user.plan }}">{{ planLabel(user.plan) }}</span>
         </div>
         }
         </a>

@@ -3,6 +3,7 @@ import { SupabaseService } from '../../core/services/supabase.service';
 import { AuthService } from '../../core/services/auth.service';
 
 export type BillingInterval = 'monthly' | 'annual';
+export type SubscriptionPlan = 'premium' | 'premium_plus';
 
 /** The caller's own `billing` row (select-own RLS). Null when never subscribed. */
 export interface BillingRecord {
@@ -47,9 +48,9 @@ export class BillingService {
      * Start Checkout for the chosen interval and return the hosted Stripe URL.
      * The amount is resolved server-side from a price id — never sent from here.
      */
-    async startCheckout(interval: BillingInterval): Promise<{ url?: string; error?: string }> {
+    async startCheckout(interval: BillingInterval, plan: SubscriptionPlan = 'premium'): Promise<{ url?: string; error?: string }> {
         const { data, error } = await this.supabase.functions.invoke('create-checkout', {
-            body: { interval },
+            body: { interval, plan },
         });
         if (error) return { error: await this.functionError(error, 'Could not start checkout.') };
         return { url: (data as { url?: string })?.url };

@@ -34,11 +34,30 @@
 
     &__grid {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 1.25rem;
-        max-width: 56rem;
+        max-width: 72rem;
         margin: 0 auto;
         align-items: stretch;
+    }
+
+    &__billing {
+        display: flex;
+        max-width: 22rem;
+        margin: 0 auto 2rem;
+        padding: 0.25rem;
+        border: 1px solid var(--color-border);
+        border-radius: 0.6rem;
+        background: var(--color-bg-surface-2);
+    }
+
+    &__legacy {
+        margin: 1.5rem auto 0;
+        max-width: 55rem;
+        color: var(--color-text-secondary);
+        font-size: 0.8rem;
+        text-align: center;
+        line-height: 1.6;
     }
 
     &.pricing--embedded {
@@ -50,6 +69,7 @@
 
 .pricing-card {
     position: relative;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     padding: 2rem 1.75rem;
@@ -88,7 +108,7 @@
         letter-spacing: 0.04em;
         text-transform: uppercase;
         background: var(--color-accent);
-        color: #ffffff;
+        color: var(--color-text-on-accent);
 
         &--soon {
             background: var(--color-bg-surface-3);
@@ -140,7 +160,7 @@
         &--active {
             background: var(--color-bg-base);
             color: var(--color-text-primary);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+            box-shadow: 0 1px 3px var(--color-border);
         }
     }
 
@@ -208,6 +228,9 @@
 
     &__cta {
         display: inline-flex;
+        min-height: 44px;
+        border: 1px solid transparent;
+        cursor: pointer;
         align-items: center;
         justify-content: center;
         padding: 0.8rem 1.6rem;
@@ -216,7 +239,7 @@
         font-weight: 600;
         text-decoration: none;
         background: var(--color-accent);
-        color: #ffffff;
+        color: var(--color-text-on-accent);
         transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
         box-shadow: 0 8px 24px var(--color-accent-subtle);
 
@@ -289,15 +312,27 @@
     }
 }
 
-@media (max-width: 900px) {
+button:focus-visible, a:focus-visible {
+    outline: 2px solid var(--color-text-accent);
+    outline-offset: 3px;
+}
+
+@media (max-width: 1100px) {
     .pricing__grid {
-        grid-template-columns: 1fr;
-        max-width: 28rem;
+        grid-template-columns: minmax(0, 1fr);
+        max-width: 36rem;
     }
 }
 
 @media (max-width: 600px) {
     .pricing {
         padding: 3.5rem 1.25rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pricing-card, .pricing-card:hover, .pricing-card__cta, .pricing-card__cta:hover {
+        transition: none;
+        transform: none;
     }
 }

@@ -2,101 +2,67 @@
     <div class="pricing__inner">
         @if (!embedded()) {
             <div class="pricing__head" appRevealOnScroll>
-                <h2 class="pricing__title">Simple pricing</h2>
-                <p class="pricing__subtitle">
-                    One membership unlocks the full journal — and the community trading behind it.
-                </p>
+                <h2 class="pricing__title">A plan for your next step</h2>
+                <p class="pricing__subtitle">Start with a free journal. Add deeper analytics with Premium, or personalized coaching with Premium+.</p>
             </div>
         }
-
+        <div class="pricing__billing" role="group" aria-label="Billing interval">
+            <button type="button" class="pricing-card__cycle-btn" [class.pricing-card__cycle-btn--active]="billingCycle() === 'monthly'"
+                [attr.aria-pressed]="billingCycle() === 'monthly'" [disabled]="checkoutBusy() !== null" (click)="selectCycle('monthly')">Monthly</button>
+            <button type="button" class="pricing-card__cycle-btn" [class.pricing-card__cycle-btn--active]="billingCycle() === 'annual'"
+                [attr.aria-pressed]="billingCycle() === 'annual'" [disabled]="checkoutBusy() !== null" (click)="selectCycle('annual')">
+                Annual <span class="pricing-card__save-chip">Save 17%</span>
+            </button>
+        </div>
+        @if (checkoutError()) { <p class="pricing-card__error" role="alert">{{ checkoutError() }}</p> }
         <div class="pricing__grid">
-            <article class="pricing-card pricing-card--featured" appRevealOnScroll>
-                <span class="pricing-card__badge">Best value</span>
-                <h3 class="pricing-card__name">Journal + NVZN Discord</h3>
-                <p class="pricing-card__copy">
-                    Full journal access is included with your NVZN Trading Discord membership.
-                </p>
-
-                <div class="pricing-card__price">
-                    <span class="pricing-card__amount">${{ bundlePrice.toFixed(2) }}</span>
-                    <span class="pricing-card__period">/mo</span>
-                </div>
-
+            @for (plan of plans; track plan.id) {
+                <article class="pricing-card" [class.pricing-card--featured]="plan.id === 'premium_plus'" appRevealOnScroll>
+                    @if (plan.id === 'premium_plus') { <span class="pricing-card__badge">With AI coaching</span> }
+                    <h3 class="pricing-card__name">{{ plan.name }}</h3>
+                    <p class="pricing-card__copy">{{ plan.description }}</p>
+                    <div class="pricing-card__price">
+                        <span class="pricing-card__amount">{{ (billingCycle() === 'monthly' ? plan.monthly : plan.annual / 12) | currency:'USD':'symbol':'1.2-2' }}</span>
+                        <span class="pricing-card__period">/mo</span>
+                    </div>
+                    <p class="pricing-card__per-day">
+                        @if (billingCycle() === 'annual') { Billed {{ plan.annual | currency:'USD':'symbol':'1.2-2' }} once a year }
+                        @else { Billed monthly · Cancel anytime }
+                    </p>
+                    <ul class="pricing-card__features">
+                        @for (feature of plan.features; track feature) { <li>{{ feature }}</li> }
+                    </ul>
+                    @if (plan.id === 'premium_plus') {
+                        <p class="pricing-card__note">10 analyses and 30 Live Coach AI requests per day. Voice previews and speech share the Coach allowance. Resets at midnight UTC.</p>
+                    } @else {
+                        <p class="pricing-card__note">AI features are available with Premium+.</p>
+                    }
+                    @if (includes(plan.id)) {
+                        <a class="pricing-card__cta" routerLink="/account/plan">Manage plan &amp; billing</a>
+                        <p class="pricing-card__note">Already included in your access.</p>
+                    } @else {
+                        <button type="button" class="pricing-card__cta" (click)="subscribe(plan.id)" [disabled]="checkoutBusy() !== null">
+                            {{ checkoutBusy() === plan.id ? 'Opening billing…' : 'Choose ' + plan.name }}
+                        </button>
+                    }
+                </article>
+            }
+            <article class="pricing-card" appRevealOnScroll>
+                <h3 class="pricing-card__name">NVZN Discord + Premium</h3>
+                <p class="pricing-card__copy">Trade alongside the community, with the Premium journal included.</p>
+                <div class="pricing-card__price"><span class="pricing-card__amount">$79.99</span><span class="pricing-card__period">/mo</span></div>
+                <p class="pricing-card__per-day">Monthly community membership</p>
                 <ul class="pricing-card__features">
-                    @for (feature of journalFeatures; track feature) {
-                        <li>{{ feature }}</li>
-                    }
-                    @for (feature of communityFeatures; track feature) {
-                        <li>{{ feature }}</li>
-                    }
+                    <li>All Premium journal features</li>
+                    <li>Private NVZN Trading Discord community</li>
+                    <li>Live trade ideas from active traders</li>
+                    <li>Direct member support</li>
                 </ul>
-                <a class="pricing-card__cta" [href]="whopUrl" target="_blank" rel="noopener">
-                    Join NVZN Trading
-                </a>
+                <p class="pricing-card__note">AI is not included. Premium+ is available separately.</p>
+                <a class="pricing-card__cta" [href]="whopUrl" target="_blank" rel="noopener">Join NVZN Trading</a>
                 <p class="pricing-card__note">Billed via Whop · Cancel anytime</p>
             </article>
-
-            <article class="pricing-card" appRevealOnScroll>
-                <h3 class="pricing-card__name">Journal Only</h3>
-                <p class="pricing-card__copy">
-                    A standalone journal subscription — no Discord group.
-                </p>
-
-                <!-- Billing cycle toggle — drives both the price shown and the
-                     Stripe Checkout interval Subscribe starts. -->
-                <div class="pricing-card__cycle">
-                    <button
-                        type="button"
-                        class="pricing-card__cycle-btn"
-                        [class.pricing-card__cycle-btn--active]="billingCycle() === 'monthly'"
-                        [attr.aria-pressed]="billingCycle() === 'monthly'"
-                        (click)="selectCycle('monthly')">
-                        Monthly
-                    </button>
-                    <button
-                        type="button"
-                        class="pricing-card__cycle-btn"
-                        [class.pricing-card__cycle-btn--active]="billingCycle() === 'annual'"
-                        [attr.aria-pressed]="billingCycle() === 'annual'"
-                        (click)="selectCycle('annual')">
-                        Annual
-                        <span class="pricing-card__save-chip">Save {{ annualSavingsPct }}%</span>
-                    </button>
-                </div>
-
-                <div class="pricing-card__price">
-                    <span class="pricing-card__amount">${{ journalPrice().toFixed(2) }}</span>
-                    <span class="pricing-card__period">/mo</span>
-                </div>
-                <p class="pricing-card__per-day">
-                    That's just {{ journalPerDay() | currency:'USD':'symbol':'1.2-2' }}/day
-                    @if (billingCycle() === 'annual') {
-                        — billed {{ journalAnnualPrice | currency:'USD':'symbol':'1.2-2' }} once a year
-                    }
-                </p>
-
-                <ul class="pricing-card__features">
-                    @for (feature of journalFeatures; track feature) {
-                        <li>{{ feature }}</li>
-                    }
-                </ul>
-                @if (hasFullAccess()) {
-                    <p class="pricing-card__note">Your current plan already includes full journal access.</p>
-                    <a class="pricing-card__cta" routerLink="/account/plan">Manage plan &amp; billing</a>
-                } @else {
-                    <button
-                        class="pricing-card__cta"
-                        type="button"
-                        (click)="subscribe()"
-                        [disabled]="checkoutBusy() !== null">
-                        {{ checkoutBusy() ? 'Redirecting…' : 'Subscribe ' + (billingCycle() === 'monthly' ? 'monthly' : 'annually') }}
-                    </button>
-                }
-                @if (checkoutError()) {
-                    <p class="pricing-card__error" role="alert">{{ checkoutError() }}</p>
-                }
-                <p class="pricing-card__note">Billed via Stripe · Cancel anytime</p>
-            </article>
         </div>
+        <p class="pricing__legacy">Existing Lifetime memberships retain Premium features without renewal. AI requires Premium+ or an individual access grant.</p>
     </div>
 </section>

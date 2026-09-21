@@ -1,5 +1,8 @@
 # P2 rollout
 
+Historical rollout: its Premium/Lifetime AI policy is superseded by
+[Premium+ rollout](Premium-plus-rollout.md). Do not use this older access matrix for current releases.
+
 These changes are local until you apply the migrations and deploy. Nothing in
 this rollout deletes trading accounts, connections, trades, or their balances.
 

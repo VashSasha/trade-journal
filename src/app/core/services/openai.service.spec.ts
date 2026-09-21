@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { signal } from '@angular/core';
+import { computed, signal } from '@angular/core';
 import { lastValueFrom } from 'rxjs';
 import { vi } from 'vitest';
 import { OpenAiService } from './openai.service';
@@ -10,15 +10,15 @@ import { DemoModeService } from './demo-mode.service';
 import { cacheSuspended, setCacheSuspended } from './user-data/user-data.cache';
 
 describe('paid AI access and streaming failures', () => {
-    const plan = signal('premium');
+    const plan = signal('premium_plus');
     const invoke = vi.fn(async () => ({ data: { text: 'Stay selective.' }, error: null }));
     let ai: OpenAiService;
     beforeEach(() => {
-        plan.set('premium'); setCacheSuspended(false);
+        plan.set('premium_plus'); setCacheSuspended(false);
         invoke.mockClear();
         const controller = new AbortController();
         TestBed.configureTestingModule({ providers: [
-            { provide: AuthService, useValue: { plan, isAuthenticated: () => true, refreshProfile: async () => {} } },
+            { provide: AuthService, useValue: { plan, aiAccess: computed(() => plan() === 'premium_plus'), isAuthenticated: () => true, refreshProfile: async () => {} } },
             { provide: SupabaseService, useValue: { client: { auth: { getSession: async () => ({ data: {
                 session: { user: { id: 'A' }, access_token: 'test' },
             } }) }, functions: { invoke } } } },
@@ -28,9 +28,9 @@ describe('paid AI access and streaming failures', () => {
         ai = TestBed.inject(OpenAiService);
     });
     afterEach(() => { vi.unstubAllGlobals(); setCacheSuspended(false); });
-    it('gives premium and lifetime identical access, not free', () => {
-        for (const p of ['premium', 'lifetime']) { plan.set(p); expect(ai.hasApiKey()).toBe(true); }
-        plan.set('free'); expect(ai.hasApiKey()).toBe(false);
+    it('includes AI only when the server grants the capability', () => {
+        plan.set('premium_plus'); expect(ai.hasApiKey()).toBe(true);
+        for (const p of ['free', 'premium', 'lifetime']) { plan.set(p); expect(ai.hasApiKey()).toBe(false); }
     });
     it('surfaces server stream errors instead of completing an incomplete report', async () => {
         vi.stubGlobal('fetch', async () => new Response('data: {"type":"error","error":"Analysis interrupted"}\n\n'));
@@ -45,8 +45,8 @@ describe('paid AI access and streaming failures', () => {
         expect(await lastValueFrom(ai.streamAnalysis([]))).toBe('Result');
     });
 
-    it('does not make an AI request from a free real workspace', async () => {
-        plan.set('free');
+    it.each(['free', 'premium', 'lifetime'])('does not make an AI request from a %s real workspace', async tier => {
+        plan.set(tier);
         const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
         await expect(lastValueFrom(ai.streamAnalysis([]))).rejects.toThrow('Upgrade');
         expect(fetch).not.toHaveBeenCalled();
@@ -99,7 +99,7 @@ describe('paid AI access and streaming failures', () => {
         const payload = { question: 'explain' as const, observedAt: '2026-09-18T15:00:00.000Z', comment: 'Opened one contract.', snapshot: null };
         plan.set('free');
         await expect(ai.generateLiveCoachFollowUp(payload)).rejects.toThrow('Upgrade');
-        plan.set('premium'); setCacheSuspended(true);
+        plan.set('premium_plus'); setCacheSuspended(true);
         await expect(ai.generateLiveCoachFollowUp(payload)).rejects.toThrow('demo mode');
         expect(invoke).not.toHaveBeenCalled();
     });

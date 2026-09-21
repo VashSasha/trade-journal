@@ -237,4 +237,76 @@ try {
     assert.equal(signup.plan, 'free');
     assert.equal(signup.display_name, 'Test user');
     console.log('PASS: goals RLS, AI reservations/refunds/limits, Discord expiry/identity/unlink, billing and override independence');
+
+    // Premium+ migration is additive: preserve trades, settings, and explicit plan sources.
+    const tradesBeforePlus = await query('select * from trades order by id');
+    const prefsBeforePlus = await query('select * from user_settings order by user_id');
+    await query("update profiles set billing_plan=null,discord_plan=null,plan_override='lifetime' where id=$1", [A]);
+    await migration('0032_premium_plus');
+    await migration('0032_premium_plus');
+    assert.deepEqual(await query('select * from trades order by id'), tradesBeforePlus);
+    assert.deepEqual(await query('select * from user_settings order by user_id'), prefsBeforePlus);
+    const ai = async () => (await query('select effective_user_ai_access($1) as allowed', [A]))[0].allowed;
+    assert.equal(await plan(), 'lifetime');
+    assert.equal(await ai(), false); // No grandfathering, including existing Lifetime.
+    for (const tier of ['free', 'premium', 'lifetime', 'premium_plus', 'admin']) {
+        await query('update profiles set plan_override=$2,ai_access_override=null where id=$1', [A, tier]);
+        assert.equal(await ai(), ['premium_plus', 'admin'].includes(tier));
+        await query('update profiles set ai_access_override=true where id=$1', [A]);
+        assert.equal(await ai(), true);
+        assert.equal(await plan(), tier); // AI grants do not change base entitlements.
+        await query('update profiles set ai_access_override=false where id=$1', [A]);
+        assert.equal(await ai(), false);
+    }
+    await query("update profiles set plan_override=null,ai_access_override=null,billing_plan='premium_plus',discord_plan='lifetime',discord_plan_expires_at=now()+interval '1 hour' where id=$1", [A]);
+    await query("insert into auth.identities(id,user_id,provider,provider_id) values ($1,$2,'discord','123456789012345678')", [token, A]);
+    assert.equal(await plan(), 'premium_plus');
+    assert.equal(await ai(), true);
+    await query('update profiles set billing_plan=null where id=$1', [A]);
+    assert.equal(await plan(), 'lifetime');
+    assert.equal(await ai(), false);
+    await query("update profiles set discord_plan='premium_plus' where id=$1", [A]);
+    assert.equal(await ai(), true);
+    await query("update profiles set discord_plan_expires_at=now()-interval '1 minute' where id=$1", [A]);
+    assert.equal(await ai(), false);
+    await query("update profiles set discord_plan_expires_at=now()+interval '1 hour' where id=$1", [A]);
+    await query("update auth.identities set provider_id='different' where id=$1", [token]);
+    assert.equal(await ai(), false);
+
+    await query("update profiles set plan_override='premium_plus',ai_access_override=true where id=$1", [A]);
+    await setUser(B);
+    assert.equal((await query('select * from get_my_entitlements()'))[0].ai_access, false);
+    for (const column of ['ai_access_override', 'plan_override', 'billing_plan', 'discord_plan']) {
+        await assert.rejects(query(`update profiles set ${column}=null where id=$1`, [B]), /permission denied/);
+    }
+    await assert.rejects(query('select effective_user_ai_access($1)', [A]), /permission denied/);
+    await assert.rejects(query('select apply_billing_snapshot($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [B, token, 'forged', 'cus_test', 'sub_test', 'active', 'price_test', null, 'premium_plus']), /permission denied/);
+    await setUser(A);
+    assert.equal((await query('select * from get_my_entitlements()'))[0].ai_access, true);
+    await db.exec('reset role; set role anon');
+    await assert.rejects(query('select * from get_my_entitlements()'), /permission denied/);
+    await db.exec('reset role; set role service_role');
+    await query('update profiles set plan_override=null,discord_plan=null,ai_access_override=null where id=$1', [A]);
+    await query("update billing_operations set expires_at=now()+interval '5 minutes' where user_id=$1", [A]);
+    const applyPlus = (event: string, tier: string | null, status = 'active', lock = token) => query(
+        'select apply_billing_snapshot($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [A, lock, event, 'cus_test', 'sub_test', status, 'price_test', null, tier]);
+    await assert.rejects(applyPlus('evt_plus_bad_lock', 'premium_plus', 'active', other), /expired/);
+    await assert.rejects(applyPlus('evt_plus_unknown', null), /Unrecognized paid plan/);
+    await assert.rejects(applyPlus('evt_plus_forged', 'admin'), /Unrecognized paid plan/);
+    await applyPlus('evt_plus_upgrade', 'premium_plus');
+    assert.equal(await ai(), true);
+    await applyPlus('evt_plus_upgrade', 'premium'); // Receipt makes replay inert.
+    assert.equal(await plan(), 'premium_plus');
+    await applyPlus('evt_plus_downgrade', 'premium');
+    assert.equal(await plan(), 'premium');
+    assert.equal(await ai(), false);
+    await query("update profiles set plan_override='lifetime',ai_access_override=true where id=$1", [A]);
+    await applyPlus('evt_plus_cancel', null, 'canceled');
+    assert.equal(await plan(), 'lifetime');
+    assert.equal(await ai(), true); // Cancellation must not erase an independent admin grant.
+    assert.equal((await query("select * from pg_proc where proname='apply_billing_snapshot' and pronargs=8")).length, 0);
+    assert.deepEqual(await query('select * from trades order by id'), tradesBeforePlus);
+    console.log('PASS: Premium+ tiers, explicit AI grants/revocation, owner-only access, source precedence, safe rerun, billing upgrade/downgrade/cancel/replay, retained trading data');
 } finally { await db.close(); }

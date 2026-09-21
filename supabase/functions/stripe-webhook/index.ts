@@ -1,5 +1,5 @@
 import { admin, stripe, Stripe, withBillingLock, subscriptions, check } from '../_shared/billing.ts';
-import { currentSubscription } from '../_shared/billing-lifecycle.ts';
+import { subscriptionEntitlement } from '../_shared/billing-plans.ts';
 
 Deno.serve(async req => {
     if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
@@ -34,13 +34,14 @@ Deno.serve(async req => {
             // Stripe does not guarantee delivery order. Reconcile CURRENT state
             // for the entire customer, not the subscription snapshot in the event.
             const all = await subscriptions(customer);
-            const current = currentSubscription(all);
+            const { subscription: current, plan } = subscriptionEntitlement(all, name => Deno.env.get(name));
             await renew();
             const item = current?.items.data[0];
             check((await admin.rpc('apply_billing_snapshot', {
                 p_user_id: billing.user_id, p_token: token, p_event_id: event.id, p_customer_id: customer,
                 p_subscription_id: current?.id ?? null, p_status: current?.status ?? 'canceled',
                 p_price_id: item?.price.id ?? null,
+                p_plan: plan,
                 p_period_end: current?.current_period_end ? new Date(current.current_period_end * 1000).toISOString() : null
             })).error);
         });

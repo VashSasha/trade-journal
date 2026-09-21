@@ -7,7 +7,8 @@ import { UserSessionService } from './user-session.service';
 
 interface SetupOptions {
     token?: string;
-    plan?: 'free' | 'premium' | 'lifetime';
+    plan?: 'free' | 'premium' | 'premium_plus' | 'lifetime';
+    aiAccess?: boolean;
     expiresInMs?: number;
     silentRenew?: boolean;
     renewedPlan?: 'premium' | 'lifetime';
@@ -25,6 +26,7 @@ describe('OAuth provenance and entitlement refresh', () => {
             discord_id: '123456789012345678',
             discord_plan_expires_at: new Date(Date.now() + (options.expiresInMs ?? 3_600_000)).toISOString(),
             beta_access: false,
+            ai_access: options.aiAccess,
         };
         let session = { user: {
             id: 'A', email: 'test@example.invalid',
@@ -74,6 +76,28 @@ describe('OAuth provenance and entitlement refresh', () => {
             },
         };
     };
+
+    it('uses the server AI capability, not the tier label, and refreshes individual grants', async () => {
+        const { auth, setEntitlement } = setup({ plan: 'premium_plus' });
+        await auth.authReady;
+        expect(auth.aiAccess()).toBe(false); // Missing capability fails closed during rollout.
+        setEntitlement({ plan: 'lifetime', ai_access: true });
+        await auth.refreshProfile({ force: true });
+        expect(auth.plan()).toBe('lifetime');
+        expect(auth.aiAccess()).toBe(true);
+        setEntitlement({ ai_access: false });
+        await auth.refreshProfile({ force: true });
+        expect(auth.aiAccess()).toBe(false);
+        expect(auth.plan()).toBe('lifetime');
+    });
+
+    it('clears AI access on sign-out', async () => {
+        const { auth, event } = setup({ plan: 'premium_plus', aiAccess: true });
+        await auth.authReady;
+        expect(auth.aiAccess()).toBe(true);
+        event('SIGNED_OUT');
+        expect(auth.aiAccess()).toBe(false);
+    });
 
     it('never sends a Google token to Discord, even when Discord was the original signup', async () => {
         const { auth, renew, rpc, event } = setup({ token: 'fake-google-token' });
