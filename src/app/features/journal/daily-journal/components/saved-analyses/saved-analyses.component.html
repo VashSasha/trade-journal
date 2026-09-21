@@ -1,22 +1,27 @@
-@if (analyses().length > 0) {
+@if (loading() || error() || analyses().length > 0) {
 <div class="sa">
 
     <div class="sa__header">
-        <span class="sa__title">Saved analyses</span>
-        <span class="sa__count">{{ analyses().length }}</span>
+        <h3 class="sa__title">Saved analyses</h3>
+        @if (!loading() && !error()) { <span class="sa__count">{{ analyses().length }}</span> }
     </div>
 
-    @if (error()) {
-        <p class="sa__error">{{ error() }}</p>
-    }
-
+    @if (loading()) {
+        <p class="sa__status" role="status">Loading saved coaching…</p>
+    } @else if (error()) {
+        <div class="sa__feedback" role="alert">
+            <p class="sa__error">{{ error() }}</p>
+            <button type="button" class="sa__retry" (click)="reload()">Try again</button>
+        </div>
+    } @else {
+    @if (deleteError()) { <p class="sa__error" role="alert">{{ deleteError() }}</p> }
     <div class="sa__list">
         @for (a of analyses(); track a.id) {
             <div class="sa__item" [class.is-expanded]="expandedId() === a.id">
 
                 <div class="sa__item-head">
                     <button class="sa__item-toggle" (click)="toggle(a.id)"
-                            [attr.aria-expanded]="expandedId() === a.id">
+                            [attr.aria-expanded]="expandedId() === a.id" [attr.aria-controls]="'saved-analysis-' + a.id">
                         <svg class="sa__chevron" [class.is-open]="expandedId() === a.id"
                              fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -25,7 +30,7 @@
                     </button>
 
                     <button class="sa__delete" (click)="remove(a.id, $event)"
-                            [disabled]="deletingId() === a.id"
+                            [disabled]="deletingId() !== null"
                             aria-label="Delete saved analysis">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -35,7 +40,7 @@
                 </div>
 
                 @if (expandedId() === a.id) {
-                    <div class="sa__item-body">
+                    <div class="sa__item-body" [id]="'saved-analysis-' + a.id">
                         <markdown [data]="a.content"></markdown>
                     </div>
                 }
@@ -44,5 +49,6 @@
         }
     </div>
 
+    }
 </div>
 }

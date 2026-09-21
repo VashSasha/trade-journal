@@ -1,11 +1,15 @@
 <div class="journal-layout">
     <div class="journal-container">
-        <nav class="journal-tabs" aria-label="Tabs">
-            <a routerLink="daily" routerLinkActive="active" class="journal-tab">
-                Daily Journal
+        <header class="journal-heading">
+            <h1>Journal</h1>
+            <p>Prepare, review, and build on each trading day.</p>
+        </header>
+        <nav class="journal-tabs" aria-label="Journal views">
+            <a routerLink="daily" routerLinkActive="active" ariaCurrentWhenActive="page" class="journal-tab">
+                Daily journal
             </a>
-            <a routerLink="trades" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="journal-tab">
-                Trade Notes
+            <a routerLink="trades" routerLinkActive="active" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: true }" class="journal-tab">
+                Trade notes
             </a>
         </nav>
 

@@ -1,0 +1,54 @@
+<button #trigger type="button" class="journal-timeline__trigger" (click)="open.set(!open())"
+    [attr.aria-expanded]="open()" aria-controls="journal-timeline">
+    <span>{{ open() ? 'Hide journal history' : 'Browse journal' }}</span>
+    <span class="journal-timeline__hint">{{ tags.activeTagFilter() || 'Dates & tags' }}</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+        <path [attr.d]="open() ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'" stroke-width="2" />
+    </svg>
+</button>
+<aside id="journal-timeline" class="journal-timeline" [class.journal-timeline--open]="open()" aria-label="Journal history">
+    <header class="journal-timeline__header">
+        <h2>Journal history</h2>
+        <button type="button" (click)="filtersOpen.set(!filtersOpen())" [attr.aria-expanded]="filtersOpen()"
+            aria-controls="journal-tag-filters">Tags</button>
+    </header>
+    @if (filtersOpen()) {
+        <div id="journal-tag-filters" class="journal-timeline__tags" role="group" aria-label="Filter history by tag">
+            @for (tag of tags.allTags(); track tag) {
+                <button type="button" (click)="tags.setFilter(tag)" [attr.aria-pressed]="tags.activeTagFilter() === tag">
+                    {{ tag }}
+                </button>
+            } @empty { <p>Add tags to your notes to filter your history here.</p> }
+        </div>
+    }
+    @if (tags.activeTagFilter(); as tag) {
+        <button type="button" class="journal-timeline__filter" (click)="tags.clearFilter()"
+            [attr.aria-label]="'Clear tag filter: ' + tag">{{ tag }} <span aria-hidden="true">×</span></button>
+    }
+    <nav class="journal-timeline__list" aria-label="Journal dates">
+        @for (group of tags.filteredGroupedTimeline(); track group.monthYear) {
+            <div class="journal-timeline__month">
+                <h3>{{ group.monthYear }}</h3>
+                @for (entry of group.entries; track entry.date) {
+                    <button type="button" class="journal-day" (click)="selectDate(entry.date)"
+                        [class.journal-day--selected]="entry.date === form.selectedDate()"
+                        [attr.aria-current]="entry.date === form.selectedDate() ? 'date' : null" [title]="entry.date">
+                        <span class="journal-day__row">
+                            <span class="journal-day__date">{{ entry.displayDate }}</span>
+                            @if (entry.isToday) { <span class="journal-day__today">Today</span> }
+                            @if (entry.pnl !== undefined) {
+                                <span class="journal-day__pnl" [class.positive]="entry.pnl > 0" [class.negative]="entry.pnl < 0">
+                                    {{ entry.pnl > 0 ? '+' : '' }}{{ entry.pnl | currency:'USD':'symbol':'1.0-0' }}
+                                </span>
+                            }
+                        </span>
+                        @if (entry.preview) { <span class="journal-day__preview">{{ entry.preview }}</span> }
+                        @if (entry.mood) { <span class="journal-day__mood">Mood {{ entry.mood }}/5</span> }
+                    </button>
+                }
+            </div>
+        } @empty {
+            <p class="journal-timeline__empty">No entries match this tag. Clear the filter to see all dates.</p>
+        }
+    </nav>
+</aside>

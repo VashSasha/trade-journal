@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TradeTableComponent } from '../../../shared/components/trade-table/trade-table.component';
@@ -15,17 +15,17 @@ import { DjRulesComponent } from './components/dj-rules/dj-rules.component';
 import { SavedAnalysesComponent } from './components/saved-analyses/saved-analyses.component';
 import { AiAnalysisService } from './components/saved-analyses/ai-analysis.service';
 import { SafeHtmlPipe } from '../../../shared/pipes/safe-html.pipe';
+import { JournalTimelineComponent } from './components/journal-timeline/journal-timeline.component';
 
 @Component({
     selector: 'app-daily-journal',
     standalone: true,
-    imports: [DatePipe, CurrencyPipe, FormsModule, RichEditorComponent, TradeTableComponent, DaySummaryComponent, DjNewsComponent, DjRulesComponent, SavedAnalysesComponent, SafeHtmlPipe],
+    imports: [DatePipe, CurrencyPipe, FormsModule, RichEditorComponent, TradeTableComponent, DaySummaryComponent, DjNewsComponent, DjRulesComponent, SavedAnalysesComponent, SafeHtmlPipe, JournalTimelineComponent],
     providers: [JournalFormState, JournalNewsState, JournalRulesState, JournalTemplatesState, JournalTagsState, AiAnalysisService],
     templateUrl: './daily-journal.component.html',
     styleUrl: './daily-journal.component.scss'
 })
 export class DailyJournalComponent {
-    readonly timelineOpen = signal(false);
     form      = inject(JournalFormState);
     news      = inject(JournalNewsState);
     rules     = inject(JournalRulesState);
