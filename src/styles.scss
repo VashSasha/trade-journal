@@ -8,6 +8,7 @@
    ============================================================ */
 
 :root {
+  color-scheme: light;
   --color-text-on-accent: #ffffff;
   --color-bg-base: #F4F6F9; /* page bg — slightly blue-grey for surface hierarchy */
   --color-bg-surface: #ffffff;
@@ -18,7 +19,7 @@
   --color-text-primary: #0f172a;
   --color-text-secondary: #64748b;
   --color-text-muted: #64748b; /* 5.7:1 on white ✓ */
-  --color-text-accent: #0096FF;
+  --color-text-accent: #0369a1;
   --color-accent: #0096FF;
   --color-accent-hover: #0096FF;
   --color-accent-subtle: rgba(0, 150, 255, 0.12);
@@ -70,6 +71,7 @@
 }
 
 :root.dark {
+  color-scheme: dark;
   --color-bg-base: #000102;
   --color-bg-surface: #0a0e16;
   --color-bg-surface-2: #1e293b;
@@ -80,6 +82,7 @@
   --color-text-secondary: #94a3b8;
   --color-text-muted: #94a3b8; /* 5.3:1 on dark surface ✓ */
   --color-accent: #24b3ff;
+  --color-text-accent: #24b3ff;
   --color-accent-hover: #24b3ff;
   --color-accent-subtle: rgba(36, 179, 255, 0.15);
   --color-positive: #10b39b;

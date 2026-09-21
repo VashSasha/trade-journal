@@ -11,6 +11,7 @@ import {
 import { NgComponentOutlet } from '@angular/common';
 import { GridItemHTMLElement, GridStackWidget } from 'gridstack';
 import { GridstackComponent, NgGridStackOptions, nodesCB } from 'gridstack/dist/angular';
+import { WidgetGridComponent } from '../../shared/components/widget-grid/widget-grid.component';
 import { AccessPolicyService } from '../../core/services/access-policy.service';
 import { AccountSettingsService } from '../../core/services/account-settings.service';
 import { SyncService } from '../../core/services/sync.service';
@@ -30,7 +31,7 @@ import { DASHBOARD_WIDGET_COMPONENTS, DASHBOARD_WIDGET_TYPES } from './widgets/d
 @Component({
     selector: 'app-dashboard',
     standalone: true,
-    imports: [FilterToolbarComponent, GridstackComponent, NgComponentOutlet],
+    imports: [FilterToolbarComponent, WidgetGridComponent, NgComponentOutlet],
     providers: [DashboardDataService, DashboardLayoutService],
     templateUrl: './dashboard.html',
     styleUrl: './dashboard.scss',

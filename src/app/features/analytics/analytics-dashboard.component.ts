@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { GridItemHTMLElement, GridStackWidget } from 'gridstack';
 import { GridstackComponent, NgGridStackOptions, nodesCB } from 'gridstack/dist/angular';
+import { WidgetGridComponent } from '../../shared/components/widget-grid/widget-grid.component';
 import { FilterToolbarComponent } from '../dashboard/components/filter-toolbar/filter-toolbar.component';
 import { AdvancedStatsBarComponent } from './components/advanced-stats-bar/advanced-stats-bar.component';
 import { AnalyticsLensComponent } from './components/analytics-lens/analytics-lens.component';
@@ -29,7 +30,7 @@ import { ANALYTICS_WIDGET_COMPONENTS } from './widgets/analytics-widgets';
         FilterToolbarComponent,
         AdvancedStatsBarComponent,
         AnalyticsLensComponent,
-        GridstackComponent,
+        WidgetGridComponent,
     ],
     providers: [AnalyticsDataService, AnalyticsLayoutService],
     templateUrl: './analytics-dashboard.component.html',

@@ -75,12 +75,12 @@
             </section>
         }
 
-        <gridstack class="analytics__grid" [class.analytics__grid--editing]="layout.editing()"
+        <app-widget-grid class="analytics__grid" [class.analytics__grid--editing]="layout.editing()"
             [options]="gridOptions" (changeCB)="onLayoutChange($event)" (resizeStopCB)="onResizeStop()">
             <div empty-content class="analytics__empty-layout">
                 <strong>Your analytics workspace is empty.</strong>
                 <span>Choose Customize to bring a widget back.</span>
             </div>
-        </gridstack>
+        </app-widget-grid>
     </div>
 </div>
