@@ -1,116 +1,13 @@
 <div class="dj-wrapper" (click)="templates.openDropdown.set(null); tagsState.showTagDropdown.set(false)">
 
-    <!-- Timeline Sidebar -->
-    <button class="dj-timeline-toggle" type="button" (click)="timelineOpen.set(!timelineOpen())"
-        [attr.aria-expanded]="timelineOpen()" aria-controls="journal-timeline">
-        <span>{{ timelineOpen() ? 'Hide timeline' : 'Browse journal' }}</span>
-        <span>{{ tagsState.activeTagFilter() || 'Dates & tags' }}</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-            <path [attr.d]="timelineOpen() ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'" stroke-width="2" />
-        </svg>
-    </button>
-    <div class="dj-sidebar" id="journal-timeline" [class.dj-sidebar--open]="timelineOpen()">
-
-        <!-- Tags Panel -->
-        <div class="dj-sidebar__card dj-sidebar-tags">
-            <button class="dj-sidebar-tags__header" (click)="tagsState.sidebarTagsOpen.set(!tagsState.sidebarTagsOpen())">
-                <svg class="dj-sidebar-tags__icon" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-                </svg>
-                <span>Tags</span>
-                @if (tagsState.allTags().length > 0) {
-                <span class="dj-sidebar-tags__count">{{ tagsState.allTags().length }}</span>
-                }
-                <svg class="dj-sidebar-tags__chevron"
-                    [class.is-open]="tagsState.sidebarTagsOpen()"
-                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                </svg>
-            </button>
-
-            @if (tagsState.sidebarTagsOpen()) {
-            <div class="dj-sidebar-tags__body">
-                @if (tagsState.allTags().length === 0) {
-                <p class="dj-sidebar-tags__empty">No tags yet. Add tags to your journal entries.</p>
-                } @else {
-                @for (tag of tagsState.allTags(); track tag) {
-                @let color = tagsState.tagColor(tag);
-                <button class="dj-sidebar-tag" (click)="tagsState.setFilter(tag)"
-                    [class.is-active]="tagsState.activeTagFilter() === tag">
-                    <span class="dj-sidebar-tag__dot" [style.background]="color.text"></span>
-                    <span class="dj-sidebar-tag__name">{{ tag }}</span>
-                </button>
-                }
-                }
-            </div>
-            }
-        </div>
-
-        <!-- Timeline Card -->
-        <div class="dj-sidebar__card dj-sidebar__card--timeline">
-            <div class="dj-sidebar__header">
-                <h3>Journal Timeline</h3>
-                @if (tagsState.activeTagFilter()) {
-                <button class="dj-timeline-filter-badge" (click)="tagsState.clearFilter()">
-                    {{ tagsState.activeTagFilter() }} ×
-                </button>
-                }
-            </div>
-            <div class="dj-sidebar__scroll">
-                @for (group of tagsState.filteredGroupedTimeline(); track group.monthYear) {
-                <div class="timeline-month">
-                    <span class="timeline-month__label">{{ group.monthYear }}</span>
-                    @for (entry of group.entries; track entry.date) {
-                    <button (click)="form.selectDate(entry.date)" class="timeline-entry"
-                        [class.is-selected]="entry.date === form.selectedDate()">
-                        <div class="timeline-entry__body">
-                            <div class="timeline-entry__dot"
-                                [class.has-content]="entry.hasContent"
-                                [class.is-today]="entry.isToday && entry.date !== form.selectedDate()"
-                                [class.is-selected]="entry.date === form.selectedDate()">
-                            </div>
-                            <div class="timeline-entry__info">
-                                <div class="timeline-entry__top">
-                                    <span class="timeline-entry__date">{{ entry.displayDate }}</span>
-                                    <div class="timeline-entry__badges">
-                                        @if (entry.isToday) {
-                                        <span class="timeline-today-badge">Today</span>
-                                        }
-                                        @if (entry.mood) {
-                                        <span class="timeline-mood-dot" [attr.data-mood]="entry.mood"></span>
-                                        }
-                                        @if (entry.pnl !== undefined) {
-                                        <span class="timeline-entry__pnl"
-                                            [class.positive]="entry.pnl > 0"
-                                            [class.negative]="entry.pnl < 0">
-                                            {{ entry.pnl > 0 ? '+' : '' }}{{ entry.pnl | currency:'USD':'symbol':'1.0-0' }}
-                                        </span>
-                                        }
-                                    </div>
-                                </div>
-                                @if (entry.preview) {
-                                <p class="timeline-entry__preview">{{ entry.preview }}</p>
-                                }
-                            </div>
-                        </div>
-                    </button>
-                    }
-                </div>
-                }
-                @if (tagsState.filteredGroupedTimeline().length === 0 && tagsState.activeTagFilter()) {
-                <p class="dj-timeline-empty">No entries with tag "{{ tagsState.activeTagFilter() }}"</p>
-                }
-            </div>
-        </div>
-
-    </div>
+    <app-journal-timeline />
 
     <!-- Main Content -->
     <div class="dj-main">
 
         <!-- Header Bar -->
         <div class="dj-header">
+            <h2 class="dj-header__title">{{ form.displayDate() }}</h2>
             <div class="dj-header__nav">
                 <button (click)="form.changeDate(-1)" class="dj-header__nav-btn" aria-label="Previous day">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -124,7 +21,6 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                     </svg>
                 </button>
-                <span class="dj-header__date-label">{{ form.displayDate() }}</span>
             </div>
             <div class="dj-header__actions">
                 @if (form.isDirty()) {
@@ -140,10 +36,7 @@
                     Saved {{ form.lastSaved() | date:'shortTime' }}
                 </span>
                 }
-                <button (click)="form.saveNote()" class="dj-save-btn" [class.is-dirty]="form.isDirty()">
-                    @if (form.isDirty()) { Save · }
-                    @else { Save }
-                </button>
+                <button type="button" (click)="form.saveNote()" class="dj-save-btn" [class.is-dirty]="form.isDirty()">Save notes</button>
             </div>
         </div>
 
@@ -157,26 +50,28 @@
         <div class="dj-ratings" (click)="tagsState.showTagDropdown.set(false)">
             <div>
                 <label class="rating-group__label">Mood</label>
-                <div class="rating-group__buttons">
+                <div class="rating-group__buttons" role="group" aria-label="Mood rating">
                     @for (i of [1,2,3,4,5]; track i) {
                     <button (click)="form.setMood(i)" class="rating-btn mood-btn"
-                        [class.is-active]="i <= form.mood()" [attr.data-value]="i">{{ i }}</button>
+                        [class.is-active]="i <= form.mood()" [attr.data-value]="i"
+                        [attr.aria-pressed]="i === form.mood()" [attr.aria-label]="'Mood ' + i + ' of 5: ' + form.moodLabel(i)">{{ i }}</button>
                     }
                 </div>
                 <p class="rating-group__hint">{{ form.moodLabel(form.mood()) }}</p>
             </div>
             <div>
                 <label class="rating-group__label">Discipline</label>
-                <div class="rating-group__buttons">
+                <div class="rating-group__buttons" role="group" aria-label="Discipline rating">
                     @for (i of [1,2,3,4,5]; track i) {
                     <button (click)="form.setDiscipline(i)" class="rating-btn discipline-btn"
-                        [class.is-active]="i <= form.discipline()" [attr.data-value]="i">{{ i }}</button>
+                        [class.is-active]="i <= form.discipline()" [attr.data-value]="i"
+                        [attr.aria-pressed]="i === form.discipline()" [attr.aria-label]="'Discipline ' + i + ' of 5'">{{ i }}</button>
                     }
                 </div>
                 <p class="rating-group__hint">{{ form.moodLabel(form.discipline()) }}</p>
             </div>
             <div>
-                <label class="rating-group__label">Day Summary</label>
+                <label class="rating-group__label">Day summary</label>
                 <div class="day-stats__pnl" [class.positive]="form.dayPnl() > 0" [class.negative]="form.dayPnl() < 0">
                     {{ form.dayPnl() > 0 ? '+' : '' }}{{ form.dayPnl() | currency }}
                 </div>
@@ -194,6 +89,7 @@
                           class="dj-tag-input"
                           type="text"
                           placeholder="Add tag..."
+                          aria-label="Add a journal tag"
                           [ngModel]="tagsState.tagInput()"
                           (ngModelChange)="tagsState.tagInput.set($event); tagsState.showTagDropdown.set(true)"
                           (focus)="tagsState.showTagDropdown.set(true)"
@@ -228,7 +124,7 @@
                       [style.color]="color.text"
                       [style.border-color]="color.border">
                     {{ tag }}
-                  <button class="dj-tag-pill__remove" (click)="tagsState.removeTag(tag)" type="button">×</button>
+                  <button class="dj-tag-pill__remove" (click)="tagsState.removeTag(tag)" type="button" [attr.aria-label]="'Remove tag: ' + tag">×</button>
                 </span>
               }
               </div>
@@ -240,8 +136,7 @@
 
             <div class="dj-plan-card">
                 <div class="dj-plan-card__header">
-                    <span class="dj-plan-card__dot dj-plan-card__dot--pre"></span>
-                    <h3>Pre-Market Plan</h3>
+                    <h3>Pre-market plan</h3>
                     <div class="tpl-trigger-wrap">
                         <button class="tpl-trigger-btn" (click)="templates.toggleDropdown('pre-market'); $event.stopPropagation()">
                             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -287,8 +182,7 @@
 
             <div class="dj-plan-card">
                 <div class="dj-plan-card__header">
-                    <span class="dj-plan-card__dot dj-plan-card__dot--post"></span>
-                    <h3>Post-Market Review</h3>
+                    <h3>Post-market review</h3>
                     <div class="tpl-trigger-wrap">
                         <button class="tpl-trigger-btn" (click)="templates.toggleDropdown('post-market'); $event.stopPropagation()">
                             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -345,7 +239,7 @@
         @let hiddenCount = form.dayTrades().length - TRADES_PAGE_SIZE;
         <div class="dj-trades">
             <div class="dj-trades__header">
-                <h3 class="dj-trades__title">Today's Trades</h3>
+                <h3 class="dj-trades__title">Trades for this day</h3>
                 <span class="dj-trades__count">{{ form.dayTrades().length }} trade{{ form.dayTrades().length !== 1 ? 's' : '' }}</span>
             </div>
             <app-trade-table [trades]="visibleTrades" [showDate]="false"></app-trade-table>
@@ -361,7 +255,7 @@
         <!-- Additional Notes -->
         <div class="dj-notes" [class.is-expanded]="form.notesExpanded()">
             <div class="dj-notes__header">
-                <h3>Additional Notes</h3>
+                <h3>Additional notes</h3>
                 <div class="dj-notes__header-actions">
                     <div class="tpl-trigger-wrap">
                         <button class="tpl-trigger-btn" (click)="templates.toggleDropdown('notes'); $event.stopPropagation()">
@@ -398,6 +292,8 @@
                         }
                     </div>
                     <button class="dj-notes__expand-btn" (click)="form.notesExpanded.set(!form.notesExpanded())"
+                        [attr.aria-expanded]="form.notesExpanded()"
+                        [attr.aria-label]="form.notesExpanded() ? 'Reduce notes editor' : 'Expand notes editor'"
                         [title]="form.notesExpanded() ? 'Collapse' : 'Expand'">
                         @if (form.notesExpanded()) {
                         <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -419,7 +315,7 @@
                     (valueChange)="form.setNoteContent($event)"
                     [modules]="quillModules"
                     placeholder="Any additional thoughts, charts to review, lessons learned..."
-                    [styles]="{'min-height': form.notesExpanded() ? '600px' : '300px', 'border-radius': '0.5rem'}">
+                    [styles]="{'min-height': form.notesExpanded() ? '500px' : '220px', 'border-radius': '0.5rem'}">
                 </app-rich-editor>
             </div>
         </div>

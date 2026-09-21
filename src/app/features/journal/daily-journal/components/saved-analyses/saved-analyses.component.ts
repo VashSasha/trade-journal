@@ -27,11 +27,18 @@ export class SavedAnalysesComponent implements OnChanges {
 
     expandedId = signal<string | null>(null);
     deletingId = signal<string | null>(null);
+    deleteError = signal<string | null>(null);
 
     ngOnChanges(changes: SimpleChanges): void {
         if (changes['date'] && this.date) {
-            void this.service.listAnalyses(this.date);
+            this.expandedId.set(null);
+            this.deleteError.set(null);
+            this.reload();
         }
+    }
+
+    reload(): void {
+        void this.service.listAnalyses(this.date);
     }
 
     toggle(id: string): void {
@@ -40,10 +47,15 @@ export class SavedAnalysesComponent implements OnChanges {
 
     async remove(id: string, event: Event): Promise<void> {
         event.stopPropagation();
+        if (this.deletingId()) return;
+        const date = this.date;
         this.deletingId.set(id);
+        this.deleteError.set(null);
         try {
             await this.service.deleteAnalysis(id);
-            if (this.expandedId() === id) this.expandedId.set(null);
+            if (this.date === date && this.expandedId() === id) this.expandedId.set(null);
+        } catch {
+            if (this.date === date) this.deleteError.set('Could not delete this analysis. Please try again.');
         } finally {
             this.deletingId.set(null);
         }

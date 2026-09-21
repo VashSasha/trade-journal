@@ -51,7 +51,7 @@
             </div>
             <div class="ds-stat">
                 @if (stats.bestTrade) {
-                <div class="ds-stat__value positive">
+                <div class="ds-stat__value" [class.positive]="(stats.bestTrade.netPnl ?? stats.bestTrade.pnl ?? 0) > 0" [class.negative]="(stats.bestTrade.netPnl ?? stats.bestTrade.pnl ?? 0) < 0">
                     {{ (stats.bestTrade.netPnl ?? stats.bestTrade.pnl ?? 0) >= 0 ? '+' : '' }}{{ (stats.bestTrade.netPnl ?? stats.bestTrade.pnl ?? 0) | currency:'USD':'symbol':'1.2-2' }}
                 </div>
                 <div class="ds-stat__sub">{{ stats.bestTrade.symbol }}</div>
@@ -112,6 +112,7 @@
                 @for (p of accountSettings.presets; track p) {
                 <button class="ds-preset-btn"
                     [class.is-active]="accountSettings.startingBalance() === p"
+                    [attr.aria-pressed]="accountSettings.startingBalance() === p"
                     (click)="accountSettings.set(p)">
                     {{ p / 1000 | number:'1.0-0' }}K
                 </button>
@@ -121,6 +122,7 @@
                     min="1000"
                     step="1000"
                     placeholder="Custom"
+                    aria-label="Custom starting balance"
                     [ngModel]="accountSettings.startingBalance()"
                     (ngModelChange)="accountSettings.set($event)" />
             </div>
@@ -143,32 +145,32 @@
      ai-report Edge Function (no client key exists anymore). -->
 <div class="ds-insight">
     @if (access.demo()) {
-        <p class="page-subtitle">Example coaching on sample data—not a live analysis. No AI credits are used.</p>
+        <p class="ds-insight__demo">Example coaching on sample data—not a live analysis. No AI credits are used.</p>
     }
 
     @if (trades.length === 0) {
         <div class="ds-ai-cta ds-ai-cta--disabled" aria-disabled="true">
-            <span class="ds-ai-cta__icon" aria-hidden="true">✨</span>
+            <span class="ds-ai-cta__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6 3V6a2 2 0 0 1 2-2Z"/><path d="m7 13 3-3 3 2 4-5"/></svg></span>
             <span class="ds-ai-cta__text">
-                <span class="ds-ai-cta__title">Today's AI insight</span>
-                <span class="ds-ai-cta__subtitle">Log at least one trade today to unlock your AI insight.</span>
+                <span class="ds-ai-cta__title">AI Coach</span>
+                <span class="ds-ai-cta__subtitle">Add or sync trades for this day to unlock a coaching review.</span>
             </span>
         </div>
     } @else {
 
         @if (insightState().status === 'idle') {
             <button class="ds-ai-cta" type="button" (click)="generateInsight()">
-                <span class="ds-ai-cta__icon" aria-hidden="true">✨</span>
+                <span class="ds-ai-cta__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6 3V6a2 2 0 0 1 2-2Z"/><path d="m7 13 3-3 3 2 4-5"/></svg></span>
                 <span class="ds-ai-cta__text">
-                    <span class="ds-ai-cta__title">{{ access.demo() ? 'Preview AI coaching' : access.paid() ? "Get today's AI insight" : 'Unlock AI coaching with Premium' }}</span>
-                    <span class="ds-ai-cta__subtitle">{{ access.demo() ? 'See an example of the coaching experience using sample content.' : "Personalized coaching on today's trades — patterns, mistakes, and what to fix tomorrow." }}</span>
+                    <span class="ds-ai-cta__title">{{ access.demo() ? 'Preview AI coaching' : access.paid() ? 'Review this day with AI Coach' : 'Unlock AI coaching with Premium' }}</span>
+                    <span class="ds-ai-cta__subtitle">{{ access.demo() ? 'See an example of the coaching experience using sample content.' : "A short review of your decisions, what worked, and one focus for your next session." }}</span>
                 </span>
                 <span class="ds-ai-cta__arrow" aria-hidden="true">→</span>
             </button>
         }
 
         @if (insightState().status === 'streaming') {
-            <div class="ds-working-panel">
+            <div class="ds-working-panel" role="status" aria-busy="true" aria-live="polite">
                 <span class="ds-working-panel__label">Your coach is reviewing</span>
                 <div class="ds-working-panel__steps">
                     @for (step of activeInsightSteps(); track step; let last = $last) {
@@ -264,7 +266,7 @@
                         Sample preview · Nothing is saved
                     </div>
                 } @else if (aiSaveError()) {
-                    <div class="ds-insight__error-card ds-insight__error-card--inline">
+                    <div class="ds-insight__error-card ds-insight__error-card--inline" role="alert">
                         <svg class="ds-insight__error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                   d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
@@ -290,7 +292,7 @@
                 @if (followUpInsight().status === 'idle') {
                     <div class="ds-insight-panel__chips">
                         <button class="ds-insight-chip" [disabled]="aiSaving()" (click)="generateInsight()">↺ Regenerate</button>
-                        <button class="ds-insight-chip" [disabled]="aiSaving()" (click)="tellMeMore()">Tell me more about today</button>
+                        <button class="ds-insight-chip" [disabled]="aiSaving()" (click)="tellMeMore()">Explore this review</button>
                     </div>
                 }
                 @if (followUpInsight().status !== 'idle') {
@@ -302,7 +304,7 @@
                             <markdown [data]="followUpInsight().content"></markdown>
                         }
                         @if (followUpInsight().status === 'error') {
-                            <div class="ds-insight__error-card ds-insight__error-card--inline">
+                            <div class="ds-insight__error-card ds-insight__error-card--inline" role="alert">
                                 <svg class="ds-insight__error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                           d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
@@ -317,7 +319,7 @@
         }
 
         @if (insightState().status === 'error') {
-            <div class="ds-insight__error-card">
+            <div class="ds-insight__error-card" role="alert">
                 <svg class="ds-insight__error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
