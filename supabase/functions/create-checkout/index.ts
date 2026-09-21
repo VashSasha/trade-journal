@@ -1,5 +1,7 @@
 import { admin, stripe, withBillingLock, readBilling, subscriptions, isUnfinished,
     BillingError, check, cors, json, verifyUser } from '../_shared/billing.ts';
+import { checkoutPrice } from '../_shared/billing-plans.ts';
+import { RequestError } from '../_shared/request-body.ts';
 
 Deno.serve(async req => {
     const headers = cors(req);
@@ -8,9 +10,7 @@ Deno.serve(async req => {
     try {
         const { user } = await verifyUser(req);
         const body = await req.json();
-        const price = body.interval === 'monthly' ? Deno.env.get('STRIPE_PRICE_MONTHLY') :
-            body.interval === 'annual' ? Deno.env.get('STRIPE_PRICE_ANNUAL') : null;
-        if (!price) throw new BillingError('Choose a configured monthly or annual plan.', 400);
+        const price = checkoutPrice(body, name => Deno.env.get(name));
         const origin = Deno.env.get('APP_ORIGIN');
         if (!origin || new URL(origin).protocol !== 'https:') throw new BillingError('Billing is not configured.', 503);
 
@@ -67,7 +67,8 @@ Deno.serve(async req => {
         return json({ url }, 200, headers);
     } catch (error) {
         console.error('create-checkout failed', error instanceof Error ? error.name : 'Billing error');
-        return json({ error: error instanceof BillingError ? error.message : 'Unable to start checkout. Please retry.' },
-            error instanceof BillingError ? error.status : 500, headers);
+        const expected = error instanceof BillingError || error instanceof RequestError;
+        return json({ error: expected ? error.message : 'Unable to start checkout. Please retry.' },
+            expected ? error.status : 500, headers);
     }
 });

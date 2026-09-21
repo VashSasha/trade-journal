@@ -9,14 +9,14 @@ import { LIVE_COACH_AI_VOICE_OPTIONS } from './live-coach-voices';
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <label class="coach-voice">Coaching voice
-            <select [disabled]="coach.preferencesLoading()" [value]="coach.preferences().voice"
+            <select [disabled]="coach.preferencesLoading()" [value]="coach.aiAvailable() ? coach.preferences().voice : 'browser'"
                     (change)="coach.setVoice($any($event.target).value)">
-                <optgroup label="AI voices" [disabled]="!coach.aiAvailable()">
+                <optgroup label="AI voices · Premium+" [disabled]="!coach.aiAvailable()">
                     @for (voice of voices; track voice.id) {
-                        <option [value]="voice.id" [selected]="coach.preferences().voice === voice.id">{{ voice.label }}</option>
+                        <option [value]="voice.id" [selected]="coach.aiAvailable() && coach.preferences().voice === voice.id">{{ voice.label }}</option>
                     }
                 </optgroup>
-                <option value="browser" [selected]="coach.preferences().voice === 'browser'">Browser voice</option>
+                <option value="browser" [selected]="!coach.aiAvailable() || coach.preferences().voice === 'browser'">Browser voice</option>
             </select>
         </label>
     `,

@@ -6,7 +6,7 @@
 
     <div class="plan__current">
         <div class="plan__current-meta">
-            <span class="acc-plan-badge acc-plan-badge--{{ plan() }}">{{ plan() | titlecase }}</span>
+            <span class="acc-plan-badge acc-plan-badge--{{ plan() }}">{{ planLabel(plan()) }}</span>
             @if (sourceLabel()) {
                 <span class="plan__source">via {{ sourceLabel() }}</span>
             }
@@ -29,7 +29,7 @@
     @if (hasStripeSub()) {
         <!-- Active Stripe subscription → self-serve portal -->
         <div class="plan__manage">
-            <p class="plan__manage-text">Update your payment method or cancel your subscription any time.</p>
+            <p class="plan__manage-text">Upgrade to Premium+, change your billing interval, update payment details, or cancel your subscription.</p>
             <div class="plan__actions">
                 <button class="acc-btn acc-btn--primary" type="button"
                         (click)="manageSubscription()" [disabled]="portalBusy()">
@@ -40,29 +40,23 @@
     } @else if (isPaid()) {
         <!-- Premium/lifetime via Discord or admin override → not a Stripe sub -->
         <div class="plan__manage">
-            <p class="plan__manage-text">You have full access. Manage your membership below.</p>
+            <p class="plan__manage-text">Your membership includes Premium journal features. AI access is listed separately below.</p>
             <div class="plan__actions">
-                <a class="acc-btn acc-btn--ghost" [href]="whopUrl" target="_blank" rel="noopener">Manage on Whop</a>
+                @if (premiumViaDiscord()) { <a class="acc-btn acc-btn--ghost" [href]="whopUrl" target="_blank" rel="noopener">Manage on Whop</a> }
             </div>
         </div>
     } @else {
         <!-- Free and not premium via Discord → subscribe to the journal-only plan -->
         <div class="plan__upgrade">
-            <p class="plan__upgrade-text">Subscribe to unlock analytics, the AI analyzer, and more.</p>
-            <div class="plan__actions">
-                <button class="acc-btn acc-btn--primary" type="button"
-                        (click)="subscribe('monthly')" [disabled]="checkoutBusy() !== null">
-                    {{ checkoutBusy() === 'monthly' ? 'Redirecting…' : 'Subscribe monthly' }}
-                </button>
-                <button class="acc-btn acc-btn--ghost" type="button"
-                        (click)="subscribe('annual')" [disabled]="checkoutBusy() !== null">
-                    {{ checkoutBusy() === 'annual' ? 'Redirecting…' : 'Subscribe annually' }}
-                </button>
-                <a class="acc-btn acc-btn--ghost" routerLink="/account/pricing">See pricing</a>
-            </div>
+            <p class="plan__upgrade-text">Choose Premium for broker sync and analytics, or Premium+ to add AI coaching.</p>
         </div>
     }
 
+    <div class="plan__manage">
+        <p class="plan__manage-text">{{ aiAccess() ? 'AI access enabled: daily coaching, AI reports, personalized Live Coach and AI voices.' : 'AI access is not included. Choose Premium+ to enable AI coaching, reports and voices.' }}</p>
+        @if (plan() === 'lifetime') { <p class="plan__manage-text">Your Lifetime membership has the same features as Premium, without renewal.</p> }
+        <a class="acc-btn acc-btn--ghost" routerLink="/account/pricing">See pricing</a>
+    </div>
     @if (billingError()) {
         <p class="acc-msg acc-msg--error">{{ billingError() }}</p>
     }

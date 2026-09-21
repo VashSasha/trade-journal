@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { TitleCasePipe } from '@angular/common';
+import { planLabel } from '../../../core/models/user.model';
 import { AuthService } from '../../../core/services/auth.service';
 import { LayoutService } from '../../../core/services/layout.service';
 import { DemoModeService } from '../../../core/services/demo-mode.service';
@@ -8,7 +8,7 @@ import { AccessPolicyService } from '../../../core/services/access-policy.servic
 
 @Component({
   selector: 'app-sidebar',
-  imports: [RouterLink, RouterLinkActive, TitleCasePipe],
+  imports: [RouterLink, RouterLinkActive],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.scss',
 })
@@ -20,6 +20,7 @@ export class Sidebar {
   access = inject(AccessPolicyService);
 
   plan = this.authService.plan;
+  readonly planLabel = planLabel;
 
   logout(): void {
     this.authService.logout();

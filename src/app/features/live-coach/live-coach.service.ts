@@ -72,10 +72,11 @@ export class LiveCoachService {
     readonly lastSpokenText = signal<string | null>(null);
     readonly aiState = signal<LiveCoachAiState>('off');
     readonly aiAvailable = computed(() => this.access.canAct('ai'));
+    readonly effectiveVoice = computed(() => this.aiAvailable() ? this.preferences().voice : 'browser');
     readonly aiStatusLabel = computed(() => {
         if (!this.preferences().aiCommentary) return 'Off';
         if (!this.preferences().enabled) return 'Coach is off';
-        if (!this.aiAvailable()) return 'Paid plan required';
+        if (!this.aiAvailable()) return 'Premium+ required';
         if (this.aiState() === 'thinking') return 'Personalizing…';
         if (this.aiState() === 'fallback') return 'Factual fallback active';
         return 'Ready';
@@ -123,10 +124,14 @@ export class LiveCoachService {
         });
 
         const personalized = computed(() => this.preferences().enabled && this.preferences().aiCommentary && this.aiAvailable());
-        const selectedVoice = computed(() => this.preferences().voice);
+        const selectedVoice = computed(() => this.effectiveVoice());
+        let previousVoice = selectedVoice();
         effect(() => {
             const enabled = personalized();
-            selectedVoice();
+            const voice = selectedVoice();
+            // A downgrade must also stop in-flight/playing AI speech, not just text requests.
+            if (voice !== previousVoice) untracked(() => this.stopVoice());
+            previousVoice = voice;
             this.cancelAi();
             if (!enabled) {
                 this.aiState.set('off');
@@ -173,7 +178,7 @@ export class LiveCoachService {
         });
 
         const activate = () => {
-            if (this.preferences().enabled && !this.paused() && !this.audioReady() && this.preferences().voice !== 'browser') {
+            if (this.preferences().enabled && !this.paused() && !this.audioReady() && this.effectiveVoice() !== 'browser') {
                 void this.narrator.activate();
             }
         };
@@ -234,13 +239,13 @@ export class LiveCoachService {
 
     async preview(): Promise<void> {
         if (this.paused() || this.previewing() || !this.access.canAct('sync')) return;
-        if (this.preferences().voice !== 'browser' && !this.access.requestAction('ai')) return;
+        if (this.effectiveVoice() !== 'browser' && !this.access.requestAction('ai')) return;
         this.interrupt();
         const activated = this.narrator.activate();
         const owner = this.owner;
         const sequence = this.sequence;
         const voiceRevision = this.voiceRevision;
-        const voice = this.preferences().voice;
+        const voice = this.effectiveVoice();
         this.previewing.set(true);
         this.voiceWarning.set(null);
         const controller = new AbortController();
@@ -438,7 +443,7 @@ export class LiveCoachService {
         if (this.paused() || voiceRevision !== this.voiceRevision || !this.access.canAct('sync')) return false;
         const sequence = this.sequence;
         const owner = this.owner;
-        const voice = this.preferences().voice;
+        const voice = this.effectiveVoice();
         let audio = reply.audio;
         let warning = reply.voiceError;
         if (!audio && !warning && voice !== 'browser') {
@@ -459,7 +464,7 @@ export class LiveCoachService {
             }
         }
         if (sequence !== this.sequence || owner !== this.owner || owner !== this.session.userId()
-            || voice !== this.preferences().voice || this.paused() || voiceRevision !== this.voiceRevision || !this.access.canAct('sync')) return false;
+            || voice !== this.effectiveVoice() || this.paused() || voiceRevision !== this.voiceRevision || !this.access.canAct('sync')) return false;
         this.voiceWarning.set(voice !== 'browser' && !audio ? `${warning ?? 'AI voice is unavailable.'} Using browser voice.` : null);
         return audio ? this.narrator.speak(reply.text, this.preferences().speechRate, audio)
             : this.narrator.speak(reply.text, this.preferences().speechRate);

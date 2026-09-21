@@ -162,7 +162,7 @@
             <button class="ds-ai-cta" type="button" (click)="generateInsight()">
                 <span class="ds-ai-cta__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6 3V6a2 2 0 0 1 2-2Z"/><path d="m7 13 3-3 3 2 4-5"/></svg></span>
                 <span class="ds-ai-cta__text">
-                    <span class="ds-ai-cta__title">{{ access.demo() ? 'Preview AI coaching' : access.paid() ? 'Review this day with AI Coach' : 'Unlock AI coaching with Premium' }}</span>
+                    <span class="ds-ai-cta__title">{{ access.demo() ? 'Preview AI coaching' : access.ai() ? 'Review this day with AI Coach' : 'Unlock AI coaching with Premium+' }}</span>
                     <span class="ds-ai-cta__subtitle">{{ access.demo() ? 'See an example of the coaching experience using sample content.' : "A short review of your decisions, what worked, and one focus for your next session." }}</span>
                 </span>
                 <span class="ds-ai-cta__arrow" aria-hidden="true">→</span>

@@ -65,10 +65,10 @@ Deno.serve(async req => {
         const { data, error } = await admin.auth.getUser(jwt);
         if (error || !data.user) throw new RequestError('Invalid or expired token', 401);
         userId = data.user.id;
-        const plan = await admin.rpc('effective_user_plan', { p_user_id: userId }).abortSignal(controller.signal);
-        if (plan.error) throw new RequestError('Unable to verify your plan. Please try again.', 503);
-        if (plan.data !== 'premium' && plan.data !== 'lifetime') {
-            throw new RequestError('AI features require a paid plan. Discord members: sign in with Discord again to refresh membership.', 403);
+        const access = await admin.rpc('effective_user_ai_access', { p_user_id: userId }).abortSignal(controller.signal);
+        if (access.error) throw new RequestError('Unable to verify AI access. Please try again.', 503);
+        if (access.data !== true) {
+            throw new RequestError('AI features require Premium+ or an individual AI access grant.', 403);
         }
 
         const body = validateAiBody(await readJson(req, MAX_AI_BODY_BYTES));

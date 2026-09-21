@@ -33,7 +33,7 @@ Deno.serve(async req => {
         const user = data.user;
         const body = await readJson(req, 8192) as { provider_token?: unknown; clear?: boolean } | null;
         const id = discordIdentity(user);
-        let plan: 'premium' | 'lifetime' | null = null;
+        let plan: 'premium' | 'premium_plus' | 'lifetime' | null = null;
         let expires: string | null = null;
         if (body?.clear === true) {
             if (id) return json({ error: 'Discord is still linked to this account' }, 409);
@@ -62,7 +62,9 @@ Deno.serve(async req => {
             if (!roles) return json({ error: 'Please sign in with Discord again to refresh your membership.' }, 401);
             const lifetime = Deno.env.get('ROLE_ID_LIFETIME');
             const premium = Deno.env.get('ROLE_ID_MEMBER');
-            if (lifetime && roles.includes(lifetime)) plan = 'lifetime';
+            const plus = Deno.env.get('ROLE_ID_PREMIUM_PLUS');
+            if (plus && roles.includes(plus)) plan = 'premium_plus';
+            else if (lifetime && roles.includes(lifetime)) plan = 'lifetime';
             else if (premium && roles.includes(premium)) plan = 'premium';
             expires = new Date(Date.now() + 60 * 60 * 1000).toISOString();
         }

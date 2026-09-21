@@ -128,6 +128,7 @@
         color: var(--color-text-secondary);
     }
 
+    &--premium_plus,
     &--lifetime {
         background: color-mix(in srgb, var(--color-plan-lifetime) 18%, transparent);
         color: var(--color-plan-lifetime);

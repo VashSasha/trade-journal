@@ -1,21 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { RevealOnScrollDirective } from '../../reveal-on-scroll.directive';
 import { AuthService } from '../../../../core/services/auth.service';
-import { BillingService, BillingInterval } from '../../../account/billing.service';
-
-const WHOP_URL = 'https://whop.com/nvzn-trading/monthly-trading-access?a=sasha-vash';
-
-// Real prices — keep in sync with the live Stripe Price objects (create-checkout
-// Edge Function resolves the actual charge server-side; these are display-only).
-const JOURNAL_MONTHLY = 24.99;
-const JOURNAL_ANNUAL = 249.99;
-const BUNDLE_MONTHLY = 79.99;
+import { isPaidPlan } from '../../../../core/models/user.model';
+import { BillingService, BillingInterval, SubscriptionPlan } from '../../../account/billing.service';
+import { SUBSCRIPTION_PLANS } from '../../../account/subscription-plans';
 
 @Component({
-    selector: 'app-landing-pricing',
-    standalone: true,
+    selector: 'app-landing-pricing', standalone: true,
     imports: [RevealOnScrollDirective, CurrencyPipe, RouterLink],
     templateUrl: './landing-pricing.component.html',
     styleUrl: './landing-pricing.component.scss',
@@ -25,77 +18,48 @@ export class LandingPricingComponent {
     private auth = inject(AuthService);
     private billing = inject(BillingService);
     private router = inject(Router);
-
-    /** Compact layout when hosted by the in-app plan comparison page. */
     readonly embedded = input(false);
-    readonly hasFullAccess = computed(() => ['premium', 'lifetime', 'admin'].includes(this.auth.plan()));
-    readonly whopUrl = WHOP_URL;
-    readonly bundlePrice = BUNDLE_MONTHLY;
-    readonly journalAnnualPrice = JOURNAL_ANNUAL;
-
-    /** Which journal-only cycle is selected — drives both the displayed price
-     *  and which Stripe Checkout interval "Subscribe" starts. */
+    readonly plans = SUBSCRIPTION_PLANS;
+    readonly whopUrl = 'https://whop.com/nvzn-trading/monthly-trading-access?a=sasha-vash';
     readonly billingCycle = signal<BillingInterval>('monthly');
-
-    /** The interval whose button is mid-request, so we can disable + label it. */
-    readonly checkoutBusy = signal<BillingInterval | null>(null);
+    readonly checkoutBusy = signal<SubscriptionPlan | null>(null);
     readonly checkoutError = signal<string | null>(null);
 
-    /** Real annual discount vs paying monthly all year — 17% at current prices. */
-    readonly annualSavingsPct = Math.round((1 - JOURNAL_ANNUAL / (JOURNAL_MONTHLY * 12)) * 100);
-
-    /** Big headline number on the journal-only card for the selected cycle. */
-    readonly journalPrice = computed(() =>
-        this.billingCycle() === 'monthly' ? JOURNAL_MONTHLY : JOURNAL_ANNUAL / 12
-    );
-
-    /** "less than a coffee" framing — the actual daily cost of the selected cycle. */
-    readonly journalPerDay = computed(() =>
-        this.billingCycle() === 'monthly' ? JOURNAL_MONTHLY / 30 : JOURNAL_ANNUAL / 365
-    );
-
-    readonly journalFeatures: string[] = [
-        'Tradovate auto-sync with FIFO trade matching',
-        'Full analytics — equity curve, win rate, profit factor',
-        'Daily journal, templates, tags & rule checklists',
-        'AI-powered trade reports'
-    ];
-
-    readonly communityFeatures: string[] = [
-        'Private NVZN Trading Discord community',
-        'Live trade ideas from active traders',
-        'Direct member support'
-    ];
-
-    selectCycle(cycle: BillingInterval): void {
-        this.billingCycle.set(cycle);
+    includes(plan: SubscriptionPlan): boolean {
+        if (!this.auth.isAuthenticated()) return false;
+        if (plan === 'premium') return isPaidPlan(this.auth.plan());
+        return ['premium_plus', 'admin'].includes(this.auth.plan()) || (isPaidPlan(this.auth.plan()) && this.auth.aiAccess());
     }
 
-    /** Subscribe to the journal-only plan at the currently selected cycle.
-     *  Logged out → send them to /login (they finish in Plan & billing);
-     *  logged in → open Stripe Checkout. */
-    async subscribe(): Promise<void> {
+    selectCycle(cycle: BillingInterval): void {
+        if (!this.checkoutBusy()) this.billingCycle.set(cycle);
+    }
+
+    async subscribe(plan: SubscriptionPlan = 'premium'): Promise<void> {
         if (this.checkoutBusy()) return;
         this.checkoutError.set(null);
-        const interval = this.billingCycle();
-
         if (!this.auth.isAuthenticated()) {
-            this.router.navigate(['/login'], { queryParams: { returnUrl: '/account/plan' } });
+            void this.router.navigate(['/login'], { queryParams: { returnUrl: '/account/pricing' } });
             return;
         }
-
-        if (this.hasFullAccess()) {
-            this.router.navigate(['/account/plan']);
+        if (this.includes(plan)) {
+            void this.router.navigate(['/account/plan']);
             return;
         }
-
-        this.checkoutBusy.set(interval);
-        const { url, error } = await this.billing.startCheckout(interval);
-        if (url) {
-            window.location.assign(url);
-            return; // navigating away — keep the button busy
+        const interval = this.billingCycle();
+        this.checkoutBusy.set(plan);
+        try {
+            // Existing subscribers change plans in Stripe, never create a second subscription.
+            const current = await this.billing.loadBilling();
+            const existing = current?.stripeSubscriptionId && !['canceled', 'incomplete_expired'].includes(current.status ?? '');
+            const { url, error } = existing
+                ? await this.billing.openPortal()
+                : await this.billing.startCheckout(interval, plan);
+            if (url) { window.location.assign(url); return; }
+            this.checkoutError.set(error ?? 'Could not open billing. Please try again.');
+        } catch {
+            this.checkoutError.set('Could not open billing. Please try again.');
         }
-        this.checkoutError.set(error ?? 'Could not start checkout.');
         this.checkoutBusy.set(null);
     }
 }

@@ -75,8 +75,8 @@
         border-color: #5865f2;
     }
 
-    &--lifetime {
-        border-color: #f59e0b;
+    &--plus {
+        border-color: var(--color-accent);
     }
 
     &__badge {
@@ -95,9 +95,9 @@
             color: #fff;
         }
 
-        .upgrade-tier--lifetime & {
-            background: #f59e0b;
-            color: #fff;
+        .upgrade-tier--plus & {
+            background: var(--color-accent);
+            color: var(--color-text-on-accent);
         }
     }
 

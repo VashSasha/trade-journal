@@ -70,8 +70,7 @@ export const routes: Routes = [
             },
             {
                 path: 'reports',
-                // Premium and lifetime share the same feature set; AI reports
-                // are available to any paid tier (premium or higher).
+                // AI access is a separate server-resolved capability (Premium+ or admin grant).
                 canActivate: [planGuard('ai')],
                 loadComponent: () => import('./features/reports/ai-reports.component').then(m => m.AiReportsComponent)
             },

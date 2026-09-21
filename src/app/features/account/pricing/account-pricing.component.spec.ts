@@ -35,7 +35,7 @@ describe('in-app pricing navigation', () => {
             ]),
             { provide: AuthService, useValue: {
                 isAuthenticated: authenticated, authReady: Promise.resolve(),
-                plan: signal('free'), discordReauthRequired: signal(false),
+                plan: signal('free'), aiAccess: signal(false), discordReauthRequired: signal(false),
             } },
             { provide: BillingService, useValue: { startCheckout, loadBilling: vi.fn().mockResolvedValue(null) } },
             { provide: AccountService, useValue: { loadPlanSources: vi.fn().mockResolvedValue({}) } },
@@ -49,7 +49,7 @@ describe('in-app pricing navigation', () => {
         expect(el.textContent).toContain('Workspace navigation');
         expect(el.querySelector('h1')?.textContent).toBe('Plans & pricing');
         expect(el.querySelector('.pricing--embedded')).not.toBeNull();
-        expect(el.querySelectorAll('.pricing-card')).toHaveLength(2);
+        expect(el.querySelectorAll('.pricing-card')).toHaveLength(3);
         expect(el.querySelector('.pricing__head')).toBeNull();
 
         el.querySelector<HTMLAnchorElement>('.account-pricing__back')!.click();

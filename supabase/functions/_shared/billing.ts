@@ -46,7 +46,9 @@ export async function subscriptions(customer: string): Promise<Stripe.Subscripti
 
 export function cors(req: Request): Record<string, string> {
     const origin = req.headers.get('Origin') ?? '';
-    if (!['http://localhost:4200', Deno.env.get('APP_ORIGIN')].includes(origin)) return {};
+    const pagesOrigin = /^https:\/\/(?:[a-z0-9-]+\.)?trade-journal-2go\.pages\.dev$/i;
+    if (!['http://localhost:4200', 'http://127.0.0.1:4200', Deno.env.get('APP_ORIGIN')].includes(origin)
+        && !pagesOrigin.test(origin)) return {};
     return { 'Access-Control-Allow-Origin': origin, Vary: 'Origin',
         'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
         'Access-Control-Allow-Methods': 'POST, OPTIONS' };

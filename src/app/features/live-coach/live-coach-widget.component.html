@@ -38,6 +38,9 @@
                                [disabled]="coach.preferencesLoading() || !coach.aiAvailable()"
                                (change)="coach.setAiCommentary($any($event.target).checked)" />
                     </label>
+                    @if (!coach.aiAvailable()) {
+                        <a class="coach-widget__link" routerLink="/account/pricing" (click)="close(false)">Unlock AI commentary &amp; voices with Premium+</a>
+                    }
                     <p>AI voices are generated, not human speakers. Voice preferences sync across devices; browser audio permission is separate.</p>
                     <a class="coach-widget__link" routerLink="/account/alerts" (click)="close(false)">All coach &amp; guardrail settings</a>
                 </div>

@@ -35,6 +35,7 @@ describe('LiveCoachService', () => {
     });
     const masterEnabled = signal(true);
     const allowed = signal(true);
+    const aiAllowed = signal(true);
     const events = signal<readonly TradovateLivePositionEvent[]>([]);
     const metrics = signal<TradovateLiveAccountMetric[]>([]);
     const performanceEvent = signal<{ id: number; tone: 'target' | 'risk'; text: string } | null>(null);
@@ -58,6 +59,7 @@ describe('LiveCoachService', () => {
         });
         masterEnabled.set(true);
         allowed.set(true);
+        aiAllowed.set(true);
         events.set([]);
         metrics.set([]);
         performanceEvent.set(null);
@@ -97,8 +99,8 @@ describe('LiveCoachService', () => {
             { provide: TradeService, useValue: { trades: signal([]) } },
             { provide: OpenAiService, useValue: { generateLiveCoachReply, previewLiveCoachVoice, generateLiveCoachSpeech } },
             { provide: AccessPolicyService, useValue: {
-                canAct: () => allowed(),
-                requestAction: () => allowed(),
+                canAct: (action: string) => allowed() && (action !== 'ai' || aiAllowed()),
+                requestAction: (action: string) => allowed() && (action !== 'ai' || aiAllowed()),
             } },
             { provide: AlertCenterService, useValue: { publish } },
             { provide: PerformanceAlertsService, useValue: { event: performanceEvent } },
@@ -112,6 +114,43 @@ describe('LiveCoachService', () => {
     afterEach(() => {
         TestBed.resetTestingModule();
         vi.useRealTimers();
+    });
+
+    it('keeps factual browser commentary for Premium with a saved AI voice, without calling AI', async () => {
+        aiAllowed.set(false);
+        preferences.update(p => ({ ...p, voice: 'cedar', aiCommentary: true }));
+        const service = TestBed.inject(LiveCoachService);
+        TestBed.tick();
+        expect(service.effectiveVoice()).toBe('browser');
+        expect(preferences().voice).toBe('cedar'); // Do not destroy the user's saved choice.
+        events.set([positionEvent()]);
+        TestBed.tick();
+        await vi.advanceTimersByTimeAsync(1_000);
+        expect(speak).toHaveBeenCalledWith(expect.stringContaining('Opened MNQZ6'), 1);
+        expect(generateLiveCoachReply).not.toHaveBeenCalled();
+        expect(generateLiveCoachSpeech).not.toHaveBeenCalled();
+        expect(setRequested).toHaveBeenCalledWith('live-coach', true);
+    });
+
+    it('aborts pending AI speech when the AI grant is revoked, without disconnecting broker updates', async () => {
+        preferences.update(p => ({ ...p, voice: 'cedar' }));
+        generateLiveCoachSpeech.mockImplementationOnce(() => new Promise(() => {}));
+        const service = TestBed.inject(LiveCoachService);
+        TestBed.tick();
+        events.set([positionEvent()]);
+        TestBed.tick();
+        await vi.advanceTimersByTimeAsync(1_000);
+        const pending = generateLiveCoachSpeech.mock.calls[0][2];
+        expect(pending.aborted).toBe(false);
+        const stops = stop.mock.calls.length;
+        aiAllowed.set(false);
+        TestBed.tick();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(pending.aborted).toBe(true);
+        expect(stop.mock.calls.length).toBeGreaterThan(stops);
+        expect(service.effectiveVoice()).toBe('browser');
+        expect(speak).not.toHaveBeenCalled();
+        expect(setRequested).toHaveBeenLastCalledWith('live-coach', true);
     });
 
     it('requests realtime data and coalesces copied accounts into one spoken observation', async () => {

@@ -9,7 +9,7 @@ type Reason = 'connect' | 'save' | 'sync' | 'ai';
 const COPY: Record<Reason, { title: string; body: string }> = {
     connect: {
         title: 'Connect your broker to journal your real trades',
-        body: 'Link your Tradovate account to start tracking actual trades, P&L, and get personalized AI coaching on your real performance.',
+        body: 'Premium connects your broker to track actual trades and P&L. Premium+ adds personalized AI coaching.',
     },
     save: {
         title: 'Save in your own journal',
@@ -21,7 +21,7 @@ const COPY: Record<Reason, { title: string; body: string }> = {
     },
     ai: {
         title: 'Get AI coaching on your own trades',
-        body: 'AI coaching is powered by your real trade history. Subscribe to unlock personalized analysis and daily accountability.',
+        body: 'Premium+ adds personalized analysis, AI voices and coaching based on your real trading history.',
     },
 };
 
@@ -39,7 +39,7 @@ export class UpgradePromptComponent {
     readonly demo = inject(DemoModeService);
     private auth = inject(AuthService);
     readonly access = inject(AccessPolicyService);
-    readonly canSwitch = computed(() => this.isSignedIn() && (this.access.paid() || this.demo.promptReason() === 'save'));
+    readonly canSwitch = computed(() => this.isSignedIn() && this.demo.active() && (this.demo.promptReason() === 'ai' ? this.access.ai() : this.access.paid() || this.demo.promptReason() === 'save'));
 
     readonly visible = computed(() => this.demo.promptReason() !== null);
     readonly copy = computed(() => {

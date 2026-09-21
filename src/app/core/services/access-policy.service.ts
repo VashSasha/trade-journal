@@ -2,6 +2,7 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import { AuthService } from './auth.service';
 import { UserOperation, UserSessionService } from './user-session.service';
 import { cacheSuspended, workspaceSignal } from './user-data/user-data.cache';
+import { isPaidPlan } from '../models/user.model';
 
 export type PaidFeature = 'analytics' | 'ai' | 'broker';
 export type WorkspaceAction = 'save' | 'connect' | 'sync' | 'ai';
@@ -12,17 +13,18 @@ export class AccessPolicyService {
     private auth = inject(AuthService);
     private session = inject(UserSessionService);
     readonly demo = cacheSuspended;
-    readonly paid = computed(() => ['premium', 'lifetime', 'admin'].includes(this.auth.plan()));
+    readonly paid = computed(() => isPaidPlan(this.auth.plan()));
+    readonly ai = computed(() => this.auth.aiAccess());
     readonly promptReason = signal<WorkspaceAction | null>(null);
 
     canPreview(feature: PaidFeature): boolean { return feature !== 'broker'; }
 
     canOpen(feature: PaidFeature): boolean {
-        return this.demo() ? this.canPreview(feature) : this.auth.isAuthenticated() && this.paid();
+        return this.demo() ? this.canPreview(feature) : this.auth.isAuthenticated() && (feature === 'ai' ? this.ai() : this.paid());
     }
 
     canAct(action: WorkspaceAction): boolean {
-        return !this.demo() && this.auth.isAuthenticated() && (action === 'save' || this.paid());
+        return !this.demo() && this.auth.isAuthenticated() && (action === 'save' || (action === 'ai' ? this.ai() : this.paid()));
     }
 
     requestAction(action: WorkspaceAction): boolean {

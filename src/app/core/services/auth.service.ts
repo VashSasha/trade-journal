@@ -24,12 +24,14 @@ const OAUTH_PROVIDER_KEY = 'nvzn_pending_oauth_provider';
 
 interface Profile {
     plan: PlanTier;
+    aiAccess: boolean;
     discordId: string | null;
     betaAccess: boolean;
 }
 
 interface Entitlements {
     plan: PlanTier;
+    ai_access: boolean;
     discord_id: string | null;
     beta_access: boolean;
     discord_plan_expires_at: string | null;
@@ -68,6 +70,8 @@ export class AuthService {
 
     /** Plan comes from the user's `profiles` row — written only server-side. */
     plan = computed((): PlanTier => this.profileSignal()?.plan ?? 'free');
+    /** Server-resolved capability, including an explicit per-user AI override. */
+    aiAccess = computed(() => this.profileSignal()?.aiAccess ?? false);
 
     /**
      * Closed-beta access, from the user's `profiles` row (written only
@@ -295,6 +299,7 @@ export class AuthService {
         }
         this.profileSignal.set({
             plan: data.plan as PlanTier,
+            aiAccess: data.ai_access === true,
             discordId: data.discord_id ?? null,
             betaAccess: data.beta_access ?? false
         });

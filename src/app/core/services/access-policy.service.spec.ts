@@ -8,11 +8,12 @@ import { setCacheSuspended } from './user-data/user-data.cache';
 describe('shared workspace access policy', () => {
     const plan = signal('free');
     const signedIn = signal(true);
+    const aiAccess = signal(false);
     let access: AccessPolicyService;
     beforeEach(() => {
-        setCacheSuspended(false); plan.set('free'); signedIn.set(true);
+        setCacheSuspended(false); plan.set('free'); signedIn.set(true); aiAccess.set(false);
         TestBed.configureTestingModule({ providers: [
-            { provide: AuthService, useValue: { plan, isAuthenticated: signedIn } },
+            { provide: AuthService, useValue: { plan, aiAccess, isAuthenticated: signedIn } },
             { provide: UserSessionService, useValue: {
                 capture: () => ({ userId: 'A', signal: new AbortController().signal }),
                 isCurrent: (scope: UserOperation) => !scope.signal.aborted,
@@ -28,12 +29,25 @@ describe('shared workspace access policy', () => {
         for (const feature of ['analytics', 'ai', 'broker'] as const) expect(access.canOpen(feature)).toBe(false);
         for (const action of ['connect', 'sync', 'ai'] as const) expect(access.canAct(action)).toBe(false);
     });
-    it.each(['premium', 'lifetime'])('grants the same full real workspace to %s', tier => {
+    it.each(['premium', 'lifetime'])('grants non-AI paid features to %s', tier => {
         plan.set(tier);
-        for (const feature of ['analytics', 'ai', 'broker'] as const) expect(access.canOpen(feature)).toBe(true);
-        for (const action of ['save', 'connect', 'sync', 'ai'] as const) expect(access.canAct(action)).toBe(true);
+        for (const feature of ['analytics', 'broker'] as const) expect(access.canOpen(feature)).toBe(true);
+        expect(access.canOpen('ai')).toBe(false);
+        expect(access.canAct('ai')).toBe(false);
+        for (const action of ['save', 'connect', 'sync'] as const) expect(access.canAct(action)).toBe(true);
     });
-    it.each(['free', 'premium', 'lifetime'])('allows previews, never live actions, in %s demo', tier => {
+    it('uses the server AI capability, not a cached tier or browser-only upgrade', () => {
+        plan.set('premium_plus');
+        expect(access.paid()).toBe(true);
+        expect(access.canAct('ai')).toBe(false);
+        aiAccess.set(true);
+        expect(access.canAct('ai')).toBe(true);
+        plan.set('lifetime');
+        expect(access.canAct('ai')).toBe(true); // Individual admin grant.
+        aiAccess.set(false);
+        expect(access.canAct('ai')).toBe(false);
+    });
+    it.each(['free', 'premium', 'premium_plus', 'lifetime'])('allows previews, never live actions, in %s demo', tier => {
         plan.set(tier); setCacheSuspended(true);
         expect(access.canOpen('analytics')).toBe(true);
         expect(access.canOpen('ai')).toBe(true);

@@ -36,12 +36,12 @@ export class LandingComparisonComponent {
         {
             label: 'Built-in AI coach reviewing YOUR trades',
             spreadsheet: 'no',
-            generic: 'no',
-            nvzn: 'yes',
+            generic: 'partial',
+            nvzn: 'Premium+',
             star: true
         },
         {
-            label: 'Included with NVZN Trading membership',
+            label: 'Premium journal included with NVZN Trading membership',
             spreadsheet: 'no',
             generic: 'no',
             nvzn: 'yes'
@@ -50,7 +50,7 @@ export class LandingComparisonComponent {
             label: 'Price',
             spreadsheet: 'Free — paid in hours',
             generic: 'Separate subscription',
-            nvzn: 'Included with membership · journal-only plan available'
+            nvzn: 'Premium included with membership · Premium+ sold separately'
         }
     ];
 
