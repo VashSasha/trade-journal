@@ -12,6 +12,14 @@ const THREE_ROW_CSV = [
     'MNQU6,-2,0,0.25,555555,666666,1,23120.00,23101.00,$(38.00),07/30/2026 11:00:00,07/30/2026 11:02:30,2min 30sec'
 ].join('\n');
 
+const FIELDS = ['MNQU6', '-2', '0', '0.25', '111111', '222222', '2', '23000.25', '23331.25', '$1,322.00', '07/30/2026 09:18:56', '07/30/2026 09:25:10', '6min 14sec'];
+const quoted = (fields: string[]) => fields.map(value => `"${value.replace(/"/g, '""')}"`).join(',');
+function reportWith(field: number, value: string): string {
+    const fields = [...FIELDS];
+    fields[field] = value;
+    return `${HEADER}\n${quoted(fields)}`;
+}
+
 describe('parsePerformancePnl', () => {
     it('parses positive, negative (parenthesized), and thousands-separated values', () => {
         expect(parsePerformancePnl('$106.00')).toBe(106);
@@ -79,5 +87,52 @@ describe('parsePerformanceCsv', () => {
 
     it('rejects a malformed row instead of silently importing a partial history', () => {
         expect(() => parsePerformanceCsv(THREE_ROW_CSV + '\nMNQU6,broken', 12345, 'Apex 50K')).toThrow('Incomplete');
+    });
+
+    it('accepts quoted headers/prices/P&L, BOM, CRLF and escaped quotes', () => {
+        const fields = [...FIELDS];
+        fields[7] = '23,000.25';
+        fields[8] = '23,331.25';
+        fields[12] = '6min "14sec"';
+        const csv = '\uFEFF' + quoted(HEADER.split(',')) + '\r\n' + quoted(fields) + '\r\n';
+        const [trade] = parsePerformanceCsv(csv, 12345, 'Account');
+        expect(trade).toMatchObject({ entryPrice: 23000.25, exitPrice: 23331.25, pnl: 1322, quantity: 2 });
+        expect(trade.externalId).toBe(parsePerformanceCsv(THREE_ROW_CSV, 12345, 'Account')[0].externalId);
+    });
+
+    it.each([
+        ['$0.00', 0], ['$(1,054.00)', -1054], ['($1,054.00)', -1054],
+        ['-$1054.00', -1054], ['$-1054.00', -1054], ['$\u22121054.00', -1054],
+    ])('strictly handles the P&L representation %s', (value, expected) => {
+        expect(parsePerformanceCsv(reportWith(9, value), 1, 'Account')[0].pnl).toBe(expected);
+    });
+
+    it.each([
+        [6, '2contracts', 'qty'], [6, '0', 'qty'], [7, '', 'buyPrice'],
+        [8, 'Infinity', 'sellPrice'], [9, '', 'pnl'], [9, '$-', 'pnl'],
+        [9, '$10,54.00', 'pnl'], [9, '$42oops', 'pnl'], [9, '$(-42)', 'pnl'],
+        [10, '', 'boughtTimestamp'], [11, 'not-a-date', 'soldTimestamp'],
+    ])('rejects invalid field %s with field-specific diagnostics', (field, value, label) => {
+        expect(() => parsePerformanceCsv(reportWith(field as number, value as string), 1, 'Account'))
+            .toThrow(`Invalid Performance report row 2: invalid or missing ${label}.`);
+    });
+
+    it('does not silently skip all-empty CSV records', () => {
+        expect(() => parsePerformanceCsv(`${HEADER}\n${','.repeat(12)}`, 1, 'Account')).toThrow('row 2');
+    });
+
+    it('rejects unmatched quotes and extra columns instead of guessing', () => {
+        expect(() => parsePerformanceCsv(`${HEADER}\n"MNQU6,broken`, 1, 'Account')).toThrow('CSV quoting');
+        expect(() => parsePerformanceCsv(`${HEADER}\n${quoted(FIELDS)},extra`, 1, 'Account')).toThrow();
+    });
+
+    it('keeps physical row numbers across blank lines and quoted newlines', () => {
+        const fields = [...FIELDS];
+        fields[12] = '6min\n14sec';
+        const badRow = quoted([...FIELDS.slice(0, 9), 'private-invalid-value', ...FIELDS.slice(10)]);
+        expect(() => parsePerformanceCsv(`${HEADER}\n\n${quoted(fields)}\n${badRow}`, 1, 'Account'))
+            .toThrow('Invalid Performance report row 5: invalid or missing pnl.');
+        try { parsePerformanceCsv(reportWith(9, 'private-invalid-value'), 1, 'Account'); }
+        catch (error) { expect((error as Error).message).not.toContain('private-invalid-value'); }
     });
 });

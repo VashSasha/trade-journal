@@ -1,7 +1,7 @@
 import { Injectable, signal, computed, inject, isDevMode } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, throwError, of, timer, forkJoin, from, firstValueFrom } from 'rxjs';
-import { catchError, map, switchMap, tap, takeWhile, mergeMap, filter, concatMap, reduce } from 'rxjs/operators';
+import { Observable, throwError, of, timer, forkJoin, from, firstValueFrom, defer } from 'rxjs';
+import { catchError, map, switchMap, tap, takeWhile, mergeMap, filter, concatMap, reduce, timeout } from 'rxjs/operators';
 import { AuthService } from './auth.service';
 import { SupabaseService } from './supabase.service';
 import { TradingAccountsService } from './trading-accounts.service';
@@ -29,6 +29,15 @@ export interface TradovateAccount {
     accountType: string;
     active: boolean;
     timestamp?: string; // ISO date string from /account/list — when the account was created
+}
+
+/** An account report is all-or-nothing; failures never masquerade as empty history. */
+export interface TradovateAccountReport {
+    connectionId: string;
+    accountId: number;
+    accountName: string;
+    trades: any[];
+    error?: string;
 }
 
 /** Token endpoints reply either flat or wrapped in `d` (tv-* hosts) */
@@ -1911,42 +1920,52 @@ export class TradovateService {
      * Get all pre-matched trades from the Performance report for all accounts and the full date range.
      */
     getAllTrades(startDate: Date | null, endDate?: Date): Observable<any[]> {
+        // Retain the strict aggregate API for callers that cannot represent partial success.
+        return this.getAccountTradeReports(startDate, endDate).pipe(map(reports => {
+            const failed = reports.find(report => report.error);
+            if (failed) throw new Error(`${failed.accountName}: ${failed.error}`);
+            return reports.flatMap(report => report.trades);
+        }));
+    }
+
+    /** Collect each account independently so one invalid/unavailable report cannot
+     * cancel another account. SyncService decides which checkpoints may advance. */
+    getAccountTradeReports(startDate: Date | null, endDate?: Date): Observable<TradovateAccountReport[]> {
+        const scope = this.captureBroker();
         const end = endDate || new Date();
         const conns = this.connections();
         if (conns.length === 0) return of([]);
 
-        if (isDevMode()) { console.log(`[TradovateService] getAllTrades: ${startDate?.toISOString() ?? 'account start'} → ${end.toISOString()}, ${conns.length} connection(s)`); }
+        const requests = conns.flatMap(conn => conn.accounts.filter(a => a.active !== false).map(account => {
+            const identity = { connectionId: conn.id, accountId: account.id, accountName: account.name };
+            const accountStart = account.timestamp ? new Date(account.timestamp) : null;
+            const start = accountStart && Number.isFinite(accountStart.getTime()) && (!startDate || accountStart > startDate)
+                ? accountStart
+                : (startDate ?? new Date('2020-01-01T00:00:00Z'));
+            return defer(() => this.getPerformanceTrades(start, end, account.name, account.id, 0, undefined, conn)).pipe(
+                // Shorter than the overall sync timeout, so a hung account yields
+                // an explicit failure while other completed reports remain usable.
+                timeout(120_000),
+                map(trades => ({ ...identity, trades: trades.map(t => ({ ...t, connectionId: conn.id })) })),
+                catchError((err: unknown) => {
+                    // A user switch is NOT an account failure that may be swallowed.
+                    this.userSession.assertCurrent(scope);
+                    return of({ ...identity, trades: [], error: this.reportFailureMessage(err) });
+                })
+            );
+        }));
+        return requests.length ? forkJoin(requests) : of([]);
+    }
 
-        return forkJoin(
-            conns.map(conn => {
-                const accounts = conn.accounts.filter(a => a.active !== false);
-                if (accounts.length === 0) return of([] as any[]);
-
-                return forkJoin(
-                    accounts.map(account => {
-                        const accountStart = account.timestamp ? new Date(account.timestamp) : null;
-                        const start = accountStart && (!startDate || accountStart > startDate)
-                            ? accountStart
-                            : (startDate ?? new Date());
-                        return this.getPerformanceTrades(start, end, account.name, account.id, 0, undefined, conn).pipe(
-                            map(trades => trades.map(t => ({ ...t, connectionId: conn.id }))),
-                            catchError(err => {
-                                if (this.isAuthError(err)) return throwError(() => err);
-                                console.error(`[TradovateService] getAllTrades failed for ${account.name}:`, err);
-                                return throwError(() => err);
-                            })
-                        );
-                    })
-                ).pipe(map(results => results.flat()));
-            })
-        ).pipe(
-            map(results => results.flat()),
-            catchError(err => {
-                if (this.isAuthError(err)) return throwError(() => err);
-                if (isDevMode()) { console.warn('[TradovateService] getAllTrades failed:', err); }
-                return throwError(() => err);
-            })
-        );
+    private reportFailureMessage(error: unknown): string {
+        const status = (error as { status?: number } | null)?.status;
+        if (status === 401 || status === 403) return `Broker authorization failed (HTTP ${status}). Reconnect this broker.`;
+        if (status === 404) return 'Tradovate report unavailable (HTTP 404). Check report access in Tradovate.';
+        if (status === 429) return 'Tradovate rate limit reached. Wait before retrying.';
+        if (status === 0) return 'Could not reach the broker report service. Check the connection and retry.';
+        if (status) return `Broker report request failed (HTTP ${status}). Retry later.`;
+        if (error instanceof Error && error.name === 'TimeoutError') return 'Tradovate report timed out. Retry this account.';
+        return error instanceof Error ? error.message : 'Could not read the broker report. Please retry.';
     }
 
     private getChartDescription(timeframe: string, barsCount: number): any {
