@@ -33,6 +33,7 @@ export class SyncService {
     lastSyncTime = signal<Date | null>(null);
     syncLog = signal<SyncLogEntry[]>([]);
     syncProgress = signal<{ current: number; total: number } | null>(null);
+    syncWarning = signal<string | null>(null);
 
     private cancel$ = new Subject<void>();
     private activeRun: AbortController | null = null;
@@ -70,6 +71,7 @@ export class SyncService {
     clearLog(): void {
         this.syncLog.set([]);
         this.syncProgress.set(null);
+        this.syncWarning.set(null);
     }
 
     /**
@@ -124,45 +126,33 @@ export class SyncService {
                 assertRun();
             }
 
-            // Link legacy trades (imported before connection tracking) to the
-            // connection that owns their account, so per-connection features
-            // keep working even after other connections are removed.
-            for (const conn of conns) {
-                const accountIds = new Set(conn.accounts.map(a => String(a.id)));
-                const linked = this.tradeService.backfillConnectionIds(conn.id, accountIds);
-                if (linked > 0) this.log(`Linked ${linked} existing trade(s) to ${conn.name}.`);
-            }
-
             // Fetch pre-matched trades from Performance report
             this.log('Fetching trades from Tradovate Performance Report...');
-            const rawTrades = await firstValueFrom(
-                this.tradovateService.getAllTrades(fromDate).pipe(
+            const reports = await firstValueFrom(
+                this.tradovateService.getAccountTradeReports(fromDate).pipe(
                     timeout(SyncService.SYNC_TIMEOUT_MS),
                     takeUntil(this.cancel$),
                     takeUntil(fromEvent(scope.signal, 'abort'))
                 )
             );
             assertRun();
-            this.log(`Retrieved ${rawTrades.length} trade(s)`, rawTrades.length > 0 ? 'success' : 'warn');
-
-            if (rawTrades.length === 0) {
-                this.log('No trades found for the selected date range.', 'warn');
-                const commission0 = this.accountSettings.commissionPerContract();
-                const totals0 = this.tradeService.recalculateTradovateNetPnl(commission0);
-                if (isDevMode()) { console.log(
-                    `[SyncService] Fee reconciliation — gross P&L: $${totals0.grossPnl.toFixed(2)}, ` +
-                    `total fees: $${totals0.totalFees.toFixed(2)}, net P&L: $${totals0.netPnl.toFixed(2)}`
-                ); }
-                await this.repo.flushQueue();
-                assertRun();
-                const syncTime = new Date();
-                conns.forEach(c => this.tradovateService.updateConnectionSyncTime(c.id));
-                await this.repo.flushQueue();
-                assertRun();
-                this.lastSyncTime.set(syncTime);
-                localStorage.setItem(`${SyncService.LAST_SYNC_KEY}:${scope.userId}`, syncTime.toISOString());
-                return 0;
+            if (!reports.length) throw new Error('No active broker accounts are available to sync. Saved history is unchanged.');
+            const failed = reports.filter(report => report.error);
+            const successful = reports.filter(report => !report.error);
+            for (const report of failed) {
+                const connection = conns.find(c => c.id === report.connectionId)?.name ?? 'Broker';
+                this.log(`${connection} / ${report.accountName}: ${report.error} Saved history kept; account will be retried.`, 'error');
             }
+            if (!successful.length) throw new Error(`No accounts synced. ${failed[0].accountName}: ${failed[0].error}`);
+            // Only touch history from accounts whose entire report was validated.
+            for (const conn of conns) {
+                const accountIds = new Set(successful.filter(r => r.connectionId === conn.id).map(r => String(r.accountId)));
+                if (!accountIds.size) continue;
+                const linked = this.tradeService.backfillConnectionIds(conn.id, accountIds);
+                if (linked > 0) this.log(`Linked ${linked} existing trade(s) to ${conn.name}.`);
+            }
+            const rawTrades = successful.flatMap(report => report.trades);
+            this.log(`Retrieved ${rawTrades.length} trade(s)`, rawTrades.length > 0 ? 'success' : 'warn');
 
             // Use fees from the Performance report directly.
             // Fall back to the configured commission rate only when the report doesn't include a fees column.
@@ -215,37 +205,41 @@ export class SyncService {
 
             await this.repo.flushQueue();
             assertRun();
-            // Recompute netPnl from stored fees (ensures consistency after import + fee patches)
-            const totals = this.tradeService.recalculateTradovateNetPnl(commission);
+            // New trades and matched fee patches already contain net P&L. Do not
+            // recalculate unrelated/failed-account history during a partial sync.
+            for (const conn of conns) {
+                if (successful.some(r => r.connectionId === conn.id) && !failed.some(r => r.connectionId === conn.id)) {
+                    this.tradovateService.updateConnectionSyncTime(conn.id);
+                }
+            }
             await this.repo.flushQueue();
             assertRun();
-            conns.forEach(c => this.tradovateService.updateConnectionSyncTime(c.id));
-            await this.repo.flushQueue();
-            assertRun();
-            // Advance only after every trade, fee correction and connection save
-            // is acknowledged. A failed final save must remain retryable.
-            const syncTime = new Date();
-            this.lastSyncTime.set(syncTime);
-            localStorage.setItem(`${SyncService.LAST_SYNC_KEY}:${scope.userId}`, syncTime.toISOString());
-            if (isDevMode()) { console.log(
-                `[SyncService] Fee reconciliation — gross P&L: $${totals.grossPnl.toFixed(2)}, ` +
-                `total fees: $${totals.totalFees.toFixed(2)}, net P&L: $${totals.netPnl.toFixed(2)}`
-            ); }
-
-            this.log(`Done! Imported ${tradesToImport.length} trade(s).`, 'success');
+            if (failed.length) {
+                const warning = `Partial sync: imported ${tradesToImport.length} new trade(s); ${successful.length} of ${reports.length} accounts synced. ${failed.length} account(s) failed — see the sync log. Their history and last successful sync dates were kept. Retry sync after resolving the errors.`;
+                this.syncWarning.set(warning);
+                this.log(warning, 'warn');
+            } else {
+                // A global checkpoint only represents a complete, acknowledged
+                // sync. Keep the previous range after partial failures for retries.
+                const syncTime = new Date();
+                this.lastSyncTime.set(syncTime);
+                localStorage.setItem(`${SyncService.LAST_SYNC_KEY}:${scope.userId}`, syncTime.toISOString());
+                this.log(`Done! Imported ${tradesToImport.length} trade(s).`, 'success');
+            }
             this.syncProgress.set(null);
 
             return tradesToImport.length;
 
         } catch (err: any) {
-            const msg = err?.message || 'Unknown error';
+            const msg = run.signal.aborted ? 'Sync cancelled. Saved history was kept.' : err?.message || 'Unknown error';
             if (this.userSession.isCurrent(scope)) this.log(`Sync failed: ${msg}`, 'error');
             console.error('Sync failed', err);
-            throw err;
+            throw run.signal.aborted ? new Error(msg) : err;
         } finally {
             if (this.activeRun === run) {
                 this.activeRun = null;
                 this.isSyncing.set(false);
+                this.syncProgress.set(null);
             }
         }
     }

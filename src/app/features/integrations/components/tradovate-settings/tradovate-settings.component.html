@@ -107,7 +107,7 @@
             <button (click)="setPreset(90)"  class="preset-btn" [class.preset-btn--active]="activePreset() === 90">Last 90 days</button>
             <button (click)="setPreset(180)" class="preset-btn" [class.preset-btn--active]="activePreset() === 180">Last 6 months</button>
             <button (click)="setPreset(365)" class="preset-btn" [class.preset-btn--active]="activePreset() === 365">Last year</button>
-            <button (click)="setPreset(null)" class="preset-btn preset-btn--full" [class.preset-btn--active]="activePreset() === null">All time</button>
+            <button (click)="setPreset(null)" class="preset-btn" [class.preset-btn--active]="activePreset() === null">All time</button>
           </div>
         </div>
 
@@ -115,7 +115,7 @@
         <div class="tv-settings__sync-actions">
           <div class="tv-settings__field-grow">
             <label class="tv-settings__field-label-block">Import from date</label>
-            <input type="date" [ngModel]="customFromDate()" (ngModelChange)="customFromDate.set($event)"
+            <input type="date" [ngModel]="customFromDate()" (ngModelChange)="customFromDate.set($event); activePreset.set(undefined)"
                    class="form-input tv-settings__date-field" [disabled]="isSyncing()" />
           </div>
           <button (click)="startSync()" [disabled]="isSyncing()" class="tv-settings__sync-btn">
@@ -174,7 +174,9 @@
         }
 
         <!-- Result banner -->
-        @if (!isSyncing() && syncResult() !== null) {
+        @if (!isSyncing() && syncService.syncWarning()) {
+          <div class="tv-settings__banner tv-settings__banner--neutral" role="status">{{ syncService.syncWarning() }}</div>
+        } @else if (!isSyncing() && syncResult() !== null) {
           <div class="tv-settings__banner"
                [class.tv-settings__banner--success]="syncResult()! > 0"
                [class.tv-settings__banner--neutral]="syncResult() === 0">
