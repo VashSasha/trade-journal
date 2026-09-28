@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core
 import { RouterLink } from '@angular/router';
 import { ThemeService } from '../../../core/services/theme.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { LoginEntryDirective } from '../../../features/auth/login-dialog/login-entry.directive';
 
 /**
  * Top navigation for public pages — landing, login. Signed-in visitors
@@ -12,7 +13,7 @@ import { AuthService } from '../../../core/services/auth.service';
 @Component({
     selector: 'app-public-nav',
     standalone: true,
-    imports: [RouterLink],
+    imports: [RouterLink, LoginEntryDirective],
     templateUrl: './public-nav.component.html',
     styleUrl: './public-nav.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush

@@ -8,24 +8,36 @@
     -webkit-backdrop-filter: blur(12px);
 
     &__inner {
-        max-width: 72rem;
+        max-width: calc(var(--landing-width, 72rem) + 2 * var(--landing-gutter, 24px));
         margin: 0 auto;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0.75rem 1.5rem;
+        padding: 0.75rem var(--landing-gutter, 24px);
     }
 
     &__brand {
         display: inline-flex;
         align-items: center;
         text-decoration: none;
+        gap: 6px;
+        min-height: 44px;
     }
 
     &__logo {
-        height: 3rem;
-        width: auto;
+        height: 40px;
+        width: 28px;
+        object-fit: contain;
         display: block;
+    }
+
+    &__wordmark {
+        color: var(--color-text-primary);
+        font-size: 20px;
+        letter-spacing: 1px;
+        font-weight: 600;
+        line-height: 1.05;
+        span { display: block; margin-top: 5px; font-size: 8px; letter-spacing: 3px; font-weight: 500; }
     }
 
     &__links {
@@ -48,8 +60,8 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 2.1rem;
-        height: 2.1rem;
+        width: 44px;
+        height: 44px;
         border: none;
         border-radius: 0.5rem;
         background: transparent;
@@ -79,8 +91,8 @@
         font-size: 0.88rem;
         font-weight: 600;
         text-decoration: none;
-        background: var(--color-accent);
-        color: var(--color-text-on-accent);
+        background: var(--color-text-accent);
+        color: var(--color-bg-base);
         transition: transform 0.15s ease, box-shadow 0.15s ease;
 
         &:hover {
@@ -107,8 +119,11 @@
     }
 
     .public-nav__logo {
-        height: 2.25rem;
+        height: 32px;
+        width: 22px;
     }
+
+    .public-nav__wordmark { font-size: 17px; span { font-size: 7px; letter-spacing: 2px; } }
 
     .public-nav__link {
         display: none;
@@ -124,4 +139,14 @@
         padding-inline: 0.75rem;
         white-space: nowrap;
     }
+}
+
+@media (max-width: 360px) {
+    .public-nav__inner { padding-inline: 12px; gap: 8px; }
+    .public-nav__links { gap: 4px; }
+    .public-nav__cta, .public-nav__login { padding-inline: 8px; font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .public-nav__cta, .public-nav__cta:hover { transition: none; transform: none; }
 }

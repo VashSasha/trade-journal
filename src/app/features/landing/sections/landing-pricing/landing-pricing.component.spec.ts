@@ -5,6 +5,7 @@ import { vi } from 'vitest';
 import { AuthService } from '../../../../core/services/auth.service';
 import { BillingService } from '../../../account/billing.service';
 import { LandingPricingComponent } from './landing-pricing.component';
+import { LoginDialogService } from '../../../auth/login-dialog/login-dialog.service';
 
 describe('shared pricing cards', () => {
     const plan = signal('free');
@@ -83,6 +84,28 @@ describe('shared pricing cards', () => {
         await fixture.componentInstance.subscribe('premium_plus');
         expect(fixture.componentInstance.checkoutBusy()).toBeNull();
         expect(fixture.componentInstance.checkoutError()).toContain('try again');
+        expect(startCheckout).not.toHaveBeenCalled();
+    });
+
+    it('passes the exact guest selection to the landing dialog without a billing request', async () => {
+        const open = vi.fn();
+        TestBed.overrideProvider(AuthService, { useValue: { isAuthenticated: () => false } });
+        TestBed.configureTestingModule({ providers: [{ provide: LoginDialogService, useValue: { open } }] });
+        const fixture = TestBed.createComponent(LandingPricingComponent);
+        fixture.componentInstance.selectCycle('annual');
+        await fixture.componentInstance.subscribe('premium_plus');
+        expect(open).toHaveBeenCalledExactlyOnceWith('/account/pricing?plan=premium_plus&interval=annual');
+        expect(loadBilling).not.toHaveBeenCalled();
+        expect(startCheckout).not.toHaveBeenCalled();
+    });
+
+    it('preserves guest selection in /login when no dialog host is available', async () => {
+        TestBed.overrideProvider(AuthService, { useValue: { isAuthenticated: () => false } });
+        const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+        const fixture = TestBed.createComponent(LandingPricingComponent);
+        fixture.componentInstance.selectCycle('annual');
+        await fixture.componentInstance.subscribe('premium');
+        expect(navigate).toHaveBeenCalledExactlyOnceWith(['/login'], { queryParams: { returnUrl: '/account/pricing?plan=premium&interval=annual' } });
         expect(startCheckout).not.toHaveBeenCalled();
     });
 });

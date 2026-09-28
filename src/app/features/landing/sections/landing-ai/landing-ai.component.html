@@ -1,150 +1,37 @@
-<section class="ai" id="ai">
+<section class="ai" id="ai" aria-labelledby="coach-title">
     <div class="ai__inner">
-
-        <div class="ai__head" appRevealOnScroll>
-            <span class="ai__eyebrow">✨ NVZN AI</span>
-            <h2 class="ai__title">A coach that reads your trades — not just your charts</h2>
-            <p class="ai__subtitle">
-                Everything below runs on your real trading data, synced straight from your broker.
-                No copy-pasting into a chatbot. No generic advice.
-            </p>
+        <div class="ai__copy">
+            <span class="ai__plan">Live Coach / Premium+</span>
+            <h2 id="coach-title">Your rules, at the moment they matter.</h2>
+            <p class="ai__intro">A review after the close is valuable. A reminder while you're trading can be just as useful.</p>
+            <dl class="ai__details">
+                <div><dt>Hear the important moments.</dt><dd>Get spoken or on-screen reminders about your targets and trading activity. Choose a voice, or keep it quiet.</dd></div>
+                <div><dt>Keep the context close.</dt><dd>Open the floating Coach from any page. See the conversation and ask a contextual follow-up without leaving your workflow.</dd></div>
+                <div><dt>Take something into tomorrow.</dt><dd>Generate a concise daily review, expand it when you need detail, and come back to the saved analysis.</dd></div>
+            </dl>
+            <a class="ai__link" [routerLink]="[]" fragment="pricing">Explore Premium+</a>
         </div>
-
-        <!-- ── Daily coaching ─────────────────────────────────────────── -->
-        <div class="ai-block" appRevealOnScroll>
-            <div class="ai-block__copy">
-                <span class="ai-block__kicker">Daily coaching</span>
-                <h3 class="ai-block__heading">Get today's AI insight</h3>
-                <ul class="ai-block__list">
-                    <li>After each session, AI reviews the day's actual trades — patterns, rule breaks, win/loss dynamics</li>
-                    <li>Concrete action points for tomorrow, written as a checklist you can copy</li>
-                    <li>One click from your daily journal — and the review is saved into it automatically</li>
-                </ul>
+        <div class="coach-story" aria-label="Illustrative Live Coach workflow">
+            <div class="coach-story__head"><span>From a threshold to a conversation</span><span>Example</span></div>
+            <div class="coach-story__event">
+                <span class="coach-story__time">10:42 am</span>
+                <div><strong>Daily target reached</strong><p>Across the accounts you've selected</p></div>
             </div>
-            <div class="ai-block__visual" aria-hidden="true">
-                <!-- Coach's Verdict card — matches the real ds-coach card structure in day-summary.component -->
-                <div class="ai-coach-card">
-                    <div class="ai-coach-card__head">
-                        <span class="ai-coach-card__label">Coach's verdict</span>
-                        <span class="ai-coach-card__grade ai-coach-card__grade--b">B+</span>
-                    </div>
-                    <p class="ai-coach-card__verdict">
-                        Solid discipline today — good size management, but revenge-trading in the last hour gave back meaningful edge.
-                    </p>
-                    <div class="ai-coach-card__section">
-                        <span class="ai-coach-card__section-title ai-coach-card__section-title--worked">What worked</span>
-                        <ul class="ai-coach-card__bullets">
-                            <li>Entered clean breakouts, waited for confirmation</li>
-                            <li>Respected daily loss limit when approached</li>
-                        </ul>
-                    </div>
-                    <div class="ai-coach-card__section">
-                        <span class="ai-coach-card__section-title ai-coach-card__section-title--cost">What cost you</span>
-                        <ul class="ai-coach-card__bullets">
-                            <li>3 trades after 2 pm — all losses, −$148 combined</li>
-                        </ul>
-                    </div>
-                    <div class="ai-coach-card__focus">
-                        <span class="ai-coach-card__focus-label">Tomorrow's focus</span>
-                        <div class="ai-coach-card__focus-row">
-                            <span class="ai-coach-card__focus-box"></span>
-                            <span class="ai-coach-card__focus-text">No new trades after 2 pm if already down on the day</span>
-                            <span class="ai-coach-card__focus-copy">📋</span>
-                        </div>
-                    </div>
-                </div>
+            <div class="coach-story__totals">
+                <div><span>Realized</span><strong>+$260</strong></div>
+                <span aria-hidden="true">+</span>
+                <div><span>Open</span><strong>+$80</strong></div>
+                <span aria-hidden="true">=</span>
+                <div><span>Combined</span><strong>+$340</strong></div>
             </div>
+            <div class="coach-story__reply">
+                <span>Live Coach</span>
+                <p>“You've reached your $300 daily target. Part of that is still unrealized, so the result can change. Check your plan before taking another trade.”</p>
+            </div>
+            <div class="coach-story__question">Why does this include my open position?</div>
+            <div class="coach-story__answer">Because you enabled open P&amp;L in your daily target alerts. You control that setting.</div>
+            <p class="coach-story__caption">Illustrative conversation, not a live alert or trading recommendation.</p>
         </div>
-
-        <!-- ── Chart analysis ─────────────────────────────────────────── -->
-        <div class="ai-block ai-block--flip" appRevealOnScroll>
-            <div class="ai-block__copy">
-                <span class="ai-block__kicker">Chart analysis</span>
-                <h3 class="ai-block__heading">Upload a chart, get a verdict</h3>
-                <ul class="ai-block__list">
-                    <li>Drop in a screenshot and get a structured verdict — direction bias, entry, stop, and target levels</li>
-                    <li>A setup-quality score backed by the confluences the AI actually found</li>
-                    <li>Ask follow-up questions in plain English and get straight answers</li>
-                </ul>
-            </div>
-            <div class="ai-block__visual" aria-hidden="true">
-                <div class="ai-verdict-mini">
-                    <div class="ai-verdict-mini__top">
-                        <div class="ai-verdict-mini__sym">
-                            MNQ
-                            <span class="ai-verdict-mini__tf">5m</span>
-                        </div>
-                        <span class="ai-verdict-mini__badge">LONG — moderate</span>
-                    </div>
-                    <div class="ai-verdict-mini__quality">
-                        <span class="ai-verdict-mini__quality-label">Setup quality</span>
-                        <span class="ai-verdict-mini__bar"><span></span></span>
-                        <span class="ai-verdict-mini__quality-value">Strong · 4 confluences</span>
-                    </div>
-                    <div class="ai-verdict-mini__levels">
-                        <div class="ai-verdict-mini__level">
-                            <span>Entry</span><strong>21,240</strong>
-                        </div>
-                        <div class="ai-verdict-mini__level">
-                            <span>Stop</span><strong>21,222</strong>
-                        </div>
-                        <div class="ai-verdict-mini__level">
-                            <span>Target</span><strong>21,288</strong>
-                        </div>
-                    </div>
-                    <div class="ai-verdict-mini__chip">"How confident is this?"</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ── Saved reports ──────────────────────────────────────────── -->
-        <div class="ai-block" appRevealOnScroll>
-            <div class="ai-block__copy">
-                <span class="ai-block__kicker">Saved reports</span>
-                <h3 class="ai-block__heading">Your AI reviews, on file</h3>
-                <ul class="ai-block__list">
-                    <li>Every completed analysis is saved to your Reports page automatically</li>
-                    <li>Reopen any past verdict — nothing gets lost in a chat history</li>
-                    <li>Build a library of AI reviews and watch how your execution evolves</li>
-                </ul>
-            </div>
-            <div class="ai-block__visual" aria-hidden="true">
-                <div class="ai-reports-mini">
-                    <div class="ai-reports-mini__row">
-                        <span class="ai-reports-mini__title">MNQ · 5m · Live Data</span>
-                        <span class="ai-reports-mini__time">2h ago</span>
-                    </div>
-                    <div class="ai-reports-mini__row">
-                        <span class="ai-reports-mini__title">Screenshot · ES</span>
-                        <span class="ai-reports-mini__time">1d ago</span>
-                    </div>
-                    <div class="ai-reports-mini__row">
-                        <span class="ai-reports-mini__title">MNQ · 15m · Live Data</span>
-                        <span class="ai-reports-mini__time">3d ago</span>
-                    </div>
-                    <div class="ai-reports-mini__row ai-reports-mini__row--faded">
-                        <span class="ai-reports-mini__title">Screenshot · NQ</span>
-                        <span class="ai-reports-mini__time">Jul 12</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ── Honesty card ───────────────────────────────────────────── -->
-        <div class="ai__honesty" appRevealOnScroll>
-            <span class="ai__honesty-icon">🔒</span>
-            <div class="ai__honesty-body">
-                <h3 class="ai__honesty-title">Your data stays yours</h3>
-                <p class="ai__honesty-text">
-                    AI requests run server-side. Relevant trade summaries and any chart images
-                    you submit are sent to our AI provider to generate your response.
-                </p>
-            </div>
-        </div>
-
-        <div class="ai__inline-cta" appRevealOnScroll>
-            <a class="ai__inline-cta-link" [routerLink]="[]" fragment="pricing">Try the AI coach on your own trades →</a>
-        </div>
-
     </div>
+    <p class="ai__note">Live monitoring requires NVZN to be open, a connected broker and available market data. No orders are placed. AI can make mistakes; usage limits apply.</p>
 </section>

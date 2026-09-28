@@ -9,17 +9,15 @@
             </span>
             <h2 class="discord__title">You don't have to trade alone.</h2>
             <p class="discord__subtitle">
-                The journal shows you what happened. The Discord shows you how to trade next —
-                live rooms, a shared framework, and traders holding each other accountable.
+                Keep your personal process in the journal. Take the conversation to the
+                NVZN Trading community — live rooms, shared reviews and a common framework.
             </p>
         </div>
 
         <div class="discord__grid">
-            @for (pillar of pillars; track pillar.title) {
+            @for (pillar of pillars; track pillar.title; let index = $index) {
                 <article class="discord-card" appRevealOnScroll>
-                    <span class="discord-card__icon-badge">
-                        <span class="discord-card__icon">{{ pillar.icon }}</span>
-                    </span>
+                    <span class="discord-card__number" aria-hidden="true">0{{ index + 1 }}</span>
                     <h3 class="discord-card__title">{{ pillar.title }}</h3>
                     <p class="discord-card__text">{{ pillar.text }}</p>
                 </article>

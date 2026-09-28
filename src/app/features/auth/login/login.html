@@ -1,21 +1,29 @@
-<div class="login-page">
-  <app-public-nav/>
+<div class="login-page" [class.login-page--embedded]="embedded()">
+  @if (!embedded()) { <app-public-nav/> }
 
-  <main class="login-page__main">
-    <div class="login-page__glow" aria-hidden="true"></div>
+  <div class="login-page__main" [attr.role]="embedded() ? null : 'main'">
 
     <div class="login-wrapper">
       <!-- Login Card -->
       <div class="login-card">
-        <h2 class="login-card__title">Welcome back</h2>
-        <p class="login-card__subtitle">Log in to your NVZN Journal.</p>
+        <h1 class="login-card__title" id="login-title">{{ intent() ? 'Sign in to continue' : 'Welcome back' }}</h1>
+        <p class="login-card__subtitle">{{ intent() ? 'Your plan selection will be waiting for you.' : 'Your trading workspace, right where you left it.' }}</p>
+
+        @if (selectedPlan(); as plan) {
+          <div class="login-selection">
+            <span>Your selection</span>
+            <strong>{{ plan.name }} · {{ intent()?.interval === 'annual' ? 'Annual' : 'Monthly' }}</strong>
+            <p>{{ (intent()?.interval === 'annual' ? plan.annual : plan.monthly) | currency:'USD':'symbol':'1.2-2' }} / {{ intent()?.interval === 'annual' ? 'year' : 'month' }}</p>
+            <small>Review and confirm after sign-in. No charge at this step.</small>
+          </div>
+        }
 
         @if (errorMessage()) {
-          <div class="login-error">{{ errorMessage() }}</div>
+          <div class="login-error" role="alert">{{ errorMessage() }}</div>
         }
 
         <!-- Discord Login -->
-        <button class="login-discord-btn" (click)="loginWithDiscord()"
+        <button type="button" class="login-discord-btn" (click)="loginWithDiscord()"
                 [disabled]="isDiscordLoading() || isGoogleLoading() || isLoading()">
           @if (isDiscordLoading()) {
             <svg class="login-discord-btn__spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -34,7 +42,7 @@
         </button>
 
         <!-- Google Login -->
-        <button class="login-google-btn" (click)="loginWithGoogle()"
+        <button type="button" class="login-google-btn" (click)="loginWithGoogle()"
                 [disabled]="isDiscordLoading() || isGoogleLoading() || isLoading()">
           @if (isGoogleLoading()) {
             <svg class="login-google-btn__spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -119,11 +127,10 @@
         }
       </div>
 
-      <p class="login-footer">
-        Discord members get plan-based feature access.
-        <br>
-        <a class="login-footer__link" routerLink="/" fragment="pricing">Not a member yet?</a>
-      </p>
+      <p class="login-footer">Continue securely with your provider. New here? Signing in creates your journal account.</p>
+      @if (!embedded()) {
+        <a class="login-footer__link" routerLink="/welcome">Back to NVZN Journal</a>
+      }
     </div>
-  </main>
+  </div>
 </div>

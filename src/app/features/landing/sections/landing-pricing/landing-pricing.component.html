@@ -14,10 +14,13 @@
                 Annual <span class="pricing-card__save-chip">Save 17%</span>
             </button>
         </div>
+        @if (selectedPlanName()) {
+            <p class="pricing__selection" role="status">Your selection: <strong>{{ selectedPlanName() }}</strong> · {{ billingCycle() === 'annual' ? 'Annual' : 'Monthly' }} billing. Review the plan below to continue.</p>
+        }
         @if (checkoutError()) { <p class="pricing-card__error" role="alert">{{ checkoutError() }}</p> }
         <div class="pricing__grid">
             @for (plan of plans; track plan.id) {
-                <article class="pricing-card" [class.pricing-card--featured]="plan.id === 'premium_plus'" appRevealOnScroll>
+                <article class="pricing-card" [class.pricing-card--featured]="plan.id === 'premium_plus'" [class.pricing-card--selected]="selectedPlan() === plan.id" appRevealOnScroll>
                     @if (plan.id === 'premium_plus') { <span class="pricing-card__badge">With AI coaching</span> }
                     <h3 class="pricing-card__name">{{ plan.name }}</h3>
                     <p class="pricing-card__copy">{{ plan.description }}</p>
@@ -63,6 +66,8 @@
                 <p class="pricing-card__note">Billed via Whop · Cancel anytime</p>
             </article>
         </div>
-        <p class="pricing__legacy">Existing Lifetime memberships retain Premium features without renewal. AI requires Premium+ or an individual access grant.</p>
+        @if (embedded()) {
+            <p class="pricing__legacy">Existing Lifetime memberships retain Premium features without renewal. AI requires Premium+ or an individual access grant.</p>
+        }
     </div>
 </section>

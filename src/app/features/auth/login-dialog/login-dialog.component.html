@@ -1,0 +1,12 @@
+<!-- Native dialog provides an inert background, focus containment, Escape and focus restoration. -->
+<dialog #dialog class="login-dialog" aria-labelledby="login-title"
+    (cancel)="state.close()" (close)="onClosed()" (click)="closeBackdrop($event)" (keydown)="containTab($event)">
+    <div class="login-dialog__content">
+        <button type="button" class="login-dialog__close" aria-label="Close sign in" (click)="state.close()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+        </button>
+        @if (state.request(); as request) {
+            <app-login [embedded]="true" [returnTo]="request.returnUrl" />
+        }
+    </div>
+</dialog>
