@@ -5,7 +5,6 @@ const WHOP_URL = 'https://whop.com/nvzn-trading/monthly-trading-access?a=sasha-v
 const NVZN_TRADING_URL = 'https://nvzntrading.com/';
 
 interface DiscordPillar {
-    icon: string;
     title: string;
     text: string;
 }
@@ -24,19 +23,16 @@ export class LandingDiscordComponent {
 
     readonly pillars: DiscordPillar[] = [
         {
-            icon: '📺',
             title: 'Live Trading Rooms',
-            text: 'Watch the framework applied in real time — screen-shared charts, called levels, and full transparency on entries, stops, and targets. Wins and losses alike.'
+            text: 'See the trading framework in context through shared charts and live discussion. Bring your own questions back to the journal.'
         },
         {
-            icon: '📐',
             title: 'Structured Framework',
-            text: 'One set of rules for execution, entries, stops, and targets, so you trade the plan instead of your emotions.'
+            text: 'Discuss setups, entries and risk with a shared vocabulary. Use your journal to reflect on how you followed your own plan.'
         },
         {
-            icon: '🤝',
             title: 'A Community That Trades',
-            text: 'Daily watchlists, trade reviews, and accountability from traders running the same playbook. Your setups get sharper when a thousand eyes trade the same levels.'
+            text: 'Exchange trade reviews and perspectives with other members. A place for the conversation around the numbers.'
         }
     ];
 }

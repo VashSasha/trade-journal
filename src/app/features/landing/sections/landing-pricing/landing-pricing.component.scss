@@ -1,13 +1,13 @@
 .pricing {
     /* Keep the heading clear of the sticky landing nav on #pricing jumps. */
     scroll-margin-top: 4.5rem;
-    padding: 5rem 1.5rem;
+    padding: 5rem var(--landing-gutter, 24px);
     background: var(--color-bg-surface);
     border-top: 1px solid var(--color-border);
     border-bottom: 1px solid var(--color-border);
 
     &__inner {
-        max-width: 72rem;
+        max-width: var(--landing-width, 1240px);
         margin: 0 auto;
     }
 
@@ -19,7 +19,7 @@
 
     &__title {
         font-size: clamp(1.7rem, 3vw, 2.4rem);
-        font-weight: 800;
+        font-weight: 600;
         letter-spacing: -0.02em;
         line-height: 1.2;
         color: var(--color-text-primary);
@@ -36,7 +36,7 @@
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 1.25rem;
-        max-width: 72rem;
+        max-width: var(--landing-width, 1240px);
         margin: 0 auto;
         align-items: stretch;
     }
@@ -60,6 +60,16 @@
         line-height: 1.6;
     }
 
+    &__selection {
+        margin: 0 auto 2rem;
+        max-width: 42rem;
+        text-align: center;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: var(--color-text-secondary);
+        strong { color: var(--color-text-primary); }
+    }
+
     &.pricing--embedded {
         padding: 0;
         border: none;
@@ -76,17 +86,13 @@
     border-radius: 0.9rem;
     border: 1px solid var(--color-border);
     background: var(--color-bg-base);
-    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 
     &--featured {
         border-color: var(--color-accent);
-        box-shadow: 0 16px 44px var(--color-accent-subtle);
-
-        &:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 52px var(--color-accent-subtle);
-        }
+        background: color-mix(in srgb, var(--color-accent-subtle) 18%, var(--color-bg-base));
     }
+
+    &--selected { outline: 2px solid var(--color-text-accent); outline-offset: 3px; }
 
     &--muted {
         opacity: 0.72;
@@ -107,8 +113,8 @@
         font-weight: 700;
         letter-spacing: 0.04em;
         text-transform: uppercase;
-        background: var(--color-accent);
-        color: var(--color-text-on-accent);
+        background: var(--color-text-accent);
+        color: var(--color-bg-base);
 
         &--soon {
             background: var(--color-bg-surface-3);
@@ -171,7 +177,7 @@
         font-weight: 700;
         letter-spacing: 0.02em;
         background: var(--color-accent-subtle);
-        color: var(--color-accent);
+        color: var(--color-text-accent);
     }
 
     &__price {
@@ -238,14 +244,11 @@
         font-size: 0.95rem;
         font-weight: 600;
         text-decoration: none;
-        background: var(--color-accent);
-        color: var(--color-text-on-accent);
-        transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-        box-shadow: 0 8px 24px var(--color-accent-subtle);
+        background: var(--color-text-accent);
+        color: var(--color-bg-base);
 
         &:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 32px var(--color-accent-subtle);
+            opacity: .9;
         }
 
         &--ghost {
@@ -305,9 +308,10 @@
     }
 
     &__note {
-        margin-top: 0.9rem;
+        margin: 0.9rem 0 0.75rem;
         text-align: center;
         font-size: 0.78rem;
+        line-height: 1.65;
         color: var(--color-text-muted);
     }
 }
@@ -326,7 +330,7 @@ button:focus-visible, a:focus-visible {
 
 @media (max-width: 600px) {
     .pricing {
-        padding: 3.5rem 1.25rem;
+        padding: 88px 1.25rem 3.5rem;
     }
 }
 

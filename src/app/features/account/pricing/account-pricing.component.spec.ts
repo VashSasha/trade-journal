@@ -66,6 +66,23 @@ describe('in-app pricing navigation', () => {
         expect(startCheckout).not.toHaveBeenCalled();
     });
 
+    it('restores an annual Premium+ choice after login but waits for confirmation', async () => {
+        const harness = await RouterTestingHarness.create('/account/pricing?plan=premium_plus&interval=annual');
+        const el = harness.routeNativeElement!;
+        expect(el.querySelector('.pricing__selection')?.textContent).toContain('Premium+');
+        expect(el.querySelector('.pricing__selection')?.textContent).toContain('Annual');
+        expect(el.querySelector('.pricing-card--selected .pricing-card__name')?.textContent).toBe('Premium+');
+        expect(el.querySelector('.pricing-card--selected .pricing-card__per-day')?.textContent).toContain('$349.99 once a year');
+        expect(startCheckout).not.toHaveBeenCalled();
+    });
+
+    it('ignores forged pricing choices instead of granting access or opening checkout', async () => {
+        const harness = await RouterTestingHarness.create('/account/pricing?plan=admin&interval=free');
+        expect(harness.routeNativeElement!.querySelector('.pricing__selection')).toBeNull();
+        expect(harness.routeNativeElement!.textContent).toContain('$34.99');
+        expect(startCheckout).not.toHaveBeenCalled();
+    });
+
     it('links See pricing from account settings to the in-app page', async () => {
         const fixture = TestBed.createComponent(AccountPlanComponent);
         await fixture.whenStable();

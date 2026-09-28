@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { RevealOnScrollDirective } from '../../reveal-on-scroll.directive';
@@ -6,6 +6,8 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { isPaidPlan } from '../../../../core/models/user.model';
 import { BillingService, BillingInterval, SubscriptionPlan } from '../../../account/billing.service';
 import { SUBSCRIPTION_PLANS } from '../../../account/subscription-plans';
+import { PricingIntent, pricingReturnUrl } from '../../../account/pricing/pricing-intent';
+import { LoginDialogService } from '../../../auth/login-dialog/login-dialog.service';
 
 @Component({
     selector: 'app-landing-pricing', standalone: true,
@@ -18,10 +20,14 @@ export class LandingPricingComponent {
     private auth = inject(AuthService);
     private billing = inject(BillingService);
     private router = inject(Router);
+    private loginDialog = inject(LoginDialogService, { optional: true });
     readonly embedded = input(false);
+    readonly selection = input<PricingIntent | null>(null);
     readonly plans = SUBSCRIPTION_PLANS;
     readonly whopUrl = 'https://whop.com/nvzn-trading/monthly-trading-access?a=sasha-vash';
-    readonly billingCycle = signal<BillingInterval>('monthly');
+    readonly billingCycle = linkedSignal<BillingInterval>(() => this.selection()?.interval ?? 'monthly');
+    readonly selectedPlan = linkedSignal<SubscriptionPlan | null>(() => this.selection()?.plan ?? null);
+    readonly selectedPlanName = computed(() => this.plans.find(plan => plan.id === this.selectedPlan())?.name);
     readonly checkoutBusy = signal<SubscriptionPlan | null>(null);
     readonly checkoutError = signal<string | null>(null);
 
@@ -38,8 +44,11 @@ export class LandingPricingComponent {
     async subscribe(plan: SubscriptionPlan = 'premium'): Promise<void> {
         if (this.checkoutBusy()) return;
         this.checkoutError.set(null);
+        this.selectedPlan.set(plan);
         if (!this.auth.isAuthenticated()) {
-            void this.router.navigate(['/login'], { queryParams: { returnUrl: '/account/pricing' } });
+            const returnUrl = pricingReturnUrl(plan, this.billingCycle());
+            if (this.loginDialog) this.loginDialog.open(returnUrl);
+            else void this.router.navigate(['/login'], { queryParams: { returnUrl } });
             return;
         }
         if (this.includes(plan)) {

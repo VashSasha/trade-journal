@@ -1,120 +1,20 @@
-<section class="hero">
+<section class="hero" aria-labelledby="landing-title">
     <div class="hero__inner">
         <div class="hero__copy">
-            <span class="hero__badge">
-                <span class="hero__badge-dot"></span>
-                Built for the NVZN Trading community
-            </span>
-            <h1 class="hero__title">
-                The journal that <span class="hero__title-accent">coaches&nbsp;you&nbsp;back.</span>
-            </h1>
-            <p class="hero__subtitle">
-                Your broker fills sync automatically, and AI reviews every session —
-                the patterns, the mistakes, and what to fix tomorrow. You trade;
-                your journal handles everything else.
-            </p>
+            <h1 class="hero__title" id="landing-title">Your trading journal.<br />Now with a voice.</h1>
+            <p class="hero__subtitle">See your accounts in one place, hear timely reminders, and turn each session into a review worth coming back to.</p>
             <div class="hero__actions">
-                <a class="hero__cta" [routerLink]="[]" fragment="pricing">Get started</a>
-                <a class="hero__cta hero__cta--ghost" routerLink="/demo">Explore the demo</a>
+                <a class="hero__cta" routerLink="/demo">Explore the demo</a>
+                <a class="hero__link" [routerLink]="[]" fragment="pricing">See plans</a>
             </div>
-            <ul class="hero__proof">
-                <!-- Update this number periodically as trades_synced grows -->
-                <li>20,000+ trades synced</li>
-                <li>Daily AI insights on your real trades</li>
-            </ul>
+            <p class="hero__detail">The journal is your foundation.<br />Live Coach is your Premium+ companion.</p>
         </div>
-
-        <!-- Dashboard visual. The .hero__screen frame is screenshot-ready:
-             swap the .mockup div for <img class="hero__screenshot" …> when a
-             real dashboard capture is available — frame + chip stay as-is. -->
-        <div class="hero__visual" aria-hidden="true">
-            <div class="hero__screen">
-                <div class="mockup">
-                    <div class="mockup__titlebar">
-                        <span class="mockup__dot"></span>
-                        <span class="mockup__dot"></span>
-                        <span class="mockup__dot"></span>
-                        <span class="mockup__titlebar-label">Dashboard — NVZN Journal</span>
-                    </div>
-
-                    <div class="mockup__stats">
-                        <div class="mockup__stat">
-                            <span class="mockup__stat-label">Net P&amp;L</span>
-                            <span class="mockup__stat-value mockup__stat-value--positive">+$12,480</span>
-                        </div>
-                        <div class="mockup__stat">
-                            <span class="mockup__stat-label">Win rate</span>
-                            <span class="mockup__stat-value">64%</span>
-                        </div>
-                        <div class="mockup__stat">
-                            <span class="mockup__stat-label">Profit factor</span>
-                            <span class="mockup__stat-value">2.31</span>
-                        </div>
-                        <div class="mockup__stat">
-                            <span class="mockup__stat-label">Trades</span>
-                            <span class="mockup__stat-value">247</span>
-                        </div>
-                    </div>
-
-                    <div class="mockup__chart">
-                        <!-- Equity curve — mirrors real EquityCurveChartComponent:
-                             red/maroon segment below baseline (early dip), green above (recovery).
-                             Hex values match the chart component exactly (dark-mode palette). -->
-                        <svg viewBox="0 0 560 220" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-                            <line class="mockup__gridline" x1="0" y1="50"  x2="560" y2="50" />
-                            <line class="mockup__gridline" x1="0" y1="110" x2="560" y2="110" />
-                            <!-- Dashed baseline — rgba(148,163,184,0.6) from EquityCurveChartComponent -->
-                            <line class="mockup__baseline" x1="0" y1="155" x2="560" y2="155" />
-
-                            <!-- Fill below baseline (early dip — maroon) -->
-                            <path class="mockup__equity-fill mockup__equity-fill--neg"
-                                  d="M0,155 C50,163 90,175 130,179 C165,179 195,167 225,155 L0,155 Z" />
-                            <!-- Fill above baseline (recovery — green) -->
-                            <path class="mockup__equity-fill mockup__equity-fill--pos"
-                                  d="M225,155 C265,142 315,118 375,96 C430,78 490,68 560,60 L560,155 L225,155 Z" />
-
-                            <!-- Curve stroke — below-baseline segment (maroon #6B1F2A) -->
-                            <path class="mockup__equity-line mockup__equity-line--neg"
-                                  d="M0,155 C50,163 90,175 130,179 C165,179 195,167 225,155" />
-                            <!-- Curve stroke — above-baseline segment (green #10b981) -->
-                            <path class="mockup__equity-line mockup__equity-line--pos"
-                                  d="M225,155 C265,142 315,118 375,96 C430,78 490,68 560,60" />
-                        </svg>
-                    </div>
-
-                    <div class="mockup__rows">
-                        <div class="mockup__row">
-                            <span class="mockup__tag mockup__tag--long">LONG</span>
-                            <span class="mockup__sym">MNQ</span>
-                            <span class="mockup__bar"><span style="width: 72%"></span></span>
-                            <span class="mockup__pnl mockup__pnl--positive">+$430</span>
-                        </div>
-                        <div class="mockup__row">
-                            <span class="mockup__tag mockup__tag--short">SHORT</span>
-                            <span class="mockup__sym">ES</span>
-                            <span class="mockup__bar"><span style="width: 48%"></span></span>
-                            <span class="mockup__pnl mockup__pnl--positive">+$212</span>
-                        </div>
-                        <div class="mockup__row">
-                            <span class="mockup__tag mockup__tag--long">LONG</span>
-                            <span class="mockup__sym">NQ</span>
-                            <span class="mockup__bar"><span style="width: 26%"></span></span>
-                            <span class="mockup__pnl mockup__pnl--negative">−$118</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Floating AI-insight chip — visualizes the coach angle -->
-                <div class="hero__ai-chip">
-                    <span class="hero__ai-chip-icon">✨</span>
-                    <span class="hero__ai-chip-body">
-                        <strong class="hero__ai-chip-label">AI insight</strong>
-                        <span class="hero__ai-chip-text">You overtrade after 2 losses — see today's review</span>
-                    </span>
-                </div>
-            </div>
-
-            <div class="hero__glow"></div>
-        </div>
+        <app-landing-product-preview />
+    </div>
+    <div class="hero__foot">
+        <span>Built around your trading day</span>
+        <a [routerLink]="[]" fragment="features">Capture the session</a>
+        <a [routerLink]="[]" fragment="ai">Stay aware in real time</a>
+        <a [routerLink]="[]" fragment="pricing">Review on your terms</a>
     </div>
 </section>

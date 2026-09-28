@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { RevealOnScrollDirective } from '../../reveal-on-scroll.directive';
+import { LoginEntryDirective } from '../../../auth/login-dialog/login-entry.directive';
 
 @Component({
     selector: 'app-landing-cta',
     standalone: true,
-    imports: [RouterLink, RevealOnScrollDirective],
+    imports: [RouterLink, RevealOnScrollDirective, LoginEntryDirective],
     templateUrl: './landing-cta.component.html',
     styleUrl: './landing-cta.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush

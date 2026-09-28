@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { safeAuthReturnUrl } from '../auth-return-url';
 
 /**
  * Completes the Supabase OAuth flow. supabase-js exchanges the code in the
@@ -20,6 +21,7 @@ export class AuthCallbackComponent implements OnInit {
     private route = inject(ActivatedRoute);
 
     error = signal<string | null>(null);
+    readonly returnUrl = safeAuthReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'));
 
     async ngOnInit(): Promise<void> {
         const oauthError = this.route.snapshot.queryParamMap.get('error_description')
@@ -47,7 +49,6 @@ export class AuthCallbackComponent implements OnInit {
             console.warn('Plan resolution failed, continuing with current plan.', err);
         }
 
-        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard';
-        this.router.navigateByUrl(returnUrl, { replaceUrl: true });
+        this.router.navigateByUrl(this.returnUrl, { replaceUrl: true });
     }
 }

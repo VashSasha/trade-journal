@@ -3,6 +3,9 @@
 }
 
 .landing {
+    --landing-width: 1240px;
+    --landing-gutter: clamp(20px, 4vw, 56px);
     min-height: 100vh;
     background: var(--color-bg-base);
+    font-family: 'Avenir Next', 'Segoe UI', sans-serif;
 }

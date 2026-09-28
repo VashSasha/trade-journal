@@ -1,0 +1,69 @@
+<div class="product-preview">
+    <div class="product-preview__bar">
+        <span class="product-preview__brand"><img src="/NVZN_diamond_logo.png" width="20" height="26" alt="" />Your workspace</span>
+        <span class="product-preview__sample">Illustrative preview</span>
+    </div>
+    <div class="product-preview__tabs" role="group" aria-label="Explore the product preview">
+        @for (tab of views; track tab.id) {
+            <button type="button" [attr.aria-pressed]="view() === tab.id"
+                [class.product-preview__tab--active]="view() === tab.id"
+                class="product-preview__tab" (click)="selectView(tab.id)">{{ tab.label }}</button>
+        }
+    </div>
+    <div class="product-preview__workspace">
+        <div class="product-preview__performance">
+            <div class="product-preview__account"><span>Example session</span><span>3 accounts</span></div>
+            <div class="product-preview__metrics">
+                <div><span>Realized P&amp;L</span><strong>+$260.00</strong></div>
+                <div><span>Open P&amp;L</span><strong>+$80.00</strong></div>
+            </div>
+            <div class="product-preview__chart" role="img" aria-label="Illustrative realized account balance: starts at $75,000, dips to $74,960, and finishes at $75,260.">
+                @defer (on viewport) {
+                    <app-equity-curve-chart [equityData]="equity" [baseline]="75000" />
+                } @placeholder {
+                    <div class="product-preview__chart-loading">Session equity curve</div>
+                }
+            </div>
+            <div class="product-preview__axis" aria-hidden="true"><span>9:30 am</span><span>11:30 am</span></div>
+            <div class="product-preview__target">
+                <div><span>Daily target <strong>$300</strong></span><span>Including open P&amp;L</span></div>
+                <div class="product-preview__target-track"><span></span></div>
+                <p>Combined totals for the selected accounts. Open P&amp;L is an estimate.</p>
+            </div>
+        </div>
+        <div class="product-preview__insight" aria-live="polite" aria-atomic="true">
+            @switch (view()) {
+                @case ('coach') {
+                    <div class="product-preview__insight-head"><span class="product-preview__status" aria-hidden="true"></span><strong>Live Coach</strong><span>Premium+</span></div>
+                    <p class="product-preview__event">{{ moment() === 'target' ? 'Daily target reached' : 'Keep the count in context' }}</p>
+                    <p class="product-preview__message">{{ coachText() }}</p>
+                    <div class="product-preview__wave" aria-hidden="true">@for (height of waveform; track $index) { <span [style.height.px]="height"></span> }</div>
+                    <span class="product-preview__voice-label">Spoken or on-screen. Your choice.</span>
+                    <button type="button" class="product-preview__moment" (click)="moment.set(moment() === 'target' ? 'pace' : 'target')">
+                        {{ moment() === 'target' ? 'Show a trade-count example' : 'Show the target example' }}
+                    </button>
+                }
+                @case ('review') {
+                    <div class="product-preview__insight-head"><strong>Session review</strong><span>Saved</span></div>
+                    <p class="product-preview__event">Make the next session intentional.</p>
+                    <p class="product-preview__message">A place for the context the numbers leave out.</p>
+                    <div class="product-preview__note"><span>What I noticed</span><p>I waited for the second setup instead of chasing the open.</p></div>
+                    <div class="product-preview__note"><span>Tomorrow’s focus</span><p>Keep the same size after a losing trade.</p></div>
+                    <span class="product-preview__voice-label">Example journal notes, not a live analysis.</span>
+                }
+                @case ('analytics') {
+                    <div class="product-preview__insight-head"><strong>Account breakdown</strong><span>Net P&amp;L</span></div>
+                    <p class="product-preview__event">The total is only the beginning.</p>
+                    <p class="product-preview__message">Look at each account, not just the combined result.</p>
+                    <div class="product-preview__account-row"><span>Account A</span><strong>+$140</strong></div>
+                    <div class="product-preview__breakdown" aria-hidden="true"><span style="width: 100%"></span></div>
+                    <div class="product-preview__account-row"><span>Account B</span><strong>+$90</strong></div>
+                    <div class="product-preview__breakdown" aria-hidden="true"><span style="width: 64.3%"></span></div>
+                    <div class="product-preview__account-row"><span>Account C</span><strong>+$30</strong></div>
+                    <div class="product-preview__breakdown" aria-hidden="true"><span style="width: 21.4%"></span></div>
+                }
+            }
+        </div>
+    </div>
+    <p class="product-preview__caption">Sample data. No broker connection, AI request or audio playback in this preview.</p>
+</div>

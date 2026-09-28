@@ -22,11 +22,15 @@ export class LandingFaqComponent {
         },
         {
             question: 'Which brokers are supported?',
-            answer: 'Tradovate today — fills, accounts, and fees sync automatically, including prop-firm accounts running on Tradovate infrastructure. More brokers are on the roadmap.'
+            answer: 'Tradovate today, including supported prop-firm accounts using Tradovate. Sync broker reports or import a Tradovate Performance CSV. Fees use reported values where available, or your configured commission. More brokers are on the roadmap.'
         },
         {
             question: 'How does the AI coaching work?',
-            answer: 'With Premium+ or an individual AI access grant, you generate an insight from your daily journal: the AI reads that day\'s actual trades — P&L, win rate, win/loss dynamics — and returns a summary, key takeaways, and a checklist of action points for tomorrow. You can also upload a chart screenshot on the Reports page and get a structured verdict with levels and confidence, then ask follow-up questions. Everything runs server-side; there are no API keys to manage.'
+            answer: 'Premium+ adds Live Coach, saved daily reviews and chart analysis. Set your guardrails for timely spoken or on-screen reminders, review a short daily summary, then ask for more detail. AI requests and voices have daily limits. AI can make mistakes; use it to support your review, not to make trading decisions for you.'
+        },
+        {
+            question: 'Does Live Coach place trades or run while NVZN is closed?',
+            answer: 'No. Live Coach never places orders. Live monitoring needs NVZN open and your broker connected. Open-position P&L alerts also require fresh quotes and available API market data. You can turn voice off and keep the on-screen context.'
         },
         {
             question: 'Is my data safe?',

@@ -15,7 +15,7 @@
 
     &__title {
         font-size: clamp(1.7rem, 3vw, 2.4rem);
-        font-weight: 800;
+        font-weight: 600;
         letter-spacing: -0.02em;
         line-height: 1.2;
         color: var(--color-text-primary);
@@ -83,6 +83,6 @@
 
 @media (max-width: 600px) {
     .faq {
-        padding: 4rem 1.25rem;
+        padding: 88px 1.25rem 4rem;
     }
 }

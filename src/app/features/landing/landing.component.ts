@@ -4,13 +4,13 @@ import { LandingHeroComponent } from './sections/landing-hero/landing-hero.compo
 import { LandingAiComponent } from './sections/landing-ai/landing-ai.component';
 import { LandingIntegrationsComponent } from './sections/landing-integrations/landing-integrations.component';
 import { LandingFeaturesComponent } from './sections/landing-features/landing-features.component';
-import { LandingAudienceComponent } from './sections/landing-audience/landing-audience.component';
 import { LandingDiscordComponent } from './sections/landing-discord/landing-discord.component';
 // LandingTestimonialsComponent intentionally not imported — see landing.component.html.
-import { LandingComparisonComponent } from './sections/landing-comparison/landing-comparison.component';
 import { LandingPricingComponent } from './sections/landing-pricing/landing-pricing.component';
 import { LandingFaqComponent } from './sections/landing-faq/landing-faq.component';
 import { LandingCtaComponent } from './sections/landing-cta/landing-cta.component';
+import { LoginDialogComponent } from '../auth/login-dialog/login-dialog.component';
+import { LoginDialogService } from '../auth/login-dialog/login-dialog.service';
 
 @Component({
     selector: 'app-landing',
@@ -21,13 +21,13 @@ import { LandingCtaComponent } from './sections/landing-cta/landing-cta.componen
         LandingAiComponent,
         LandingIntegrationsComponent,
         LandingFeaturesComponent,
-        LandingAudienceComponent,
         LandingDiscordComponent,
-        LandingComparisonComponent,
         LandingPricingComponent,
         LandingFaqComponent,
-        LandingCtaComponent
+        LandingCtaComponent,
+        LoginDialogComponent,
     ],
+    providers: [LoginDialogService],
     templateUrl: './landing.component.html',
     styleUrl: './landing.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush

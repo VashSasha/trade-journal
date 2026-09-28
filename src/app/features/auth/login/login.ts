@@ -1,21 +1,32 @@
-import { Component, signal, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, signal, inject } from '@angular/core';
+import { CurrencyPipe } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { PublicNavComponent } from '../../../shared/components/public-nav/public-nav.component';
+import { safeAuthReturnUrl } from '../auth-return-url';
+import { pricingIntentFromUrl } from '../../account/pricing/pricing-intent';
+import { SUBSCRIPTION_PLANS } from '../../account/subscription-plans';
 
 @Component({
     selector: 'app-login',
     standalone: true,
-    imports: [ReactiveFormsModule, RouterLink, PublicNavComponent],
+    imports: [ReactiveFormsModule, RouterLink, PublicNavComponent, CurrencyPipe],
     templateUrl: './login.html',
-    styleUrl: './login.scss'
+    styleUrl: './login.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LoginComponent {
     private fb = inject(FormBuilder);
     private authService = inject(AuthService);
     private router = inject(Router);
     private route = inject(ActivatedRoute);
+    readonly embedded = input(false);
+    readonly returnTo = input<string | null>(null);
+    readonly destination = computed(() => safeAuthReturnUrl(this.returnTo() ?? this.route.snapshot.queryParams['returnUrl']));
+    readonly intent = computed(() => pricingIntentFromUrl(this.destination()));
+    readonly selectedPlan = computed(() => SUBSCRIPTION_PLANS.find(plan => plan.id === this.intent()?.plan));
+    readonly busy = computed(() => this.isLoading() || this.isDiscordLoading() || this.isGoogleLoading());
 
     loginForm: FormGroup = this.fb.group({
         email: ['', [Validators.required, Validators.email]],
@@ -43,18 +54,18 @@ export class LoginComponent {
             this.loginForm.disable();
         }
         if (this.route.snapshot.queryParams['reason'] === 'session-expired') {
-            this.errorMessage.set('You were signed out after 30 minutes of inactivity. Please sign in again.');
+            this.errorMessage.set('Your session has expired. Sign in again to continue where you left off.');
         }
     }
 
     async loginWithDiscord(): Promise<void> {
+        if (this.busy()) return;
         this.isDiscordLoading.set(true);
         this.errorMessage.set(null);
         try {
             // Redirects to Discord; /auth/callback handles the return trip
             // (including navigation to returnUrl), so no navigation here.
-            const returnUrl = this.route.snapshot.queryParams['returnUrl'];
-            await this.authService.loginWithDiscord(returnUrl);
+            await this.authService.loginWithDiscord(this.destination());
         } catch (err: any) {
             this.errorMessage.set(err.message || 'Discord login failed. Please try again.');
             this.isDiscordLoading.set(false);
@@ -62,12 +73,12 @@ export class LoginComponent {
     }
 
     async loginWithGoogle(): Promise<void> {
+        if (this.busy()) return;
         this.isGoogleLoading.set(true);
         this.errorMessage.set(null);
         try {
             // Redirects to Google; /auth/callback handles the return trip.
-            const returnUrl = this.route.snapshot.queryParams['returnUrl'];
-            await this.authService.loginWithGoogle(returnUrl);
+            await this.authService.loginWithGoogle(this.destination());
         } catch (err: any) {
             this.errorMessage.set(err.message || 'Google login failed. Please try again.');
             this.isGoogleLoading.set(false);
@@ -75,7 +86,7 @@ export class LoginComponent {
     }
 
     async onSubmit(): Promise<void> {
-        if (!this.emailAuthEnabled) {
+        if (!this.emailAuthEnabled || this.busy()) {
             return;
         }
         if (this.loginForm.invalid) {
@@ -86,14 +97,17 @@ export class LoginComponent {
         this.isLoading.set(true);
         this.errorMessage.set(null);
 
-        const result = await this.authService.login(this.loginForm.value);
-        this.isLoading.set(false);
-
-        if (result.success) {
-            const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
-            this.router.navigateByUrl(returnUrl);
-        } else {
-            this.errorMessage.set(result.error || 'Login failed');
+        try {
+            const result = await this.authService.login(this.loginForm.value);
+            if (result.success) {
+                void this.router.navigateByUrl(this.destination());
+            } else {
+                this.errorMessage.set(result.error || 'Login failed');
+            }
+        } catch {
+            this.errorMessage.set('Could not sign in. Check your connection and try again.');
+        } finally {
+            this.isLoading.set(false);
         }
     }
 

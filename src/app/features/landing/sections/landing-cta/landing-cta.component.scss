@@ -1,124 +1,119 @@
+:host {
+    display: block;
+}
 .cta {
-    padding: 5rem 1.5rem;
-
+    padding: 80px var(--landing-gutter, 24px);
     &__card {
-        max-width: 46rem;
+        max-width: var(--landing-width, 1240px);
         margin: 0 auto;
-        padding: 3.5rem 2rem;
-        text-align: center;
-        border-radius: 1.25rem;
-        border: 1px solid var(--color-border);
-        background:
-            radial-gradient(80% 120% at 50% 0%, var(--color-accent-subtle) 0%, transparent 70%),
-            var(--color-bg-surface);
-        box-shadow: 0 20px 56px rgba(0, 0, 0, 0.1);
+        padding-block: 56px;
+        border-top: 1px solid var(--color-border);
     }
-
+    &__eyebrow {
+        color: var(--color-text-accent);
+        font-size: 11px;
+        letter-spacing: 2px;
+        font-weight: 700;
+        margin: 0 0 24px;
+    }
     &__title {
-        font-size: clamp(1.8rem, 3.2vw, 2.5rem);
-        font-weight: 800;
-        letter-spacing: -0.02em;
+        font-size: clamp(32px, 4.2vw, 56px);
+        line-height: 1.12;
+        font-weight: 600;
+        letter-spacing: -1.8px;
         color: var(--color-text-primary);
+        margin: 0;
     }
-
     &__text {
-        margin: 0.9rem auto 1.8rem;
-        max-width: 28rem;
-        font-size: 1.05rem;
-        line-height: 1.6;
+        margin: 24px 0;
+        max-width: 480px;
+        font-size: 16px;
+        line-height: 1.7;
         color: var(--color-text-secondary);
     }
-
+    &__actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 24px;
+    }
     &__button {
         display: inline-flex;
-        padding: 0.9rem 2.2rem;
-        border-radius: 0.7rem;
-        font-size: 1rem;
-        font-weight: 700;
+        align-items: center;
+        gap: 24px;
+        min-height: 48px;
+        padding: 12px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 650;
         text-decoration: none;
-        background: var(--color-accent);
-        color: #ffffff;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-        box-shadow: 0 10px 28px var(--color-accent-subtle);
-
+        background: var(--color-text-accent);
+        color: var(--color-bg-base);
         &:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 14px 36px var(--color-accent-subtle);
+            opacity: .9;
         }
     }
-
-    &__hint {
-        margin-top: 1.1rem;
-        font-size: 0.8rem;
-        color: var(--color-text-muted);
-    }
-
-    &__journal-link {
-        display: block;
-        margin-top: 0.85rem;
-        font-size: 0.88rem;
-        font-weight: 600;
-        color: var(--color-accent);
+    &__plans {
+        padding-block: 12px;
+        color: var(--color-text-primary);
+        font-size: 14px;
         text-decoration: none;
-
-        &:hover { text-decoration: underline; }
-    }
-
-    &__demo-link {
-        display: block;
-        margin-top: 0.75rem;
-        font-size: 0.88rem;
-        color: var(--color-text-secondary);
-        text-decoration: none;
-
         &:hover {
-            color: var(--color-text-primary);
             text-decoration: underline;
         }
     }
-
+    &__hint {
+        margin: 20px 0 0;
+        font-size: 12px;
+        line-height: 1.7;
+        color: var(--color-text-secondary);
+    }
     &__login {
         display: inline-block;
-        margin-top: 1.25rem;
-        font-size: 0.82rem;
-        color: var(--color-text-muted);
+        padding-block: 12px;
+        margin-top: 12px;
+        font-size: 13px;
+        color: var(--color-text-secondary);
         text-decoration: none;
-
         &:hover {
-            color: var(--color-text-primary);
             text-decoration: underline;
         }
     }
+    a:focus-visible {
+        outline: 2px solid var(--color-text-accent);
+        outline-offset: 4px;
+    }
 }
-
 .footer {
     border-top: 1px solid var(--color-border);
-    padding: 1.5rem;
-
+    padding: 24px var(--landing-gutter, 24px);
     &__inner {
-        max-width: 72rem;
+        max-width: var(--landing-width, 1240px);
         margin: 0 auto;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 1rem;
+        gap: 16px;
         flex-wrap: wrap;
     }
-
     &__brand {
-        font-size: 0.9rem;
+        font-size: 14px;
         font-weight: 700;
         color: var(--color-text-primary);
     }
-
     &__copy {
-        font-size: 0.8rem;
-        color: var(--color-text-muted);
+        font-size: 12px;
+        color: var(--color-text-secondary);
     }
 }
-
 @media (max-width: 600px) {
     .cta {
-        padding: 3.5rem 1.25rem;
+        padding-block: 32px;
+        &__title {
+            letter-spacing: -1px;
+        }
+        &__card {
+            padding-block: 32px;
+        }
     }
 }

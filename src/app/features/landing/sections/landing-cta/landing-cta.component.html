@@ -1,15 +1,16 @@
 <section class="cta">
   <div class="cta__card" appRevealOnScroll>
-    <h2 class="cta__title">Your AI coach is ready when you are.</h2>
+    <p class="cta__eyebrow">NVZN JOURNAL</p>
+    <h2 class="cta__title">Give your next session<br />a little more perspective.</h2>
     <p class="cta__text">
-      Connect your broker, sync your history, and get your first AI session review in minutes.
+      Explore the workspace first. Add the journal, analytics and coaching that fit the way you trade.
     </p>
-    <a class="cta__button" [routerLink]="[]" fragment="pricing">Explore Premium+</a>
-    <p class="cta__hint">AI coaching, reports and voices are included with Premium+. Usage limits apply.</p>
-    <a class="cta__journal-link" href="https://whop.com/nvzn-trading/monthly-trading-access?a=sasha-vash"
-       target="_blank" rel="noopener">Prefer the community? Discord membership includes Premium — AI is separate →</a>
-    <a class="cta__demo-link" routerLink="/demo">Not sure yet? Explore the demo workspace →</a>
-    <a class="cta__login" routerLink="/login">Already a member? Log in</a>
+    <div class="cta__actions">
+      <a class="cta__button" routerLink="/demo">Explore the demo <span aria-hidden="true">↗</span></a>
+      <a class="cta__plans" [routerLink]="[]" fragment="pricing">Find your plan →</a>
+    </div>
+    <p class="cta__hint">Live Coach and AI reviews are available with Premium+. Usage limits apply.</p>
+    <a class="cta__login" appLoginEntry>Already a member? Log in</a>
   </div>
 </section>
 
