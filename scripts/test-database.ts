@@ -378,4 +378,33 @@ try {
     await db.exec('reset role');
     assert.deepEqual(await query('select * from trades order by id'), tradesBeforePlus);
     console.log('PASS: typed Coach owner isolation, service-only answers, replay uniqueness, immutable history, safe rerun, downgrade read/delete, conversation-only cascade, retained trades');
+
+    const settingsBeforeSetup = await query('select * from user_settings order by user_id');
+    await migration('0035_onboarding_progress');
+    await migration('0035_onboarding_progress');
+    assert.deepEqual(await query('select * from user_settings order by user_id'), settingsBeforeSetup);
+    await setUser(A);
+    const updateSetup = (patch: unknown) => query('select set_my_onboarding_progress($1::jsonb) as progress', [JSON.stringify(patch)]);
+    await updateSetup({ started: true, accountsReviewed: true });
+    const savedSetup = await updateSetup({ dismissed: true });
+    assert.deepEqual(savedSetup[0].progress, { started: true, accountsReviewed: true, dismissed: true });
+    for (const invalid of [null, [], 'yes', { user_id: B }, { dismissed: 'true' }, { accountsReviewed: null }, { alertsReviewed: {} }]) {
+        await assert.rejects(updateSetup(invalid), /Setup progress must be an object|Invalid setup progress/);
+    }
+    const ownerPrefs = (await query('select prefs from user_settings'))[0].prefs;
+    const withoutSetup = { ...ownerPrefs }; delete withoutSetup.onboarding;
+    const oldPrefs = settingsBeforeSetup.find(row => row.user_id === A).prefs;
+    assert.deepEqual(withoutSetup, oldPrefs);
+    await setUser(B);
+    const bSetup = await updateSetup({ alertsReviewed: true });
+    assert.deepEqual(bSetup[0].progress, { alertsReviewed: true });
+    assert.equal((await query('select prefs from user_settings where user_id=$1', [A])).length, 0);
+    await db.exec('reset role; set role anon');
+    await assert.rejects(updateSetup({ dismissed: true }), /permission denied/);
+    await setUser('');
+    await assert.rejects(updateSetup({ dismissed: true }), /Authentication required/);
+    await db.exec('reset role');
+    assert.deepEqual((await query('select prefs from user_settings where user_id=$1', [A]))[0].prefs, ownerPrefs);
+    assert.deepEqual(await query('select * from trades order by id'), tradesBeforePlus);
+    console.log('PASS: setup progress owner isolation, anonymous denial, input validation, partial merging, safe rerun, unchanged alert preferences and trades');
 } finally { await db.close(); }

@@ -9,6 +9,11 @@ export const ACCOUNT_ROUTES: Routes = [
         children: [
             { path: '', redirectTo: 'profile', pathMatch: 'full' },
             {
+                path: 'getting-started',
+                loadComponent: () => import('../onboarding/getting-started.component')
+                    .then(m => m.GettingStartedComponent)
+            },
+            {
                 path: 'profile',
                 loadComponent: () => import('./sections/account-profile/account-profile.component')
                     .then(m => m.AccountProfileComponent)
