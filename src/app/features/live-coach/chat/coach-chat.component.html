@@ -1,0 +1,103 @@
+<div class="coach-chat">
+    <div #scroll class="coach-chat__scroll" (scroll)="trackScroll(scroll)">
+        @if (chat.loading()) { <p class="coach-chat__hint" role="status">Loading chat…</p> }
+        @if (!timeline().length && !chat.loading() && !chat.pending()) {
+            <div class="coach-chat__intro">
+                <h3>What would you like to review?</h3>
+                @if (chat.access.canAct('ai')) {
+                    <div class="coach-chat__starters">
+                        @for (starter of starters; track starter.label) {
+                            <button type="button" (click)="chat.draft.set(starter.message); focusMessage()">{{ starter.label }}</button>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        <ol class="coach-chat__turns" aria-label="Conversation messages">
+            @for (entry of timeline(); track entry.key) {
+                <li>
+                    @if (entry.comment; as comment) {
+                        <div class="coach-chat__observation">
+                            <div class="coach-chat__observation-label"><span>{{ comment.title }}</span><time [attr.datetime]="comment.time | date:'yyyy-MM-ddTHH:mm:ssZZZZZ'">{{ comment.time | date:'MMM d, h:mm a' }}</time></div>
+                            <p>{{ comment.text }}</p>
+                            @if (chat.access.canAct('ai') && comment.historyId) {
+                                <button type="button" class="coach-chat__reply" (click)="reply(comment)" [disabled]="!!chat.pending() || chat.loading()">Reply</button>
+                            }
+                        </div>
+                    }
+                    @if (entry.turn; as turn) {
+                        <div class="coach-chat__question">
+                            @if (turn.context.replyTo; as original) { <blockquote>{{ original.text }}</blockquote> }
+                            <span class="coach-chat__sr">You: </span>{{ turn.prompt }}
+                        </div>
+                        <div class="coach-chat__answer">
+                            <app-live-coach-answer [answer]="turn.answer" [conversational]="true" />
+                            <div class="coach-chat__message-actions">
+                                @if (chat.access.canAct('ai') && chat.access.canAct('sync')) {
+                                    <button type="button" class="coach-chat__icon" aria-label="Read summary" title="Read summary" (click)="read(turn.answer.meaning)"
+                                            [disabled]="coach.paused() || coach.readingSummary() || chat.busy()">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m11 5-6 4H2v6h3l6 4V5Zm4 4a5 5 0 0 1 0 6m3-9a9 9 0 0 1 0 12"/></svg>
+                                    </button>
+                                }
+                                <details class="coach-chat__message-context">
+                                    <summary>Context</summary>
+                                    <p>{{ turn.context.tradeDate }} — {{ turn.context.accountIds === null ? 'All saved accounts' : turn.context.accountIds.length + ' selected account(s)' }}.</p>
+                                    <p>Captured {{ turn.context.capturedAt | date:'MMM d, h:mm a' }}. {{ turn.context.summary ? turn.context.summary.tradeCount + ' trades, approximately ' + turn.context.summary.decisionCount + ' decisions.' : 'General planning; no usable trade summary.' }}</p>
+                                    @if (turn.context.accountIds?.length) { <p>Account IDs: {{ turn.context.accountIds!.join(', ') }}</p> }
+                                </details>
+                            </div>
+                        </div>
+                    }
+                </li>
+            }
+        </ol>
+        @if (speechNotice()) { <p role="status" class="coach-chat__notice">{{ speechNotice() }}</p> }
+        @if (chat.pending(); as request) { <p class="coach-chat__question"><span class="coach-chat__sr">You: </span>{{ request.message }}</p> }
+        @if (chat.busy()) { <p class="coach-chat__hint" role="status">Thinking…</p> }
+        @if (chat.error()) { <p role="alert" class="coach-chat__notice">{{ chat.error() }}</p> }
+        @if (chat.pending() && !chat.busy()) {
+            <div class="coach-chat__actions">
+                <button type="button" (click)="chat.send(true)" [disabled]="!chat.access.canAct('ai') || chat.loading()">Retry</button>
+                <button type="button" (click)="chat.discardPending()">Edit message</button>
+            </div>
+        }
+    </div>
+    @if (!following()) { <button type="button" class="coach-chat__latest" (click)="latest()">Jump to latest ↓</button> }
+    @if (chat.access.canAct('ai')) {
+        <form class="coach-chat__composer" (ngSubmit)="send()">
+            @if (chat.replyTo(); as original) {
+                <div class="coach-chat__reply-preview">
+                    <div><small>Replying to {{ original.title }}</small><p>{{ original.text }}</p></div>
+                    <button type="button" aria-label="Cancel reply" [disabled]="!!chat.pending()" (click)="chat.replyTo.set(null)">×</button>
+                </div>
+            }
+            <label for="coach-chat-message" class="coach-chat__sr">Message Coach</label>
+            <textarea #messageInput id="coach-chat-message" name="message" rows="2" maxlength="1000" placeholder="Message Coach…"
+                [ngModel]="chat.draft()" (ngModelChange)="chat.draft.set($event)" [disabled]="!!chat.pending()" required></textarea>
+            <div class="coach-chat__composer-tools">
+                <details #context class="coach-chat__scope" (keydown.escape)="closeContext($event)">
+                    <summary>{{ (chat.pending()?.context?.tradeDate ?? chat.day()) | date:'MMM d' }} <span aria-hidden="true">⌄</span></summary>
+                    <div class="coach-chat__scope-panel">
+                        <label>Trading day<input type="date" [ngModel]="chat.day()" (ngModelChange)="chat.day.set($event)" name="day" required [disabled]="!!chat.pending()" /></label>
+                        <p>{{ contextAccounts() === null ? 'All saved accounts' : contextAccounts()!.length + ' accounts selected in the header' }}.</p>
+                        <p>Uses saved trades and any update you reply to. Update details reflect when they were captured, not your current position. Other page filters don’t apply.</p>
+                        @if (!chat.dataReady()) { <p>No trade history loaded. You can still plan a session.</p> }
+                    </div>
+                </details>
+                <span class="coach-chat__account-hint">{{ contextAccounts() === null ? 'All accounts' : contextAccounts()!.length + ' accounts' }}</span>
+                @if (chat.draft().length > 850) { <small>{{ chat.draft().length }}/1000</small> }
+                @if (chat.busy()) {
+                    <button type="button" class="coach-chat__send" aria-label="Stop waiting" title="Stop waiting" (click)="chat.cancel()">
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+                    </button>
+                } @else {
+                    <button class="coach-chat__send" type="submit" aria-label="Send message" title="Send message"
+                            [disabled]="!!chat.pending() || chat.loading() || chat.deleting() || !chat.day() || !chat.draft().trim()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg>
+                    </button>
+                }
+            </div>
+        </form>
+        <p class="coach-chat__footer">Saved privately. AI can make mistakes.</p>
+    } @else { <p class="coach-chat__notice"><a routerLink="/account/pricing">Unlock chat with Premium+</a>. Your saved chats stay available.</p> }
+</div>

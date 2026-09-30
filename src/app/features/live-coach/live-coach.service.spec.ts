@@ -16,6 +16,7 @@ import { TradovateLiveService } from '../integrations/tradovate-live/tradovate-l
 import { LiveCoachNarratorService } from './live-coach-narrator.service';
 import { LiveCoachAiPayload, LiveCoachPreferences, LiveCoachReply } from './live-coach.models';
 import { LiveCoachService } from './live-coach.service';
+import { CoachHistoryService } from './history/coach-history.service';
 
 const OWNER = '11111111-1111-4111-8111-111111111111';
 
@@ -41,6 +42,7 @@ describe('LiveCoachService', () => {
     const performanceEvent = signal<{ id: number; tone: 'target' | 'risk'; text: string } | null>(null);
     const userId = signal<string | null>(OWNER);
     const publish = vi.fn();
+    const record = vi.fn();
     const speak = vi.fn(async () => true);
     const generateLiveCoachReply = vi.fn(async (_payload: unknown, _signal: AbortSignal): Promise<LiveCoachReply> => ({ text: 'Stay selective and keep your size consistent.' }));
     const setRequested = vi.fn();
@@ -68,6 +70,7 @@ describe('LiveCoachService', () => {
         stop.mockClear();
         previewLiveCoachVoice.mockClear();
         publish.mockReset();
+        record.mockReset();
         speak.mockClear();
         generateLiveCoachReply.mockReset();
         generateLiveCoachSpeech.mockClear();
@@ -75,6 +78,7 @@ describe('LiveCoachService', () => {
         setRequested.mockReset();
 
         TestBed.configureTestingModule({ providers: [
+            { provide: CoachHistoryService, useValue: { record } },
             { provide: SessionAlertsService, useValue: { enabled: masterEnabled } },
             { provide: AccountAlertPreferencesService, useValue: {
                 liveCoach: preferences,
@@ -116,6 +120,27 @@ describe('LiveCoachService', () => {
         vi.useRealTimers();
     });
 
+    it('reads a chat summary only on explicit request without recording or replaying an observation', async () => {
+        const service = TestBed.inject(LiveCoachService); TestBed.tick();
+        expect(speak).not.toHaveBeenCalled();
+        expect(await service.readChatSummary('Review your plan.')).toBe(true);
+        expect(speak).toHaveBeenCalledWith('Review your plan.', 1);
+        expect(record).not.toHaveBeenCalled(); expect(generateLiveCoachReply).not.toHaveBeenCalled();
+        masterEnabled.set(false); TestBed.tick();
+        expect(await service.readChatSummary('Review your plan.')).toBe(false);
+        expect(speak).toHaveBeenCalledTimes(1);
+    });
+
+    it('chat playback honors revoked AI access and does not interrupt a queued live event', async () => {
+        const service = TestBed.inject(LiveCoachService); TestBed.tick();
+        aiAllowed.set(false); TestBed.tick();
+        expect(await service.readChatSummary('Review your plan.')).toBe(false);
+        aiAllowed.set(true); TestBed.tick();
+        events.set([positionEvent()]); TestBed.tick();
+        expect(await service.readChatSummary('Review your plan.')).toBe(false);
+        expect(speak).not.toHaveBeenCalled();
+    });
+
     it('keeps factual browser commentary for Premium with a saved AI voice, without calling AI', async () => {
         aiAllowed.set(false);
         preferences.update(p => ({ ...p, voice: 'cedar', aiCommentary: true }));
@@ -129,6 +154,10 @@ describe('LiveCoachService', () => {
         expect(speak).toHaveBeenCalledWith(expect.stringContaining('Opened MNQZ6'), 1);
         expect(generateLiveCoachReply).not.toHaveBeenCalled();
         expect(generateLiveCoachSpeech).not.toHaveBeenCalled();
+        expect(record).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+            historyId: expect.any(String), text: expect.stringContaining('Opened MNQZ6'),
+            snapshot: expect.objectContaining({ observation: expect.objectContaining({ symbol: 'MNQZ6' }) }),
+        }));
         expect(setRequested).toHaveBeenCalledWith('live-coach', true);
     });
 

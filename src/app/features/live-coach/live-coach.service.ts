@@ -14,6 +14,7 @@ import { PerformanceAlertsService } from '../alerts/performance-alerts.service';
 import { TradovateLivePositionEvent } from '../integrations/tradovate-live/tradovate-live.models';
 import { TradovateLiveService } from '../integrations/tradovate-live/tradovate-live.service';
 import { LiveCoachNarratorService } from './live-coach-narrator.service';
+import { CoachHistoryService } from './history/coach-history.service';
 import { LiveCoachAiPayload, LiveCoachAiState, LiveCoachNarration, LiveCoachObservation, LiveCoachPreferences, LiveCoachReply } from './live-coach.models';
 import { isLiveCoachVoice } from './live-coach-voices';
 import {
@@ -52,6 +53,7 @@ export class LiveCoachService {
     private readonly narrator = inject(LiveCoachNarratorService);
     private readonly destroyRef = inject(DestroyRef);
     private readonly document = inject(DOCUMENT);
+    private readonly history = inject(CoachHistoryService);
 
     readonly sounds = inject(SessionAlertsService);
     readonly preferences = this.preferenceStore.liveCoach;
@@ -235,6 +237,19 @@ export class LiveCoachService {
     setSpeechRate(rate: number): void {
         if (!Number.isFinite(rate)) return;
         this.update(current => ({ ...current, speechRate: Math.round(rate * 10) / 10 }));
+    }
+
+    readonly readingSummary = signal(false);
+
+    /** Explicit playback only. Live broker events retain priority over a saved answer. */
+    async readChatSummary(text: string): Promise<boolean> {
+        if (!text.trim() || text.length > 220 || !this.access.canAct('ai') || !this.access.canAct('sync')
+            || this.paused() || this.readingSummary() || this.previewing() || this.aiState() === 'thinking'
+            || this.narratorState() === 'speaking' || this.pending.size || Date.now() < this.guardrailUntil) return false;
+        this.readingSummary.set(true);
+        const revision = this.voiceRevision;
+        try { await this.narrator.activate(); return await this.playReply({ text }, revision); }
+        finally { this.readingSummary.set(false); }
     }
 
     async preview(): Promise<void> {
@@ -427,9 +442,11 @@ export class LiveCoachService {
 
     private recordComment(text: string, personalized: boolean, title: string, snapshot?: LiveCoachAiPayload, time = Date.now()): void {
         this.lastSpokenText.set(text);
-        this.recentComments.update(items => [{ id: ++this.commentSequence, text, time, personalized, title,
+        const comment: LiveCoachObservation = { id: ++this.commentSequence, historyId: crypto.randomUUID(), text, time, personalized, title,
             ...(snapshot ? { snapshot: structuredClone(snapshot) } : {}),
-        }, ...items].slice(0, 30));
+        };
+        this.recentComments.update(items => [comment, ...items].slice(0, 30));
+        this.history.record(comment);
     }
 
     private stopVoice(): void {

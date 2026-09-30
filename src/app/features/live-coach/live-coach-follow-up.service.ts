@@ -5,6 +5,7 @@ import { UserSessionService } from '../../core/services/user-session.service';
 import { LiveCoachFollowUpAnswer, LiveCoachQuestion } from './live-coach.models';
 import { coachQuestions } from './live-coach-follow-up.utils';
 import { LiveCoachService } from './live-coach.service';
+import { CoachHistoryService } from './history/coach-history.service';
 
 export type CoachFollowUpState =
     | { status: 'loading' }
@@ -18,6 +19,7 @@ export class LiveCoachFollowUpService {
     private readonly coach = inject(LiveCoachService);
     private readonly access = inject(AccessPolicyService);
     private readonly session = inject(UserSessionService);
+    private readonly history = inject(CoachHistoryService);
     private readonly states = signal<Readonly<Record<string, CoachFollowUpState>>>({});
     readonly pending = signal<string | null>(null);
     private controller: AbortController | null = null;
@@ -77,7 +79,10 @@ export class LiveCoachFollowUpService {
                 onAbort = () => reject(new Error('Follow-up cancelled.'));
                 controller.signal.addEventListener('abort', onAbort, { once: true });
             })]);
-            if (this.current(generation, owner) && !controller.signal.aborted) this.setState(key, { status: 'ready', answer });
+            if (this.current(generation, owner) && !controller.signal.aborted) {
+                this.setState(key, { status: 'ready', answer });
+                this.history.saveAnswer(comment, question, answer);
+            }
         } catch (error) {
             if (this.current(generation, owner)) this.setState(key, {
                 status: 'error', message: timedOut ? 'This answer took too long. Please try again.'

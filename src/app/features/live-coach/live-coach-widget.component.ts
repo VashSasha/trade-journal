@@ -1,25 +1,29 @@
-import { DatePipe } from '@angular/common';
-import { afterNextRender, ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, Injector, output, signal, untracked, viewChild } from '@angular/core';
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, DestroyRef, effect, ElementRef, inject, Injector, output, signal, untracked, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AccessPolicyService } from '../../core/services/access-policy.service';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { MarketPanelService } from '../market-events/market-panel.service';
 import { LiveCoachService } from './live-coach.service';
 import { LiveCoachVoiceSelectComponent } from './live-coach-voice-select.component';
-import { LiveCoachFollowUpComponent } from './live-coach-follow-up.component';
 import { LiveCoachFollowUpService } from './live-coach-follow-up.service';
+import { CoachHistoryService } from './history/coach-history.service';
+import { CoachHistoryComponent } from './history/coach-history.component';
+import { CoachChatComponent } from './chat/coach-chat.component';
+import { CoachChatService } from './chat/coach-chat.service';
+import { CoachActionsComponent, CoachView } from './coach-actions.component';
 
 @Component({
     selector: 'app-live-coach-widget',
     standalone: true,
-    imports: [DatePipe, RouterLink, LiveCoachVoiceSelectComponent, LiveCoachFollowUpComponent],
-    providers: [LiveCoachFollowUpService],
+    imports: [RouterLink, LiveCoachVoiceSelectComponent, CoachHistoryComponent, CoachChatComponent, CoachActionsComponent],
+    providers: [LiveCoachFollowUpService, CoachChatService],
     templateUrl: './live-coach-widget.component.html',
     styleUrl: './live-coach-widget.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LiveCoachWidgetComponent {
     readonly coach = inject(LiveCoachService);
+    readonly history = inject(CoachHistoryService);
     readonly access = inject(AccessPolicyService);
     readonly market = inject(MarketPanelService);
     private readonly session = inject(UserSessionService);
@@ -28,10 +32,16 @@ export class LiveCoachWidgetComponent {
     private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton');
     readonly expandedChange = output<boolean>();
     readonly open = signal(false);
-    readonly settings = signal(false);
+    // Keep the current content mounted through the short closing transition.
+    readonly rendered = signal(false);
+    private closeTimer: ReturnType<typeof setTimeout> | undefined;
+    readonly view = signal<CoachView>('chat');
+    readonly enlarged = signal(false);
+    readonly heading = computed(() => ({ chat: 'Live Coach', history: 'Saved updates', settings: 'Coach settings' })[this.view()]);
     private readonly seen = signal(0);
     readonly available = computed(() => !!this.session.userId() && this.access.canAct('sync'));
-    readonly comments = computed(() => this.available() && !this.access.demo() ? this.coach.recentComments() : []);
+    readonly comments = computed(() => this.available() && !this.access.demo()
+        ? this.coach.recentComments().filter(comment => !comment.historyId || !this.history.removed().has(comment.historyId)) : []);
     readonly unread = computed(() => this.comments().filter(comment => comment.id > this.seen()).length);
     readonly status = computed(() => {
         if (this.access.demo()) return 'Demo preview';
@@ -54,38 +64,47 @@ export class LiveCoachWidgetComponent {
     });
 
     constructor() {
+        inject(DestroyRef).onDestroy(() => this.cancelClose());
         effect(() => {
             this.session.userId();
             this.access.demo();
-            untracked(() => { this.close(false); this.seen.set(0); });
+            untracked(() => { this.close(false); this.seen.set(0); this.enlarged.set(false); });
         });
         effect(() => {
             if (this.market.open() || this.access.promptReason()) untracked(() => this.close(false));
         });
         effect(() => {
-            if (this.open()) this.seen.set(this.comments()[0]?.id ?? 0);
+            if (this.open() && this.view() === 'chat') this.seen.set(this.comments()[0]?.id ?? 0);
             this.expandedChange.emit(this.open());
         });
     }
 
     toggle(): void {
         if (this.open()) { this.close(); return; }
+        this.cancelClose();
+        this.rendered.set(true);
         this.open.set(true);
         afterNextRender(() => { if (this.open()) this.closeButton()?.nativeElement.focus(); }, { injector: this.injector });
     }
 
     close(restoreFocus = true): void {
         const wasOpen = this.open();
+        this.cancelClose();
         this.open.set(false);
-        this.settings.set(false);
         if (wasOpen && restoreFocus) this.launcher()?.nativeElement.focus();
+        // Privacy/navigation closes are immediate; never animate a previous user's content.
+        if (!wasOpen || !restoreFocus || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+            this.finishClose();
+        } else {
+            this.closeTimer = setTimeout(() => this.finishClose(), 180); // Matches the panel's toggle transition.
+        }
     }
 
-    toggleCoach(): void {
-        if (this.available()) this.coach.setEnabled(!this.coach.preferences().enabled);
+    private finishClose(): void {
+        this.closeTimer = undefined;
+        this.rendered.set(false);
+        this.view.set('chat');
     }
 
-    toggleVoice(): void {
-        if (this.available()) this.coach.setVoiceEnabled(!this.coach.preferences().voiceEnabled);
-    }
+    private cancelClose(): void { clearTimeout(this.closeTimer); this.closeTimer = undefined; }
 }

@@ -6,13 +6,14 @@ import { validateAiBody, MAX_AI_BODY_BYTES } from '../_shared/ai-validation.ts';
 import { readJson, RequestError } from '../_shared/request-body.ts';
 import { aiTextStream } from '../_shared/ai-stream.ts';
 import { coachSpeech, COACH_VOICE_PREVIEW } from '../_shared/coach-speech.ts';
+import { attachChatObservation } from '../_shared/coach-chat-observation.ts';
 
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SB_SECRET_KEY')!, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { fetch: (input, init) => fetch(input, { ...init,
         signal: AbortSignal.any([...(init?.signal ? [init.signal] : []), AbortSignal.timeout(10_000)]) }) },
 });
-const allowed = new Set(['http://localhost:4200', Deno.env.get('APP_ORIGIN') ?? ''].filter(Boolean));
+const allowed = new Set(['http://localhost:4200', 'http://127.0.0.1:4200', Deno.env.get('APP_ORIGIN') ?? ''].filter(Boolean));
 const pagesOrigin = /^https:\/\/(?:[a-z0-9-]+\.)?trade-journal-2go\.pages\.dev$/i;
 
 Deno.serve(async req => {
@@ -73,6 +74,31 @@ Deno.serve(async req => {
 
         const body = validateAiBody(await readJson(req, MAX_AI_BODY_BYTES));
         requestKind = body.type.startsWith('live-coach') ? 'live-coach' : 'report';
+        const cachedChatTurn = async () => {
+            const result = await admin.from('coach_chat_turns').select('conversation_id,prompt,answer,context')
+                .eq('user_id', userId!).eq('id', body.payload.turnId).abortSignal(controller.signal).maybeSingle();
+            if (result.error) throw new RequestError('Unable to load this conversation. Please try again.', 503);
+            if (result.data && (result.data.conversation_id !== body.payload.conversationId || result.data.prompt !== body.payload.message
+                || result.data.context?.replyTo?.id !== body.payload.context.replyTo?.id)) {
+                throw new RequestError('This message ID belongs to a different question. Start a new message.', 409);
+            }
+            return result.data;
+        };
+        if (body.type === 'live-coach-chat') {
+            const cached = await cachedChatTurn();
+            if (cached) { cleanup(); return json({ followUp: cached.answer }); }
+            const conversation = await admin.from('coach_conversations').select('id')
+                .eq('user_id', userId).eq('id', body.payload.conversationId).abortSignal(controller.signal).maybeSingle();
+            if (conversation.error) throw new RequestError('Unable to load this conversation. Please try again.', 503);
+            if (!conversation.data) throw new RequestError('Conversation not found. Start a new conversation.', 404);
+            await attachChatObservation(admin, userId, body.payload.context, controller.signal);
+            const history = await admin.from('coach_chat_turns').select('prompt,answer,context', { count: 'exact' })
+                .eq('user_id', userId).eq('conversation_id', body.payload.conversationId)
+                .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(6).abortSignal(controller.signal);
+            if (history.error) throw new RequestError('Unable to load conversation history. Please try again.', 503);
+            if ((history.count ?? 0) >= 100) throw new RequestError('This conversation is full. Start a new conversation.', 409);
+            body.payload.history = (history.data ?? []).reverse();
+        }
         const params = buildParams(body.type, body.payload)!;
         const key = Deno.env.get('OPENAI_API_KEY');
         if (!key) throw new RequestError('AI service is temporarily unavailable.', 503);
@@ -100,6 +126,11 @@ Deno.serve(async req => {
             throw new RequestError(message, 429);
         }
         requestId = candidate;
+        if (body.type === 'live-coach-chat') {
+            // A concurrent retry may have finished since the first cache lookup.
+            const cached = await cachedChatTurn();
+            if (cached) { await finish(false); return json({ followUp: cached.answer }); }
+        }
         if (body.type === 'live-coach-preview' || body.type === 'live-coach-speech') {
             const text = body.type === 'live-coach-preview' ? COACH_VOICE_PREVIEW : body.payload.text;
             const audio = await coachSpeech(openai, text, body.payload.voice, controller.signal);
@@ -126,9 +157,16 @@ Deno.serve(async req => {
         }
         const completion = await openai.chat.completions.create({ ...params, stream: false }, { signal: controller.signal });
         const rawText = completion.choices[0]?.message?.content;
-        if (body.type === 'live-coach-follow-up') {
+        if (body.type === 'live-coach-follow-up' || body.type === 'live-coach-chat') {
             const followUp = normalizeCoachFollowUp(rawText);
             if (!followUp) throw new Error('Invalid Coach follow-up');
+            if (body.type === 'live-coach-chat') {
+                if (followUp.meaning.length > 220) throw new Error('Coach answer is too long');
+                const saved = await admin.from('coach_chat_turns').insert({ user_id: userId, id: body.payload.turnId,
+                    conversation_id: body.payload.conversationId, prompt: body.payload.message, answer: followUp, context: body.payload.context,
+                }).abortSignal(controller.signal);
+                if (saved.error) throw new RequestError('The answer could not be saved. Refresh the conversation before retrying.', 503);
+            }
             await finish(true);
             return json({ followUp }); // Written review only: never synthesize follow-up audio.
         }

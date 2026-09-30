@@ -22,11 +22,7 @@
                         }
                         @case ('ready') {
                             <p class="coach-follow-up__context">At {{ comment().time | date:'MMM d, h:mm a' }} · {{ comment().snapshot ? 'Captured session context' : 'Original message only' }}</p>
-                            <dl>
-                                <dt>What it means</dt><dd>{{ state.answer.meaning }}</dd>
-                                <dt>Evidence</dt><dd>{{ state.answer.evidence }}</dd>
-                                <dt>Review next</dt><dd>{{ state.answer.nextStep }}</dd>
-                            </dl>
+                            <app-live-coach-answer [answer]="state.answer" />
                             <p class="coach-follow-up__context">AI interpretation of available data, not a live position update.</p>
                         }
                     }

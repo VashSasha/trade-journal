@@ -1,4 +1,5 @@
 import type OpenAI from 'npm:openai@7.9.0';
+import { coachChatMessages } from './coach-chat.ts';
 const OPENAI_MODEL = 'gpt-4o';
 const MAX_STREAM_TOKENS = 2000;
 
@@ -75,6 +76,8 @@ Return a JSON object with exactly three string fields: meaning, evidence, nextSt
 
 export function buildParams(type: string, payload: any): OpenAI.Chat.ChatCompletionCreateParams | null {
     switch (type) {
+        case 'live-coach-chat':
+            return { model: 'gpt-4o-mini', max_tokens: 440, temperature: 0.25, response_format: { type: 'json_object' }, messages: coachChatMessages(payload) };
         case 'analyze-trade':
             return {
                 model: OPENAI_MODEL,

@@ -9,6 +9,7 @@ import { AccessPolicyService } from './access-policy.service';
 import { UserSessionService } from './user-session.service';
 import type { LiveCoachFollowUpAnswer, LiveCoachFollowUpPayload, LiveCoachReply, LiveCoachVoice } from '../../features/live-coach/live-coach.models';
 import { readCoachFollowUp } from '../../features/live-coach/live-coach-follow-up.utils';
+import type { CoachChatRequest } from '../../features/live-coach/chat/coach-chat.model';
 
 /**
  * All AI calls go through the ai-report Supabase Edge Function — the
@@ -71,6 +72,16 @@ export class OpenAiService {
         const reply = await this.callFunctionData('live-coach-follow-up', payload, signal);
         const answer = readCoachFollowUp(reply.followUp);
         if (!answer) throw new Error('The Coach returned an incomplete answer. Please try again.');
+        return answer;
+    }
+
+    async askCoach(payload: CoachChatRequest, signal?: AbortSignal): Promise<LiveCoachFollowUpAnswer> {
+        if (this.access.demo()) throw new Error('Ask Coach is unavailable in demo mode.');
+        const reply = await this.callFunctionData('live-coach-chat', { ...payload, context: { ...payload.context,
+            // The server loads the owner's saved original; do not resubmit its text or snapshot.
+            ...(payload.context.replyTo ? { replyTo: { id: payload.context.replyTo.id } } : {}) } }, signal);
+        const answer = readCoachFollowUp(reply.followUp);
+        if (!answer) throw new Error('The Coach returned an incomplete answer. Refresh before retrying.');
         return answer;
     }
 
