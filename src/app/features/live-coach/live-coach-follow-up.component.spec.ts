@@ -8,6 +8,7 @@ import { LiveCoachFollowUpComponent } from './live-coach-follow-up.component';
 import { LiveCoachFollowUpService } from './live-coach-follow-up.service';
 import { LiveCoachFollowUpAnswer, LiveCoachObservation } from './live-coach.models';
 import { LiveCoachService } from './live-coach.service';
+import { CoachHistoryService } from './history/coach-history.service';
 
 const answer: LiveCoachFollowUpAnswer = { meaning: 'Size increased across copied accounts.',
     evidence: 'Four completed trades represent two estimated decisions.', nextStep: 'Compare the sizing with your written plan.' };
@@ -26,6 +27,7 @@ describe('Coach follow-up UI', () => {
         const generate = vi.fn(async (_payload: unknown, _signal: AbortSignal) => answer);
         TestBed.configureTestingModule({ providers: [
             LiveCoachFollowUpService,
+            { provide: CoachHistoryService, useValue: { saveAnswer: vi.fn() } },
             { provide: LiveCoachService, useValue: { recentComments: signal([comment]), aiState: signal('ready'), previewing: signal(false) } },
             { provide: AccessPolicyService, useValue: { demo: signal(false), canAct: paid, requestAction: paid } },
             { provide: UserSessionService, useValue: { userId: signal('owner-a') } },

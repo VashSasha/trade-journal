@@ -1,0 +1,21 @@
+:host { display: block; min-width: 0; }
+.coach-history {
+    color: var(--color-text-primary);
+    button, input { min-height: 44px; font: inherit; font-size: .75rem; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-bg-surface-2); color: var(--color-text-primary); padding: .5rem .625rem; }
+    button { cursor: pointer; &:disabled { opacity: .55; cursor: not-allowed; } }
+    button, input, summary { &:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; } }
+    &__filters { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem; label { display: grid; gap: .375rem; flex: 1; min-width: 140px; font-size: .75rem; } input { width: 100%; min-width: 0; } }
+    &__hint, &__meta { color: var(--color-text-secondary); font-size: .6875rem; line-height: 1.6; }
+    &__error { padding: .75rem; border-left: 2px solid var(--color-accent); background: var(--color-bg-surface-2); font-size: .8125rem; }
+    &__empty { padding: 1rem 0; h3 { font-size: 1rem; line-height: 1.4; } p { color: var(--color-text-secondary); font-size: .8125rem; line-height: 1.6; } }
+    &__list { list-style: none; padding: 0; margin: 0; }
+    &__entry { padding: 1rem 0; border-bottom: 1px solid var(--color-border); overflow-wrap: anywhere; h4 { margin: 1rem 0 .25rem; font-size: .8125rem; } }
+    &__meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem; margin-bottom: .5rem; }
+    &__title { font-size: .8125rem; }
+    &__message { font-size: .875rem; line-height: 1.6; margin: .5rem 0; white-space: pre-line; }
+    summary { cursor: pointer; min-height: 44px; align-content: center; font-size: .75rem; color: var(--color-text-secondary); }
+    &__facts { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; font-size: .75rem; dt { color: var(--color-text-secondary); } dd { margin: .25rem 0 0; font-weight: 600; } }
+    &__confirm { padding: .75rem; background: var(--color-bg-surface-2); border-radius: 8px; p { font-size: .75rem; line-height: 1.6; margin: 0 0 .5rem; } button { margin-right: .375rem; margin-top: .25rem; } }
+    &__delete { background: transparent !important; border-color: transparent !important; text-decoration: underline; text-underline-offset: 3px; }
+    &__more { width: 100%; margin-top: 1rem; }
+}

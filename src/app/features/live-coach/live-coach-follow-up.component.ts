@@ -4,11 +4,12 @@ import { AccessPolicyService } from '../../core/services/access-policy.service';
 import { LiveCoachObservation, LiveCoachQuestion } from './live-coach.models';
 import { LiveCoachFollowUpService } from './live-coach-follow-up.service';
 import { COACH_QUESTIONS, coachQuestions } from './live-coach-follow-up.utils';
+import { LiveCoachAnswerComponent } from './live-coach-answer.component';
 
 @Component({
     selector: 'app-live-coach-follow-up',
     standalone: true,
-    imports: [DatePipe],
+    imports: [DatePipe, LiveCoachAnswerComponent],
     templateUrl: './live-coach-follow-up.component.html',
     styleUrl: './live-coach-follow-up.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,

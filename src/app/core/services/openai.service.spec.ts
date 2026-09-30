@@ -81,6 +81,18 @@ describe('paid AI access and streaming failures', () => {
         expect(invoke).not.toHaveBeenCalled();
     });
 
+    it('sends only a saved observation reference for chat replies, not client-supplied observation content', async () => {
+        const followUp = { meaning: 'Your size increased.', evidence: 'Captured position.', nextStep: 'Review your sizing plan.' };
+        invoke.mockResolvedValueOnce({ data: { followUp } as any, error: null });
+        await expect(ai.askCoach({ conversationId: 'chat', turnId: 'turn', message: 'What changed?', context: {
+            capturedAt: '2026-09-28T15:00:00Z', tradeDate: '2026-09-28', accountIds: null, dataReady: false, summary: null,
+            replyTo: { id: 'original', observedAt: '2026-09-28T14:00:00Z', title: 'Position increased', text: 'Local text', snapshot: null },
+        } })).resolves.toEqual(followUp);
+        expect(invoke).toHaveBeenCalledWith('ai-report', expect.objectContaining({ body: {
+            type: 'live-coach-chat', payload: expect.objectContaining({ context: expect.objectContaining({ replyTo: { id: 'original' } }) }),
+        } }));
+    });
+
     it('authenticates written follow-ups and validates their structured response', async () => {
         const payload = { question: 'explain' as const, observedAt: '2026-09-18T15:00:00.000Z',
             comment: 'Daily target touched including estimated open profit.', snapshot: null };

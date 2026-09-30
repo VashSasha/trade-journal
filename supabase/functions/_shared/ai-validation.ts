@@ -1,5 +1,6 @@
 import { RequestError } from './request-body.ts';
 import { isCoachAiVoice } from './coach-voices.ts';
+import { validateCoachChat } from './coach-chat.ts';
 
 export const MAX_AI_BODY_BYTES = 4 * 1024 * 1024;
 const object = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -94,6 +95,7 @@ export function validateAiBody(body: unknown): { type: string; payload: Record<s
     requireValue(object(body) && object(body.payload), 'A report type and payload are required.');
     const { type, payload } = body;
     switch (type) {
+        case 'live-coach-chat': return { type, payload: validateCoachChat(payload) };
         case 'stream-analysis': {
             requireValue(Array.isArray(payload.messages) && payload.messages.length > 0 && payload.messages.length <= 24, 'Provide 1–24 messages.');
             const max = payload.maxTokens ?? 1200;

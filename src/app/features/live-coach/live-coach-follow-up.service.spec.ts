@@ -7,6 +7,7 @@ import { UserSessionService } from '../../core/services/user-session.service';
 import { LiveCoachFollowUpAnswer, LiveCoachObservation } from './live-coach.models';
 import { LiveCoachService } from './live-coach.service';
 import { LiveCoachFollowUpService } from './live-coach-follow-up.service';
+import { CoachHistoryService } from './history/coach-history.service';
 import { coachQuestions, readCoachFollowUp } from './live-coach-follow-up.utils';
 
 const answer: LiveCoachFollowUpAnswer = {
@@ -33,8 +34,10 @@ describe('Live Coach follow-ups', () => {
         const allowed = signal(true);
         const thinking = signal('ready');
         const generate = vi.fn(async (_payload: unknown, _signal: AbortSignal) => answer);
+        const saveAnswer = vi.fn();
         TestBed.configureTestingModule({ providers: [
             LiveCoachFollowUpService,
+            { provide: CoachHistoryService, useValue: { saveAnswer } },
             { provide: LiveCoachService, useValue: { recentComments: comments, aiState: thinking, previewing: signal(false) } },
             { provide: AccessPolicyService, useValue: { demo, canAct: () => allowed() && !demo(), requestAction: () => allowed() && !demo() } },
             { provide: UserSessionService, useValue: { userId } },
@@ -42,12 +45,12 @@ describe('Live Coach follow-ups', () => {
         ] });
         const service = TestBed.inject(LiveCoachFollowUpService);
         TestBed.tick();
-        return { service, comments, userId, demo, allowed, thinking, generate };
+        return { service, comments, userId, demo, allowed, thinking, generate, saveAnswer };
     }
     afterEach(() => { TestBed.resetTestingModule(); vi.useRealTimers(); });
 
     it('does nothing on mount, sends only the captured snapshot, and reuses completed answers', async () => {
-        const { service, generate } = setup();
+        const { service, generate, saveAnswer } = setup();
         expect(generate).not.toHaveBeenCalled();
         await service.ask(1, 'compare-session');
         expect(generate).toHaveBeenCalledExactlyOnceWith({ question: 'compare-session', comment: observation().text,
@@ -55,6 +58,7 @@ describe('Live Coach follow-ups', () => {
         expect(service.state(1, 'compare-session')).toEqual({ status: 'ready', answer });
         await service.ask(1, 'compare-session');
         expect(generate).toHaveBeenCalledOnce();
+        expect(saveAnswer).toHaveBeenCalledExactlyOnceWith(observation(), 'compare-session', answer);
     });
 
     it('prevents concurrent/repeated clicks, but does not invalidate a review when a newer position arrives', async () => {

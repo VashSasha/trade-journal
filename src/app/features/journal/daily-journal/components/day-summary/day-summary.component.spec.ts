@@ -1,4 +1,7 @@
 import { TestBed } from '@angular/core/testing';
+import { Component, Input, signal } from '@angular/core';
+import { By } from '@angular/platform-browser';
+import { EquityData } from '../../../../../shared/components/equity-curve-chart/equity-curve-chart.component';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { Trade } from '../../../../../core/models/trade.model';
@@ -25,6 +28,14 @@ const MAIN_REVIEW = `## Verdict
 
 const DEEPER_REVIEW = 'The final entry arrived after your strongest trading window, so the extra risk did not add a new edge.';
 
+@Component({ selector: 'app-equity-curve-chart', standalone: true, template: '' })
+class ChartProbe {
+    @Input() equityData!: EquityData;
+    @Input() baseline = 0;
+    updates = 0;
+    ngOnChanges(): void { this.updates++; }
+}
+
 function trade(id: string, accountId: string): Trade {
     return {
         id,
@@ -49,6 +60,30 @@ function trade(id: string, accountId: string): Trade {
 }
 
 describe('DaySummaryComponent AI persistence', () => {
+    it('does not redraw for unrelated UI/AI updates, but refreshes when trades or account balances change', () => {
+        const startingBalance = signal(50_000);
+        TestBed.configureTestingModule({ providers: [
+            { provide: AccountSettingsService, useValue: { startingBalance } },
+            ...[AccessPolicyService, OpenAiService, AiAnalysisService, DailyJournalService, TradeService, FilterService]
+                .map(provide => ({ provide, useValue: {} })),
+        ] }).overrideComponent(DaySummaryComponent, { set: {
+            imports: [ChartProbe], template: '<app-equity-curve-chart [equityData]="equityData" [baseline]="chartBase" />',
+        } });
+        const fixture = TestBed.createComponent(DaySummaryComponent), component = fixture.componentInstance;
+        fixture.componentRef.setInput('trades', [trade('one', 'account-a')]); fixture.detectChanges();
+        const chart = fixture.debugElement.query(By.directive(ChartProbe)).componentInstance as ChartProbe;
+        const initial = component.equityData;
+        component.copiedFocus.set(true); fixture.detectChanges();
+        component.insightState.set({ status: 'streaming', content: 'New chunk', error: null }); fixture.detectChanges();
+        fixture.detectChanges(); expect(chart.updates).toBe(1); expect(component.equityData).toBe(initial);
+        fixture.componentRef.setInput('trades', [trade('two', 'account-b'), trade('three', 'account-b')]); fixture.detectChanges();
+        expect(chart.updates).toBe(2); expect(component.stats.totalTrades).toBe(2);
+        fixture.componentRef.setInput('startBalance', 25_000); fixture.detectChanges(); expect(chart.updates).toBe(3);
+        startingBalance.set(100_000); fixture.detectChanges(); expect(chart.updates).toBe(3); // Explicit historical balance wins.
+        fixture.componentRef.setInput('startBalance', undefined); fixture.detectChanges(); expect(chart.updates).toBe(4);
+        startingBalance.set(50_000); fixture.detectChanges(); expect(chart.updates).toBe(5);
+        fixture.destroy();
+    });
     it('auto-saves the short review and updates the same row with the deeper review', async () => {
         const saveAnalysis = vi.fn(async (date: string, content: string): Promise<SavedAnalysis> => ({
             id: 'analysis-1', date, content, createdAt: '2026-08-04T15:00:00.000Z',

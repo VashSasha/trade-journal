@@ -1,0 +1,60 @@
+<div class="coach-actions" (keydown.escape)="escape($event)">
+    <button #trigger type="button" class="coach-actions__trigger" aria-label="More Coach actions" title="More actions"
+            [attr.aria-expanded]="open()" aria-controls="coach-actions-panel" (click)="toggle()">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+    </button>
+    @if (open()) {
+        <div class="coach-actions__panel" id="coach-actions-panel" aria-label="Coach actions">
+            @if (chat.canReview()) {
+                <button type="button" [disabled]="chat.busy() || chat.deleting()" (click)="start()">New chat</button>
+                <details (toggle)="$any($event.target).open && chat.loadConversations()">
+                    <summary>Saved chats</summary>
+                    <div class="coach-actions__chats">
+                        @if (chat.listing()) { <p role="status">Loading chats…</p> }
+                        @if (chat.listError()) { <p role="alert">{{ chat.listError() }}</p><button type="button" (click)="chat.loadConversations()">Retry</button> }
+                        @for (item of chat.conversations(); track item.id) {
+                            <button type="button" [disabled]="chat.busy() || chat.deleting()" [attr.aria-current]="chat.conversationId() === item.id ? 'true' : null" (click)="choose(item.id)">{{ item.title }}</button>
+                        }
+                        @if (!chat.listing() && !chat.listError() && !chat.conversations().length) { <p>No saved chats yet.</p> }
+                        @if (chat.hasMore()) { <button type="button" [disabled]="chat.listing()" (click)="chat.loadConversations(true)">Load older chats</button> }
+                    </div>
+                </details>
+                @if (chat.conversationId()) {
+                    <button type="button" [disabled]="chat.busy() || chat.loading() || chat.deleting()" (click)="refresh()">Refresh chat</button>
+                    @if (confirming()) {
+                        <div class="coach-actions__confirm" role="alert">
+                            <p>Delete this chat? Your trades and live updates stay saved.</p>
+                            <button type="button" [disabled]="chat.deleting()" (click)="remove()">Confirm delete</button>
+                            <button type="button" [disabled]="chat.deleting()" (click)="confirming.set(false)">Keep chat</button>
+                        </div>
+                    } @else { <button type="button" [disabled]="chat.busy() || chat.deleting()" (click)="confirming.set(true)">Delete chat</button> }
+                }
+                <div class="coach-actions__group">
+                    @if (currentView() !== 'chat') { <button type="button" (click)="show('chat')">Back to chat</button> }
+                    <button type="button" (click)="show('history')">Saved updates</button>
+                </div>
+            }
+            @if (access.canAct('sync')) {
+                <div class="coach-actions__group">
+                    <button type="button" aria-label="Live coaching" [attr.aria-pressed]="coach.preferences().enabled" [disabled]="coach.preferencesLoading()" (click)="coach.setEnabled(!coach.preferences().enabled)">
+                        <span>Live coaching</span><span class="coach-actions__state">{{ coach.preferences().enabled ? 'On' : 'Off' }}</span>
+                    </button>
+                    <button type="button" aria-label="Coach voice" [attr.aria-pressed]="coach.preferences().voiceEnabled" [disabled]="coach.preferencesLoading()" (click)="coach.setVoiceEnabled(!coach.preferences().voiceEnabled)">
+                        <span>Coach voice</span><span class="coach-actions__state">{{ coach.preferences().voiceEnabled ? 'On' : 'Muted' }}</span>
+                    </button>
+                    @if (!coach.sounds.enabled()) { <p>Master sound is off.</p> }
+                    <button type="button" (click)="show('settings')">Coach settings</button>
+                </div>
+            }
+            <details class="coach-actions__group" (toggle)="$any($event.target).open && chat.refreshAllowance()">
+                <summary>About &amp; usage</summary>
+                @if (chat.allowance(); as allowance) { <p>{{ allowance.remaining }} of 30 requests left for {{ allowance.day }} (UTC). Shared with AI commentary, follow-ups and speech; resets at midnight UTC.</p> }
+                <p>Your question, selected saved-trade summary, any update you reply to and latest six exchanges go to our AI provider. Completed chats save privately; drafts stay in this tab.</p>
+                <p>Chat uses saved trades and captured updates, not continuously refreshed positions or prices. AI can be wrong. No orders are placed.</p>
+                <p>Replies are silent. Read summary uses your voice settings; AI voices use an extra request. Live alerts take priority.</p>
+                <p>Closing the Coach does not turn live coaching off.</p>
+                <a routerLink="/account/alerts" (click)="close()">All alert settings</a>
+            </details>
+        </div>
+    }
+</div>

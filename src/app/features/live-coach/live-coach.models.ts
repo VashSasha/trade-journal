@@ -9,6 +9,8 @@ export type LiveCoachQuestion = 'explain' | 'compare-session';
 export interface LiveCoachFollowUpAnswer { meaning: string; evidence: string; nextStep: string; }
 export interface LiveCoachObservation {
     id: number;
+    /** Stable cloud identity; the numeric ID is only for the live-session feed. */
+    historyId?: string;
     text: string;
     time: number;
     personalized: boolean;

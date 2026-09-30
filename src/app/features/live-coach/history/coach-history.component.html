@@ -1,0 +1,69 @@
+<section class="coach-history" aria-label="Saved coach history">
+    <div class="coach-history__filters">
+        <label>Trading day
+            <input type="date" [value]="history.date()" (change)="history.load($any($event.target).value)" />
+        </label>
+        @if (history.date()) { <button type="button" (click)="history.load('')">All days</button> }
+        <button type="button" [disabled]="history.loading()" (click)="history.load()">Refresh</button>
+    </div>
+    @if (history.error(); as error) {
+        <p class="coach-history__error" role="alert">{{ error }}</p>
+    }
+    @if (history.loading()) { <p class="coach-history__hint" role="status">Loading history…</p> }
+    @if (!history.loading() && !history.error() && !history.items().length) {
+        <div class="coach-history__empty">
+            <h3>{{ history.date() ? 'No updates for this day.' : 'No saved updates yet.' }}</h3>
+            <p>Live updates save here automatically.</p>
+        </div>
+    }
+    <ol class="coach-history__list">
+        @for (item of history.items(); track item.id) {
+            <li class="coach-history__entry">
+                <div class="coach-history__meta">
+                    <time [attr.datetime]="item.observed_at">{{ item.observed_at | date:'MMM d, y · h:mm a' }}</time>
+                    <span>{{ item.personalized ? 'AI coach' : 'Factual update' }}</span>
+                </div>
+                <strong class="coach-history__title">{{ item.title }}</strong>
+                <p class="coach-history__message">{{ item.content }}</p>
+                <details>
+                    <summary>Context &amp; saved answers</summary>
+                    <p class="coach-history__hint">Trading day: {{ item.trade_date }}. Captured at the time—not a live position update.</p>
+                    @if (item.snapshot?.session; as session) {
+                        <dl class="coach-history__facts">
+                            <div><dt>Session accounts</dt><dd>{{ session.accountCount }}</dd></div>
+                            <div><dt>Completed trades</dt><dd>{{ session.executionCount }}</dd></div>
+                            <div><dt>Grouped decisions</dt><dd>{{ session.decisionCount }}</dd></div>
+                            <div><dt>Realized that day</dt><dd>{{ session.dailyPnl | currency }}</dd></div>
+                        </dl>
+                        @if (item.snapshot?.observation; as observation) {
+                            <p class="coach-history__hint">{{ observation.symbol }} · {{ observation.direction }} · {{ observation.previousQuantity }} → {{ observation.quantity }} contracts across {{ observation.accountCount }} account(s).</p>
+                        }
+                    } @else {
+                        <p class="coach-history__hint">This guardrail saved its original message only; no position snapshot was captured.</p>
+                    }
+                    @if (item.explanation; as explanation) {
+                        <h4>Explain this</h4><app-live-coach-answer [answer]="explanation" />
+                    }
+                    @if (item.session_comparison; as comparison) {
+                        <h4>Compare with this session</h4><app-live-coach-answer [answer]="comparison" />
+                    }
+                    @if (!item.explanation && !item.session_comparison) {
+                        <p class="coach-history__hint">No follow-up answers were generated for this observation.</p>
+                    }
+                </details>
+                @if (confirming() === item.id) {
+                    <div class="coach-history__confirm">
+                        <p>Delete this observation and its saved answers? Trades, journal notes and quoted copies in chats stay unchanged.</p>
+                        <button type="button" [disabled]="!!history.deleting()" (click)="remove(item.id)">{{ history.deleting() === item.id ? 'Deleting…' : 'Delete permanently' }}</button>
+                        <button type="button" [disabled]="!!history.deleting()" (click)="confirming.set(null)">Keep</button>
+                    </div>
+                } @else {
+                    <button type="button" class="coach-history__delete" [disabled]="!!history.deleting()" (click)="confirming.set(item.id)" [attr.aria-label]="'Delete observation from ' + (item.observed_at | date:'MMM d, h:mm a')">Delete</button>
+                }
+            </li>
+        }
+    </ol>
+    @if (history.hasMore()) {
+        <button type="button" class="coach-history__more" [disabled]="history.loading()" (click)="history.load(history.date(), true)">Load older observations</button>
+    }
+</section>

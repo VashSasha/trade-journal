@@ -53,8 +53,12 @@ const TASK_LINE = /^[-*]\s*\[[ xX]?\]\s+/;
   styleUrl: './day-summary.component.scss'
 })
 export class DaySummaryComponent implements OnDestroy {
-  @Input({required: true}) trades!: Trade[];
-  @Input() startBalance?: number;
+  private readonly tradesInput = signal<Trade[]>([]);
+  private readonly startBalanceInput = signal<number | undefined>(undefined);
+  @Input({required: true}) set trades(value: Trade[]) { this.tradesInput.set(value); }
+  get trades(): Trade[] { return this.tradesInput(); }
+  @Input() set startBalance(value: number | undefined) { this.startBalanceInput.set(value); }
+  get startBalance(): number | undefined { return this.startBalanceInput(); }
   @Input() date?: string;
 
   @ViewChild(SharePnlComponent) sharePnl!: SharePnlComponent;
@@ -122,9 +126,12 @@ export class DaySummaryComponent implements OnDestroy {
   private insightTimeout: ReturnType<typeof setTimeout> | null = null;
   private followUpTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  get stats(): DayStats {
-    return computeDayStats(this.trades);
-  }
+  private readonly dayStats = computed(() => computeDayStats(this.tradesInput()));
+  // Keep the chart input stable during notes, menus and streamed AI updates.
+  // Only a new trade selection or baseline should redraw the curve.
+  private readonly curve = computed(() => buildEquityCurve(this.tradesInput(), this.chartBase));
+
+  get stats(): DayStats { return this.dayStats(); }
 
   /**
    * Starting point shared by the curve AND the chart's dashed baseline. They
@@ -137,7 +144,7 @@ export class DaySummaryComponent implements OnDestroy {
   }
 
   get equityData() {
-    return buildEquityCurve(this.trades, this.chartBase);
+    return this.curve();
   }
 
   get sharePnlStats(): SharePnlStats {

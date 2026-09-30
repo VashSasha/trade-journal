@@ -309,4 +309,73 @@ try {
     assert.equal((await query("select * from pg_proc where proname='apply_billing_snapshot' and pronargs=8")).length, 0);
     assert.deepEqual(await query('select * from trades order by id'), tradesBeforePlus);
     console.log('PASS: Premium+ tiers, explicit AI grants/revocation, owner-only access, source precedence, safe rerun, billing upgrade/downgrade/cancel/replay, retained trading data');
+
+    await db.exec('reset role');
+    await migration('0033_live_coach_history');
+    await migration('0033_live_coach_history');
+    await setUser(A);
+    const historyInsert = `insert into live_coach_history(id, observed_at, trade_date, title, content)
+        values ($1, '2026-09-28T15:00:00Z', '2026-09-28', 'Position opened', 'Opened one contract')
+        on conflict (user_id,id) do nothing`;
+    await query(historyInsert, [token]);
+    await query(historyInsert, [token]);
+    assert.equal((await query('select count(*)::int n from live_coach_history'))[0].n, 1);
+    const followUp = JSON.stringify({ meaning: 'Copied entry', evidence: 'Five accounts', nextStep: 'Review the plan' });
+    await query('update live_coach_history set explanation=$1::jsonb where id=$2', [followUp, token]);
+    await query('update live_coach_history set session_comparison=$1::jsonb where id=$2', [followUp, token]);
+    assert.equal((await query('select explanation from live_coach_history'))[0].explanation.meaning, 'Copied entry');
+    for (const column of ['user_id', 'content', 'snapshot', 'trade_date', 'observed_at']) {
+        await assert.rejects(query(`update live_coach_history set ${column}=${column} where id=$1`, [token]), /permission denied/);
+    }
+    await assert.rejects(query('update live_coach_history set explanation=$1::jsonb', [JSON.stringify('bad')]), /check constraint/);
+    await setUser(B);
+    assert.equal((await query('select * from live_coach_history')).length, 0);
+    assert.equal((await query('update live_coach_history set explanation=null where user_id=$1 returning id', [A])).length, 0);
+    assert.equal((await query('delete from live_coach_history where user_id=$1 returning id', [A])).length, 0);
+    await assert.rejects(query(`insert into live_coach_history(user_id,id,observed_at,trade_date,title,content)
+        values ($1,$2,now(),current_date,'Forged','Not allowed')`, [A, other]), /row-level security/);
+    await db.exec('reset role; set role anon');
+    await assert.rejects(query('select * from live_coach_history'), /permission denied/);
+    await assert.rejects(query(historyInsert, [other]), /permission denied/);
+    await db.exec('reset role');
+    await query("update profiles set plan_override='free',ai_access_override=false where id=$1", [A]);
+    await setUser(A);
+    assert.equal((await query('select * from live_coach_history')).length, 1); // History survives downgrade.
+    await query('delete from live_coach_history where id=$1', [token]);
+    assert.equal((await query('select * from live_coach_history')).length, 0);
+    await db.exec('reset role');
+    assert.deepEqual(await query('select * from trades order by id'), tradesBeforePlus);
+    console.log('PASS: Coach history RLS, anonymous denial, immutable ownership/context, independent saved answers, idempotent insert, downgrade read/delete, retained trades');
+    await migration('0034_coach_conversations');
+    await migration('0034_coach_conversations');
+    await setUser(A);
+    const createConversation = 'insert into coach_conversations(id,title) values ($1,$2) on conflict (user_id,id) do nothing';
+    await query(createConversation, [token, 'Plan my session']);
+    await query(createConversation, [token, 'Must not overwrite']);
+    assert.equal((await query('select title from coach_conversations'))[0].title, 'Plan my session');
+    const insertTurn = `insert into coach_chat_turns(user_id,id,conversation_id,prompt,answer,context) values ($1,$2,$3,'Review my day',$4::jsonb,'{}'::jsonb)`;
+    await assert.rejects(query(insertTurn, [A, other, token, followUp]), /permission denied/);
+    await assert.rejects(query('update coach_conversations set title=title'), /permission denied/);
+    await db.exec('reset role; set role service_role');
+    await assert.rejects(query(insertTurn, [B, other, token, followUp]), /foreign key constraint/);
+    await query(insertTurn, [A, other, token, followUp]);
+    await assert.rejects(query(insertTurn, [A, other, token, followUp]), /unique constraint/);
+    await setUser(B);
+    assert.equal((await query('select * from coach_conversations')).length, 0);
+    assert.equal((await query('select * from coach_chat_turns')).length, 0);
+    assert.equal((await query('delete from coach_conversations where user_id=$1 returning id', [A])).length, 0);
+    await assert.rejects(query('insert into coach_conversations(user_id,id,title) values ($1,$2,$3)', [A, other, 'Forged']), /row-level security/);
+    await db.exec('reset role; set role anon');
+    for (const table of ['coach_conversations', 'coach_chat_turns']) await assert.rejects(query(`select * from ${table}`), /permission denied/);
+    await setUser(A); // Still downgraded: saved data is not paywalled.
+    assert.equal((await query('select * from coach_chat_turns')).length, 1);
+    await assert.rejects(query('update coach_chat_turns set answer=answer'), /permission denied/);
+    await assert.rejects(query('delete from coach_chat_turns'), /permission denied/);
+    await query('delete from coach_conversations where id=$1', [token]);
+    assert.equal((await query('select * from coach_chat_turns')).length, 0);
+    await db.exec('reset role; set role service_role');
+    await assert.rejects(query(insertTurn, [A, other, token, followUp]), /foreign key constraint/); // Late AI cannot recreate deleted history.
+    await db.exec('reset role');
+    assert.deepEqual(await query('select * from trades order by id'), tradesBeforePlus);
+    console.log('PASS: typed Coach owner isolation, service-only answers, replay uniqueness, immutable history, safe rerun, downgrade read/delete, conversation-only cascade, retained trades');
 } finally { await db.close(); }
