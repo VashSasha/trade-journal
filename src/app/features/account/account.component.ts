@@ -40,6 +40,7 @@ export class AccountComponent implements OnInit {
     ];
 
     readonly workspaceLinks: readonly SettingsLink[] = [
+        { path: 'getting-started', label: 'Getting started', detail: 'Set up your workspace' },
         { path: 'integrations', label: 'Broker connections', detail: 'Accounts, sync and imports', feature: 'broker' },
         { path: 'alerts', label: 'Alerts', detail: 'Session bells and guardrails' },
         { path: 'appearance', label: 'Appearance', detail: 'Theme and display' },

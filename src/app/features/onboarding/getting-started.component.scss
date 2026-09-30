@@ -1,0 +1,53 @@
+:host { display: block; min-width: 0; }
+
+.setup {
+    padding: clamp(1rem, 3vw, 1.5rem);
+    border: 1px solid var(--color-border);
+    border-radius: 0.85rem;
+    background: var(--color-bg-surface);
+    color: var(--color-text-primary);
+
+    h2, h3, p { margin: 0; }
+    h2 { font-size: 1.25rem; font-weight: 650; letter-spacing: -0.02em; }
+    h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: 0.95rem; font-weight: 650; }
+    p { color: var(--color-text-secondary); font-size: 0.85rem; line-height: 1.6; }
+
+    &__intro { display: grid; gap: 0.45rem; max-width: 44rem; }
+    &__eyebrow { color: var(--color-text-muted); font-size: 0.7rem; letter-spacing: 0.07em; text-transform: uppercase; }
+    &__progress { display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-block: 1.4rem 0.3rem; color: var(--color-text-secondary); font-size: 0.8rem; }
+    progress { width: 7rem; height: 0.3rem; border: 0; border-radius: 1rem; overflow: hidden; background: var(--color-bg-surface-3); accent-color: var(--color-accent); }
+    progress::-webkit-progress-bar { background: var(--color-bg-surface-3); }
+    progress::-webkit-progress-value { background: var(--color-accent); }
+    progress::-moz-progress-bar { background: var(--color-accent); }
+    &__steps { list-style: none; margin: 0; padding: 0; }
+    &__step { display: flex; align-items: flex-start; gap: 0.8rem; padding-block: 1.35rem; border-bottom: 1px solid var(--color-border); }
+    &__number { display: grid; place-items: center; flex: 0 0 1.6rem; height: 1.6rem; border: 1px solid var(--color-border); border-radius: 50%; color: var(--color-text-secondary); font-size: 0.75rem; }
+    &__step--done &__number { color: var(--color-accent); border-color: var(--color-accent); background: var(--color-accent-subtle); }
+    &__body { display: grid; justify-items: start; gap: 0.65rem; min-width: 0; }
+    &__status { color: var(--color-text-muted); font-size: 0.7rem; font-weight: 500; }
+    p.setup__hint { color: var(--color-text-muted); font-size: 0.78rem; }
+    &__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+    &__button { display: inline-flex; justify-content: center; align-items: center; min-height: 2.75rem; padding: 0.5rem 0.85rem; border: 1px solid var(--color-border); border-radius: 0.55rem; background: transparent; color: var(--color-text-primary); text-decoration: none; font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+    &__button--primary { border-color: var(--color-accent); background: var(--color-accent-subtle); color: var(--color-text-accent); }
+    &__button:hover:not(:disabled) { border-color: var(--color-accent); }
+    &__button:disabled { opacity: 0.6; cursor: wait; }
+    &__link { color: var(--color-text-accent); font-size: 0.8rem; text-underline-offset: 0.2em; }
+    &__check { display: flex; align-items: flex-start; gap: 0.6rem; padding-block: 0.65rem; min-height: 2.75rem; box-sizing: border-box; font-size: 0.8rem; line-height: 1.5; cursor: pointer; }
+    &__check input { flex: 0 0 auto; width: 1rem; height: 1rem; margin: 0.1rem 0 0; accent-color: var(--color-accent); }
+    &__button:focus-visible, &__link:focus-visible, input:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+    &__footer { display: grid; gap: 1rem; padding-top: 1.25rem; }
+    &__footer p { font-size: 0.78rem; }
+    p.setup__error { width: 100%; margin-top: 0.75rem; color: var(--color-negative); }
+    &__notice { padding-top: 1rem; }
+    &--compact { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.85rem; margin-bottom: 1rem; }
+    &--compact h2 { font-size: 0.95rem; }
+    &--compact p { font-size: 0.8rem; }
+
+    @media (max-width: 480px) {
+        &__step { gap: 0.6rem; }
+        &__actions { align-items: stretch; }
+        &__actions > a, &__actions > button { flex: 1 1 auto; }
+        &__link { align-self: center; padding-block: 0.45rem; }
+        &--compact > .setup__actions { width: 100%; }
+    }
+}

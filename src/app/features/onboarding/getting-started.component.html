@@ -1,0 +1,104 @@
+@if (compact()) {
+    @if (setup.showInvitation()) {
+        <section class="setup setup--compact" aria-label="Getting started">
+            <div class="setup__intro">
+                <h2>{{ setup.progress().started ? 'Continue setting up your workspace' : 'Make this workspace yours' }}</h2>
+                <p>{{ setup.completedCount() }} of 3 steps reviewed · Skip anything you don’t need.</p>
+            </div>
+            <div class="setup__actions">
+                <a class="setup__button setup__button--primary" routerLink="/account/getting-started"
+                    (click)="setup.update({ started: true })">{{ setup.progress().started ? 'Continue setup' : 'Get started' }}</a>
+                <button type="button" class="setup__button" [disabled]="setup.saving()"
+                    (click)="setup.update({ dismissed: true })">Not now</button>
+            </div>
+            @if (setup.error()) { <p class="setup__error" role="alert">{{ setup.error() }}</p> }
+        </section>
+    }
+} @else {
+    <section class="setup" aria-labelledby="getting-started-title">
+        <header class="setup__intro">
+            <span class="setup__eyebrow">Your workspace</span>
+            <h2 id="getting-started-title">Getting started</h2>
+            <p>A few small steps to make your numbers meaningful. Nothing here changes your trading accounts or turns on alerts.</p>
+        </header>
+        @if (access.demo()) {
+            <p class="setup__notice">You’re exploring demo data. Switch to your own workspace to set up your account.</p>
+        } @else if (!setup.ready()) {
+            @if (setup.error()) {
+                <p class="setup__error" role="alert">{{ setup.error() }}</p>
+                <button type="button" class="setup__button" (click)="setup.load()" [disabled]="setup.loading()">Retry</button>
+            } @else {
+                <p class="setup__notice" role="status">Loading your setup…</p>
+            }
+        } @else {
+            <div class="setup__progress" role="status">
+                <span>{{ setup.complete() ? 'You’re ready to go' : setup.completedCount() + ' of 3 steps reviewed' }}</span>
+                <progress [value]="setup.completedCount()" max="3" aria-label="Setup progress"></progress>
+            </div>
+            <ol class="setup__steps">
+                <li class="setup__step" [class.setup__step--done]="setup.hasTrades()">
+                    <span class="setup__number" aria-hidden="true">{{ setup.hasTrades() ? '✓' : '1' }}</span>
+                    <div class="setup__body">
+                        <h3>Bring in your trades <span class="setup__status">{{ setup.hasTrades() ? 'Ready' : 'To do' }}</span></h3>
+                        <p>Start with trades you’ve already taken. No need to place a new trade just to try the journal.</p>
+                        <div class="setup__actions">
+                            @if (access.canOpen('broker')) {
+                                <a class="setup__button setup__button--primary" routerLink="/account/integrations">Connect broker or import</a>
+                            }
+                            <a class="setup__button" routerLink="/journal/trade/new">Add a trade manually</a>
+                            @if (!access.canOpen('broker')) {
+                                <a class="setup__link" routerLink="/account/pricing">Broker sync &amp; imports require Premium</a>
+                            }
+                        </div>
+                        <p class="setup__hint">{{ setup.dataLoaded() ? 'This step updates when your trades are loaded.' : 'Checking your saved trades…' }}</p>
+                    </div>
+                </li>
+                <li class="setup__step" [class.setup__step--done]="setup.progress().accountsReviewed">
+                    <span class="setup__number" aria-hidden="true">{{ setup.progress().accountsReviewed ? '✓' : '2' }}</span>
+                    <div class="setup__body">
+                        <h3>Know what your totals include</h3>
+                        <p>Use the account selector in the header to choose the accounts you want to review. Historical accounts keep their saved trades.</p>
+                        <p class="setup__hint">Copy trading? Totals and guardrails combine the selected accounts. Review one account at a time when you want individual results.</p>
+                        @if (access.canOpen('broker')) {
+                            <a class="setup__link" routerLink="/account/integrations">Review accounts and import commission</a>
+                        }
+                        <label class="setup__check">
+                            <input type="checkbox" [checked]="setup.progress().accountsReviewed" [disabled]="setup.saving()"
+                                (change)="review('accountsReviewed', $event)"/>
+                            I’ve reviewed my account selection, or I’m only using manual trades
+                        </label>
+                    </div>
+                </li>
+                <li class="setup__step" [class.setup__step--done]="setup.progress().alertsReviewed">
+                    <span class="setup__number" aria-hidden="true">{{ setup.progress().alertsReviewed ? '✓' : '3' }}</span>
+                    <div class="setup__body">
+                        <h3>Choose your reminders <span class="setup__status">Optional</span></h3>
+                        <p>Review session times, bells and performance guardrails in Alerts. You choose what’s on; a quiet workspace is fine too.</p>
+                        @if (access.canOpen('ai')) {
+                            <p class="setup__hint">You also have AI Coach access. Automatic coaching and its voice are separate controls in Alerts.</p>
+                        }
+                        <a class="setup__button" routerLink="/account/alerts">Review alerts</a>
+                        <label class="setup__check">
+                            <input type="checkbox" [checked]="setup.progress().alertsReviewed" [disabled]="setup.saving()"
+                                (change)="review('alertsReviewed', $event)"/>
+                            I’ve reviewed alerts, or I don’t need them right now
+                        </label>
+                    </div>
+                </li>
+            </ol>
+            @if (setup.error()) { <p class="setup__error" role="alert">{{ setup.error() }}</p> }
+            <footer class="setup__footer">
+                <p>{{ setup.saving() ? 'Saving progress…' : 'Progress is saved to your account. Return here from Settings anytime.' }}</p>
+                <div class="setup__actions">
+                    <a class="setup__button setup__button--primary" routerLink="/dashboard">Back to dashboard</a>
+                    @if (!setup.complete()) {
+                        <button type="button" class="setup__button" [disabled]="setup.saving()"
+                            (click)="setup.update({ started: true, dismissed: !setup.progress().dismissed })">
+                            {{ setup.progress().dismissed ? 'Show setup reminder' : 'Hide setup reminder' }}
+                        </button>
+                    }
+                </div>
+            </footer>
+        }
+    </section>
+}

@@ -27,11 +27,12 @@ import {
 } from './dashboard-layout.model';
 import { DashboardLayoutService } from './dashboard-layout.service';
 import { DASHBOARD_WIDGET_COMPONENTS, DASHBOARD_WIDGET_TYPES } from './widgets/dashboard-widgets';
+import { GettingStartedComponent } from '../onboarding/getting-started.component';
 
 @Component({
     selector: 'app-dashboard',
     standalone: true,
-    imports: [FilterToolbarComponent, WidgetGridComponent, NgComponentOutlet],
+    imports: [FilterToolbarComponent, WidgetGridComponent, NgComponentOutlet, GettingStartedComponent],
     providers: [DashboardDataService, DashboardLayoutService],
     templateUrl: './dashboard.html',
     styleUrl: './dashboard.scss',
