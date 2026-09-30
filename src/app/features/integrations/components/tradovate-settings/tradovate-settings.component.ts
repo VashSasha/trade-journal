@@ -8,11 +8,12 @@ import { AccountSettingsService } from '../../../../core/services/account-settin
 import { TradeService } from '../../../../core/services/trade.service';
 import { DemoModeService } from '../../../../core/services/demo-mode.service';
 import { UserSessionService } from '../../../../core/services/user-session.service';
+import { BrokerSyncStatusComponent } from '../../sync-status/broker-sync-status.component';
 
 @Component({
     selector: 'app-tradovate-settings',
     standalone: true,
-    imports: [ReactiveFormsModule, FormsModule],
+    imports: [ReactiveFormsModule, FormsModule, BrokerSyncStatusComponent],
     templateUrl: './tradovate-settings.component.html',
     styleUrl: './tradovate-settings.component.scss'
 })
@@ -66,6 +67,7 @@ export class TradovateSettingsComponent {
     }
 
     async startSync(): Promise<void> {
+        if (this.isSyncing()) return;
         if (!this.demo.requireAccount('sync')) return;
         this.syncError.set(null);
         this.syncResult.set(null);
@@ -74,11 +76,13 @@ export class TradovateSettingsComponent {
             const count = await this.syncService.syncFrom(fromDate);
             this.syncResult.set(count);
         } catch (err: any) {
-            this.syncError.set(err.message || 'Sync failed');
+            // SyncService owns the shared result, including targeted retries.
+            if (!this.syncService.lastError()) this.syncError.set(err.message || 'Sync failed');
         }
     }
 
     async fullSync(): Promise<void> {
+        if (this.isSyncing()) return;
         if (!this.demo.requireAccount('sync')) return;
         this.syncError.set(null);
         this.syncResult.set(null);
@@ -86,7 +90,7 @@ export class TradovateSettingsComponent {
             const count = await this.syncService.fullSync();
             this.syncResult.set(count);
         } catch (err: any) {
-            this.syncError.set(err.message || 'Sync failed');
+            if (!this.syncService.lastError()) this.syncError.set(err.message || 'Sync failed');
         }
     }
 

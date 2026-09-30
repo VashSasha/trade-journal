@@ -407,4 +407,33 @@ try {
     assert.deepEqual((await query('select prefs from user_settings where user_id=$1', [A]))[0].prefs, ownerPrefs);
     assert.deepEqual(await query('select * from trades order by id'), tradesBeforePlus);
     console.log('PASS: setup progress owner isolation, anonymous denial, input validation, partial merging, safe rerun, unchanged alert preferences and trades');
+
+    await migration('0036_broker_sync_checkpoints');
+    await migration('0036_broker_sync_checkpoints');
+    await setUser(A);
+    const receipt = (connection: string, account: number, from: string | null = null, to = '2026-09-30T12:00:00Z') =>
+        query('select record_my_broker_sync($1,$2,$3,$4) as receipt', [connection, account, from, to]);
+    const firstReceipt = (await receipt('connection-a', 123))[0].receipt;
+    assert.equal(firstReceipt.account_id, 123);
+    assert.equal(firstReceipt.range_from, null);
+    assert.equal(firstReceipt.user_id, undefined);
+    await receipt('connection-a', 123, '2026-09-01T00:00:00Z');
+    assert.equal((await query('select * from broker_sync_checkpoints')).length, 1);
+    assert.equal(new Date((await query('select range_from from broker_sync_checkpoints'))[0].range_from).toISOString(), '2026-09-01T00:00:00.000Z');
+    await assert.rejects(receipt('connection-a', -1), /check constraint/);
+    await assert.rejects(receipt('', 123), /check constraint/);
+    await assert.rejects(receipt('connection-a', 123, '2026-10-01'), /check constraint/);
+    await assert.rejects(query('delete from broker_sync_checkpoints'), /permission denied/);
+    await setUser(B);
+    assert.equal((await query('select * from broker_sync_checkpoints')).length, 0);
+    await receipt('connection-a', 123);
+    await assert.rejects(query("insert into broker_sync_checkpoints(user_id,connection_id,account_id,range_to) values ($1,'forged',1,now())", [A]), /row-level security/);
+    await db.exec('reset role; set role anon');
+    await assert.rejects(receipt('connection-a', 123), /permission denied/);
+    await assert.rejects(query('select * from broker_sync_checkpoints'), /permission denied/);
+    await db.exec('reset role');
+    assert.equal((await query('select * from broker_sync_checkpoints')).length, 2);
+    assert.deepEqual(await query('select * from trades order by id'), tradesBeforePlus);
+    assert.deepEqual((await query('select prefs from user_settings where user_id=$1', [A]))[0].prefs, ownerPrefs);
+    console.log('PASS: broker sync receipts owner isolation, anonymous denial, safe rerun, range validation, per-account upsert and retained trades/preferences');
 } finally { await db.close(); }

@@ -1,13 +1,16 @@
-import { Injectable, inject, signal, isDevMode, effect } from '@angular/core';
-import { TradovateService } from './tradovate.service';
+import { Injectable, inject, signal, computed, isDevMode, effect, untracked } from '@angular/core';
+import { firstValueFrom, fromEvent } from 'rxjs';
+import { takeUntil, timeout } from 'rxjs/operators';
+import { TradovateAccountReport, TradovateService } from './tradovate.service';
 import { TradeService } from './trade.service';
 import { AccountSettingsService } from './account-settings.service';
-import { firstValueFrom, Subject, fromEvent } from 'rxjs';
-import { takeUntil, timeout } from 'rxjs/operators';
 import { UserSessionService } from './user-session.service';
 import { UserDataRepo } from './user-data/user-data.repo';
 import { reconcileBrokerTrades } from '../utils/broker-trade-identity';
 import { AccessPolicyService } from './access-policy.service';
+import { AccountSyncResult, BrokerAccountTarget, brokerAccountKey, parsePendingSync } from '../../features/integrations/sync-status/broker-sync.model';
+import { BrokerSyncHistoryService } from '../../features/integrations/sync-status/broker-sync-history.service';
+import { readCache } from './user-data/user-data.cache';
 
 export interface SyncLogEntry {
     time: string;
@@ -15,226 +18,272 @@ export interface SyncLogEntry {
     type: 'info' | 'success' | 'warn' | 'error';
 }
 
-@Injectable({
-    providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class SyncService {
-    private tradovateService = inject(TradovateService);
-    private tradeService = inject(TradeService);
-    private accountSettings = inject(AccountSettingsService);
-    private userSession = inject(UserSessionService);
+    private broker = inject(TradovateService);
+    private trades = inject(TradeService);
+    private settings = inject(AccountSettingsService);
+    private session = inject(UserSessionService);
     private repo = inject(UserDataRepo);
     private access = inject(AccessPolicyService);
-
+    private history = inject(BrokerSyncHistoryService);
     private static readonly LAST_SYNC_KEY = 'tradovate_last_sync_time';
-    private static readonly SYNC_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    private static readonly RETRY_KEY = 'tradovate_pending_sync';
 
-    isSyncing = signal(false);
-    lastSyncTime = signal<Date | null>(null);
-    syncLog = signal<SyncLogEntry[]>([]);
-    syncProgress = signal<{ current: number; total: number } | null>(null);
-    syncWarning = signal<string | null>(null);
-
-    private cancel$ = new Subject<void>();
+    readonly isSyncing = signal(false);
+    readonly lastSyncTime = signal<Date | null>(null);
+    readonly syncLog = signal<SyncLogEntry[]>([]);
+    readonly syncProgress = signal<{ current: number; total: number } | null>(null);
+    readonly syncWarning = signal<string | null>(null);
+    readonly lastError = signal<string | null>(null);
+    readonly lastResult = signal<number | null>(null);
+    readonly retryStateWarning = signal(false);
+    private readonly results = signal<AccountSyncResult[]>([]);
+    private readonly resultsOwner = signal<string | null>(null);
+    readonly accountResults = computed(() => this.resultsOwner() === this.session.userId() && !this.access.demo()
+        ? this.results() : []);
+    readonly retryableAccounts = computed(() => {
+        const eligible = new Set(this.eligibleAccounts().map(brokerAccountKey));
+        return this.accountResults().filter(r => (r.state === 'failed' || r.state === 'cancelled') && eligible.has(brokerAccountKey(r)));
+    });
+    private retryRange: { owner: string; from: Date | null; to: Date } | null = null;
     private activeRun: AbortController | null = null;
+    private context = '';
+
     constructor() {
+        this.context = JSON.stringify([this.session.userId(), this.access.demo()]);
+        this.resultsOwner.set(this.session.userId());
+        this.lastSyncTime.set(this.access.demo() ? null : SyncService.loadLastSyncTime(this.session.userId()));
+        this.restoreRetries(this.access.demo() ? null : this.session.userId());
         effect(() => {
-            this.lastSyncTime.set(SyncService.loadLastSyncTime(this.userSession.userId()));
-            this.clearLog();
+            const owner = this.session.userId(), demo = this.access.demo();
+            const context = JSON.stringify([owner, demo]);
+            if (context === this.context) return;
+            this.context = context;
+            untracked(() => {
+                this.activeRun?.abort();
+                this.lastSyncTime.set(demo ? null : SyncService.loadLastSyncTime(owner));
+                this.resultsOwner.set(owner);
+                this.results.set([]);
+                this.retryRange = null;
+                this.restoreRetries(demo ? null : owner);
+                this.lastError.set(null);
+                this.lastResult.set(null);
+                this.clearLog();
+            });
         });
     }
 
-    cancelSync(): void {
-        this.activeRun?.abort();
-        this.cancel$.next();
-        this.log('Sync cancelled by user.', 'warn');
-    }
+    cancelSync(): void { this.activeRun?.abort(); }
 
     private static loadLastSyncTime(userId: string | null): Date | null {
         if (!userId) return null;
-        const stored = localStorage.getItem(`${SyncService.LAST_SYNC_KEY}:${userId}`);
-        if (!stored) return null;
-        const d = new Date(stored);
-        return isNaN(d.getTime()) ? null : d;
+        try {
+            const stored = localStorage.getItem(SyncService.LAST_SYNC_KEY + ':' + userId);
+            const date = stored ? new Date(stored) : null;
+            return date && Number.isFinite(date.getTime()) ? date : null;
+        } catch { return null; }
     }
 
     private log(message: string, type: SyncLogEntry['type'] = 'info'): void {
-        const entry: SyncLogEntry = {
-            time: new Date().toLocaleTimeString(),
-            message,
-            type
-        };
-        this.syncLog.update(logs => [...logs, entry]);
-        if (isDevMode()) { console.log(`[SyncService] ${message}`); }
+        this.syncLog.update(logs => [...logs, { time: new Date().toLocaleTimeString(), message, type }]);
+        if (isDevMode()) console.log('[SyncService] ' + message);
     }
 
     clearLog(): void {
         this.syncLog.set([]);
         this.syncProgress.set(null);
         this.syncWarning.set(null);
+        this.lastError.set(null);
+        this.lastResult.set(null);
+        // Clearing a text log must not discard failed-account retry context.
     }
 
-    /**
-     * Full sync — fetches all historical data from each account's creation date
-     */
-    async fullSync(): Promise<number> {
-        return this.syncFrom(null);
+    fullSync(): Promise<number> { return this.syncFrom(null); }
+
+    syncTrades(): Promise<number> {
+        const from = new Date(this.lastSyncTime()
+            ? this.lastSyncTime()!.getTime() - 86_400_000 : Date.now() - 365 * 86_400_000);
+        return this.syncFrom(from);
     }
 
-    /**
-     * Incremental sync — uses last sync time or 1 year ago as fallback
-     */
-    async syncTrades(): Promise<number> {
-        const fromDate = this.lastSyncTime()
-            ? new Date(this.lastSyncTime()!.getTime() - 24 * 60 * 60 * 1000)
-            : new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-        return this.syncFrom(fromDate);
+    syncFrom(from: Date | null): Promise<number> { return this.run(from, new Date()); }
+
+    retryFailedAccounts(): Promise<number> {
+        if (this.isSyncing()) return Promise.resolve(0);
+        this.access.assertAction('sync');
+        const range = this.retryRange, targets = this.retryableAccounts();
+        if (!range || range.owner !== this.session.userId() || !targets.length) {
+            return Promise.reject(new Error('No connected failed accounts to retry. Reconnect the broker or start a new import.'));
+        }
+        return this.run(range.from, range.to, targets);
     }
 
-    /**
-     * Sync from a specific date (null = account creation date = full sync)
-     */
-    async syncFrom(fromDate: Date | null): Promise<number> {
+    private eligibleAccounts() {
+        return this.broker.connections().flatMap(conn => conn.accounts.filter(a => a.active !== false)
+            .map(a => ({ connectionId: conn.id, accountId: a.id, accountName: a.name })));
+    }
+
+    private setResult(target: BrokerAccountTarget, patch: Partial<AccountSyncResult>): void {
+        const key = brokerAccountKey(target);
+        this.results.update(rows => rows.map(r => brokerAccountKey(r) === key ? { ...r, ...patch } : r));
+        this.persistRetries();
+    }
+
+    private restoreRetries(owner: string | null): void {
+        const pending = owner ? parsePendingSync(readCache(SyncService.RETRY_KEY + ':' + owner)) : [];
+        this.results.set(pending);
+        this.retryStateWarning.set(false);
+        this.retryRange = owner && pending.length ? { owner,
+            from: pending[0].fromDate ? new Date(pending[0].fromDate) : null, to: new Date(pending[0].toDate) } : null;
+    }
+
+    private persistRetries(): void {
+        if (this.access.demo() || !this.session.userId() || this.resultsOwner() !== this.session.userId()) return;
+        try {
+            localStorage.setItem(SyncService.RETRY_KEY + ':' + this.session.userId(),
+                JSON.stringify(this.accountResults().filter(r => r.state !== 'synced')));
+            this.retryStateWarning.set(false);
+        } catch { this.retryStateWarning.set(true); }
+    }
+
+    private async run(fromDate: Date | null, endDate: Date, targets?: readonly BrokerAccountTarget[]): Promise<number> {
         this.access.assertAction('sync');
         if (this.isSyncing()) return 0;
-        const scope = this.access.capture();
-        const run = new AbortController();
+        if (fromDate && (!Number.isFinite(fromDate.getTime()) || fromDate > endDate)) {
+            const message = 'Choose a valid import date that is not in the future.';
+            this.lastError.set(message);
+            this.lastResult.set(null);
+            throw new Error(message);
+        }
+        const scope = this.access.capture(), run = new AbortController();
+        const signal = AbortSignal.any([scope.signal, run.signal]);
         this.activeRun = run;
         const assertRun = () => {
-            this.userSession.assertCurrent(scope);
+            this.access.assertCurrent(scope);
             this.access.assertAction('sync');
-            if (run.signal.aborted) throw new Error('Sync cancelled. Pending saves remain safe.');
+            if (run.signal.aborted) throw new Error('Sync cancelled. Saved history was kept.');
         };
+        const selected = targets ? new Set(targets.map(brokerAccountKey)) : null;
+        const previous = new Map(this.accountResults().map(r => [brokerAccountKey(r), r]));
+        const planned = this.eligibleAccounts().filter(a => !selected || selected.has(brokerAccountKey(a))).map(a => {
+            const pending = previous.get(brokerAccountKey(a));
+            let from = fromDate;
+            let to = endDate;
+            if (pending && (pending.state === 'failed' || pending.state === 'cancelled')) {
+                const olderFrom = pending.fromDate ? new Date(pending.fromDate) : null;
+                // Never let a short background refresh erase an unresolved older range.
+                if (targets || !olderFrom || (from && olderFrom < from)) from = olderFrom;
+                if (targets) to = new Date(pending.toDate);
+            }
+            return { ...a, fromDate: from, toDate: to };
+        });
+        const keys = new Set(planned.map(brokerAccountKey));
+        this.resultsOwner.set(scope.userId);
+        this.results.set([
+            ...(targets ? this.accountResults().filter(r => !keys.has(brokerAccountKey(r))) : []),
+            ...planned.map(a => ({ ...a, fromDate: a.fromDate?.toISOString() ?? null, toDate: a.toDate.toISOString(),
+                state: 'fetching' as const, message: 'Fetching report…', imported: 0 })),
+        ]);
+        this.retryRange = { owner: scope.userId, from: fromDate ? new Date(fromDate) : null, to: new Date(endDate) };
+        this.persistRetries();
         this.isSyncing.set(true);
         this.clearLog();
-
-        const rangeLabel = fromDate
-            ? `from ${fromDate.toLocaleDateString()}`
-            : 'from account start (full sync)';
-        this.log(`Starting sync ${rangeLabel}...`);
-
+        this.lastError.set(null);
+        this.lastResult.set(null);
+        let imported = 0;
         try {
-            const conns = this.tradovateService.connections();
-            if (conns.length === 0) throw new Error('No Tradovate connections found');
-
-            this.log(`Syncing ${conns.length} connection(s): ${conns.map(c => c.name).join(', ')}`);
-
-            // Renew tokens that are close to expiry before starting a long sync
-            // so the session can't die halfway through.
-            for (const conn of conns) {
-                await this.tradovateService.ensureFreshToken(conn.id);
-                assertRun();
-            }
-
-            // Fetch pre-matched trades from Performance report
-            this.log('Fetching trades from Tradovate Performance Report...');
-            const reports = await firstValueFrom(
-                this.tradovateService.getAccountTradeReports(fromDate).pipe(
-                    timeout(SyncService.SYNC_TIMEOUT_MS),
-                    takeUntil(this.cancel$),
-                    takeUntil(fromEvent(scope.signal, 'abort'))
-                )
-            );
+            if (!planned.length) throw new Error('No active broker accounts are available to sync. Saved history is unchanged.');
+            const conns = this.broker.connections();
+            this.log((targets ? 'Retrying ' : 'Syncing ') + planned.length + ' account(s) ' +
+                (fromDate ? 'from ' + fromDate.toLocaleDateString() : 'from account start') + '.');
+            const reports = await firstValueFrom(this.broker.getAccountTradeReports(fromDate, endDate, planned).pipe(
+                timeout(5 * 60_000), takeUntil(fromEvent(signal, 'abort')),
+            ));
             assertRun();
             if (!reports.length) throw new Error('No active broker accounts are available to sync. Saved history is unchanged.');
-            const failed = reports.filter(report => report.error);
-            const successful = reports.filter(report => !report.error);
-            for (const report of failed) {
-                const connection = conns.find(c => c.id === report.connectionId)?.name ?? 'Broker';
-                this.log(`${connection} / ${report.accountName}: ${report.error} Saved history kept; account will be retried.`, 'error');
-            }
-            if (!successful.length) throw new Error(`No accounts synced. ${failed[0].accountName}: ${failed[0].error}`);
-            // Only touch history from accounts whose entire report was validated.
-            for (const conn of conns) {
-                const accountIds = new Set(successful.filter(r => r.connectionId === conn.id).map(r => String(r.accountId)));
-                if (!accountIds.size) continue;
-                const linked = this.tradeService.backfillConnectionIds(conn.id, accountIds);
-                if (linked > 0) this.log(`Linked ${linked} existing trade(s) to ${conn.name}.`);
-            }
-            const rawTrades = successful.flatMap(report => report.trades);
-            this.log(`Retrieved ${rawTrades.length} trade(s)`, rawTrades.length > 0 ? 'success' : 'warn');
-
-            // Use fees from the Performance report directly.
-            // Fall back to the configured commission rate only when the report doesn't include a fees column.
-            const commission = this.accountSettings.commissionPerContract();
-            const matchedTrades = rawTrades.map(t => {
-                const fees = t.fees !== undefined
-                    ? t.fees
-                    : parseFloat((commission * t.quantity * 2).toFixed(2));
-                const netPnl = parseFloat((t.pnl - fees).toFixed(2));
-                return { ...t, fees, netPnl, source: 'tradovate' as const };
-            });
-
-            // Deduplicate and collect fee updates for already-stored trades
-            const reconciliation = reconcileBrokerTrades(matchedTrades, this.tradeService.trades());
-            if (reconciliation.review.length) {
-                throw new Error(`${reconciliation.review.length} possible cross-format duplicate(s). Sync paused; review the existing trades before importing. No trades were removed.`);
-            }
-            const tradesToImport = reconciliation.newTrades;
-            const feeUpdates: { id: string; fees: number; netPnl: number }[] = [];
-
-            for (const t of matchedTrades) {
-                const existing = reconciliation.matches.get(t);
-
-                if (existing) {
-                    // Trade already stored — update fees/netPnl if the report gives different values
-                    if (existing.fees !== t.fees || existing.netPnl !== t.netPnl) {
-                        feeUpdates.push({ id: existing.id, fees: t.fees, netPnl: t.netPnl });
+            let completed = 0;
+            this.syncProgress.set({ current: 0, total: planned.length });
+            for (const target of planned) {
+                assertRun();
+                const report = reports.find(r => brokerAccountKey(r) === brokerAccountKey(target));
+                let stage: 'report' | 'review' | 'save' | 'receipt' = 'report';
+                try {
+                    if (!report) throw new Error('No complete report received. Retry this account.');
+                    if (report.error) throw new Error(report.error);
+                    if (!this.eligibleAccounts().some(a => brokerAccountKey(a) === brokerAccountKey(target))) {
+                        throw new Error('Account is no longer connected. Saved history was kept.');
                     }
+                    stage = 'review';
+                    const prepared = this.prepareTrades(report);
+                    this.setResult(target, { state: 'saving', message: 'Saving trades…' });
+                    stage = 'save';
+                    this.trades.backfillConnectionIds(target.connectionId, new Set([String(target.accountId)]));
+                    if (prepared.feeUpdates.length) this.trades.patchTradesFees(prepared.feeUpdates);
+                    for (const trade of prepared.newTrades) this.trades.createTrade(trade, scope.userId);
+                    await this.repo.flushQueue();
+                    assertRun();
+                    stage = 'receipt';
+                    await this.history.record(target, target.fromDate, target.toDate, scope);
+                    assertRun();
+                    imported += prepared.newTrades.length;
+                    completed++;
+                    this.setResult(target, { state: 'synced', imported: prepared.newTrades.length,
+                        message: report.trades.length ? prepared.newTrades.length + ' new trade(s). Saved to your account.' : 'No completed trades in this range. Report checked.' });
+                    this.log(target.accountName + ': synced (' + prepared.newTrades.length + ' new trades).', 'success');
+                } catch (err) {
+                    assertRun(); // Cancellation/owner changes are never ordinary account failures.
+                    const message = stage === 'save' ? 'Could not save trades to your account. Local changes are queued; retry when online.'
+                        : err instanceof Error ? err.message : 'Could not sync this account. Please retry.';
+                    this.setResult(target, { state: 'failed', message });
+                    this.log((conns.find(c => c.id === target.connectionId)?.name ?? 'Broker') + ' / ' + target.accountName + ': ' + message + ' Saved history kept.', 'error');
                 }
+                this.syncProgress.update(p => p ? { ...p, current: p.current + 1 } : p);
             }
-
-            this.log(
-                `${tradesToImport.length} new trade(s) to import (${matchedTrades.length - tradesToImport.length} already exist)`,
-                tradesToImport.length > 0 ? 'info' : 'warn'
-            );
-
-            // Apply fee corrections to existing trades from the authoritative report data
-            if (feeUpdates.length > 0) {
-                this.tradeService.patchTradesFees(feeUpdates);
-                this.log(`Updated fees for ${feeUpdates.length} existing trade(s) from report.`, 'info');
+            const results = this.accountResults();
+            if (!completed) {
+                const first = results.find(r => keys.has(brokerAccountKey(r)) && r.state === 'failed');
+                throw new Error('No accounts synced. ' + (first?.accountName ?? '') + ': ' + (first?.message ?? 'Please retry.'));
             }
-
-            // Import new trades
-
-            this.syncProgress.set({ current: 0, total: tradesToImport.length });
-            for (let i = 0; i < tradesToImport.length; i++) {
-                this.tradeService.createTrade(tradesToImport[i], scope.userId);
-                this.syncProgress.set({ current: i + 1, total: tradesToImport.length });
-            }
-
-            await this.repo.flushQueue();
-            assertRun();
-            // New trades and matched fee patches already contain net P&L. Do not
-            // recalculate unrelated/failed-account history during a partial sync.
+            const succeeded = new Set(results.filter(r => r.state === 'synced').map(brokerAccountKey));
+            const eligible = this.eligibleAccounts();
             for (const conn of conns) {
-                if (successful.some(r => r.connectionId === conn.id) && !failed.some(r => r.connectionId === conn.id)) {
-                    this.tradovateService.updateConnectionSyncTime(conn.id);
-                }
+                const accounts = eligible.filter(a => a.connectionId === conn.id);
+                if (accounts.length && accounts.every(a => succeeded.has(brokerAccountKey(a)))) this.broker.updateConnectionSyncTime(conn.id);
             }
             await this.repo.flushQueue();
             assertRun();
-            if (failed.length) {
-                const warning = `Partial sync: imported ${tradesToImport.length} new trade(s); ${successful.length} of ${reports.length} accounts synced. ${failed.length} account(s) failed — see the sync log. Their history and last successful sync dates were kept. Retry sync after resolving the errors.`;
+            if (eligible.length && eligible.every(a => succeeded.has(brokerAccountKey(a)))) {
+                // Use the request end, NOT completion time: delayed retries must
+                // not skip trades entered while the user was waiting to retry.
+                const checkpoint = new Date(Math.min(...eligible.map(a => Date.parse(
+                    results.find(r => brokerAccountKey(r) === brokerAccountKey(a))!.toDate))));
+                this.lastSyncTime.set(checkpoint);
+                try { localStorage.setItem(SyncService.LAST_SYNC_KEY + ':' + scope.userId, checkpoint.toISOString()); }
+                catch { this.syncWarning.set('Trades saved, but this browser couldn’t remember the incremental sync date. The next sync may recheck older trades.'); }
+                this.log('Done! Imported ' + imported + ' trade(s).', 'success');
+            } else {
+                const warning = 'Partial sync: ' + results.filter(r => r.state === 'synced').length + ' of ' +
+                    results.length + ' accounts synced. Saved history was kept. Retry failed accounts below.';
                 this.syncWarning.set(warning);
                 this.log(warning, 'warn');
-            } else {
-                // A global checkpoint only represents a complete, acknowledged
-                // sync. Keep the previous range after partial failures for retries.
-                const syncTime = new Date();
-                this.lastSyncTime.set(syncTime);
-                localStorage.setItem(`${SyncService.LAST_SYNC_KEY}:${scope.userId}`, syncTime.toISOString());
-                this.log(`Done! Imported ${tradesToImport.length} trade(s).`, 'success');
             }
-            this.syncProgress.set(null);
-
-            return tradesToImport.length;
-
-        } catch (err: any) {
-            const msg = run.signal.aborted ? 'Sync cancelled. Saved history was kept.' : err?.message || 'Unknown error';
-            if (this.userSession.isCurrent(scope)) this.log(`Sync failed: ${msg}`, 'error');
-            console.error('Sync failed', err);
-            throw run.signal.aborted ? new Error(msg) : err;
+            this.lastResult.set(imported);
+            return imported;
+        } catch (err) {
+            const message = run.signal.aborted ? 'Sync cancelled. Saved history was kept.'
+                : err instanceof Error ? err.message : 'Sync failed. Please retry.';
+            if (this.access.isCurrent(scope)) {
+                for (const target of planned) {
+                    const state = this.accountResults().find(r => brokerAccountKey(r) === brokerAccountKey(target))?.state;
+                    if (state === 'fetching' || state === 'saving') this.setResult(target, {
+                        state: run.signal.aborted ? 'cancelled' : 'failed', message,
+                    });
+                }
+                this.lastError.set(message);
+                this.log(message, 'error');
+            }
+            throw new Error(message);
         } finally {
             if (this.activeRun === run) {
                 this.activeRun = null;
@@ -242,5 +291,24 @@ export class SyncService {
                 this.syncProgress.set(null);
             }
         }
+    }
+
+    private prepareTrades(report: TradovateAccountReport) {
+        const commission = this.settings.commissionPerContract();
+        const matched = report.trades.map(t => {
+            const fees = t.fees ?? Number((commission * t.quantity * 2).toFixed(2));
+            return { ...t, fees, netPnl: Number((t.pnl - fees).toFixed(2)), source: 'tradovate' as const };
+        });
+        const reconciliation = reconcileBrokerTrades(matched, this.trades.trades());
+        if (reconciliation.review.length) throw new Error(reconciliation.review.length +
+            ' possible cross-format duplicate(s). Review these trades before retrying. No trades were removed.');
+        const feeUpdates: { id: string; fees: number; netPnl: number }[] = [];
+        for (const trade of matched) {
+            const existing = reconciliation.matches.get(trade);
+            if (existing && (existing.fees !== trade.fees || existing.netPnl !== trade.netPnl)) {
+                feeUpdates.push({ id: existing.id, fees: trade.fees, netPnl: trade.netPnl });
+            }
+        }
+        return { newTrades: reconciliation.newTrades, feeUpdates };
     }
 }
