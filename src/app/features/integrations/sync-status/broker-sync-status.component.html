@@ -1,0 +1,52 @@
+<section class="broker-sync" aria-label="Account sync status">
+    <header class="broker-sync__header">
+        <div>
+            <h3>Account sync status</h3>
+            <p>Success means the requested report and its trades were saved. It does not mean all-time history was imported.</p>
+            @if (sync.retryableAccounts().length) {
+                <p>Retries keep the original date range and skip successful accounts.</p>
+            }
+        </div>
+        @if (sync.retryableAccounts().length) {
+            <button type="button" [disabled]="sync.isSyncing()" (click)="retry()">
+                Retry failed accounts ({{ sync.retryableAccounts().length }})
+            </button>
+        }
+    </header>
+    @if (sync.retryStateWarning()) {
+        <p class="broker-sync__notice" role="status">This browser can’t remember unfinished sync ranges. Retry before closing, or choose the original import range next time.</p>
+    }
+    @if (history.error()) {
+        <div class="broker-sync__notice" role="status">
+            <span>{{ history.error() }}</span>
+            <button type="button" [disabled]="history.loading()" (click)="history.load(true)">Reload sync times</button>
+        </div>
+    }
+    <ul class="broker-sync__list">
+        @for (row of rows(); track row.key) {
+            <li class="broker-sync__row" [class.broker-sync__row--failed]="row.failed">
+                <div class="broker-sync__identity">
+                    <strong>{{ row.name }}</strong>
+                    <span>{{ row.connection }}</span>
+                </div>
+                <div class="broker-sync__result">
+                    <strong>{{ row.status }}</strong>
+                    @if (row.message) { <p>{{ row.message }}</p> }
+                </div>
+                <div class="broker-sync__time">
+                    <span>Last successful sync</span>
+                    @if (row.checkpoint; as checkpoint) {
+                        <time [attr.datetime]="checkpoint.synced_at">{{ checkpoint.synced_at | date:'MMM d, y, h:mm a' }}</time>
+                        <small>Range: {{ checkpoint.range_from ? (checkpoint.range_from | date:'MMM d, y') : 'Account start' }}
+                            – {{ checkpoint.range_to | date:'MMM d, y' }}</small>
+                    } @else {
+                        <span>{{ history.loading() ? 'Loading…' : history.loaded() ? 'Not recorded yet' : 'Unavailable' }}</span>
+                    }
+                </div>
+            </li>
+        } @empty {
+            <li class="broker-sync__empty">Connect a broker to see its account sync results. Saved historical trades stay in your journal.</li>
+        }
+    </ul>
+    @if (error()) { <p class="broker-sync__error" role="alert">{{ error() }}</p> }
+</section>

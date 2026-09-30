@@ -9,6 +9,7 @@ import { UserSessionService } from './user-session.service';
 import { UserDataRepo } from './user-data/user-data.repo';
 import { parsePerformanceCsv } from '../utils/tradovate-performance.utils';
 import { AccessPolicyService } from './access-policy.service';
+import { BrokerAccountRequest, brokerAccountKey } from '../../features/integrations/sync-status/broker-sync.model';
 
 export interface TradovateFill {
     id: number;
@@ -1930,19 +1931,38 @@ export class TradovateService {
 
     /** Collect each account independently so one invalid/unavailable report cannot
      * cancel another account. SyncService decides which checkpoints may advance. */
-    getAccountTradeReports(startDate: Date | null, endDate?: Date): Observable<TradovateAccountReport[]> {
+    getAccountTradeReports(startDate: Date | null, endDate?: Date, targets?: readonly BrokerAccountRequest[]): Observable<TradovateAccountReport[]> {
         const scope = this.captureBroker();
         const end = endDate || new Date();
         const conns = this.connections();
         if (conns.length === 0) return of([]);
 
-        const requests = conns.flatMap(conn => conn.accounts.filter(a => a.active !== false).map(account => {
+        const selected = targets ? new Set(targets.map(brokerAccountKey)) : null;
+        const renewals = new Map<string, Promise<void>>();
+        const requests = conns.flatMap(conn => conn.accounts.filter(a => a.active !== false
+            && (!selected || selected.has(brokerAccountKey({ connectionId: conn.id, accountId: a.id })))).map(account => {
             const identity = { connectionId: conn.id, accountId: account.id, accountName: account.name };
+            const request = targets?.find(t => brokerAccountKey(t) === brokerAccountKey(identity));
+            const requestedStart = request?.fromDate !== undefined ? request.fromDate : startDate;
+            const requestedEnd = request?.toDate ?? end;
             const accountStart = account.timestamp ? new Date(account.timestamp) : null;
-            const start = accountStart && Number.isFinite(accountStart.getTime()) && (!startDate || accountStart > startDate)
+            const start = accountStart && Number.isFinite(accountStart.getTime()) && (!requestedStart || accountStart > requestedStart)
                 ? accountStart
-                : (startDate ?? new Date('2020-01-01T00:00:00Z'));
-            return defer(() => this.getPerformanceTrades(start, end, account.name, account.id, 0, undefined, conn)).pipe(
+                : (requestedStart ?? new Date('2020-01-01T00:00:00Z'));
+            return defer(() => {
+                // One renewal per selected connection; a failed/hung renewal is
+                // scoped to its accounts, never a barrier for healthy brokers.
+                if (!renewals.has(conn.id)) renewals.set(conn.id, this.ensureFreshToken(conn.id));
+                return from(renewals.get(conn.id)!);
+            }).pipe(
+                switchMap(() => {
+                    this.userSession.assertCurrent(scope);
+                    const current = this.connections().find(c => c.id === conn.id);
+                    if (!current || !current.accounts.some(a => a.id === account.id && a.active !== false)) {
+                        throw new Error('Account is no longer connected. Saved history was kept.');
+                    }
+                    return this.getPerformanceTrades(start, requestedEnd, account.name, account.id, 0, undefined, current);
+                }),
                 // Shorter than the overall sync timeout, so a hung account yields
                 // an explicit failure while other completed reports remain usable.
                 timeout(120_000),

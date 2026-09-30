@@ -83,7 +83,7 @@
                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
           <span class="tv-settings__sync-title">Import Trades</span>
-          <span class="tv-settings__sync-note">— syncs all {{ connections().length > 1 ? connections().length + ' connections' : 'connection' }}</span>
+          <span class="tv-settings__sync-note">— syncs active accounts across connected brokers</span>
         </div>
 
         <!-- Commission setting -->
@@ -138,7 +138,7 @@
         @if (syncProgress() && isSyncing()) {
           <div>
             <div class="tv-settings__progress-head">
-              <span>Progress</span>
+              <span>Accounts processed</span>
               <span>{{ syncProgress()!.current }} / {{ syncProgress()!.total }}</span>
             </div>
             <div class="tv-settings__progress-track">
@@ -148,6 +148,8 @@
             </div>
           </div>
         }
+
+        <app-broker-sync-status />
 
         <!-- Sync log -->
         @if (syncLog().length > 0) {
@@ -174,16 +176,18 @@
         }
 
         <!-- Result banner -->
-        @if (!isSyncing() && syncService.syncWarning()) {
+        @if (!isSyncing() && syncService.lastError()) {
+          <div class="tv-settings__banner tv-settings__banner--error" role="alert">{{ syncService.lastError() }}</div>
+        } @else if (!isSyncing() && syncService.syncWarning()) {
           <div class="tv-settings__banner tv-settings__banner--neutral" role="status">{{ syncService.syncWarning() }}</div>
-        } @else if (!isSyncing() && syncResult() !== null) {
+        } @else if (!isSyncing() && syncService.lastResult() !== null) {
           <div class="tv-settings__banner"
-               [class.tv-settings__banner--success]="syncResult()! > 0"
-               [class.tv-settings__banner--neutral]="syncResult() === 0">
-            @if (syncResult()! > 0) {
-              {{ syncResult() }} new trade{{ syncResult() !== 1 ? 's' : '' }} imported successfully.
+               [class.tv-settings__banner--success]="syncService.lastResult()! > 0"
+               [class.tv-settings__banner--neutral]="syncService.lastResult() === 0">
+            @if (syncService.lastResult()! > 0) {
+              {{ syncService.lastResult() }} new trade{{ syncService.lastResult() !== 1 ? 's' : '' }} imported successfully.
             } @else {
-              No new trades found — everything is already up to date.
+              No new trades found in the requested range.
             }
           </div>
         }
@@ -198,7 +202,7 @@
     <!-- Danger Zone -->
     <div class="danger-zone">
       <h2 class="danger-zone__title">Danger Zone</h2>
-      <p class="danger-zone__desc">Permanently deletes all trade data. Use before re-syncing to fix incorrect data.</p>
+      <p class="danger-zone__desc">Permanently deletes all trade data. Retrying sync or reconnecting a broker does not require deleting your trades.</p>
       <button (click)="resetAllTrades()" class="btn-danger">Reset All Trades</button>
     </div>
 

@@ -74,6 +74,7 @@ describe('independent broker account reports', () => {
             { id: 'A', accounts: [{ id: 1, name: 'Healthy', active: true }, { id: 2, name: 'Bad CSV', active: true }] },
             { id: 'B', accounts: [{ id: 3, name: 'Pending', active: true }, { id: 4, name: 'Historical', active: false }] },
         ];
+        service.ensureFreshToken = vi.fn(async () => {});
         return { service, controller };
     }
 
@@ -83,6 +84,7 @@ describe('independent broker account reports', () => {
         service.getPerformanceTrades = vi.fn((_s, _e, _name, id) => id === 1 ? of([{ externalId: 'healthy' }])
             : id === 2 ? throwError(() => new Error('Invalid Performance report row 2: invalid or missing pnl.')) : pending);
         const result = firstValueFrom(service.getAccountTradeReports(new Date('2026-09-01')));
+        await Promise.resolve();
         expect(pending.observed).toBe(true);
         pending.next([{ externalId: 'later' }]); pending.complete();
         expect(await result).toEqual([
@@ -138,5 +140,56 @@ describe('independent broker account reports', () => {
             return throwError(() => new Error('Cancelled'));
         };
         await expect(firstValueFrom(service.getAccountTradeReports(null))).rejects.toThrow('Session changed');
+    });
+
+    it('renews only targeted connections and fetches only targeted active accounts', async () => {
+        const { service } = setup();
+        service.getPerformanceTrades = vi.fn(() => of([]));
+        const reports = await firstValueFrom(service.getAccountTradeReports(null, new Date(), [
+            { connectionId: 'A', accountId: 2 }, { connectionId: 'B', accountId: 4 },
+        ])) as any[];
+        expect(reports.map(r => r.accountId)).toEqual([2]);
+        expect(service.ensureFreshToken).toHaveBeenCalledExactlyOnceWith('A');
+        expect(service.getPerformanceTrades).toHaveBeenCalledOnce();
+        expect(service.getPerformanceTrades.mock.calls[0][3]).toBe(2);
+    });
+
+    it('isolates a renewal failure to that connection while renewing it only once', async () => {
+        const { service } = setup();
+        service.ensureFreshToken.mockImplementation(async (id: string) => {
+            if (id === 'A') throw { status: 401 };
+        });
+        service.getPerformanceTrades = vi.fn(() => of([]));
+        const reports = await firstValueFrom(service.getAccountTradeReports(null)) as any[];
+        expect(reports[0].error).toContain('Reconnect'); expect(reports[1].error).toContain('Reconnect');
+        expect(reports[2]).not.toHaveProperty('error');
+        expect(service.ensureFreshToken).toHaveBeenCalledTimes(2);
+        expect(service.getPerformanceTrades).toHaveBeenCalledOnce();
+    });
+
+    it('uses the refreshed connection, never the pre-renewal token snapshot', async () => {
+        const { service } = setup();
+        const original = service.connections();
+        let conns = original;
+        service.connections = () => conns;
+        service.ensureFreshToken.mockImplementation(async (id: string) => {
+            conns = conns.map((c: any) => c.id === id ? { ...c, token: 'renewed' } : c);
+        });
+        service.getPerformanceTrades = vi.fn(() => of([]));
+        await firstValueFrom(service.getAccountTradeReports(null));
+        expect(service.getPerformanceTrades.mock.calls.every((args: any[]) => args[6].token === 'renewed')).toBe(true);
+    });
+
+    it('uses per-account recovery windows without expanding a healthy account’s requested range', async () => {
+        const { service } = setup();
+        service.getPerformanceTrades = vi.fn(() => of([]));
+        const recent = new Date('2026-09-29'), originalEnd = new Date('2026-09-23');
+        await firstValueFrom(service.getAccountTradeReports(recent, new Date(), [
+            { connectionId: 'A', accountId: 1 },
+            { connectionId: 'A', accountId: 2, fromDate: null, toDate: originalEnd },
+        ]));
+        expect(service.getPerformanceTrades.mock.calls[0][0]).toEqual(recent);
+        expect(service.getPerformanceTrades.mock.calls[1][0]).toEqual(new Date('2020-01-01T00:00:00Z'));
+        expect(service.getPerformanceTrades.mock.calls[1][1]).toEqual(originalEnd);
     });
 });

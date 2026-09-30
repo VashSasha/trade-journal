@@ -20,7 +20,7 @@ describe('connect then import', () => {
             { provide: Router, useValue: {} },
             { provide: DemoModeService, useValue: { requireAccount: () => true } },
             { provide: TradovateService, useValue: { simpleLogin, connections: () => [{ id: 'connection' }], getAccountsForConnection: () => accounts } },
-            { provide: SyncService, useValue: { fullSync } },
+            { provide: SyncService, useValue: { fullSync, isSyncing: () => false, lastError: () => null } },
             { provide: AccountSettingsService, useValue: {} },
             { provide: TradeService, useValue: {} },
             { provide: UserSessionService, useValue: { capture: () => ({}), assertCurrent: () => {}, isCurrent: () => true } },
