@@ -33,13 +33,13 @@ describe('floating Live Coach', () => {
             setVoiceEnabled: vi.fn((voiceEnabled: boolean) => preferences.update(p => ({ ...p, voiceEnabled }))),
             setVoice: vi.fn(), setAiCommentary: vi.fn(), preview: vi.fn(), readingSummary: signal(false),
         };
-        const chat = { initialize: vi.fn(), canReview: history.canReview, access: { canAct: () => paid() },
+        const chat = { canReview: history.canReview, access: { canAct: () => paid() },
             conversations: signal([{ id: 'saved-chat', title: 'My session', created_at: '2026-09-28' }]), conversationId: signal<string | null>(null),
             busy: signal(false), deleting: signal(false), loading: signal(false), listing: signal(false), hasMore: signal(false),
-            listError: signal(null), error: signal(null), pending: signal(null), turns: signal([]), draft: signal(''),
+            listError: signal<string | null>(null), error: signal(null), pending: signal(null), turns: signal([]), draft: signal(''),
             replyTo: signal(null), reply: vi.fn(),
-            day: signal('2026-09-28'), accountIds: signal(null), dataReady: signal(false), allowance: signal(null),
-            send: vi.fn(), remove: vi.fn(), refreshAllowance: vi.fn(), loadConversations: vi.fn(),
+            day: signal('2026-09-28'), accountIds: signal(null), dataReady: signal(false), allowance: signal(null), allowanceLoading: signal(false),
+            send: vi.fn(), remove: vi.fn(), refreshAllowance: vi.fn(), invalidateAllowance: vi.fn(), loadConversations: vi.fn(),
             open: vi.fn(), newConversation: vi.fn(), cancel: vi.fn() };
         TestBed.configureTestingModule({ providers: [
             provideRouter([]),
@@ -105,7 +105,8 @@ describe('floating Live Coach', () => {
         component.toggle(); fixture.detectChanges(); vi.advanceTimersByTime(200); fixture.detectChanges();
         expect(component.open()).toBe(true); expect(component.rendered()).toBe(true);
         expect(root.querySelector('textarea')).toBe(input);
-        expect(chat.initialize).toHaveBeenCalledOnce();
+        expect(chat.loadConversations).not.toHaveBeenCalled();
+        expect(chat.refreshAllowance).not.toHaveBeenCalled();
     });
 
     it('clears content immediately for reduced motion and owner changes', () => {
@@ -134,16 +135,24 @@ describe('floating Live Coach', () => {
     });
 
     it('separates coach and voice controls and never changes master sound', () => {
-        const { fixture, component, coach, button, masterSound, menu } = setup();
+        const { fixture, component, coach, button, root, masterSound, menu } = setup();
         component.toggle(); fixture.detectChanges();
-        expect(button('Live coaching')).toBeUndefined();
+        expect(button('Automatic coaching')).toBeUndefined();
         menu();
-        button('Live coaching').click(); fixture.detectChanges();
+        button('Automatic coaching').click(); fixture.detectChanges();
         expect(coach.setEnabled).toHaveBeenCalledWith(true);
-        button('Coach voice').click(); fixture.detectChanges();
+        expect(button('Coach voice')).toBeUndefined(); expect(button('Voice playback')).toBeUndefined();
+        button('Coach settings').click(); fixture.detectChanges();
+        const voice = root.querySelector<HTMLInputElement>('input[aria-label="Voice playback"]')!;
+        expect(voice.checked).toBe(true);
+        voice.click(); fixture.detectChanges();
         expect(coach.setVoiceEnabled).toHaveBeenCalledWith(false);
         expect(masterSound()).toBe(true);
         expect(component.status()).toBe('Monitoring · Text only');
+        coach.preferences.update(p => ({ ...p, voiceEnabled: true })); fixture.detectChanges();
+        expect(voice.checked).toBe(true);
+        masterSound.set(false); fixture.detectChanges();
+        expect(root.textContent).toContain('Master sound is off.'); expect(voice.checked).toBe(true);
         component.close(); fixture.detectChanges();
         expect(coach.preferences().enabled).toBe(true);
     });
@@ -198,7 +207,9 @@ describe('floating Live Coach', () => {
         const { fixture, component, paid, history, button, root, menu } = setup();
         expect(history.load).not.toHaveBeenCalled();
         paid.set(false); component.toggle(); fixture.detectChanges();
-        menu(); button('Saved updates').click(); fixture.detectChanges();
+        menu(); button('Coaching history').click(); fixture.detectChanges();
+        expect(component.heading()).toBe('Coaching history');
+        expect(root.textContent).toContain('Your conversations are in Saved chats.');
         expect(history.load).toHaveBeenCalledOnce();
         expect(root.querySelector('app-coach-history')).not.toBeNull();
         expect(root.querySelector('.coach-widget__controls')).toBeNull();
@@ -213,9 +224,56 @@ describe('floating Live Coach', () => {
         expect(root.querySelector('textarea')).toBe(input);
         button('Shrink Coach').click(); fixture.detectChanges();
         expect(component.enlarged()).toBe(false);
-        expect(chat.initialize).toHaveBeenCalledOnce();
+        expect(chat.loadConversations).not.toHaveBeenCalled();
+        expect(chat.refreshAllowance).not.toHaveBeenCalled();
         expect(coach.setEnabled).not.toHaveBeenCalled();
         expect(root.querySelector('nav')).toBeNull();
+    });
+
+    it('reopens without data requests and loads each secondary menu only when expanded', () => {
+        vi.useFakeTimers();
+        const { fixture, component, root, chat, button, menu } = setup();
+        component.toggle(); fixture.detectChanges(); component.close(); fixture.detectChanges();
+        vi.advanceTimersByTime(180); fixture.detectChanges();
+        component.toggle(); fixture.detectChanges(); menu();
+        expect(chat.loadConversations).not.toHaveBeenCalled(); expect(chat.refreshAllowance).not.toHaveBeenCalled();
+        const disclosures = [...root.querySelectorAll<HTMLDetailsElement>('#coach-actions-panel details')];
+        const saved = disclosures.find(item => item.querySelector('summary')?.textContent?.trim() === 'Saved chats')!;
+        saved.open = true; saved.dispatchEvent(new Event('toggle')); fixture.detectChanges();
+        expect(chat.loadConversations).toHaveBeenCalledOnce(); expect(chat.refreshAllowance).not.toHaveBeenCalled();
+        saved.open = false; saved.dispatchEvent(new Event('toggle'));
+        expect(chat.loadConversations).toHaveBeenCalledOnce();
+        const usage = disclosures.find(item => item.querySelector('summary')?.textContent?.trim() === 'About & usage')!;
+        usage.open = true; usage.dispatchEvent(new Event('toggle')); fixture.detectChanges();
+        expect(chat.refreshAllowance).toHaveBeenCalledOnce();
+        button('Refresh saved chats').click(); expect(chat.loadConversations).toHaveBeenLastCalledWith(false, true);
+        button('Refresh usage').click(); expect(chat.refreshAllowance).toHaveBeenLastCalledWith(true);
+    });
+
+    it('adds decorative icons to menu items without replacing their text or state labels', () => {
+        const { fixture, component, root, chat, button, menu } = setup();
+        component.toggle(); fixture.detectChanges();
+        chat.conversationId.set('saved-chat'); chat.hasMore.set(true); chat.listError.set('Could not load chats.');
+        menu();
+        const checkIcons = () => {
+            const items = [...root.querySelectorAll<HTMLElement>('#coach-actions-panel button, #coach-actions-panel summary, #coach-actions-panel a')];
+            expect(items.length).toBeGreaterThan(10);
+            for (const item of items) {
+                const icon = item.querySelector('svg');
+                expect(icon?.getAttribute('aria-hidden')).toBe('true');
+                expect(icon?.getAttribute('focusable')).toBe('false');
+                expect(item.querySelector('.coach-actions__label')?.textContent?.trim()).toBeTruthy();
+            }
+        };
+        checkIcons();
+        const automatic = button('Automatic coaching');
+        automatic.click(); fixture.detectChanges();
+        expect(automatic.getAttribute('aria-pressed')).toBe('true');
+        expect(automatic.querySelector('.coach-actions__state')!.textContent).toBe('On');
+        expect(button('Coach voice')).toBeUndefined();
+        button('Delete chat').click(); fixture.detectChanges(); checkIcons();
+        expect(chat.remove).not.toHaveBeenCalled();
+        expect(chat.loadConversations).not.toHaveBeenCalled(); expect(chat.refreshAllowance).not.toHaveBeenCalled();
     });
 
     it('keeps chat actions in one menu and confirms deletion', async () => {

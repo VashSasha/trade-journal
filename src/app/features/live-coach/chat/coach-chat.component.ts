@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { afterNextRender, ChangeDetectionStrategy, Component, computed, effect, ElementRef, HostListener, inject, Injector, input, OnInit, signal, untracked, viewChild } from '@angular/core';
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, effect, ElementRef, HostListener, inject, Injector, input, signal, untracked, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { LiveCoachAnswerComponent } from '../live-coach-answer.component';
@@ -20,7 +20,7 @@ type ChatEntry =
     templateUrl: './coach-chat.component.html', styleUrl: './coach-chat.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CoachChatComponent implements OnInit {
+export class CoachChatComponent {
     readonly chat = inject(CoachChatService);
     readonly coach = inject(LiveCoachService);
     readonly observations = input<readonly LiveCoachObservation[]>([]);
@@ -60,7 +60,6 @@ export class CoachChatComponent implements OnInit {
             }, { injector: this.injector });
         });
     }
-    ngOnInit(): void { void this.chat.initialize(); }
     focusMessage(): void { this.messageInput()?.nativeElement.focus(); }
     reply(comment: LiveCoachObservation): void { this.chat.reply(comment); this.focusMessage(); }
     trackScroll(element: HTMLElement): void { this.following.set(element.scrollHeight - element.scrollTop - element.clientHeight < 80); }
@@ -83,6 +82,6 @@ export class CoachChatComponent implements OnInit {
         this.speechNotice.set('');
         try { if (!await this.coach.readChatSummary(text)) this.speechNotice.set('Audio is muted or busy with a live update. Try again when the Coach is quiet.'); }
         catch { this.speechNotice.set('Could not play this summary.'); }
-        finally { void this.chat.refreshAllowance(); }
+        finally { this.chat.invalidateAllowance(); }
     }
 }

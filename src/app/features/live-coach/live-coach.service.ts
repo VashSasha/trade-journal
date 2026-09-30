@@ -77,7 +77,7 @@ export class LiveCoachService {
     readonly effectiveVoice = computed(() => this.aiAvailable() ? this.preferences().voice : 'browser');
     readonly aiStatusLabel = computed(() => {
         if (!this.preferences().aiCommentary) return 'Off';
-        if (!this.preferences().enabled) return 'Coach is off';
+        if (!this.preferences().enabled) return 'Automatic coaching off';
         if (!this.aiAvailable()) return 'Premium+ required';
         if (this.aiState() === 'thinking') return 'Personalizing…';
         if (this.aiState() === 'fallback') return 'Factual fallback active';

@@ -37,7 +37,7 @@ export class LiveCoachWidgetComponent {
     private closeTimer: ReturnType<typeof setTimeout> | undefined;
     readonly view = signal<CoachView>('chat');
     readonly enlarged = signal(false);
-    readonly heading = computed(() => ({ chat: 'Live Coach', history: 'Saved updates', settings: 'Coach settings' })[this.view()]);
+    readonly heading = computed(() => ({ chat: 'Live Coach', history: 'Coaching history', settings: 'Coach settings' })[this.view()]);
     private readonly seen = signal(0);
     readonly available = computed(() => !!this.session.userId() && this.access.canAct('sync'));
     readonly comments = computed(() => this.available() && !this.access.demo()
@@ -47,7 +47,7 @@ export class LiveCoachWidgetComponent {
         if (this.access.demo()) return 'Demo preview';
         if (!this.available()) return 'Upgrade to enable';
         if (this.coach.preferencesLoading()) return 'Loading preferences';
-        if (!this.coach.preferences().enabled) return 'Coach is off';
+        if (!this.coach.preferences().enabled) return 'Automatic coaching off';
         if (this.coach.liveState() !== 'live') return this.coach.liveStatus();
         if (this.coach.aiState() === 'thinking') return 'Preparing an observation';
         if (this.coach.narratorState() === 'speaking' && !this.coach.paused()) return 'Speaking';

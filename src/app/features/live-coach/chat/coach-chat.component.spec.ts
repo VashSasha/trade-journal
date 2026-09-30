@@ -9,12 +9,12 @@ import { CoachChatObservation, CoachChatTurn } from './coach-chat.model';
 
 function setup() {
     const ai = signal(true);
-    const chat = { initialize: vi.fn(), access: { canAct: () => ai() }, conversations: signal([]), conversationId: signal<string | null>(null),
+    const chat = { access: { canAct: () => ai() }, conversations: signal([]), conversationId: signal<string | null>(null),
         busy: signal(false), deleting: signal(false), loading: signal(false), listing: signal(false), hasMore: signal(false),
         listError: signal(null), error: signal(null), pending: signal(null), turns: signal<CoachChatTurn[]>([]), draft: signal(''),
         replyTo: signal<CoachChatObservation | null>(null), reply: vi.fn(),
         day: signal('2026-09-28'), accountIds: signal(null), dataReady: signal(false), allowance: signal({ day: '2026-09-28', remaining: 26 }),
-        send: vi.fn(), remove: vi.fn(), refreshAllowance: vi.fn(), open: vi.fn(), newConversation: vi.fn(), cancel: vi.fn() };
+        send: vi.fn(), remove: vi.fn(), refreshAllowance: vi.fn(), invalidateAllowance: vi.fn(), open: vi.fn(), newConversation: vi.fn(), cancel: vi.fn() };
     const coach = { paused: signal(false), readingSummary: signal(false), readChatSummary: vi.fn(async () => true) };
     TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: CoachChatService, useValue: chat }, { provide: LiveCoachService, useValue: coach }] });
     const fixture = TestBed.createComponent(CoachChatComponent); fixture.detectChanges();
@@ -72,10 +72,41 @@ describe('Ask Coach interface', () => {
         fixture.detectChanges();
         expect(root.querySelector('script, img')).toBeNull();
         expect(root.textContent).toContain('<img src=x onerror=bad()>');
-        expect(root.querySelector('app-live-coach-answer details')!.hasAttribute('open')).toBe(false);
+        expect(button('More details').getAttribute('aria-expanded')).toBe('false');
         expect(coach.readChatSummary).not.toHaveBeenCalled();
         button('Read summary').click(); await fixture.whenStable();
         expect(coach.readChatSummary).toHaveBeenCalledTimes(1);
+        expect(chat.invalidateAllowance).toHaveBeenCalledOnce();
+        expect(chat.refreshAllowance).not.toHaveBeenCalled();
+    });
+    it('groups answer controls in one row, with independent full-width disclosures and no automatic requests', () => {
+        const { fixture, root, chat, coach, ai } = setup();
+        const turn: CoachChatTurn = { id: 'one', conversation_id: 'thread', prompt: 'Review my day.', created_at: '2026-09-28T15:00:00Z',
+            answer: { meaning: 'Review your sizing.', evidence: 'Your saved trades.', nextStep: 'Write a plan.' },
+            context: { capturedAt: '2026-09-28T15:00:00Z', tradeDate: '2026-09-28', accountIds: null, dataReady: false, summary: null } };
+        chat.turns.set([turn, { ...turn, id: 'two' }]); fixture.detectChanges();
+        const rows = [...root.querySelectorAll<HTMLElement>('.coach-answer__actions')];
+        expect(rows).toHaveLength(2);
+        for (const row of rows) {
+            expect([...row.querySelectorAll('button')].map(b => b.textContent!.trim())).toEqual(['More details', 'Read summary', 'Context']);
+        }
+        const [details, , context] = [...rows[0].querySelectorAll<HTMLButtonElement>('button')];
+        const detailsPanel = root.querySelector<HTMLElement>(`#${details.getAttribute('aria-controls')}`)!;
+        const contextPanel = root.querySelector<HTMLElement>(`#${context.getAttribute('aria-controls')}`)!;
+        expect(detailsPanel.hidden).toBe(true); expect(contextPanel.hidden).toBe(true);
+        expect(rows[0].contains(detailsPanel)).toBe(false); expect(rows[0].contains(contextPanel)).toBe(false);
+        details.click(); fixture.detectChanges();
+        expect(details.getAttribute('aria-expanded')).toBe('true'); expect(detailsPanel.hidden).toBe(false);
+        expect(contextPanel.hidden).toBe(true);
+        context.click(); fixture.detectChanges();
+        expect(contextPanel.hidden).toBe(false); expect(contextPanel.textContent).toContain('All saved accounts');
+        details.click(); fixture.detectChanges(); expect(detailsPanel.hidden).toBe(true); expect(contextPanel.hidden).toBe(false);
+        expect(rows[1].querySelector('button')!.getAttribute('aria-controls')).not.toBe(details.getAttribute('aria-controls'));
+        expect(rows[1].querySelector('button')!.getAttribute('aria-expanded')).toBe('false');
+        expect(chat.send).not.toHaveBeenCalled(); expect(chat.refreshAllowance).not.toHaveBeenCalled();
+        expect(coach.readChatSummary).not.toHaveBeenCalled();
+        ai.set(false); fixture.detectChanges();
+        expect([...rows[0].querySelectorAll('button')].map(b => b.textContent!.trim())).toEqual(['More details', 'Context']);
     });
     it('keeps chat uncluttered and preserves read access after downgrade', () => {
         const { fixture, root, button, chat, ai } = setup();
