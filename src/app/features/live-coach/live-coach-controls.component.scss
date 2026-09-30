@@ -18,6 +18,7 @@
     &__head {
         position: relative;
         display: flex;
+        flex-wrap: wrap;
         align-items: flex-start;
         justify-content: space-between;
         gap: 18px;
@@ -40,7 +41,8 @@
 
     &__switch {
         display: flex;
-        min-height: 32px;
+        min-height: 44px;
+        flex-shrink: 0;
         align-items: center;
         gap: 8px;
         color: var(--color-text-secondary);
@@ -53,6 +55,7 @@
             position: relative;
             width: 38px;
             height: 22px;
+            flex-shrink: 0;
             border: 1px solid var(--color-border);
             border-radius: 999px;
             background: var(--color-bg-surface-3);
@@ -288,6 +291,7 @@
 @media (max-width: 680px) {
     .live-coach {
         &__head { align-items: center; }
+        &__voice { grid-template-columns: 1fr; }
         &__events { grid-template-columns: 1fr; }
         &__tuning { grid-template-columns: 1fr; }
     }

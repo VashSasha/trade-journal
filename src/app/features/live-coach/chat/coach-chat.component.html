@@ -31,21 +31,22 @@
                             <span class="coach-chat__sr">You: </span>{{ turn.prompt }}
                         </div>
                         <div class="coach-chat__answer">
-                            <app-live-coach-answer [answer]="turn.answer" [conversational]="true" />
-                            <div class="coach-chat__message-actions">
-                                @if (chat.access.canAct('ai') && chat.access.canAct('sync')) {
-                                    <button type="button" class="coach-chat__icon" aria-label="Read summary" title="Read summary" (click)="read(turn.answer.meaning)"
-                                            [disabled]="coach.paused() || coach.readingSummary() || chat.busy()">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m11 5-6 4H2v6h3l6 4V5Zm4 4a5 5 0 0 1 0 6m3-9a9 9 0 0 1 0 12"/></svg>
-                                    </button>
-                                }
-                                <details class="coach-chat__message-context">
-                                    <summary>Context</summary>
+                            <app-live-coach-answer [answer]="turn.answer" [conversational]="true" [hasContext]="true">
+                                <ng-container coachAnswerAction>
+                                    @if (chat.access.canAct('ai') && chat.access.canAct('sync')) {
+                                        <button type="button" class="coach-chat__message-action" aria-label="Read summary" title="" (click)="read(turn.answer.meaning)"
+                                                [disabled]="coach.paused() || coach.readingSummary() || chat.busy()">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m11 5-6 4H2v6h3l6 4V5Zm4 4a5 5 0 0 1 0 6m3-9a9 9 0 0 1 0 12"/></svg>
+                                            Read summary
+                                        </button>
+                                    }
+                                </ng-container>
+                                <div coachAnswerContext class="coach-chat__message-context">
                                     <p>{{ turn.context.tradeDate }} — {{ turn.context.accountIds === null ? 'All saved accounts' : turn.context.accountIds.length + ' selected account(s)' }}.</p>
                                     <p>Captured {{ turn.context.capturedAt | date:'MMM d, h:mm a' }}. {{ turn.context.summary ? turn.context.summary.tradeCount + ' trades, approximately ' + turn.context.summary.decisionCount + ' decisions.' : 'General planning; no usable trade summary.' }}</p>
                                     @if (turn.context.accountIds?.length) { <p>Account IDs: {{ turn.context.accountIds!.join(', ') }}</p> }
-                                </details>
-                            </div>
+                                </div>
+                            </app-live-coach-answer>
                         </div>
                     }
                 </li>

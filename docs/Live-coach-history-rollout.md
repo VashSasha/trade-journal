@@ -4,7 +4,7 @@
 
 1. Run `supabase/migrations/0033_live_coach_history.sql` using your usual migration workflow, before deploying the frontend. It is additive and rerunnable; no existing trades, connections, accounts or entitlements are changed.
 2. Deploy the frontend. No Edge Function changes or new secrets are required.
-3. Open Live Coach → Saved history. New factual/AI comments and completed follow-up answers are automatically saved to the signed-in user's account. Existing browser-session-only history cannot be recovered.
+3. Open Live Coach → Coaching history. This contains automatic trade observations and guardrails; typed conversations are under Saved chats. New factual/AI comments and completed follow-up answers are automatically saved to the signed-in user's account. Existing browser-session-only history cannot be recovered.
 
 ## Behavior
 

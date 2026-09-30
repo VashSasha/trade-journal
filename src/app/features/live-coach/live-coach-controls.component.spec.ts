@@ -12,8 +12,9 @@ describe('Live Coach voice selector', () => {
         const preferences = signal({ ...DEFAULT_LIVE_COACH_PREFERENCES, voice });
         const aiAvailable = signal(true);
         const setVoice = vi.fn((value: LiveCoachVoice) => preferences.update(current => ({ ...current, voice: value })));
+        const setVoiceEnabled = vi.fn((voiceEnabled: boolean) => preferences.update(current => ({ ...current, voiceEnabled })));
         const coach = {
-            preferences, aiAvailable, setVoice,
+            preferences, aiAvailable, setVoice, setVoiceEnabled,
             preferencesLoading: signal(false), supported: signal(true), previewing: signal(false),
             narratorState: signal('idle'), liveState: signal('idle'), liveStatus: () => 'Disconnected',
             liveDetail: () => '', audioReady: signal(false), aiStatusLabel: () => 'Off',
@@ -26,7 +27,7 @@ describe('Live Coach voice selector', () => {
         const fixture = TestBed.createComponent(LiveCoachControlsComponent);
         fixture.detectChanges();
         const select = fixture.nativeElement.querySelector('app-live-coach-voice-select select') as HTMLSelectElement;
-        return { fixture, select, preferences, aiAvailable, setVoice };
+        return { fixture, select, preferences, aiAvailable, setVoice, coach };
     }
 
     it.each<LiveCoachVoice>(['cedar', 'browser', 'marin', 'coral', 'verse'])('renders the saved %s selection on first load', voice => {
@@ -51,5 +52,22 @@ describe('Live Coach voice selector', () => {
         aiAvailable.set(false); fixture.detectChanges();
         expect(select.querySelector('optgroup')!.disabled).toBe(true);
         expect(select.querySelector<HTMLOptionElement>('option[value="browser"]')!.disabled).toBe(false);
+    });
+
+    it('uses one shared voice playback control and reflects synced settings without changing automatic coaching', () => {
+        const { fixture, preferences, coach } = setup();
+        const root = fixture.nativeElement as HTMLElement;
+        const controls = root.querySelectorAll<HTMLInputElement>('input[aria-label="Voice playback"]');
+        expect(controls).toHaveLength(1);
+        const voice = controls[0], automatic = preferences().enabled;
+        voice.click(); fixture.detectChanges();
+        expect(coach.setVoiceEnabled).toHaveBeenCalledWith(false);
+        expect(preferences().enabled).toBe(automatic); expect(coach.sounds.enabled()).toBe(true);
+        preferences.update(p => ({ ...p, voiceEnabled: true })); fixture.detectChanges();
+        expect(voice.checked).toBe(true);
+        coach.preferencesLoading.set(true); fixture.detectChanges(); expect(voice.disabled).toBe(true);
+        coach.sounds.enabled.set(false); fixture.detectChanges();
+        expect(root.querySelectorAll('.coach-voice__hint')).toHaveLength(1);
+        expect(root.textContent).toContain('Master sound is off.'); expect(voice.checked).toBe(true);
     });
 });

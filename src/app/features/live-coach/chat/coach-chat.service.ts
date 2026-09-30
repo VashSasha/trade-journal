@@ -12,6 +12,8 @@ import { CoachHistoryService } from '../history/coach-history.service';
 import { captureCoachSnapshot } from '../history/coach-history.model';
 import { LiveCoachObservation } from '../live-coach.models';
 
+const MENU_CACHE_MS = 30_000;
+
 /** Widget-scoped drafts; completed exchanges are server-saved. Never speaks automatically. */
 @Injectable()
 export class CoachChatService {
@@ -38,11 +40,17 @@ export class CoachChatService {
     readonly listError = signal<string | null>(null);
     readonly pending = signal<CoachChatRequest | null>(null);
     readonly allowance = signal<{ day: string; remaining: number } | null>(null);
+    readonly allowanceLoading = signal(false);
     readonly canReview = computed(() => !!this.session.userId() && !this.access.demo());
     readonly accountIds = computed(() => this.filters.filters().accountSelectionActive ? [...this.filters.filters().accountIds] : null);
     readonly dataReady = this.data.dataLoaded;
     private generation = 0;
     private listGeneration = 0;
+    private listLoadedAt: number | null = null;
+    private allowanceLoadedAt: number | null = null;
+    private allowanceGeneration = 0;
+    private allowanceRequest: Promise<void> | null = null;
+    private allowanceRequestDay: string | null = null;
     private controller: AbortController | null = null;
 
     constructor() {
@@ -52,7 +60,7 @@ export class CoachChatService {
             if (owner === nextOwner && demo === nextDemo) return;
             owner = nextOwner; demo = nextDemo;
             untracked(() => {
-                this.cancel(false); this.listGeneration++;
+                this.cancel(false); this.invalidateConversations(); this.invalidateAllowance();
                 this.conversations.set([]); this.conversationId.set(null); this.turns.set([]); this.draft.set('');
                 this.pending.set(null); this.replyTo.set(null); this.error.set(null); this.listError.set(null); this.allowance.set(null);
                 this.loading.set(false); this.listing.set(false); this.hasMore.set(false); this.deleting.set(false);
@@ -64,13 +72,15 @@ export class CoachChatService {
             if (allowed && !next) untracked(() => this.cancel());
             allowed = next;
         });
-        inject(DestroyRef).onDestroy(() => this.cancel(false));
+        inject(DestroyRef).onDestroy(() => {
+            this.cancel(false); this.invalidateConversations(); this.invalidateAllowance();
+        });
     }
 
-    async initialize(): Promise<void> { await Promise.all([this.loadConversations(), this.refreshAllowance()]); }
-
-    async loadConversations(more = false): Promise<void> {
-        if (!this.canReview() || (more && (this.listing() || !this.hasMore()))) return;
+    /** Only requested by the Saved chats menu. Cache survives closing the widget. */
+    async loadConversations(more = false, force = false): Promise<void> {
+        if (!this.canReview() || this.listing() || (more && !this.hasMore())) return;
+        if (!more && !force && this.listLoadedAt !== null && Date.now() - this.listLoadedAt < MENU_CACHE_MS) return;
         const scope = this.access.capture(), revision = ++this.listGeneration;
         const cursor = more ? this.conversations().at(-1) : null;
         this.listing.set(true); this.listError.set(null);
@@ -86,18 +96,55 @@ export class CoachChatService {
             const items = new Map((more ? this.conversations() : []).map(item => [item.id, item]));
             for (const row of rows.slice(0, 30)) items.set(row.id, row);
             this.conversations.set([...items.values()]);
-        } catch { if (this.current(scope) && revision === this.listGeneration) this.listError.set('Could not load conversations. Try refreshing.'); }
+            // Loading older pages must not prolong freshness of the newest page.
+            if (!more) this.listLoadedAt = Date.now();
+        } catch {
+            if (this.current(scope) && revision === this.listGeneration) {
+                this.listLoadedAt = null;
+                this.listError.set('Could not load conversations. Try refreshing.');
+            }
+        }
         finally { if (this.current(scope) && revision === this.listGeneration) this.listing.set(false); }
     }
 
-    async refreshAllowance(): Promise<void> {
-        if (!this.canReview()) return;
+    refreshAllowance(force = false): Promise<void> {
+        if (!this.canReview()) return Promise.resolve();
         const scope = this.access.capture(), day = new Date().toISOString().slice(0, 10);
+        if (this.allowanceRequest && this.allowanceRequestDay === day) return this.allowanceRequest;
+        if (!force && this.allowance()?.day === day && this.allowanceLoadedAt !== null
+            && Date.now() - this.allowanceLoadedAt < MENU_CACHE_MS) return Promise.resolve();
+        const revision = ++this.allowanceGeneration;
+        this.allowance.set(null); this.allowanceLoading.set(true);
+        this.allowanceRequestDay = day;
+        return this.allowanceRequest = this.loadAllowance(scope, day, revision);
+    }
+
+    /** Shared quota may change after any attempted chat or speech request. Re-read on demand. */
+    invalidateAllowance(): void {
+        this.allowanceGeneration++; this.allowanceLoadedAt = null;
+        this.allowanceRequest = null; this.allowanceRequestDay = null;
+        this.allowance.set(null); this.allowanceLoading.set(false);
+    }
+
+    private async loadAllowance(scope: UserOperation, day: string, revision: number): Promise<void> {
         try {
             const { data, error } = await this.client.from('live_coach_ai_usage').select('count').eq('user_id', scope.userId)
                 .eq('day', day).abortSignal(this.signal(scope)).maybeSingle();
-            if (this.current(scope)) this.allowance.set(error ? null : { day, remaining: Math.max(0, 30 - (data?.count ?? 0)) });
-        } catch { if (this.current(scope)) this.allowance.set(null); }
+            if (!this.current(scope) || revision !== this.allowanceGeneration) return;
+            if (error) throw error;
+            // Do not label yesterday's result as today's balance if a read crosses midnight.
+            if (day !== new Date().toISOString().slice(0, 10)) return;
+            this.allowance.set({ day, remaining: Math.max(0, 30 - (data?.count ?? 0)) });
+            this.allowanceLoadedAt = Date.now();
+        } catch {
+            if (this.current(scope) && revision === this.allowanceGeneration) {
+                this.allowance.set(null); this.allowanceLoadedAt = null;
+            }
+        } finally {
+            if (revision === this.allowanceGeneration) {
+                this.allowanceRequest = null; this.allowanceRequestDay = null; this.allowanceLoading.set(false);
+            }
+        }
     }
 
     newConversation(): void {
@@ -156,6 +203,7 @@ export class CoachChatService {
                 if (error) throw new Error('Could not create a conversation. Please retry.');
                 if (!this.current(scope) || revision !== this.generation) return;
                 this.conversationId.set(request.conversationId);
+                this.invalidateConversations();
             }
             signal.throwIfAborted();
             const answer = await this.waitForAnswer(() => this.ai.askCoach(request, signal), signal);
@@ -165,7 +213,6 @@ export class CoachChatService {
                 context: request.context, created_at: new Date().toISOString(),
             }]);
             this.pending.set(null); this.replyTo.set(null); this.draft.set('');
-            void this.loadConversations();
         } catch (error) {
             if (this.current(scope) && revision === this.generation) this.error.set(signal.aborted
                 ? 'The request timed out. Refresh to check for a saved answer, or retry this message.'
@@ -173,7 +220,7 @@ export class CoachChatService {
         } finally {
             clearTimeout(deadline);
             if (revision === this.generation) { this.busy.set(false); this.controller = null; }
-            if (this.current(scope)) void this.refreshAllowance();
+            if (this.current(scope)) this.invalidateAllowance();
         }
     }
 
@@ -195,9 +242,15 @@ export class CoachChatService {
             if (!this.current(scope)) return;
             if (error) throw error;
             this.deleting.set(false); this.newConversation();
+            this.invalidateConversations();
             this.conversations.update(items => items.filter(item => item.id !== id));
         } catch { if (this.current(scope)) this.error.set('Could not delete this conversation. Please retry.'); }
         finally { if (this.current(scope)) this.deleting.set(false); }
+    }
+
+    private invalidateConversations(): void {
+        // Ignore reads started before a create/delete, even if they finish afterwards.
+        this.listGeneration++; this.listLoadedAt = null; this.listing.set(false);
     }
 
     private current(scope: UserOperation): boolean { return this.canReview() && this.session.isCurrent(scope); }

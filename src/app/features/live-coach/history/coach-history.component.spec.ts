@@ -56,7 +56,9 @@ describe('Coach history UI', () => {
         expect(history.load).toHaveBeenCalledWith('', true);
         history.loading.set(true); fixture.detectChanges(); expect(button('Refresh').disabled).toBe(true);
         history.loading.set(false); history.items.set([]); history.date.set('2026-09-19'); fixture.detectChanges();
-        expect(root.textContent).toContain('No updates for this day');
+        expect(root.textContent).toContain('No observations for this day');
+        history.date.set(''); fixture.detectChanges();
+        expect(root.textContent).toContain('No coaching observations yet.');
         history.error.set('Could not load saved history. Try again.'); fixture.detectChanges();
         expect(root.querySelector('[role="alert"]')?.textContent).toContain('Could not load');
     });

@@ -1,4 +1,5 @@
-<section class="coach-history" aria-label="Saved coach history">
+<section class="coach-history" aria-label="Coaching history">
+    <p class="coach-history__hint">Automatic observations about your trades and guardrails. Your conversations are in Saved chats.</p>
     <div class="coach-history__filters">
         <label>Trading day
             <input type="date" [value]="history.date()" (change)="history.load($any($event.target).value)" />
@@ -12,8 +13,8 @@
     @if (history.loading()) { <p class="coach-history__hint" role="status">Loading history…</p> }
     @if (!history.loading() && !history.error() && !history.items().length) {
         <div class="coach-history__empty">
-            <h3>{{ history.date() ? 'No updates for this day.' : 'No saved updates yet.' }}</h3>
-            <p>Live updates save here automatically.</p>
+            <h3>{{ history.date() ? 'No observations for this day.' : 'No coaching observations yet.' }}</h3>
+            <p>Automatic coaching saves observations here as you trade.</p>
         </div>
     }
     <ol class="coach-history__list">

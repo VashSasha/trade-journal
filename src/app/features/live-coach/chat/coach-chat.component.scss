@@ -26,11 +26,11 @@
         border-left: 2px solid var(--color-accent); div { flex: 1; min-width: 0; } small { color: var(--color-text-secondary); }
         p { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .75rem; } button { min-width: 44px; } }
     &__latest { flex-shrink: 0; align-self: center; font-size: .75rem; }
-    &__message-actions { display: flex; align-items: start; gap: .25rem; }
-    &__icon { display: grid; place-items: center; width: 44px; }
-    &__message-context { flex: 1; min-width: 0; color: var(--color-text-secondary); font-size: .6875rem;
-        summary { width: fit-content; cursor: pointer; min-height: 44px; padding: .5rem; align-content: center; }
-        p { margin: .25rem .5rem; } }
+    &__message-action { display: inline-flex; align-items: center; gap: .25rem; padding: .375rem .5rem;
+        color: var(--color-text-secondary); font-size: .75rem; line-height: 1.4; white-space: nowrap;
+        svg { width: 16px; height: 16px; } }
+    &__message-context { min-width: 0; margin-bottom: .75rem; color: var(--color-text-secondary); font-size: .75rem;
+        p { margin: .25rem 0; } }
     &__actions { display: flex; gap: .5rem; font-size: .75rem; }
     &__notice { padding: .75rem; background: var(--color-bg-surface-2); border-left: 2px solid var(--color-accent); font-size: .75rem; }
     &__hint { color: var(--color-text-secondary); font-size: .75rem; }
