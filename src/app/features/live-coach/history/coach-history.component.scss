@@ -17,5 +17,6 @@
     &__facts { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; font-size: .75rem; dt { color: var(--color-text-secondary); } dd { margin: .25rem 0 0; font-weight: 600; } }
     &__confirm { padding: .75rem; background: var(--color-bg-surface-2); border-radius: 8px; p { font-size: .75rem; line-height: 1.6; margin: 0 0 .5rem; } button { margin-right: .375rem; margin-top: .25rem; } }
     &__delete { background: transparent !important; border-color: transparent !important; text-decoration: underline; text-underline-offset: 3px; }
+    &__actions { display: flex; flex-wrap: wrap; align-items: center; gap: .375rem; }
     &__more { width: 100%; margin-top: 1rem; }
 }

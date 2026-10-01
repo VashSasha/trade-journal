@@ -1,7 +1,9 @@
 <div class="coach-chat">
     <div #scroll class="coach-chat__scroll" (scroll)="trackScroll(scroll)">
         @if (chat.loading()) { <p class="coach-chat__hint" role="status">Loading chat…</p> }
-        @if (!timeline().length && !chat.loading() && !chat.pending()) {
+        @if (chat.notice()) { <p class="coach-chat__notice" role="status">{{ chat.notice() }}</p> }
+        @if (chat.storageWarning()) { <p class="coach-chat__hint" role="status">This browser couldn’t remember your selection. Your saved chats are still available in Saved chats.</p> }
+        @if (!timeline().length && !chat.loading() && !chat.loadFailed() && !chat.pending()) {
             <div class="coach-chat__intro">
                 <h3>What would you like to review?</h3>
                 @if (chat.access.canAct('ai')) {
@@ -21,7 +23,7 @@
                             <div class="coach-chat__observation-label"><span>{{ comment.title }}</span><time [attr.datetime]="comment.time | date:'yyyy-MM-ddTHH:mm:ssZZZZZ'">{{ comment.time | date:'MMM d, h:mm a' }}</time></div>
                             <p>{{ comment.text }}</p>
                             @if (chat.access.canAct('ai') && comment.historyId) {
-                                <button type="button" class="coach-chat__reply" (click)="reply(comment)" [disabled]="!!chat.pending() || chat.loading()">Reply</button>
+                                <button type="button" class="coach-chat__reply" (click)="reply(comment)" [disabled]="!chat.canReply()">Reply</button>
                             }
                         </div>
                     }
@@ -56,6 +58,12 @@
         @if (chat.pending(); as request) { <p class="coach-chat__question"><span class="coach-chat__sr">You: </span>{{ request.message }}</p> }
         @if (chat.busy()) { <p class="coach-chat__hint" role="status">Thinking…</p> }
         @if (chat.error()) { <p role="alert" class="coach-chat__notice">{{ chat.error() }}</p> }
+        @if (chat.loadFailed() && chat.conversationId()) {
+            <div class="coach-chat__actions">
+                <button type="button" [disabled]="chat.loading() || chat.deleting()" (click)="chat.open(chat.conversationId()!)">Retry loading</button>
+                <button type="button" [disabled]="chat.deleting()" (click)="chat.newConversation()">New chat</button>
+            </div>
+        }
         @if (chat.pending() && !chat.busy()) {
             <div class="coach-chat__actions">
                 <button type="button" (click)="chat.send(true)" [disabled]="!chat.access.canAct('ai') || chat.loading()">Retry</button>
@@ -68,7 +76,7 @@
         <form class="coach-chat__composer" (ngSubmit)="send()">
             @if (chat.replyTo(); as original) {
                 <div class="coach-chat__reply-preview">
-                    <div><small>Replying to {{ original.title }}</small><p>{{ original.text }}</p></div>
+                    <div><small>Replying to {{ original.title }} · {{ original.observedAt | date:'MMM d, h:mm a' }}</small><p>{{ original.text }}</p></div>
                     <button type="button" aria-label="Cancel reply" [disabled]="!!chat.pending()" (click)="chat.replyTo.set(null)">×</button>
                 </div>
             }
@@ -93,7 +101,7 @@
                     </button>
                 } @else {
                     <button class="coach-chat__send" type="submit" aria-label="Send message" title="Send message"
-                            [disabled]="!!chat.pending() || chat.loading() || chat.deleting() || !chat.day() || !chat.draft().trim()">
+                            [disabled]="!!chat.pending() || chat.loading() || chat.loadFailed() || chat.deleting() || !chat.day() || !chat.draft().trim()">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg>
                     </button>
                 }

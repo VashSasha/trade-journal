@@ -8,7 +8,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>
                 </button>
             }
-            <div class="coach-widget__title"><h2 id="floating-coach-title">{{ heading() }}</h2>
+            <div class="coach-widget__title"><h2 id="floating-coach-title" [title]="heading()">{{ heading() }}</h2>
                 @if (view() === 'chat' && available()) { <p class="coach-widget__status" role="status">{{ status() }}</p> }
             </div>
             <button type="button" class="coach-widget__icon" [attr.aria-label]="enlarged() ? 'Shrink Coach' : 'Expand Coach'"
@@ -38,7 +38,10 @@
             } @else if (view() === 'chat' && history.canReview()) {
                 @if (rendered()) { <app-coach-chat [observations]="comments()" /> }
             } @else if (view() === 'history' && history.canReview()) {
-                @if (rendered()) { <app-coach-history /> }
+                @if (rendered()) {
+                    <app-coach-history [replyEnabled]="access.canAct('ai')" [replyBlocked]="!chat.canReply()"
+                        (replyRequested)="replyToSaved($event)" />
+                }
             } @else if (!available()) {
                 <div class="coach-widget__empty"><h3>A second perspective on your session.</h3>
                     <a class="coach-widget__link" routerLink="/account/pricing" (click)="close(false)">Explore plans</a>

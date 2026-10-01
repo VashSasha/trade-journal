@@ -11,6 +11,7 @@ import { CoachHistoryComponent } from './history/coach-history.component';
 import { CoachChatComponent } from './chat/coach-chat.component';
 import { CoachChatService } from './chat/coach-chat.service';
 import { CoachActionsComponent, CoachView } from './coach-actions.component';
+import { historyToObservation, SavedCoachObservation } from './history/coach-history.model';
 
 @Component({
     selector: 'app-live-coach-widget',
@@ -24,6 +25,7 @@ import { CoachActionsComponent, CoachView } from './coach-actions.component';
 export class LiveCoachWidgetComponent {
     readonly coach = inject(LiveCoachService);
     readonly history = inject(CoachHistoryService);
+    readonly chat = inject(CoachChatService);
     readonly access = inject(AccessPolicyService);
     readonly market = inject(MarketPanelService);
     private readonly session = inject(UserSessionService);
@@ -37,7 +39,7 @@ export class LiveCoachWidgetComponent {
     private closeTimer: ReturnType<typeof setTimeout> | undefined;
     readonly view = signal<CoachView>('chat');
     readonly enlarged = signal(false);
-    readonly heading = computed(() => ({ chat: 'Live Coach', history: 'Coaching history', settings: 'Coach settings' })[this.view()]);
+    readonly heading = computed(() => ({ chat: this.chat.conversationTitle() ?? 'Live Coach', history: 'Coaching history', settings: 'Coach settings' })[this.view()]);
     private readonly seen = signal(0);
     readonly available = computed(() => !!this.session.userId() && this.access.canAct('sync'));
     readonly comments = computed(() => this.available() && !this.access.demo()
@@ -84,7 +86,12 @@ export class LiveCoachWidgetComponent {
         this.cancelClose();
         this.rendered.set(true);
         this.open.set(true);
+        void this.chat.resume();
         afterNextRender(() => { if (this.open()) this.closeButton()?.nativeElement.focus(); }, { injector: this.injector });
+    }
+
+    replyToSaved(item: SavedCoachObservation): void {
+        if (this.chat.reply(historyToObservation(item), item.trade_date)) this.view.set('chat');
     }
 
     close(restoreFocus = true): void {

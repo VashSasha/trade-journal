@@ -11,6 +11,7 @@ import { LiveCoachService } from './live-coach.service';
 import { LiveCoachWidgetComponent } from './live-coach-widget.component';
 import { CoachHistoryService } from './history/coach-history.service';
 import { CoachChatService } from './chat/coach-chat.service';
+import { SavedCoachObservation } from './history/coach-history.model';
 
 describe('floating Live Coach', () => {
     function setup() {
@@ -21,7 +22,7 @@ describe('floating Live Coach', () => {
         const recentComments = signal([{ id: 1, text: 'Opened 3 contracts across 2 accounts.', personalized: false, title: 'Position opened', time: Date.now() }]);
         const masterSound = signal(true);
         const history = { canReview: computed(() => !!userId() && !demo()), removed: signal(new Set()),
-            failedCount: signal(0), pendingCount: signal(0), items: signal([]), date: signal(''), loading: signal(false),
+            failedCount: signal(0), pendingCount: signal(0), items: signal<SavedCoachObservation[]>([]), date: signal(''), loading: signal(false),
             error: signal(null), hasMore: signal(false), deleting: signal(null), load: vi.fn(), saveAnswer: vi.fn(), retrySaves: vi.fn() };
         const coach = {
             preferences, recentComments, preferencesLoading: signal(false),
@@ -37,7 +38,8 @@ describe('floating Live Coach', () => {
             conversations: signal([{ id: 'saved-chat', title: 'My session', created_at: '2026-09-28' }]), conversationId: signal<string | null>(null),
             busy: signal(false), deleting: signal(false), loading: signal(false), listing: signal(false), hasMore: signal(false),
             listError: signal<string | null>(null), error: signal(null), pending: signal(null), turns: signal([]), draft: signal(''),
-            replyTo: signal(null), reply: vi.fn(),
+            replyTo: signal(null), reply: vi.fn(() => true), canReply: signal(true), resume: vi.fn(),
+            loadFailed: signal(false), notice: signal(null), storageWarning: signal(false), conversationTitle: signal<string | null>(null),
             day: signal('2026-09-28'), accountIds: signal(null), dataReady: signal(false), allowance: signal(null), allowanceLoading: signal(false),
             send: vi.fn(), remove: vi.fn(), refreshAllowance: vi.fn(), invalidateAllowance: vi.fn(), loadConversations: vi.fn(),
             open: vi.fn(), newConversation: vi.fn(), cancel: vi.fn() };
@@ -62,6 +64,29 @@ describe('floating Live Coach', () => {
 
     beforeEach(() => TestBed.resetTestingModule());
     afterEach(() => { TestBed.resetTestingModule(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+    it('lazily resumes selection and shows the selected title without opening menus', () => {
+        const { fixture, component, root, chat } = setup();
+        expect(chat.resume).not.toHaveBeenCalled();
+        component.toggle(); fixture.detectChanges(); expect(chat.resume).toHaveBeenCalledOnce();
+        chat.conversationTitle.set('Review my previous session'); fixture.detectChanges();
+        expect(root.querySelector('h2')?.textContent).toBe('Review my previous session');
+        expect(chat.loadConversations).not.toHaveBeenCalled(); expect(chat.refreshAllowance).not.toHaveBeenCalled();
+    });
+
+    it('routes an older observation back into the current chat only when replies are allowed', () => {
+        const { fixture, component, chat, history, button, menu } = setup();
+        const row: SavedCoachObservation = { id: 'old-observation', observed_at: '2026-09-18T15:00:00Z', trade_date: '2026-09-18',
+            title: 'Size increased', content: 'Now 3 contracts.', personalized: false, snapshot: null, explanation: null, session_comparison: null };
+        history.items.set([row]); component.toggle(); fixture.detectChanges();
+        menu(); button('Coaching history').click(); fixture.detectChanges();
+        chat.canReply.set(false); fixture.detectChanges(); expect(button('Reply in chat').disabled).toBe(true);
+        chat.canReply.set(true); fixture.detectChanges(); button('Reply in chat').click(); fixture.detectChanges();
+        expect(chat.reply).toHaveBeenCalledWith(expect.objectContaining({ historyId: row.id, text: row.content, title: row.title }), row.trade_date);
+        expect(component.view()).toBe('chat'); expect(chat.send).not.toHaveBeenCalled();
+        component.view.set('history'); chat.reply.mockReturnValue(false); component.replyToSaved(row);
+        expect(component.view()).toBe('history');
+    });
 
 
     it('opens and closes without enabling coaching, playing audio or requesting a preview', async () => {

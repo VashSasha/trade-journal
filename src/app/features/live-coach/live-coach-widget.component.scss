@@ -21,7 +21,7 @@
         &--open { opacity: 1; visibility: visible; pointer-events: auto; transform: none; transition-delay: 0s; }
         &--expanded { width: min(740px, calc(100vw - 2rem)); height: min(860px, calc(100dvh - var(--app-bottom-nav-height, 0px) - 6.5rem)); } }
     &__head { display: flex; align-items: center; gap: .125rem; flex-shrink: 0; padding: .5rem .625rem .5rem 1rem; border-bottom: 1px solid var(--color-border); }
-    &__title { flex: 1; min-width: 0; h2 { margin: 0; font-size: .9375rem; font-weight: 650; } }
+    &__title { flex: 1; min-width: 0; h2 { margin: 0; font-size: .9375rem; font-weight: 650; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; } }
     &__status { margin: .25rem 0 0; color: var(--color-text-secondary); font-size: .6875rem; }
     &__icon { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border: 0; border-radius: 8px;
         color: var(--color-text-secondary); background: transparent; &:hover, &[aria-pressed='true'] { background: var(--color-bg-surface-2); color: var(--color-text-primary); } }

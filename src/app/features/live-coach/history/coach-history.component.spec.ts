@@ -23,6 +23,15 @@ function setup() {
 afterEach(() => TestBed.resetTestingModule());
 
 describe('Coach history UI', () => {
+    it('offers an optional reply action without fetching, sending or creating conversations', () => {
+        const { fixture, button, history } = setup();
+        expect(button('Reply in chat')).toBeUndefined();
+        const reply = vi.fn(); fixture.componentInstance.replyRequested.subscribe(reply);
+        fixture.componentRef.setInput('replyEnabled', true); fixture.detectChanges();
+        button('Reply in chat').click(); expect(reply).toHaveBeenCalledWith(saved);
+        fixture.componentRef.setInput('replyBlocked', true); fixture.detectChanges(); expect(button('Reply in chat').disabled).toBe(true);
+        expect(history.load).toHaveBeenCalledOnce(); expect(history.remove).not.toHaveBeenCalled();
+    });
     it('renders saved text and structured answers without HTML execution or AI/audio dependencies', () => {
         const { root, history } = setup();
         expect(history.load).toHaveBeenCalledOnce();

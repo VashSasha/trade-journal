@@ -59,7 +59,12 @@
                         <button type="button" [disabled]="!!history.deleting()" (click)="confirming.set(null)">Keep</button>
                     </div>
                 } @else {
-                    <button type="button" class="coach-history__delete" [disabled]="!!history.deleting()" (click)="confirming.set(item.id)" [attr.aria-label]="'Delete observation from ' + (item.observed_at | date:'MMM d, h:mm a')">Delete</button>
+                    <div class="coach-history__actions">
+                        @if (replyEnabled()) {
+                            <button type="button" [disabled]="replyBlocked() || !!history.deleting()" (click)="replyRequested.emit(item)">Reply in chat</button>
+                        }
+                        <button type="button" class="coach-history__delete" [disabled]="!!history.deleting()" (click)="confirming.set(item.id)" [attr.aria-label]="'Delete observation from ' + (item.observed_at | date:'MMM d, h:mm a')">Delete</button>
+                    </div>
                 }
             </li>
         }
