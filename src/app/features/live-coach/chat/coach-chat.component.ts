@@ -29,8 +29,7 @@ export class CoachChatComponent {
         const turns = this.chat.turns();
         const comments = new Map(this.observations().map(comment => [comment.historyId ?? String(comment.id), comment]));
         // Reopening a saved exchange also brings back the original observation it discussed.
-        for (const turn of turns) {
-            const original = turn.context.replyTo;
+        for (const original of [...turns.map(turn => turn.context.replyTo), this.chat.replyTo()]) {
             if (original && !comments.has(original.id)) comments.set(original.id, { id: Date.parse(original.observedAt), historyId: original.id,
                 time: Date.parse(original.observedAt), title: original.title, text: original.text, personalized: false, snapshot: original.snapshot ?? undefined });
         }
@@ -52,6 +51,10 @@ export class CoachChatComponent {
     private readonly injector = inject(Injector);
     constructor() {
         effect(() => {
+            // A history reply opens this component; focus without sending or reading aloud.
+            if (this.chat.replyTo()) afterNextRender(() => this.focusMessage(), { injector: this.injector });
+        });
+        effect(() => {
             const entries = this.timeline(), pending = this.chat.pending();
             if ((!entries.length && !pending) || !untracked(this.following)) return;
             afterNextRender(() => {
@@ -61,7 +64,7 @@ export class CoachChatComponent {
         });
     }
     focusMessage(): void { this.messageInput()?.nativeElement.focus(); }
-    reply(comment: LiveCoachObservation): void { this.chat.reply(comment); this.focusMessage(); }
+    reply(comment: LiveCoachObservation): void { if (this.chat.reply(comment)) { this.following.set(true); this.focusMessage(); } }
     trackScroll(element: HTMLElement): void { this.following.set(element.scrollHeight - element.scrollTop - element.clientHeight < 80); }
     latest(): void { const element = this.scroll()?.nativeElement; if (element) element.scrollTop = element.scrollHeight; this.following.set(true); }
     send(): void { this.following.set(true); void this.chat.send(); }

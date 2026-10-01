@@ -46,3 +46,10 @@ export function observationToHistory(comment: LiveCoachObservation): SavedCoachO
 export function readHistoryRow(row: SavedCoachObservation): SavedCoachObservation {
     return { ...row, explanation: readCoachFollowUp(row.explanation), session_comparison: readCoachFollowUp(row.session_comparison) };
 }
+
+/** Reuse the same reply path for saved observations and the in-memory live feed. */
+export function historyToObservation(row: SavedCoachObservation): LiveCoachObservation {
+    const time = Date.parse(row.observed_at);
+    return { id: time, historyId: row.id, time, title: row.title, text: row.content,
+        personalized: row.personalized, snapshot: captureCoachSnapshot(row.snapshot) ?? undefined };
+}

@@ -12,7 +12,8 @@ function setup() {
     const chat = { access: { canAct: () => ai() }, conversations: signal([]), conversationId: signal<string | null>(null),
         busy: signal(false), deleting: signal(false), loading: signal(false), listing: signal(false), hasMore: signal(false),
         listError: signal(null), error: signal(null), pending: signal(null), turns: signal<CoachChatTurn[]>([]), draft: signal(''),
-        replyTo: signal<CoachChatObservation | null>(null), reply: vi.fn(),
+        replyTo: signal<CoachChatObservation | null>(null), reply: vi.fn(() => true), canReply: signal(true),
+        loadFailed: signal(false), notice: signal<string | null>(null), storageWarning: signal(false),
         day: signal('2026-09-28'), accountIds: signal(null), dataReady: signal(false), allowance: signal({ day: '2026-09-28', remaining: 26 }),
         send: vi.fn(), remove: vi.fn(), refreshAllowance: vi.fn(), invalidateAllowance: vi.fn(), open: vi.fn(), newConversation: vi.fn(), cancel: vi.fn() };
     const coach = { paused: signal(false), readingSummary: signal(false), readChatSummary: vi.fn(async () => true) };
@@ -24,6 +25,24 @@ function setup() {
 }
 afterEach(() => TestBed.resetTestingModule());
 describe('Ask Coach interface', () => {
+    it('shows a historical reply in the timeline and focuses the composer without sending', async () => {
+        const { fixture, root, chat, coach } = setup();
+        chat.replyTo.set({ id: 'old', title: 'Position increased', text: 'A saved observation.', observedAt: '2026-09-18T15:00:00Z', snapshot: null });
+        fixture.detectChanges(); await fixture.whenStable();
+        expect(root.querySelector('.coach-chat__observation')?.textContent).toContain('A saved observation.');
+        expect(root.querySelector('.coach-chat__reply-preview')?.textContent).toContain('Sep 18');
+        expect(document.activeElement).toBe(root.querySelector('textarea'));
+        expect(chat.send).not.toHaveBeenCalled(); expect(coach.readChatSummary).not.toHaveBeenCalled();
+    });
+    it('offers retry when restoration fails and disables sending until history loads', () => {
+        const { fixture, root, button, chat } = setup();
+        chat.conversationId.set('saved-chat'); chat.loadFailed.set(true); chat.draft.set('Question');
+        fixture.detectChanges();
+        expect(button('Send message').disabled).toBe(true); expect(root.querySelector('.coach-chat__intro')).toBeNull();
+        button('Retry loading').click(); expect(chat.open).toHaveBeenCalledWith('saved-chat');
+        button('New chat').click(); expect(chat.newConversation).toHaveBeenCalledOnce();
+        chat.loadFailed.set(false); fixture.detectChanges(); expect(button('Send message').disabled).toBe(false);
+    });
     it('closes the date/context dropdown on outside click, focus or Escape, but not inside clicks', () => {
         const { fixture, root } = setup();
         const context = root.querySelector<HTMLDetailsElement>('.coach-chat__scope')!;

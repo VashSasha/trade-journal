@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccessPolicyService } from '../../../core/services/access-policy.service';
 import { FilterService } from '../../../core/services/filter.service';
 import { OpenAiService } from '../../../core/services/openai.service';
@@ -13,18 +13,19 @@ import { CoachChatService } from './coach-chat.service';
 import { CoachHistoryService } from '../history/coach-history.service';
 
 const answer = { meaning: 'Review sizing.', evidence: 'No saved history for this selection.', nextStep: 'Write your session plan.' };
-interface Call { table: string; operation: string; filters: Record<string, unknown>; body?: any; }
+interface Call { table: string; operation: string; filters: Record<string, unknown>; body?: any; columns?: string; }
 function setup() {
     const userId = signal<string | null>('owner'), demo = signal(false), allowed = signal(true);
     let controller = new AbortController();
     let rows: any[] = [];
     let fail = false;
+    let missing = false;
     const calls: Call[] = [];
     const deferred = new Map<string, Promise<any>[]>();
     const from = vi.fn((table: string) => {
         const call: Call = { table, operation: 'select', filters: {} };
         const query = {
-            select: () => query, order: () => query, limit: () => query, maybeSingle: () => query,
+            select: (columns: string) => { call.columns = columns; return query; }, order: () => query, limit: () => query, maybeSingle: () => query,
             or: (cursor: string) => { call.filters['cursor'] = cursor; return query; },
             eq: (key: string, value: unknown) => { call.filters[key] = value; return query; },
             upsert: (body: any, options: any) => { expect(options.ignoreDuplicates).toBe(true); call.body = body; call.operation = 'upsert'; return query; },
@@ -32,7 +33,9 @@ function setup() {
             then: (resolve: (result: any) => unknown, reject: (error: unknown) => unknown) => {
                 calls.push(call);
                 const held = call.operation === 'select' ? deferred.get(table)?.shift() : undefined;
-                return (held ?? Promise.resolve({ data: table === 'live_coach_ai_usage' ? { count: 4 } : rows, error: fail ? new Error('offline') : null })).then(resolve, reject);
+                const data = table === 'live_coach_ai_usage' ? { count: 4 }
+                    : call.columns?.includes('coach_chat_turns(') ? missing ? null : { id: call.filters['id'], title: 'Saved session', coach_chat_turns: rows } : rows;
+                return (held ?? Promise.resolve({ data, error: fail ? new Error('offline') : null })).then(resolve, reject);
             },
         };
         return query;
@@ -44,13 +47,14 @@ function setup() {
         { provide: UserSessionService, useValue: { userId, isCurrent: (scope: UserOperation) => scope.userId === userId() && !scope.signal.aborted } },
         { provide: AccessPolicyService, useValue: { demo, canAct: () => allowed() && !demo(), capture: () => ({ userId: userId()!, signal: controller.signal }) } },
         { provide: OpenAiService, useValue: { askCoach } },
-        { provide: CoachHistoryService, useValue: { ensureSaved } },
+        { provide: CoachHistoryService, useValue: { ensureSaved, removed: signal(new Set()) } },
         { provide: TradeService, useValue: { trades: signal([]) } },
         { provide: FilterService, useValue: { filters: signal({ accountIds: ['a'], accountSelectionActive: true }) } },
         { provide: UserDataService, useValue: { dataLoaded: signal(false) } },
     ] });
     const service = TestBed.inject(CoachChatService); TestBed.tick();
     return { service, askCoach, ensureSaved, calls, from, demo, allowed, setRows: (value: any[]) => { rows = value; }, fail: (value = true) => { fail = value; },
+        missing: (value = true) => { missing = value; },
         holdRead: (table: string) => {
             let resolve!: (result: any) => void;
             const promise = new Promise(done => { resolve = done; });
@@ -59,7 +63,8 @@ function setup() {
         },
         switchUser: (id: string | null) => { controller.abort(); controller = new AbortController(); userId.set(id); TestBed.tick(); } };
 }
-afterEach(() => { TestBed.resetTestingModule(); vi.useRealTimers(); });
+beforeEach(() => localStorage.clear());
+afterEach(() => { TestBed.resetTestingModule(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 describe('Ask Coach state', () => {
     it('keeps the original observation across retries and sends only after it is saved', async () => {
         const { service, askCoach, ensureSaved, switchUser } = setup();
@@ -147,6 +152,132 @@ describe('Ask Coach state', () => {
         await vi.advanceTimersByTimeAsync(45_001); await running;
         expect(service.busy()).toBe(false); expect(service.error()).toContain('timed out');
         expect(service.pending()).not.toBeNull(); expect(service.turns()).toEqual([]);
+    });
+});
+
+describe('Coach continuity', () => {
+    const id = 'a0000000-0000-4000-8000-000000000001';
+    const second = 'b0000000-0000-4000-8000-000000000002';
+    const key = 'nvzn_coach_selected_chat:owner';
+    const turn = { id: 'turn', conversation_id: id, prompt: 'Review my day', answer, created_at: '2026-09-28T15:00:00Z',
+        context: { tradeDate: '2026-09-28', capturedAt: '2026-09-28T15:00:00Z', accountIds: null, dataReady: false, summary: null } };
+
+    it('restores only on first widget open using one owner-filtered read; no menu, usage, AI or writes', async () => {
+        const first = setup(); first.setRows([turn]); await first.service.open(id);
+        expect(JSON.parse(localStorage.getItem(key)!)).toBe(id);
+        first.service.draft.set('Unsent private draft');
+        TestBed.resetTestingModule();
+        const next = setup(); next.setRows([turn]);
+        expect(next.calls).toEqual([]); expect(next.service.conversationId()).toBeNull();
+        await next.service.resume(); await next.service.resume();
+        expect(next.calls).toHaveLength(1);
+        expect(next.calls[0]).toMatchObject({ table: 'coach_conversations', operation: 'select', filters: { user_id: 'owner', id } });
+        expect(next.calls[0].columns).toContain('coach_chat_turns(');
+        expect(next.service.conversationId()).toBe(id); expect(next.service.conversationTitle()).toBe('Saved session');
+        expect(next.service.turns()).toEqual([turn]); expect(next.service.day()).toBe('2026-09-28');
+        expect(next.service.draft()).toBe(''); expect(next.askCoach).not.toHaveBeenCalled();
+        expect(localStorage.getItem(key)).not.toContain('draft');
+    });
+
+    it('remembers a server-created chat even if its first answer fails, but never stores unsent drafts', async () => {
+        const { service, askCoach } = setup();
+        service.draft.set('Private message'); askCoach.mockRejectedValueOnce(new Error('offline')); await service.send();
+        expect(JSON.parse(localStorage.getItem(key)!)).toBe(service.conversationId());
+        expect(service.conversationTitle()).toBe('Private message');
+        expect(localStorage.getItem(key)).not.toContain('Private message');
+    });
+
+    it('does not repeat an in-flight restoration or apply it after New chat or another selection', async () => {
+        localStorage.setItem(key, JSON.stringify(id));
+        const { service, calls, holdRead } = setup();
+        const done = holdRead('coach_conversations'); const loading = service.resume();
+        await service.resume(); expect(calls).toHaveLength(1);
+        service.newConversation();
+        done({ data: { id, title: 'Old chat', coach_chat_turns: [turn] }, error: null }); await loading;
+        expect(service.conversationId()).toBeNull(); expect(service.turns()).toEqual([]); expect(localStorage.getItem(key)).toBeNull();
+        const slowDone = holdRead('coach_conversations'); const slow = service.open(id);
+        await Promise.resolve(); await service.open(second);
+        slowDone({ data: { id, title: 'Old chat', coach_chat_turns: [turn] }, error: null }); await slow;
+        expect(service.conversationId()).toBe(second); expect(JSON.parse(localStorage.getItem(key)!)).toBe(second);
+    });
+
+    it('preserves the bookmark on network failure, blocks send, and allows explicit retry', async () => {
+        localStorage.setItem(key, JSON.stringify(id));
+        const { service, fail, calls, askCoach, setRows } = setup(); fail(); await service.resume();
+        expect(service.loadFailed()).toBe(true); expect(service.loading()).toBe(false);
+        service.draft.set('My next question'); await service.send(); await service.resume();
+        expect(askCoach).not.toHaveBeenCalled(); expect(calls).toHaveLength(1);
+        expect(JSON.parse(localStorage.getItem(key)!)).toBe(id);
+        fail(false); setRows([turn]); await service.open(id);
+        expect(service.loadFailed()).toBe(false); expect(service.draft()).toBe('My next question');
+        expect(service.day()).toBe('2026-09-28'); expect(service.notice()).toBeNull();
+        service.day.set('2026-09-30'); await service.open(id); expect(service.day()).toBe('2026-09-30');
+    });
+
+    it('forgets deleted/unavailable chats without recreating them or clearing another tab’s selection', async () => {
+        localStorage.setItem(key, JSON.stringify(id));
+        const { service, calls, missing } = setup(); missing(); await service.resume();
+        expect(service.conversationId()).toBeNull(); expect(service.notice()).toContain('no longer available');
+        expect(localStorage.getItem(key)).toBeNull(); expect(calls.every(call => call.operation === 'select')).toBe(true);
+        localStorage.setItem(key, JSON.stringify(second)); await service.open(id);
+        expect(JSON.parse(localStorage.getItem(key)!)).toBe(second);
+        missing(false); await service.open(second); await service.remove();
+        expect(service.conversationId()).toBeNull(); expect(localStorage.getItem(key)).toBeNull();
+        await service.resume(); expect(service.conversationId()).toBeNull();
+    });
+
+    it('isolates saved selection and late results by user/demo, including read-only downgraded users', async () => {
+        localStorage.setItem(key, JSON.stringify(id));
+        localStorage.setItem('nvzn_coach_selected_chat:other', JSON.stringify(second));
+        const { service, calls, switchUser, demo, allowed, holdRead } = setup();
+        const done = holdRead('coach_conversations'); const old = service.resume();
+        await Promise.resolve(); switchUser('other');
+        done({ data: { id, title: 'Private', coach_chat_turns: [turn] }, error: null }); await old;
+        expect(service.turns()).toEqual([]); expect(service.conversationTitle()).toBeNull();
+        allowed.set(false); TestBed.tick(); await service.resume();
+        expect(service.conversationId()).toBe(second); expect(calls.at(-1)?.filters).toEqual({ user_id: 'other', id: second });
+        demo.set(true); TestBed.tick(); const before = calls.length; await service.resume();
+        expect(calls).toHaveLength(before); expect(service.conversationId()).toBeNull();
+        demo.set(false); TestBed.tick(); await service.resume(); expect(service.conversationId()).toBe(second);
+        switchUser(null); await service.resume(); expect(service.turns()).toEqual([]);
+        expect(JSON.parse(localStorage.getItem(key)!)).toBe(id);
+    });
+
+    it('ignores malformed bookmarks and keeps chat usable when storage is blocked', async () => {
+        localStorage.setItem(key, JSON.stringify({ id, content: 'Do not restore' }));
+        const { service, calls } = setup(); await service.resume(); expect(calls).toEqual([]);
+        const storage = localStorage;
+        vi.stubGlobal('localStorage', { getItem: (key: string) => storage.getItem(key), setItem: () => { throw new Error('blocked'); } });
+        await service.open(id);
+        expect(service.storageWarning()).toBe(true); expect(service.error()).toBeNull();
+        expect(service.conversationId()).toBe(id);
+    });
+
+    it('replies in the existing conversation with the saved date, without overwriting a draft or sending automatically', async () => {
+        const { service, askCoach, allowed } = setup(); await service.open(id);
+        const comment = { id: 1, historyId: 'observation', time: Date.parse('2026-09-18T15:00:00Z'), title: 'Size increased', text: 'Now 3 contracts.', personalized: false };
+        service.draft.set('My follow-up'); expect(service.reply(comment, '2026-09-18')).toBe(true);
+        expect(service.day()).toBe('2026-09-18'); expect(service.conversationId()).toBe(id); expect(service.draft()).toBe('My follow-up');
+        expect(askCoach).not.toHaveBeenCalled(); await service.send();
+        expect(askCoach.mock.calls[0][0]).toMatchObject({ conversationId: id, context: { tradeDate: '2026-09-18', replyTo: { id: 'observation', text: comment.text } } });
+        service.loading.set(true); expect(service.reply(comment)).toBe(false);
+        service.loading.set(false); service.deleting.set(true); expect(service.reply(comment)).toBe(false);
+        service.deleting.set(false); allowed.set(false); expect(service.reply(comment)).toBe(false);
+    });
+
+    it('finishes a saved-history read if AI access is revoked while restoring', async () => {
+        localStorage.setItem(key, JSON.stringify(id));
+        const { service, allowed, holdRead } = setup();
+        const done = holdRead('coach_conversations'); const read = service.resume(); await Promise.resolve();
+        allowed.set(false); TestBed.tick();
+        done({ data: { id, title: 'Saved session', coach_chat_turns: [turn] }, error: null }); await read;
+        expect(service.turns()).toEqual([turn]); expect(service.loading()).toBe(false); expect(service.canReply()).toBe(false);
+    });
+
+    it('does not erase another tab’s selection when deleting the current conversation', async () => {
+        const { service } = setup(); await service.open(id);
+        localStorage.setItem(key, JSON.stringify(second)); await service.remove();
+        expect(service.conversationId()).toBeNull(); expect(JSON.parse(localStorage.getItem(key)!)).toBe(second);
     });
 });
 
