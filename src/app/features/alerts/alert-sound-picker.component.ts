@@ -59,7 +59,7 @@ export class AlertSoundPickerComponent {
         if (event.target instanceof Node && !this.host.nativeElement.contains(event.target)) this.close();
     }
     @HostListener('keydown.escape', ['$event'])
-    onEscape(event: KeyboardEvent): void { this.close(true); event.stopPropagation(); }
+    onEscape(event: Event): void { this.close(true); event.stopPropagation(); }
     @HostListener('focusout', ['$event'])
     focusLeft(event: FocusEvent): void {
         if (event.relatedTarget instanceof Node && !this.host.nativeElement.contains(event.relatedTarget)) this.close();
