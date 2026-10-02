@@ -1,0 +1,58 @@
+<button #trigger type="button" class="sound-picker__trigger" [disabled]="disabled()"
+    [attr.aria-expanded]="open()" aria-haspopup="dialog" [attr.aria-controls]="'sound-menu-' + kind()"
+    [attr.aria-label]="label() + ': ' + selectedName()" (click)="toggle()">
+    <span class="sound-picker__label">
+        @if (value() === 'silent') {
+            <svg class="sound-picker__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 5L6 9H3v6h3l5 4V5zM16 9l6 6m0-6l-6 6"/></svg>
+        }
+        <span>{{ selectedName() }}</span>
+    </span><span aria-hidden="true">⌄</span>
+</button>
+@if (open()) {
+    <div class="sound-picker__menu" [class.sound-picker__menu--above]="above()" role="dialog" [id]="'sound-menu-' + kind()" [attr.aria-label]="label() + ' sound'">
+        <header class="sound-picker__header">
+            <span>Listen first. Select to apply.</span>
+            <button type="button" (click)="close(true)" aria-label="Close sound picker">×</button>
+        </header>
+        <div class="sound-picker__options">
+            <div class="sound-picker__row">
+                <button type="button" class="sound-picker__choice" [class.sound-picker__choice--selected]="value() === 'silent'" [attr.aria-pressed]="value() === 'silent'" (click)="select('silent')">
+                    <span class="sound-picker__label">
+                        <svg class="sound-picker__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 5L6 9H3v6h3l5 4V5zM16 9l6 6m0-6l-6 6"/></svg>
+                        <span>Silent</span>
+                    </span>
+                </button>
+            </div>
+            <div class="sound-picker__row">
+                <button type="button" class="sound-picker__choice" [class.sound-picker__choice--selected]="value() === 'default'" [attr.aria-pressed]="value() === 'default'" (click)="select('default')">Default NVZN bell</button>
+                <button type="button" class="sound-picker__preview" aria-label="Preview default NVZN bell" [disabled]="!sounds.enabled() || sounds.previewing() || !sounds.preferences().volume" (click)="preview('default')">▶</button>
+            </div>
+            @for (preset of presets; track preset.id) {
+                <div class="sound-picker__row">
+                    <button type="button" class="sound-picker__choice" [class.sound-picker__choice--selected]="value() === preset.id" [attr.aria-pressed]="value() === preset.id" (click)="select(preset.id)">
+                        <span>{{ preset.name }}</span><small>{{ preset.seconds }}s</small>
+                    </button>
+                    <button type="button" class="sound-picker__preview" [attr.aria-label]="'Preview ' + preset.name" [disabled]="!sounds.enabled() || sounds.previewing() || !sounds.preferences().volume" (click)="preview(preset.id)">▶</button>
+                </div>
+            }
+            @if (uploadedName(); as name) {
+                <div class="sound-picker__row">
+                    <button type="button" class="sound-picker__choice" [class.sound-picker__choice--selected]="value() === 'custom'" [attr.aria-pressed]="value() === 'custom'" (click)="select('custom')"><span>{{ name }}</span><small>Your upload</small></button>
+                    <button type="button" class="sound-picker__preview" aria-label="Preview your upload" [disabled]="!sounds.enabled() || sounds.previewing() || !sounds.preferences().volume" (click)="preview('custom')">▶</button>
+                </div>
+            }
+            @if (legacyUploadName(); as name) {
+                <div class="sound-picker__row">
+                    <button type="button" class="sound-picker__choice" [class.sound-picker__choice--selected]="value() === 'inherit'" [attr.aria-pressed]="value() === 'inherit'" (click)="select('inherit')"><span>{{ name }}</span><small>Previous upload</small></button>
+                    <button type="button" class="sound-picker__preview" aria-label="Preview previous upload" [disabled]="!sounds.enabled() || sounds.previewing() || !sounds.preferences().volume" (click)="preview('inherit')">▶</button>
+                </div>
+            }
+        </div>
+        @if (!sounds.enabled() || !sounds.preferences().volume) {
+            <p class="sound-picker__notice">Enable sounds above to preview.</p>
+        } @else if (sounds.previewing()) {
+            <p class="sound-picker__notice" role="status">Previewing…</p>
+        }
+        @if (sounds.error(); as error) { <p class="sound-picker__notice" role="alert">{{ error }}</p> }
+    </div>
+}
