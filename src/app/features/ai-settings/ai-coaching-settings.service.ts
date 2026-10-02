@@ -42,7 +42,8 @@ export class AiCoachingSettingsService {
                 if (this.used) void this.load();
             });
         });
-        const refresh = () => { if (this.used && !this.saving()) void this.load(true); };
+        const refresh = () => { if (this.used && !this.saving()) void this.load(); };
+        const forceRefresh = () => { if (this.used && !this.saving()) void this.load(true); };
         const storage = (event: StorageEvent) => {
             if (event.key !== CHANGE_KEY + this.session.userId() || !this.used) return;
             this.interrupt();
@@ -52,11 +53,11 @@ export class AiCoachingSettingsService {
             refresh();
         };
         this.view?.addEventListener('focus', refresh);
-        this.view?.addEventListener('online', refresh);
+        this.view?.addEventListener('online', forceRefresh);
         this.view?.addEventListener('storage', storage);
         inject(DestroyRef).onDestroy(() => {
             this.requestController.abort();
-            this.view?.removeEventListener('focus', refresh); this.view?.removeEventListener('online', refresh);
+            this.view?.removeEventListener('focus', refresh); this.view?.removeEventListener('online', forceRefresh);
             this.view?.removeEventListener('storage', storage);
         });
     }
