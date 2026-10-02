@@ -114,7 +114,7 @@ export class MarketEventAlertsService {
 
     testAlert(): void {
         const text = 'Test warning: high-impact market event in 15 minutes.';
-        this.sounds.announce('risk', text);
+        this.sounds.announce('marketEvent', text);
         this.center.publish({ tone: 'warning', title: 'Market event approaching', text });
         this.lastAlert.set(text);
         if (this.preferences().desktopNotifications) this.notifyDesktop('Market event test', text, 'nvzn-market-test');
@@ -136,7 +136,7 @@ export class MarketEventAlertsService {
         const first = crossed[0].event;
         const time = this.localTime(first);
         const text = `${names} in ${this.preferences().leadMinutes} minutes (${time}). Consider waiting for volatility to settle before entering.`;
-        this.sounds.announce('risk', text);
+        this.sounds.announce('marketEvent', text);
         this.center.publish({ tone: 'warning', title: 'Market event approaching', text });
         this.lastAlert.set(text);
         if (this.preferences().desktopNotifications) {

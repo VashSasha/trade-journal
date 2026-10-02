@@ -21,7 +21,8 @@ describe('custom alert sound validation', () => {
             size: 1, duration: 1.2, updatedAt: '2026-09-06T00:00:00.000Z', bytes: new ArrayBuffer(1),
             cloudSynced: true,
         }]).open?.name).toBe('bell.mp3');
-        expect(emptyCustomAlertSoundMap()).toEqual({ open: null, close: null, target: null, risk: null });
+        expect(Object.keys(emptyCustomAlertSoundMap())).toHaveLength(16);
+        expect(Object.values(emptyCustomAlertSoundMap()).every(sound => sound === null)).toBe(true);
     });
 
     it('rejects malformed or cross-user IndexedDB records', () => {

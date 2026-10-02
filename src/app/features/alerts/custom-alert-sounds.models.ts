@@ -1,6 +1,6 @@
-import { AlertSoundKind } from './session-alerts.utils';
+import { ALERT_SOUND_KINDS, AlertSoundKind } from './alert-sound-kinds';
 
-export const ALERT_SOUND_KINDS: readonly AlertSoundKind[] = ['open', 'close', 'target', 'risk'];
+export { ALERT_SOUND_KINDS } from './alert-sound-kinds';
 export const MAX_CUSTOM_SOUND_BYTES = 3 * 1024 * 1024;
 export const MAX_CUSTOM_SOUND_SECONDS = 10;
 
@@ -34,7 +34,7 @@ const EXTENSION_MIME_TYPES: Readonly<Record<string, string>> = {
 };
 
 export function emptyCustomAlertSoundMap(): CustomAlertSoundMap {
-    return { open: null, close: null, target: null, risk: null };
+    return Object.fromEntries(ALERT_SOUND_KINDS.map(kind => [kind, null])) as CustomAlertSoundMap;
 }
 
 export function customSoundFileError(file: Pick<File, 'name' | 'size' | 'type'>): string | null {

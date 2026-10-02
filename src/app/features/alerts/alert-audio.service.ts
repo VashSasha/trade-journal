@@ -1,10 +1,14 @@
-import { effect, inject, Injectable } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { effect, inject, Injectable, signal } from '@angular/core';
 import {
     CustomAlertSoundMetadata, customSoundFileError, customSoundMimeType, MAX_CUSTOM_SOUND_BYTES,
     MAX_CUSTOM_SOUND_SECONDS, safeCustomSoundName, StoredCustomAlertSound,
 } from './custom-alert-sounds.models';
 import { CustomAlertSoundsService } from './custom-alert-sounds.service';
 import { AlertSoundKind } from './session-alerts.utils';
+import { SessionSoundPreferencesService } from './session-sound-preferences.service';
+import { alertSoundAssetPath, AlertSoundPresetId, AlertSoundSelection, isAlertSoundPreset, resolveSoundSelection } from './alert-sound-library';
+import { SOUND_FALLBACKS } from './alert-sound-kinds';
 
 /** Local audio engine: built-in synthesized cues plus private account-synced user files. */
 @Injectable({ providedIn: 'root' })
@@ -17,16 +21,24 @@ export class AlertAudioService {
         { ratio: 5.4, level: 0.045 },
     ] as const;
     private readonly library = inject(CustomAlertSoundsService);
+    private readonly preferences = inject(SessionSoundPreferencesService).preferences;
+    private readonly document = inject(DOCUMENT);
     readonly customSounds = this.library.sounds;
     readonly customSoundsLoading = this.library.loading;
     readonly customSoundsError = this.library.error;
     readonly customSoundStorageSupported = this.library.supported;
+    readonly presetSoundsLoading = signal(false);
+    readonly presetSoundsError = signal<string | null>(null);
     private context: AudioContext | null = null;
     private output: GainNode | null = null;
     private availableAt = 0;
     private customBuffers = new Map<AlertSoundKind, AudioBuffer>();
     private loadedRevision = -1;
     private customLoadGeneration = 0;
+    private presetLoadGeneration = 0;
+    private readonly presetBuffers = new Map<AlertSoundPresetId, AudioBuffer>();
+    private readonly presetRequests = new Map<AlertSoundPresetId, Promise<void>>();
+    private readonly presetControllers = new Set<AbortController>();
 
     constructor() {
         effect(() => {
@@ -34,6 +46,11 @@ export class AlertAudioService {
             const context = this.context;
             if (!context || context.state !== 'running' || revision === this.loadedRevision) return;
             void this.syncCustomSounds(context, revision);
+        });
+        effect(() => {
+            const selections = this.preferences().selections;
+            const context = this.context;
+            if (context?.state === 'running') void this.syncPresetSounds(context, selections);
         });
     }
 
@@ -58,7 +75,10 @@ export class AlertAudioService {
             })]);
             if (context !== this.context || context.state !== 'running') throw new Error('Audio is paused. Enable sounds again.');
         } finally { clearTimeout(timeout); }
-        await this.syncCustomSounds(context, this.library.revision());
+        await Promise.all([
+            this.syncCustomSounds(context, this.library.revision()),
+            this.syncPresetSounds(context, this.preferences().selections),
+        ]);
     }
 
     setVolume(volume: number): void {
@@ -66,13 +86,22 @@ export class AlertAudioService {
     }
 
     /** Returns audible duration in milliseconds, or 0 when another bell is ringing. */
-    play(kind: AlertSoundKind, volume: number): number {
+    play(kind: AlertSoundKind, volume: number, previewSelection?: AlertSoundSelection): number {
         const context = this.context;
         if (!context || !this.output || context.state !== 'running') throw new Error('Audio is paused. Enable sounds again.');
         if (volume <= 0 || context.currentTime < this.availableAt) return 0;
         this.setVolume(volume);
-        const custom = this.customBuffers.get(kind);
-        if (custom) return this.playCustom(context, custom);
+        const resolved = resolveSoundSelection(kind, this.preferences().selections, key => this.customBuffers.has(key), previewSelection);
+        kind = resolved.kind;
+        const selection = resolved.selection;
+        if (selection === 'silent') return 0;
+        const buffer = isAlertSoundPreset(selection) ? this.presetBuffers.get(selection)
+            : selection === 'custom' ? this.customBuffers.get(kind) : undefined;
+        if (buffer) return this.playCustom(context, buffer);
+        kind = SOUND_FALLBACKS[kind] ?? kind;
+        if (kind === 'positionOpened' || kind === 'positionIncreased') kind = 'open';
+        else if (kind === 'positionReversed') kind = 'risk';
+        else if (kind === 'positionClosed' || kind === 'positionReduced') kind = 'close';
         // Opening resembles a brisk exchange-floor bell; closing uses a slower,
         // descending double toll. Inharmonic partials create the metallic body.
         const strikes = kind === 'open'
@@ -158,6 +187,13 @@ export class AlertAudioService {
         this.customBuffers.clear();
         this.loadedRevision = -1;
         ++this.customLoadGeneration;
+        ++this.presetLoadGeneration;
+        this.presetControllers.forEach(controller => controller.abort());
+        this.presetControllers.clear();
+        this.presetRequests.clear();
+        this.presetBuffers.clear();
+        this.presetSoundsLoading.set(false);
+        this.presetSoundsError.set(null);
         if (context && context.state !== 'closed') void context.close().catch(() => {});
     }
 
@@ -171,6 +207,60 @@ export class AlertAudioService {
         const duration = Math.ceil((buffer.duration + 0.08) * 1000);
         this.availableAt = start + duration / 1000;
         return duration;
+    }
+
+    private async syncPresetSounds(context: AudioContext, selections = this.preferences().selections): Promise<void> {
+        const generation = ++this.presetLoadGeneration;
+        const ids = [...new Set(Object.values(selections ?? {}).filter(isAlertSoundPreset))];
+        this.presetSoundsLoading.set(ids.some(id => !this.presetBuffers.has(id)));
+        this.presetSoundsError.set(null);
+        const results = await Promise.allSettled(ids.map(id => this.loadPreset(context, id)));
+        if (context !== this.context || generation !== this.presetLoadGeneration) return;
+        this.presetSoundsLoading.set(false);
+        if (results.some(result => result.status === 'rejected')) {
+            this.presetSoundsError.set('A library sound could not load. The default bell will play instead. Preview to retry.');
+        }
+    }
+
+    /** Preview a catalog entry without persisting it or downloading the rest. */
+    async prepareSound(selection: AlertSoundSelection): Promise<void> {
+        if (!isAlertSoundPreset(selection)) return;
+        const context = this.context;
+        if (!context || context.state !== 'running') throw new Error('Enable sounds before previewing.');
+        try { await this.loadPreset(context, selection); }
+        catch { throw new Error('This sound could not load. Check your connection and preview again.'); }
+    }
+
+    private loadPreset(context: AudioContext, id: AlertSoundPresetId): Promise<void> {
+        if (this.presetBuffers.has(id)) return Promise.resolve();
+        const pending = this.presetRequests.get(id);
+        if (pending) return pending;
+        const controller = new AbortController();
+        this.presetControllers.add(controller);
+        const request = (async () => {
+            const timeout = setTimeout(() => controller.abort(), 6000);
+            try {
+                const response = await fetch(new URL(alertSoundAssetPath(id), this.document.baseURI), {
+                    signal: controller.signal, credentials: 'omit',
+                });
+                if (!response.ok || !response.headers.get('content-type')?.startsWith('audio/')) {
+                    throw new Error('Library sound unavailable');
+                }
+                const bytes = await response.arrayBuffer();
+                if (!bytes.byteLength || bytes.byteLength > MAX_CUSTOM_SOUND_BYTES) throw new Error('Invalid sound size');
+                const buffer = await this.decode(context, bytes);
+                if (buffer.duration <= 0 || buffer.duration > MAX_CUSTOM_SOUND_SECONDS) throw new Error('Invalid sound duration');
+                if (context === this.context && !controller.signal.aborted) this.presetBuffers.set(id, buffer);
+            } finally {
+                clearTimeout(timeout);
+                this.presetControllers.delete(controller);
+            }
+        })();
+        this.presetRequests.set(id, request);
+        void request.finally(() => {
+            if (this.presetRequests.get(id) === request) this.presetRequests.delete(id);
+        }).catch(() => {});
+        return request;
     }
 
     private async syncCustomSounds(context: AudioContext, revision: number): Promise<void> {

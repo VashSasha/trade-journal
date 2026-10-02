@@ -4,6 +4,8 @@ import { vi } from 'vitest';
 import { AlertAudioService } from './alert-audio.service';
 import { emptyCustomAlertSoundMap } from './custom-alert-sounds.models';
 import { CustomAlertSoundsService } from './custom-alert-sounds.service';
+import { SessionSoundPreferencesService } from './session-sound-preferences.service';
+import { DEFAULT_SESSION_SOUNDS, SessionSoundPreferences } from './session-alerts.utils';
 
 const gain = () => ({
     gain: { value: 1, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
@@ -34,12 +36,14 @@ class FakeAudioContext {
 }
 
 describe('local alert audio', () => {
+    const preferences = signal<SessionSoundPreferences>({ ...DEFAULT_SESSION_SOUNDS });
     let library: {
         sounds: ReturnType<typeof signal>; loading: ReturnType<typeof signal>; error: ReturnType<typeof signal>;
         revision: ReturnType<typeof signal>; supported: boolean; currentRecords: ReturnType<typeof vi.fn>;
         save: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn>;
     };
     beforeEach(() => {
+        preferences.set({ ...DEFAULT_SESSION_SOUNDS });
         vi.useFakeTimers(); FakeAudioContext.instances = [];
         vi.stubGlobal('AudioContext', FakeAudioContext);
         library = {
@@ -47,7 +51,10 @@ describe('local alert audio', () => {
             revision: signal(0), supported: true, currentRecords: vi.fn(async () => []),
             save: vi.fn(async () => {}), remove: vi.fn(async () => {}),
         };
-        TestBed.configureTestingModule({ providers: [{ provide: CustomAlertSoundsService, useValue: library }] });
+        TestBed.configureTestingModule({ providers: [
+            { provide: CustomAlertSoundsService, useValue: library },
+            { provide: SessionSoundPreferencesService, useValue: { preferences } },
+        ] });
     });
     afterEach(() => {
         TestBed.inject(AlertAudioService).stop(); TestBed.resetTestingModule();
@@ -142,5 +149,103 @@ describe('local alert audio', () => {
         await expect(contextPromise).rejects.toThrow('could not be decoded');
         expect(context.close).toHaveBeenCalledOnce();
         expect(audio.running()).toBe(false);
+    });
+
+    it('only downloads selected presets after activation, deduplicates them, and reuses decoded audio', async () => {
+        const fetchSound = vi.fn(async (_url: unknown, _init?: RequestInit) => new Response(new Uint8Array([1, 2]), { headers: { 'content-type': 'audio/mpeg' } }));
+        vi.stubGlobal('fetch', fetchSound);
+        preferences.set({ ...DEFAULT_SESSION_SOUNDS, selections: { open: 'hell-yeah', target: 'hell-yeah' } });
+        const audio = TestBed.inject(AlertAudioService);
+        TestBed.tick();
+        expect(fetchSound).not.toHaveBeenCalled();
+        await audio.activate();
+        expect(fetchSound).toHaveBeenCalledOnce();
+        expect(String(fetchSound.mock.calls[0][0])).toContain('/sounds/library-v1/hell-yeah.mp3');
+        expect(audio.play('open', 45)).toBe(1330);
+        expect(FakeAudioContext.instances[0].sources).toHaveLength(1);
+        await audio.activate();
+        expect(fetchSound).toHaveBeenCalledOnce();
+    });
+
+    it('falls back to the default bell on missing/HTML assets and retries on preview activation', async () => {
+        const fetchSound = vi.fn(async () => new Response('<html>SPA fallback</html>', { headers: { 'content-type': 'text/html' } }));
+        vi.stubGlobal('fetch', fetchSound);
+        preferences.set({ ...DEFAULT_SESSION_SOUNDS, selections: { open: 'stock-market-bell' } });
+        const audio = TestBed.inject(AlertAudioService);
+        await audio.activate();
+        expect(audio.presetSoundsError()).toContain('default bell');
+        expect(audio.play('open', 45)).toBe(1850);
+        fetchSound.mockImplementation(async () => new Response(new Uint8Array([1]), { headers: { 'content-type': 'audio/mpeg' } }));
+        await audio.activate();
+        expect(audio.presetSoundsError()).toBeNull();
+        FakeAudioContext.instances[0].currentTime = 3;
+        expect(audio.play('open', 45)).toBe(1330);
+    });
+
+    it('can switch from an upload to default and back without removing the upload', async () => {
+        const audio = TestBed.inject(AlertAudioService);
+        await audio.installCustomSound('open', {
+            name: 'bell.mp3', size: 2, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(2),
+        } as File);
+        preferences.set({ ...DEFAULT_SESSION_SOUNDS, selections: { open: 'default' } });
+        expect(audio.play('open', 45)).toBe(1850);
+        preferences.set({ ...DEFAULT_SESSION_SOUNDS, selections: { open: 'custom' } });
+        FakeAudioContext.instances[0].currentTime = 3;
+        expect(audio.play('open', 45)).toBe(1330);
+        expect(library.remove).not.toHaveBeenCalled();
+    });
+
+    it('aborts in-flight preset loading on mute without reviving audio', async () => {
+        vi.stubGlobal('fetch', vi.fn((_url: unknown, init: RequestInit) => new Promise((_resolve, reject) => {
+            init.signal!.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+        })));
+        preferences.set({ ...DEFAULT_SESSION_SOUNDS, selections: { open: 'game-over' } });
+        const audio = TestBed.inject(AlertAudioService);
+        const loading = audio.activate();
+        await vi.advanceTimersByTimeAsync(1);
+        audio.stop();
+        await loading;
+        expect(audio.running()).toBe(false);
+        expect(audio.presetSoundsLoading()).toBe(false);
+        expect(audio.presetSoundsError()).toBeNull();
+    });
+
+    it('inherits legacy warning presets for specific rules and allows a silent override', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array([1]), { headers: { 'content-type': 'audio/mpeg' } })));
+        preferences.set({ ...DEFAULT_SESSION_SOUNDS, selections: { risk: 'oh-no', weeklyLoss: 'silent' } });
+        const audio = TestBed.inject(AlertAudioService); await audio.activate();
+        expect(audio.play('dailyLoss', 45)).toBe(1330);
+        FakeAudioContext.instances[0].currentTime = 3;
+        expect(audio.play('weeklyLoss', 45)).toBe(0);
+        expect(audio.play('positionOpened', 45)).toBe(0);
+    });
+
+    it('keeps legacy uploaded warnings playable for each trigger after the shared controls are hidden', async () => {
+        const audio = TestBed.inject(AlertAudioService);
+        const file = {
+            name: 'old-warning.mp3', size: 800, type: 'audio/mpeg',
+            arrayBuffer: vi.fn(async () => new ArrayBuffer(8)),
+        } as unknown as File;
+        await audio.installCustomSound('risk', file);
+        const context = FakeAudioContext.instances[0];
+        expect(audio.play('dailyLoss', 45)).toBe(1330);
+        expect(context.sources).toHaveLength(1);
+        expect(context.oscillators).toHaveLength(0);
+        preferences.set({ ...DEFAULT_SESSION_SOUNDS, selections: { dailyLoss: 'default' } });
+        context.currentTime = 3;
+        expect(audio.play('dailyLoss', 45)).toBe(2030);
+        context.currentTime = 6;
+        expect(audio.play('weeklyLoss', 45)).toBe(1330);
+        expect(library.remove).not.toHaveBeenCalled();
+    });
+
+    it('auditions a different clip without changing the selected alert sound', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array([1]), { headers: { 'content-type': 'audio/mpeg' } })));
+        const audio = TestBed.inject(AlertAudioService); await audio.activate();
+        await audio.prepareSound('hell-yeah');
+        expect(audio.play('open', 45, 'hell-yeah')).toBe(1330);
+        expect(preferences().selections).toBeUndefined();
+        FakeAudioContext.instances[0].currentTime = 3;
+        expect(audio.play('open', 45)).toBe(1850);
     });
 });

@@ -1,8 +1,9 @@
 import { SessionsSnapshot } from '../sessions/sessions.model';
+import { AlertSoundSelections, normalizeSoundSelections } from './alert-sound-library';
 
 export type SessionAlertKind = 'open' | 'close';
 /** Semantic cue mapped to either the built-in audio or a user-selected file. */
-export type AlertSoundKind = SessionAlertKind | 'target' | 'risk';
+export type { AlertSoundKind } from './alert-sound-kinds';
 export interface SessionAlert {
     id: string;
     kind: SessionAlertKind;
@@ -15,6 +16,8 @@ export interface SessionSoundPreferences {
     closes: boolean;
     /** User opted in; audio still needs one gesture after each page load. */
     armed: boolean;
+    /** Absent on older preferences: keep using their uploaded cue, if any. */
+    selections?: AlertSoundSelections;
 }
 export const DEFAULT_SESSION_SOUNDS: Readonly<SessionSoundPreferences> = { volume: 45, opens: true, closes: true, armed: false };
 /** Absorb normal background-tab timer throttling without replaying stale bells. */
@@ -28,7 +31,9 @@ export function normalizeSoundPreferences(value: unknown): SessionSoundPreferenc
         ? Math.round(Math.max(0, Math.min(100, p.volume))) : DEFAULT_SESSION_SOUNDS.volume;
     const opens = typeof p.opens === 'boolean' ? p.opens : true;
     const closes = typeof p.closes === 'boolean' ? p.closes : true;
-    return { volume, opens, closes, armed: p.armed === true && volume > 0 };
+    const selections = normalizeSoundSelections(p.selections);
+    return { volume, opens, closes, armed: p.armed === true && volume > 0,
+        ...(selections ? { selections } : {}) };
 }
 
 /** Persist non-sensitive preferences and opt-in intent, never runtime audio/permission state. */

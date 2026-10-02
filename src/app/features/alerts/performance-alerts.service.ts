@@ -13,6 +13,8 @@ import {
     crossedPerformanceAlerts, performanceMetrics, PerformanceAlertRule, PerformanceMetrics, weekStartFor,
 } from './performance-alerts.utils';
 
+import { AlertSoundKind } from './alert-sound-kinds';
+
 export interface PerformanceAlertEvent {
     id: number;
     tone: 'target' | 'risk';
@@ -112,7 +114,7 @@ export class PerformanceAlertsService {
                 this.fired.add(openKey);
                 this.fired.add(`${context}:dailyProfit`);
                 const money = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-                this.publish('target', `Daily target touched at ${money(openTotal)} combined, including ${money(openTotal - current.dailyPnl)} open profit. Fees may not be included; open profit is not locked in.`);
+                this.publish('target', `Daily target touched at ${money(openTotal)} combined, including ${money(openTotal - current.dailyPnl)} open profit. Fees may not be included; open profit is not locked in.`, 'dailyProfitOpen');
             }
             this.previousOpenTotal = openTotal;
             this.previous = current;
@@ -121,7 +123,7 @@ export class PerformanceAlertsService {
             for (const alert of crossed) this.fired.add(`${context}:${alert.rule}`);
             const tone = crossed.some(alert => alert.tone === 'risk') ? 'risk' : 'target';
             const text = crossed.map(alert => alert.text).join(' ');
-            this.publish(tone, text);
+            this.publish(tone, text, (crossed.find(alert => alert.tone === tone) ?? crossed[0]).rule);
         });
     }
 
@@ -172,8 +174,8 @@ export class PerformanceAlertsService {
         this.event.set(null);
     }
 
-    private publish(tone: 'target' | 'risk', text: string): void {
-        this.sounds.announce(tone, text);
+    private publish(tone: 'target' | 'risk', text: string, sound: AlertSoundKind): void {
+        this.sounds.announce(sound, text);
         this.alertCenter.publish({
             tone,
             title: tone === 'risk' ? 'Guardrail reached' : 'Target reached',
