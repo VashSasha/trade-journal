@@ -70,7 +70,7 @@ describe('performance alert coordinator', () => {
         service.setValue('dailyProfit', 500); service.setEnabled('dailyProfit', true); TestBed.tick();
         trades.set([closed('1', '10', 600)]); TestBed.tick();
         expect(service.event()).toMatchObject({ tone: 'target', text: expect.stringContaining('Daily profit target') });
-        expect(announce).toHaveBeenCalledExactlyOnceWith('target', expect.stringContaining('$600'));
+        expect(announce).toHaveBeenCalledExactlyOnceWith('dailyProfit', expect.stringContaining('$600'));
 
         trades.set([closed('1', '10', 600), closed('2', '10', -50)]); TestBed.tick();
         trades.set([closed('1', '10', 600), closed('2', '10', -50), closed('3', '10', 100)]); TestBed.tick();

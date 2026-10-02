@@ -111,4 +111,20 @@ describe('account-synced session sound preferences', () => {
         expect(service.preferences().armed).toBe(true);
         expect(JSON.parse(localStorage.getItem(CACHE_KEY)!).pending).toBe(true);
     });
+
+    it('restores selected library sounds in a fresh browser', async () => {
+        const { service } = setup({ volume: 45, opens: true, closes: true, armed: true,
+            selections: { open: 'stock-market-bell', positionOpened: 'hell-yeah', dailyLoss: 'oh-no' } });
+        await vi.waitFor(() => expect(service.loading()).toBe(false));
+        expect(service.preferences().selections).toEqual({ open: 'stock-market-bell', positionOpened: 'hell-yeah', dailyLoss: 'oh-no' });
+    });
+
+    it('keeps selections pending when an old RPC silently drops them', async () => {
+        const { service } = setup();
+        await vi.waitFor(() => expect(service.loading()).toBe(false));
+        service.update(p => ({ ...p, selections: { open: 'game-over' } }));
+        await vi.waitFor(() => expect(service.syncWarning()).toBe(true));
+        expect(JSON.parse(localStorage.getItem(CACHE_KEY)!).pending).toBe(true);
+        expect(service.preferences().selections?.open).toBe('game-over');
+    });
 });

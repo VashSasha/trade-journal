@@ -6,6 +6,7 @@ import { SessionScheduleService } from '../sessions/session-schedule.service';
 import { AlertAudioService } from './alert-audio.service';
 import { SessionSoundPreferencesService } from './session-sound-preferences.service';
 import { AlertSoundKind, crossedSessionAlerts, SessionAlertKind } from './session-alerts.utils';
+import { AlertSoundSelection, isAlertSoundSelection } from './alert-sound-library';
 
 const OWNER_LOCK = 'nvzn_session_sound_owner_v1';
 
@@ -169,22 +170,25 @@ export class SessionAlertsService {
         if (rearm && this.preferences().armed) this.armRestoreGesture();
     }
 
-    async preview(kind: AlertSoundKind): Promise<void> {
+    async preview(kind: AlertSoundKind, selection?: AlertSoundSelection): Promise<void> {
         if (!this.enabled() || this.previewing() || !this.preferences().volume) return;
         this.previewing.set(true);
         this.error.set(null);
         const generation = this.generation;
         try {
             await this.audio.activate();
+            if (selection !== undefined && generation === this.generation) await this.audio.prepareSound(selection);
             if (generation !== this.generation) return;
-            const duration = this.audio.play(kind, this.preferences().volume);
+            const duration = selection === undefined ? this.audio.play(kind, this.preferences().volume)
+                : this.audio.play(kind, this.preferences().volume, selection);
             this.previewTimer = this.view!.setTimeout(() => {
                 this.previewing.set(false);
                 if (!this.enabled()) this.audio.stop();
             }, Math.max(600, duration + 100));
         } catch (error) {
             if (generation !== this.generation) return;
-            this.stopRuntime();
+            this.previewing.set(false);
+            if (!this.audio.running()) this.stopRuntime();
             this.error.set(error instanceof Error ? error.message : 'Could not play the test sound.');
         }
     }
@@ -212,6 +216,11 @@ export class SessionAlertsService {
     setKind(kind: SessionAlertKind, enabled: boolean): void {
         this.preferenceStore.update(p => ({ ...p, [kind === 'open' ? 'opens' : 'closes']: enabled }));
         this.rebase();
+    }
+
+    setSound(kind: AlertSoundKind, selection: AlertSoundSelection): void {
+        if (!isAlertSoundSelection(selection)) return;
+        this.preferenceStore.update(p => ({ ...p, selections: { ...p.selections, [kind]: selection } }));
     }
 
     private tick(): void {

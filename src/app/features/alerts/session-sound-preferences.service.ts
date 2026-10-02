@@ -177,11 +177,20 @@ export class SessionSoundPreferencesService {
         this.saveChain = this.saveChain.catch(() => undefined).then(async () => {
             if (this.session.userId() !== owner) return;
             const operation = this.session.capture();
-            const { error } = await this.client.rpc('set_my_session_sound_preferences', {
+            const { data, error } = await this.client.rpc('set_my_session_sound_preferences', {
                 p_preferences: preferences,
             }).abortSignal(operation.signal);
             this.session.assertCurrent(operation);
             if (error) throw error;
+            // Older RPC versions silently discard selections. Keep the pending
+            // browser copy and warn instead of claiming cross-device persistence.
+            if (preferences.selections) {
+                const saved = normalizeSoundPreferences(data)?.selections;
+                if (Object.entries(preferences.selections).some(([kind, choice]) =>
+                    saved?.[kind as keyof typeof saved] !== choice)) {
+                    throw new Error('Sound library preferences migration is required.');
+                }
+            }
             if (this.session.userId() !== owner) return;
             const current = this.readCache(owner);
             if (this.revision === revision && current?.pending && current.updatedAt === updatedAt) {

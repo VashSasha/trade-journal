@@ -18,6 +18,7 @@ import { MarketAwarenessDrawerComponent } from '../../market-events/market-aware
 import { LiveCoachService } from '../../live-coach/live-coach.service';
 import { LiveCoachWidgetComponent } from '../../live-coach/live-coach-widget.component';
 import { SessionAlertsService } from '../../alerts/session-alerts.service';
+import { PositionSoundAlertsService } from '../../alerts/position-sound-alerts.service';
 
 const DISMISSED_KEY = 'tj_banner_dismissed_connections';
 
@@ -46,6 +47,7 @@ export class MainLayoutComponent {
     constructor() {
         // Keep session bells alive across pages, independently of Settings UI.
         inject(SessionAlertsService).attach(inject(DestroyRef));
+        inject(PositionSoundAlertsService).attach(inject(DestroyRef));
         // Construct once for the authenticated shell so coaching survives route changes.
         inject(LiveCoachService);
         effect(() => {
