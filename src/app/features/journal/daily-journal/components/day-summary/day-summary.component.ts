@@ -18,6 +18,7 @@ import {
 import { SharePnlComponent, SharePnlStats } from '../../../../../shared/components/share-pnl/share-pnl.component';
 import { AiAnalysisService } from '../saved-analyses/ai-analysis.service';
 import { JournalFormState } from '../../state/journal-form.state';
+import { AiCoachingBadgeComponent } from '../../../../ai-settings/ai-coaching-badge.component';
 import { AccessPolicyService } from '../../../../../core/services/access-policy.service';
 import {
   inferTradeDecisions,
@@ -48,7 +49,7 @@ const TASK_LINE = /^[-*]\s*\[[ xX]?\]\s+/;
 @Component({
   selector: 'app-day-summary',
   standalone: true,
-  imports: [CurrencyPipe, DecimalPipe, FormsModule, EquityCurveChartComponent, SharePnlComponent, MarkdownComponent],
+  imports: [CurrencyPipe, DecimalPipe, FormsModule, EquityCurveChartComponent, SharePnlComponent, MarkdownComponent, AiCoachingBadgeComponent],
   templateUrl: './day-summary.component.html',
   styleUrl: './day-summary.component.scss'
 })
@@ -59,7 +60,13 @@ export class DaySummaryComponent implements OnDestroy {
   get trades(): Trade[] { return this.tradesInput(); }
   @Input() set startBalance(value: number | undefined) { this.startBalanceInput.set(value); }
   get startBalance(): number | undefined { return this.startBalanceInput(); }
-  @Input() date?: string;
+  private selectedDate?: string;
+  @Input() set date(value: string | undefined) {
+    if (value === this.selectedDate) return;
+    this.selectedDate = value;
+    this.resetInsight();
+  }
+  get date(): string | undefined { return this.selectedDate; }
 
   @ViewChild(SharePnlComponent) sharePnl!: SharePnlComponent;
 
@@ -125,6 +132,10 @@ export class DaySummaryComponent implements OnDestroy {
   private activeFollowUp?: Subscription;
   private insightTimeout: ReturnType<typeof setTimeout> | null = null;
   private followUpTimeout: ReturnType<typeof setTimeout> | null = null;
+  private copiedFocusTimeout: ReturnType<typeof setTimeout> | null = null;
+  /** Invalidates callbacks even when navigating A → B → A. */
+  private insightRevision = 0;
+  private insightContext = new AbortController();
 
   private readonly dayStats = computed(() => computeDayStats(this.tradesInput()));
   // Keep the chart input stable during notes, menus and streamed AI updates.
@@ -168,21 +179,29 @@ export class DaySummaryComponent implements OnDestroy {
   copyFocus(): void {
     const item = this.focusItem();
     if (!item) return;
+    const revision = this.insightRevision;
     navigator.clipboard.writeText(item).then(() => {
+      if (!this.isCurrentInsight(revision)) return;
       this.copiedFocus.set(true);
-      setTimeout(() => this.copiedFocus.set(false), 2000);
-    });
+      if (this.copiedFocusTimeout !== null) clearTimeout(this.copiedFocusTimeout);
+      this.copiedFocusTimeout = setTimeout(() => this.copiedFocus.set(false), 2000);
+    }).catch(() => { /* Clipboard access may be unavailable. */ });
   }
 
   // ── AI Insight ───────────────────────────────────────────────────────────
   async generateInsight(): Promise<void> {
     if (!this.trades.length) return;
     if (!this.access.demo() && !this.access.requestAction('ai')) return;
-    if (this.aiSaving()) return;
+    if (this.aiSaving() || this.insightState().status === 'streaming') return;
 
     const analysisDate = this.date ?? null;
     const activity = inferTradeDecisions([...this.trades]);
+    this.resetInsight();
+    const revision = this.insightRevision;
+    this.insightState.set({status: 'streaming', content: '', error: null});
+    this.startInsightStepsAnimation();
     const yesterdayFocus = await this.fetchYesterdayFocus(analysisDate);
+    if (!this.isCurrentInsight(revision)) return;
 
     this.insightDate = analysisDate;
     this.insightActivity.set(activity);
@@ -364,7 +383,8 @@ Coaching instruction: assess frequency and overtrading from ${activity.decisionC
   private async fetchYesterdayFocus(date: string | null): Promise<string | null> {
     if (!date) return null;
     try {
-      const prev = await this.aiAnalysis.latestAnalysisBefore(date);
+      const prev = await this.aiAnalysis.latestAnalysisBefore(date,
+        AbortSignal.any([this.insightContext.signal, AbortSignal.timeout(10_000)]));
       if (!prev) return null;
       const line = this.extractFocusLine(prev.content);
       return line ? line.replace(TASK_LINE, '') : null;
@@ -466,6 +486,7 @@ Coaching instruction: assess frequency and overtrading from ${activity.decisionC
     if (this.insightState().status !== 'complete' || !content || !date) return;
     if (this.aiSaving() || this.insightSaved()) return;
 
+    const revision = this.insightRevision;
     this.aiSaving.set(true);
     this.aiSaveError.set(null);
     try {
@@ -473,12 +494,13 @@ Coaching instruction: assess frequency and overtrading from ${activity.decisionC
       const saved = id
         ? await this.aiAnalysis.updateAnalysis(id, content)
         : await this.aiAnalysis.saveAnalysis(date, content);
+      if (!this.isCurrentInsight(revision)) return;
       this.savedAnalysisId.set(saved.id);
       this.savedContent.set(saved.content);
     } catch (err: any) {
-      this.aiSaveError.set(err?.message || 'Couldn\'t save analysis. Please try again.');
+      if (this.isCurrentInsight(revision)) this.aiSaveError.set(err?.message || 'Couldn\'t save analysis. Please try again.');
     } finally {
-      this.aiSaving.set(false);
+      if (this.isCurrentInsight(revision)) this.aiSaving.set(false);
     }
   }
 
@@ -487,6 +509,7 @@ Coaching instruction: assess frequency and overtrading from ${activity.decisionC
     stateSignal: WritableSignal<AnalysisState>,
     confidenceSignal: WritableSignal<ConfidenceTier>
   ): void {
+    const revision = this.insightRevision;
     const isMain = stateSignal === this.insightState;
     if (isMain) {
       this.activeInsight?.unsubscribe();
@@ -504,6 +527,7 @@ Coaching instruction: assess frequency and overtrading from ${activity.decisionC
     // Fail into the error state (never spin forever) — set on error, timeout,
     // and used to guarantee loading always stops.
     const fail = (message: string) => {
+      if (!this.isCurrentInsight(revision)) return;
       if (isMain) this.clearInsightStepsAnimation();
       this.clearInsightTimeout(isMain);
       stateSignal.set({status: 'error', content: '', error: message});
@@ -512,7 +536,7 @@ Coaching instruction: assess frequency and overtrading from ${activity.decisionC
     // If the upstream hangs and no first token arrives, abort and surface a
     // timeout error instead of an endless spinner.
     const timeout = setTimeout(() => {
-      if (firstToken) return;
+      if (firstToken || !this.isCurrentInsight(revision)) return;
       (isMain ? this.activeInsight : this.activeFollowUp)?.unsubscribe();
       fail('This is taking longer than expected. Please try again.');
     }, AI_STREAM_TIMEOUT_MS);
@@ -523,6 +547,7 @@ Coaching instruction: assess frequency and overtrading from ${activity.decisionC
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: token => {
+          if (!this.isCurrentInsight(revision)) return;
           if (!firstToken) {
             firstToken = true;
             this.clearInsightTimeout(isMain);
@@ -530,6 +555,7 @@ Coaching instruction: assess frequency and overtrading from ${activity.decisionC
           stateSignal.update(s => ({...s, content: s.content + token}));
         },
         complete: () => {
+          if (!this.isCurrentInsight(revision)) return;
           if (isMain) this.clearInsightStepsAnimation();
           this.clearInsightTimeout(isMain);
           stateSignal.update(s => ({...s, status: 'complete'}));
@@ -551,11 +577,40 @@ Coaching instruction: assess frequency and overtrading from ${activity.decisionC
     }
   }
 
-  ngOnDestroy(): void {
+  private isCurrentInsight(revision: number): boolean {
+    return revision === this.insightRevision && !this.destroyRef.destroyed;
+  }
+
+  /** Clear only transient UI state. Completed analyses remain saved under their original date. */
+  private resetInsight(): void {
+    this.insightRevision++;
+    this.insightContext.abort();
+    this.insightContext = new AbortController();
+    this.activeInsight?.unsubscribe();
+    this.activeFollowUp?.unsubscribe();
+    this.activeInsight = undefined;
+    this.activeFollowUp = undefined;
     this.clearInsightStepsAnimation();
     this.clearInsightTimeout(true);
     this.clearInsightTimeout(false);
+    if (this.copiedFocusTimeout !== null) clearTimeout(this.copiedFocusTimeout);
+    this.copiedFocusTimeout = null;
+    this.insightState.set({status: 'idle', content: '', error: null});
+    this.followUpInsight.set({status: 'idle', content: '', error: null});
+    this.insightConfidence.set(null);
+    this.followUpInsightConfidence.set(null);
+    this.activeInsightSteps.set([]);
+    this.copiedFocus.set(false);
+    this.aiSaving.set(false);
+    this.aiSaveError.set(null);
+    this.savedAnalysisId.set(null);
+    this.savedContent.set(null);
+    this.insightDate = null;
+    this.insightActivity.set(null);
+    this.insightMessages = [];
   }
+
+  ngOnDestroy(): void { this.resetInsight(); }
 
   private startInsightStepsAnimation(): void {
     this.clearInsightStepsAnimation();

@@ -7,6 +7,7 @@ import { readJson, RequestError } from '../_shared/request-body.ts';
 import { aiTextStream } from '../_shared/ai-stream.ts';
 import { coachSpeech, COACH_VOICE_PREVIEW } from '../_shared/coach-speech.ts';
 import { attachChatObservation } from '../_shared/coach-chat-observation.ts';
+import { resolveCoachingMode } from '../_shared/coaching-mode.ts';
 
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SB_SECRET_KEY')!, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -72,7 +73,8 @@ Deno.serve(async req => {
             throw new RequestError('AI features require Premium+ or an individual AI access grant.', 403);
         }
 
-        const body = validateAiBody(await readJson(req, MAX_AI_BODY_BYTES));
+        const rawBody = await readJson(req, MAX_AI_BODY_BYTES);
+        const body = validateAiBody(rawBody);
         requestKind = body.type.startsWith('live-coach') ? 'live-coach' : 'report';
         const cachedChatTurn = async () => {
             const result = await admin.from('coach_chat_turns').select('conversation_id,prompt,answer,context')
@@ -99,7 +101,10 @@ Deno.serve(async req => {
             if ((history.count ?? 0) >= 100) throw new RequestError('This conversation is full. Start a new conversation.', 409);
             body.payload.history = (history.data ?? []).reverse();
         }
-        const params = buildParams(body.type, body.payload)!;
+        // Speech reads existing words unchanged; only newly generated coaching gets a style.
+        const mode = body.type === 'live-coach-preview' || body.type === 'live-coach-speech' ? 'standard'
+            : await resolveCoachingMode(admin, userId, (rawBody as Record<string, unknown>).coachingMode, controller.signal);
+        const params = buildParams(body.type, body.payload, mode)!;
         const key = Deno.env.get('OPENAI_API_KEY');
         if (!key) throw new RequestError('AI service is temporarily unavailable.', 503);
         const openai = new OpenAI({

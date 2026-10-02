@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { Component, Input, signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { EquityData } from '../../../../../shared/components/equity-curve-chart/equity-curve-chart.component';
-import { of } from 'rxjs';
+import { Observable, of, Subscriber } from 'rxjs';
 import { vi } from 'vitest';
 import { Trade } from '../../../../../core/models/trade.model';
 import { AccountSettingsService } from '../../../../../core/services/account-settings.service';
@@ -143,5 +143,137 @@ describe('DaySummaryComponent AI persistence', () => {
         expect(saveAnalysis).toHaveBeenCalledOnce();
 
         fixture.destroy();
+    });
+});
+
+describe('DaySummaryComponent date-scoped coaching', () => {
+    const FIRST = '2026-08-04', SECOND = '2026-08-05';
+    function deferred<T>() {
+        let resolve!: (value: T) => void, reject!: (reason: Error) => void;
+        const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+        return { promise, resolve, reject };
+    }
+    function setup() {
+        const latestAnalysisBefore = vi.fn().mockResolvedValue(null);
+        const saveAnalysis = vi.fn(async (date: string, content: string): Promise<SavedAnalysis> => ({
+            id: `saved-${date}`, date, content, createdAt: `${date}T15:00:00Z`,
+        }));
+        const updateAnalysis = vi.fn(async (id: string, content: string): Promise<SavedAnalysis> => ({
+            id, date: SECOND, content, createdAt: `${SECOND}T15:00:00Z`,
+        }));
+        const streamAnalysis = vi.fn(() => of(MAIN_REVIEW));
+        TestBed.configureTestingModule({ providers: [
+            { provide: AccountSettingsService, useValue: { startingBalance: () => 50_000 } },
+            { provide: AccessPolicyService, useValue: { demo: () => false, requestAction: () => true } },
+            { provide: OpenAiService, useValue: { streamAnalysis } },
+            { provide: AiAnalysisService, useValue: { latestAnalysisBefore, saveAnalysis, updateAnalysis } },
+            { provide: DailyJournalService, useValue: { getNoteForDate: () => undefined, customRules: () => [] } },
+            { provide: TradeService, useValue: { trades: () => [] } },
+            { provide: FilterService, useValue: { filterTradesIgnoreDateRange: () => [] } },
+        ] }).overrideComponent(DaySummaryComponent, { set: {
+            template: '@if (coach(); as c) { <p class="verdict">{{ c.verdict }}</p> }',
+        } });
+        const fixture = TestBed.createComponent(DaySummaryComponent), component = fixture.componentInstance;
+        fixture.componentRef.setInput('date', FIRST);
+        fixture.componentRef.setInput('trades', [trade('one', 'account-a')]); fixture.detectChanges();
+        const changeDate = (date: string) => { fixture.componentRef.setInput('date', date); fixture.detectChanges(); };
+        return { fixture, component, changeDate, latestAnalysisBefore, saveAnalysis, updateAnalysis, streamAnalysis };
+    }
+
+    it('clears the verdict, follow-up, focus and save state on a different date without generating AI automatically', async () => {
+        const { fixture, component, changeDate, streamAnalysis, saveAnalysis } = setup();
+        await component.generateInsight(); await vi.waitFor(() => expect(component.insightSaved()).toBe(true));
+        component.tellMeMore(); await vi.waitFor(() => expect(component.aiSaving()).toBe(false));
+        component.copiedFocus.set(true); fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('.verdict')).not.toBeNull();
+        const calls = streamAnalysis.mock.calls.length;
+        changeDate(SECOND);
+        expect(fixture.nativeElement.querySelector('.verdict')).toBeNull();
+        expect(component.insightState()).toEqual({ status: 'idle', content: '', error: null });
+        expect(component.followUpInsight()).toEqual({ status: 'idle', content: '', error: null });
+        expect(component.insightConfidence()).toBeNull(); expect(component.followUpInsightConfidence()).toBeNull();
+        expect(component.focusItem()).toBeNull(); expect(component.coachActivity()).toBeNull();
+        expect(component.copiedFocus()).toBe(false); expect(component.insightSaved()).toBe(false);
+        expect(component.aiSaveError()).toBeNull(); expect(component.activeInsightSteps()).toEqual([]);
+        expect(streamAnalysis).toHaveBeenCalledTimes(calls);
+        component.tellMeMore(); await component.saveInsight(); expect(streamAnalysis).toHaveBeenCalledTimes(calls);
+        await component.generateInsight();
+        expect(saveAnalysis).toHaveBeenLastCalledWith(SECOND, expect.stringContaining(MAIN_REVIEW));
+    });
+
+    it('preserves a completed verdict when the same date is assigned again', async () => {
+        const { component, changeDate, streamAnalysis } = setup();
+        await component.generateInsight(); changeDate(FIRST);
+        expect(component.coach()?.grade).toBe('B+'); expect(streamAnalysis).toHaveBeenCalledOnce();
+    });
+
+    it('ignores an old context lookup even after returning to the original date and blocks duplicate starts', async () => {
+        const { component, changeDate, latestAnalysisBefore, streamAnalysis } = setup();
+        const old = deferred<SavedAnalysis | null>(); latestAnalysisBefore.mockReturnValueOnce(old.promise);
+        const run = component.generateInsight();
+        await component.generateInsight(); expect(latestAnalysisBefore).toHaveBeenCalledOnce();
+        changeDate(SECOND); changeDate(FIRST);
+        old.resolve(null); await run;
+        expect(streamAnalysis).not.toHaveBeenCalled(); expect(component.insightState().status).toBe('idle');
+    });
+
+    it('cancels a partial review on navigation and never saves late chunks under another date', async () => {
+        const { component, changeDate, streamAnalysis, saveAnalysis } = setup();
+        let sink!: Subscriber<string>; const cancel = vi.fn();
+        streamAnalysis.mockReturnValueOnce(new Observable(subscriber => { sink = subscriber; return cancel; }));
+        await component.generateInsight(); sink.next('## Verdict\nPartial');
+        changeDate(SECOND);
+        expect(cancel).toHaveBeenCalledOnce(); expect(sink.closed).toBe(true);
+        sink.next(MAIN_REVIEW); sink.complete();
+        expect(component.coach()).toBeNull(); expect(component.insightState().status).toBe('idle');
+        expect(saveAnalysis).not.toHaveBeenCalled();
+    });
+
+    it('cancels a deeper review without overwriting the saved main analysis', async () => {
+        const { component, changeDate, streamAnalysis, saveAnalysis, updateAnalysis } = setup();
+        await component.generateInsight(); await vi.waitFor(() => expect(component.insightSaved()).toBe(true));
+        let sink!: Subscriber<string>;
+        streamAnalysis.mockReturnValueOnce(new Observable(subscriber => { sink = subscriber; }));
+        component.tellMeMore(); sink.next('Partial follow-up'); changeDate(SECOND);
+        expect(sink.closed).toBe(true); sink.complete();
+        expect(component.followUpInsight().status).toBe('idle'); expect(updateAnalysis).not.toHaveBeenCalled();
+        expect(saveAnalysis).toHaveBeenCalledExactlyOnceWith(FIRST, expect.stringContaining(MAIN_REVIEW));
+    });
+
+    it('allows the old day to finish saving but never attaches that record to the new day', async () => {
+        const { component, changeDate, saveAnalysis, updateAnalysis } = setup();
+        const oldSave = deferred<SavedAnalysis>(), newSave = deferred<SavedAnalysis>();
+        saveAnalysis.mockReturnValueOnce(oldSave.promise).mockReturnValueOnce(newSave.promise);
+        await component.generateInsight(); changeDate(SECOND); await component.generateInsight();
+        expect(saveAnalysis).toHaveBeenCalledTimes(2);
+        oldSave.resolve({ id: 'old-id', date: FIRST, content: MAIN_REVIEW, createdAt: FIRST });
+        await Promise.resolve(); expect(component.aiSaving()).toBe(true); expect(component.insightSaved()).toBe(false);
+        newSave.resolve({ id: 'new-id', date: SECOND, content: MAIN_REVIEW, createdAt: SECOND });
+        await vi.waitFor(() => expect(component.insightSaved()).toBe(true));
+        component.tellMeMore();
+        expect(updateAnalysis).toHaveBeenCalledWith('new-id', expect.any(String));
+    });
+
+    it('does not surface an old save failure on another date', async () => {
+        const { component, changeDate, saveAnalysis } = setup();
+        const oldSave = deferred<SavedAnalysis>(); saveAnalysis.mockReturnValueOnce(oldSave.promise);
+        await component.generateInsight(); changeDate(SECOND);
+        oldSave.reject(new Error('Old day could not save')); await Promise.resolve();
+        expect(component.aiSaveError()).toBeNull(); expect(component.aiSaving()).toBe(false);
+    });
+
+    it('does not start a late generation after the widget is destroyed', async () => {
+        const { fixture, component, latestAnalysisBefore, streamAnalysis } = setup();
+        const old = deferred<SavedAnalysis | null>(); latestAnalysisBefore.mockReturnValueOnce(old.promise);
+        const run = component.generateInsight(); fixture.destroy(); old.resolve(null); await run;
+        expect(streamAnalysis).not.toHaveBeenCalled();
+    });
+
+    it('does not turn a partial stream into a saved verdict when the widget is destroyed', async () => {
+        const { fixture, component, streamAnalysis, saveAnalysis } = setup();
+        let sink!: Subscriber<string>;
+        streamAnalysis.mockReturnValueOnce(new Observable(subscriber => { sink = subscriber; }));
+        await component.generateInsight(); sink.next('## Verdict\nUnfinished'); fixture.destroy();
+        expect(sink.closed).toBe(true); expect(saveAnalysis).not.toHaveBeenCalled();
     });
 });

@@ -12,6 +12,7 @@ import { LiveCoachWidgetComponent } from './live-coach-widget.component';
 import { CoachHistoryService } from './history/coach-history.service';
 import { CoachChatService } from './chat/coach-chat.service';
 import { SavedCoachObservation } from './history/coach-history.model';
+import { AiCoachingSettingsService } from '../ai-settings/ai-coaching-settings.service';
 
 describe('floating Live Coach', () => {
     function setup() {
@@ -45,6 +46,7 @@ describe('floating Live Coach', () => {
             open: vi.fn(), newConversation: vi.fn(), cancel: vi.fn() };
         TestBed.configureTestingModule({ providers: [
             provideRouter([]),
+            { provide: AiCoachingSettingsService, useValue: { active: signal(false), load: async () => {} } },
             { provide: CoachHistoryService, useValue: history },
             { provide: LiveCoachService, useValue: coach },
             { provide: OpenAiService, useValue: { generateLiveCoachFollowUp: vi.fn() } },
@@ -188,7 +190,7 @@ describe('floating Live Coach', () => {
         menu();
         button('Coach settings').click(); fixture.detectChanges();
         expect(root.querySelector('app-live-coach-voice-select')).not.toBeNull();
-        expect(root.querySelector('a')!.getAttribute('href')).toBe('/account/alerts');
+        expect(root.querySelector('a')!.getAttribute('href')).toBe('/account/ai');
     });
 
     it('hides real history in demo and never exposes controls to free accounts', () => {

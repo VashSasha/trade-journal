@@ -12,6 +12,7 @@ import { VerdictCardComponent } from './verdict-card/verdict-card.component';
 import { VerdictCard } from './verdict-card.model';
 import { AccessPolicyService } from '../../core/services/access-policy.service';
 import { DEMO_VERDICT } from './demo-verdict';
+import { AiCoachingBadgeComponent } from '../ai-settings/ai-coaching-badge.component';
 
 type AnalysisState = { status: 'idle' | 'streaming' | 'complete' | 'error'; content: string; error: string | null };
 type ConfidenceTier = 'high' | 'medium' | 'low' | null;
@@ -30,7 +31,7 @@ const ANALYSIS_STEPS = [
 @Component({
     selector: 'app-ai-reports',
     standalone: true,
-    imports: [FormsModule, MarkdownComponent, RouterLink, SavedReportsComponent, VerdictCardComponent],
+    imports: [FormsModule, MarkdownComponent, RouterLink, SavedReportsComponent, VerdictCardComponent, AiCoachingBadgeComponent],
     templateUrl: './ai-reports.component.html',
     styleUrl: './ai-reports.component.scss'
 })

@@ -9,6 +9,7 @@
                 </button>
             }
             <div class="coach-widget__title"><h2 id="floating-coach-title" [title]="heading()">{{ heading() }}</h2>
+                <app-ai-coaching-badge (click)="close(false)" />
                 @if (view() === 'chat' && available()) { <p class="coach-widget__status" role="status">{{ status() }}</p> }
             </div>
             <button type="button" class="coach-widget__icon" [attr.aria-label]="enlarged() ? 'Shrink Coach' : 'Expand Coach'"
@@ -58,7 +59,7 @@
                     @if (!coach.aiAvailable()) {
                         <a class="coach-widget__link" routerLink="/account/pricing" (click)="close(false)">Unlock AI with Premium+</a>
                     }
-                    <a class="coach-widget__link" routerLink="/account/alerts" (click)="close(false)">All coach &amp; alert settings</a>
+                    <a class="coach-widget__link" routerLink="/account/ai" (click)="close(false)">All AI &amp; coaching settings</a>
                 </div>
             }
         </div>

@@ -8,6 +8,7 @@ import { OpenAiService } from '../../core/services/openai.service';
 import { TradovateService } from '../../core/services/tradovate.service';
 import { AiReportsComponent } from './ai-reports.component';
 import { ReportAnalysisService } from './report-analysis.service';
+import { AiCoachingSettingsService } from '../ai-settings/ai-coaching-settings.service';
 
 describe('AI Analyzer responsive form', () => {
     afterEach(() => TestBed.resetTestingModule());
@@ -17,6 +18,7 @@ describe('AI Analyzer responsive form', () => {
         const saveReport = vi.fn();
         TestBed.configureTestingModule({ providers: [
             provideRouter([]), provideMarkdown(),
+            { provide: AiCoachingSettingsService, useValue: { active: signal(false), load: async () => {} } },
             { provide: AccessPolicyService, useValue: { demo: signal(demo), requestAction: () => true } },
             { provide: OpenAiService, useValue: { hasApiKey: () => true, streamAnalysis } },
             { provide: TradovateService, useValue: {} },

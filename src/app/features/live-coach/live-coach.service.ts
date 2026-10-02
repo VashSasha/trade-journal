@@ -8,6 +8,7 @@ import { TradeService } from '../../core/services/trade.service';
 import { TradovateService } from '../../core/services/tradovate.service';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { AccountAlertPreferencesService } from '../alerts/account-alert-preferences.service';
+import { AiCoachingSettingsService } from '../ai-settings/ai-coaching-settings.service';
 import { AlertCenterService } from '../alerts/alert-center.service';
 import { SessionAlertsService } from '../alerts/session-alerts.service';
 import { PerformanceAlertsService } from '../alerts/performance-alerts.service';
@@ -42,6 +43,7 @@ interface PendingBucket {
 @Injectable({ providedIn: 'root' })
 export class LiveCoachService {
     private readonly preferenceStore = inject(AccountAlertPreferencesService);
+    private readonly coachingSettings = inject(AiCoachingSettingsService);
     private readonly live = inject(TradovateLiveService);
     private readonly tradovate = inject(TradovateService);
     private readonly trades = inject(TradeService);
@@ -104,6 +106,11 @@ export class LiveCoachService {
     private guardrailUntil = 0;
 
     constructor() {
+        let toneRevision = this.coachingSettings.revision();
+        effect(() => {
+            const next = this.coachingSettings.revision();
+            if (next !== toneRevision) { toneRevision = next; untracked(() => this.interrupt()); }
+        });
         effect(() => {
             const owner = this.access.canAct('sync') ? this.session.userId() : null;
             const enabled = this.preferences().enabled;

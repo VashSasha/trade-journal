@@ -3,7 +3,7 @@ import { SessionAlertControlsComponent } from '../../../alerts/session-alert-con
 import { PerformanceAlertControlsComponent } from '../../../alerts/performance-alert-controls.component';
 import { MarketEventAlertControlsComponent } from '../../../alerts/market-event-alert-controls.component';
 import { CustomAlertSoundControlsComponent } from '../../../alerts/custom-alert-sound-controls.component';
-import { LiveCoachControlsComponent } from '../../../live-coach/live-coach-controls.component';
+import { RouterLink } from '@angular/router';
 import { SessionScheduleControlsComponent } from '../../../sessions/session-schedule-controls.component';
 
 /** Full alert configuration; the header shows read-only session status. */
@@ -13,7 +13,7 @@ import { SessionScheduleControlsComponent } from '../../../sessions/session-sche
     imports: [
         SessionAlertControlsComponent, CustomAlertSoundControlsComponent,
         PerformanceAlertControlsComponent, MarketEventAlertControlsComponent,
-        LiveCoachControlsComponent, SessionScheduleControlsComponent,
+        RouterLink, SessionScheduleControlsComponent,
     ],
     templateUrl: './account-alerts.component.html',
     styleUrl: './account-alerts.component.scss',
