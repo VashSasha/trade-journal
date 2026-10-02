@@ -62,6 +62,32 @@ describe('custom alert sound controls', () => {
         expect(sounds.preview).toHaveBeenCalledWith('open');
         expect(element.textContent).toContain('my-bell.mp3 is now used');
     });
+    it('defaults to Silent, disables selected-sound previews, and reenables only the configured cue', () => {
+        const { sounds, fixture, element } = setup();
+        const buttons = [...element.querySelectorAll<HTMLButtonElement>('.custom-sound__actions button')];
+        expect(buttons).toHaveLength(14);
+        expect(buttons.every(button => button.disabled)).toBe(true);
+        expect([...element.querySelectorAll('.sound-picker__trigger')].every(button => button.textContent?.includes('Silent'))).toBe(true);
+        fixture.componentInstance.test('open');
+        expect(sounds.preview).not.toHaveBeenCalled();
+        fixture.componentInstance.chooseSound('open', 'stock-market-bell');
+        fixture.detectChanges();
+        expect(buttons[0].disabled).toBe(false);
+        expect(buttons.slice(1).every(button => button.disabled)).toBe(true);
+        fixture.componentInstance.chooseSound('open', 'silent');
+        fixture.detectChanges();
+        expect(buttons[0].disabled).toBe(true);
+    });
+
+    it('returns to Silent when the selected upload is removed', async () => {
+        const { audio, sounds, fixture } = setup();
+        audio.customSounds.set({ ...emptyCustomAlertSoundMap(), open: {
+            kind: 'open', name: 'mine.mp3', mimeType: 'audio/mpeg', size: 100, duration: 1, updatedAt: '2026-10-01T00:00:00Z',
+        } });
+        await fixture.componentInstance.reset('open');
+        expect(sounds.preferences().selections?.open).toBe('silent');
+        expect(fixture.componentInstance.message()).toContain('This alert is now silent');
+    });
 
     it('offers all ten presets for each alert and changes just the chosen alert', () => {
         const { audio, sounds, fixture, element } = setup();

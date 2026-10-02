@@ -26,8 +26,17 @@ Deno.test('follow-ups sanitize context and cannot choose a model, prompt or voic
     assert.equal(params.max_tokens, 360);
     assert.match(String(params.messages[0].content), /untrusted data/);
     assert.match(String(params.messages[0].content), /realized/);
-    assert.match(String(params.messages[0].content), /copied accounts/);
+    assert.match(String(params.messages[0].content), /copies/);
     assert.match(String(params.messages[0].content), /not the trader's current position/);
+});
+Deno.test('follow-ups preserve position-aware count metadata and reject impossible uncertainty', () => {
+    const body = input();
+    Object.assign(body.payload.snapshot.session, { countBasis: 'position', ungroupedExecutionCount: 1 });
+    const result = validateAiBody(body);
+    assert.equal(result.payload.snapshot.session.countBasis, 'position');
+    assert.equal(result.payload.snapshot.session.ungroupedExecutionCount, 1);
+    Object.assign(body.payload.snapshot.session, { ungroupedExecutionCount: 21 });
+    assert.throws(() => validateAiBody(body));
 });
 
 Deno.test('follow-ups reject malformed, oversized, unsupported or ungrounded requests', () => {

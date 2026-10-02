@@ -24,7 +24,7 @@ function trade(id: string, accountId: string, entryTime: string, pnl: number): T
     return {
         id, userId: 'owner', symbol: 'MNQ', assetType: 'futures', direction: 'long',
         entryDate: '2026-09-09', entryTime, entryPrice: 23_000, quantity: 1,
-        exitDate: '2026-09-09', exitTime: entryTime, exitPrice: 23_001,
+        exitDate: '2026-09-09', exitTime: entryTime.replace(/00$/, '30'), exitPrice: 23_001,
         pnl, netPnl: pnl, accountId, status: 'closed',
         createdAt: '2026-09-09T12:00:00', updatedAt: '2026-09-09T12:00:00',
     };
@@ -121,5 +121,14 @@ describe('live coach utilities', () => {
         expect(shouldPersonalizeLiveCoachEvent('increased')).toBe(false);
         expect(normalizeLiveCoachAiText('**Keep size consistent.**\n')).toBe('Keep size consistent.');
         expect(normalizeLiveCoachAiText('Buy another contract now.')).toBeNull();
+    });
+    it('uses position counts for slow adds without treating summed volume as typical live exposure', () => {
+        const events = [event()];
+        const rows = ['10', '11'].flatMap(accountId => ['09:30:00', '09:35:00', '09:40:00'].map((time, i) => ({
+            ...trade(`${accountId}:${i}`, accountId, time, 20), quantity: 2, exitTime: '10:00:00',
+        })));
+        const payload = buildLiveCoachAiPayload(events, buildLiveCoachNarration(events, 'MNQZ6')!, rows, [], 'MNQZ6', new Date('2026-09-09T12:00:00'));
+        expect(payload.session).toMatchObject({ executionCount: 6, decisionCount: 1, countBasis: 'position',
+            ungroupedExecutionCount: 0, dailyPnl: 120, typicalContractsPerAccount: 2, recentDecisionPnls: [120] });
     });
 });

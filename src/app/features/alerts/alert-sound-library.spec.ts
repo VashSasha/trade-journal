@@ -1,5 +1,6 @@
 import { ALERT_SOUND_PRESETS, alertSoundAssetPath, normalizeSoundSelections, resolveSoundSelection } from './alert-sound-library';
 import { normalizeSoundPreferences } from './session-alerts.utils';
+import { ALERT_SOUND_KINDS } from './alert-sound-kinds';
 
 describe('alert sound library', () => {
     it('has ten unique, versioned local assets within the duration limit', () => {
@@ -29,10 +30,16 @@ describe('alert sound library', () => {
         expect(resolveSoundSelection('dailyLoss', { dailyLoss: 'default' }, hasUpload)).toEqual({ kind: 'dailyLoss', selection: 'default' });
     });
     it('preserves defaults and lets previews override the resolved selection without mutation', () => {
-        expect(resolveSoundSelection('dailyProfit', undefined, () => false)).toEqual({ kind: 'target', selection: 'default' });
+        expect(resolveSoundSelection('dailyProfit', undefined, () => false)).toEqual({ kind: 'target', selection: 'silent' });
         expect(resolveSoundSelection('positionOpened', undefined, () => false)).toEqual({ kind: 'positionOpened', selection: 'silent' });
         const selections = { risk: 'silent' } as const;
         expect(resolveSoundSelection('dailyLoss', selections, () => false, 'hell-yeah')).toEqual({ kind: 'dailyLoss', selection: 'hell-yeah' });
         expect(selections).toEqual({ risk: 'silent' });
+    });
+    it('defaults every unconfigured cue to silent while honoring an explicit built-in bell', () => {
+        for (const kind of ALERT_SOUND_KINDS) {
+            expect(resolveSoundSelection(kind, undefined, () => false).selection).toBe('silent');
+            expect(resolveSoundSelection(kind, { [kind]: 'default' }, () => false).selection).toBe('default');
+        }
     });
 });

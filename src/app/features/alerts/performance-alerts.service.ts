@@ -212,11 +212,14 @@ export class PerformanceAlertsService {
         return [...newestByAccount.values()];
     }
 
-    /** Overlay authoritative live broker P&L while retaining DB metrics for
-     *  historical/manual accounts. The max() count prevents a later report
-     *  sync from double-counting a position already observed on the stream. */
+    /** Live P&L stays immediate. Per-account completion counters cannot identify
+     * copies, so multi-account grouped counts wait for reconciled trade rows. */
     private mergeLiveMetrics(trades: Parameters<typeof performanceMetrics>[0], live: TradovateLiveAccountMetric[]): PerformanceMetrics {
         const current = performanceMetrics(trades);
+        const scopeAccounts = new Set([...trades.map(t => t.accountId ?? t.accountName ?? 'unknown'), ...live.map(m => String(m.accountId))]);
+        const selection = this.filters.filters();
+        const singleAccount = scopeAccounts.size === 1 && live.length === 1
+            && (!selection.accountSelectionActive || selection.accountIds.length === 1);
         const activeKeys = new Set(live.map(metric => metric.baselineKey));
         for (const key of this.liveTradeBaselines.keys()) {
             if (!activeKeys.has(key)) this.liveTradeBaselines.delete(key);
@@ -233,7 +236,7 @@ export class PerformanceAlertsService {
                 if (metric.dailyPnl !== null) current.dailyPnl += metric.dailyPnl - persisted.dailyPnl;
                 const baseline = this.liveTradeBaselines.get(metric.baselineKey) ?? persisted.dailyTrades;
                 const liveCount = Math.max(persisted.dailyTrades, baseline + metric.completedTrades);
-                current.dailyTrades += liveCount - persisted.dailyTrades;
+                if (singleAccount && !current.tradeCountUncertain) current.dailyTrades += liveCount - persisted.dailyTrades;
             }
             if (metric.tradeDate && weekStartFor(metric.tradeDate) === current.week && metric.weeklyPnl !== null) {
                 current.weeklyPnl += metric.weeklyPnl - persisted.weeklyPnl;

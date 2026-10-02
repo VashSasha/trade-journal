@@ -21,9 +21,8 @@ import { JournalFormState } from '../../state/journal-form.state';
 import { AiCoachingBadgeComponent } from '../../../../ai-settings/ai-coaching-badge.component';
 import { AccessPolicyService } from '../../../../../core/services/access-policy.service';
 import {
-  inferTradeDecisions,
-  TradeDecisionSummary,
-} from '../../../../../core/utils/trade-decisions.utils';
+  inferPositionActivity, aggregateTradeRows, PositionActivity,
+} from '../../../../../core/utils/trade-positions.utils';
 
 type AnalysisState = { status: 'idle' | 'streaming' | 'complete' | 'error'; content: string; error: string | null };
 type ConfidenceTier = 'high' | 'medium' | 'low' | null;
@@ -56,7 +55,17 @@ const TASK_LINE = /^[-*]\s*\[[ xX]?\]\s+/;
 export class DaySummaryComponent implements OnDestroy {
   private readonly tradesInput = signal<Trade[]>([]);
   private readonly startBalanceInput = signal<number | undefined>(undefined);
-  @Input({required: true}) set trades(value: Trade[]) { this.tradesInput.set(value); }
+  private tradeContextKey = '';
+  @Input({required: true}) set trades(value: Trade[]) {
+    // Array identity can change on an unrelated UI edit. Invalidate coaching
+    // only when the actual account/trade context changes, not the view toggle.
+    const key = JSON.stringify(value.map(t => [t.id, t.userId, t.source, t.connectionId, t.accountId,
+      t.accountName, t.symbol, t.direction, t.status, t.entryDate, t.entryTime, t.exitDate, t.exitTime,
+      t.quantity, t.pnl, t.netPnl, t.fees]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))));
+    if (key !== this.tradeContextKey && this.insightState().status !== 'idle') this.resetInsight();
+    this.tradeContextKey = key;
+    this.tradesInput.set(value);
+  }
   get trades(): Trade[] { return this.tradesInput(); }
   @Input() set startBalance(value: number | undefined) { this.startBalanceInput.set(value); }
   get startBalance(): number | undefined { return this.startBalanceInput(); }
@@ -96,7 +105,7 @@ export class DaySummaryComponent implements OnDestroy {
   /** Content of the last successfully saved insight — guards against double-saves. */
   private savedContent = signal<string | null>(null);
   private insightDate: string | null = null;
-  private insightActivity = signal<TradeDecisionSummary | null>(null);
+  private insightActivity = signal<PositionActivity | null>(null);
 
   /** True once the current insight text has been persisted (soften/disable Save). */
   readonly insightSaved = computed(() => {
@@ -137,10 +146,14 @@ export class DaySummaryComponent implements OnDestroy {
   private insightRevision = 0;
   private insightContext = new AbortController();
 
-  private readonly dayStats = computed(() => computeDayStats(this.tradesInput()));
+  readonly tradeView = signal<'position' | 'execution'>('position');
+  readonly dayActivity = computed(() => inferPositionActivity(this.tradesInput()));
+  private readonly displayTrades = computed(() => this.tradeView() === 'position'
+    ? this.dayActivity().groupedTrades : this.tradesInput());
+  private readonly dayStats = computed(() => computeDayStats(this.displayTrades()));
   // Keep the chart input stable during notes, menus and streamed AI updates.
   // Only a new trade selection or baseline should redraw the curve.
-  private readonly curve = computed(() => buildEquityCurve(this.tradesInput(), this.chartBase));
+  private readonly curve = computed(() => buildEquityCurve(this.displayTrades(), this.chartBase, 'exit'));
 
   get stats(): DayStats { return this.dayStats(); }
 
@@ -195,7 +208,7 @@ export class DaySummaryComponent implements OnDestroy {
     if (this.aiSaving() || this.insightState().status === 'streaming') return;
 
     const analysisDate = this.date ?? null;
-    const activity = inferTradeDecisions([...this.trades]);
+    const activity = inferPositionActivity([...this.trades]);
     this.resetInsight();
     const revision = this.insightRevision;
     this.insightState.set({status: 'streaming', content: '', error: null});
@@ -226,7 +239,7 @@ One line only: a letter grade A–F for PROCESS QUALITY (not P&L — a disciplin
 ## Tomorrow's focus
 EXACTLY ONE task-list item (\`- [ ]\`) — the single highest-leverage change, concrete and checkable, e.g. "- [ ] Stop trading after 2 consecutive losses".
 
-Copy-trading rule: one trading decision may create executions on several accounts. Judge trade frequency and overtrading ONLY from the provided inferred decision count and decision sequence — never from the account-level execution count. Use execution count only when discussing combined exposure, commissions, or copy-trading operational risk. Treat the grouping as an informed estimate, not a certainty.
+Trade-count rule: one grouped trade is an inferred continuous position from entry to flat. Scale-ins (even slow adds) and partial exits stay in that trade; a flat/re-entry is a new trade. Matching copied positions across accounts count once for behavior, while all their P&L and fees remain included. Judge frequency and trade-count commitments ONLY from grouped trades, never matched execution rows. These rows are not necessarily broker fills/orders. Grouping is estimated from available intervals, not proof of intent. If timing/account data is insufficient or the history incomplete, explicitly say the limit cannot be verified; never give a failing grade or claim a count-rule violation based on an uncertain count. Size increases can be discussed separately only with evidence. Unchecked rules are not proof they were broken.
 
 Rules: address the trader as "you". Never invent trades, prices, or data you were not given. Reference their plan, rules, mood, or baseline when relevant. Keep the whole reply under 150 words. No preamble, no closing remarks.`
       },
@@ -242,7 +255,7 @@ Rules: address the trader as "you". Never invent trades, prices, or data you wer
 
   tellMeMore(): void {
     if (this.insightState().status !== 'complete' || this.aiSaving()) return;
-    const activity = this.insightActivity() ?? inferTradeDecisions(this.trades);
+    const activity = this.insightActivity() ?? inferPositionActivity(this.trades);
     const biggestLoss = activity.decisions.reduce(
       (lowest, decision) => Math.min(lowest, decision.totalPnl),
       0,
@@ -256,7 +269,7 @@ Rules: address the trader as "you". Never invent trades, prices, or data you wer
       {role: 'assistant', content: this.insightState().content},
       {
         role: 'user',
-        content: `Go deeper on today's review. Expand on your verdict and the "What cost you" items — walk through the specific decisions and times behind them. The day contained ${activity.decisionCount} inferred trading decisions represented by ${activity.executionCount} account-level executions across ${activity.accountCount} account${activity.accountCount === 1 ? '' : 's'}, with a ${activity.winRate.toFixed(1)}% decision win rate and a largest losing decision of ${lossContext}. Keep copy-traded executions grouped when judging overtrading. What does today say about my decision quality and risk management? Reply in short Markdown prose — no new grade and no repeated verdict.`
+        content: `Go deeper on today's review. Expand on your verdict and the "What cost you" items — walk through the specific decisions and times behind them. The day contained ${activity.decisionCount} inferred grouped trades represented by ${activity.executionCount} account-level executions across ${activity.accountCount} account${activity.accountCount === 1 ? '' : 's'}, with a ${activity.winRate.toFixed(1)}% decision win rate and a largest losing decision of ${lossContext}. Keep scale-ins, partial exits and copied positions grouped when judging overtrading. This is an estimate; never treat missing timing/account data as proof of a rule violation. What does today say about my decision quality and risk management? Reply in short Markdown prose — no new grade and no repeated verdict.`
       }
     ];
     this.startInsightStream(messages, this.followUpInsight, this.followUpInsightConfidence);
@@ -268,7 +281,7 @@ Rules: address the trader as "you". Never invent trades, prices, or data you wer
   private buildCoachInput(
     yesterdayFocus: string | null,
     analysisDate: string | null,
-    activity: TradeDecisionSummary,
+    activity: PositionActivity,
   ): string {
     const s = computeDayStats(activity.decisions.flatMap(decision => decision.trades));
     const parts = [
@@ -276,12 +289,14 @@ Rules: address the trader as "you". Never invent trades, prices, or data you wer
       `Date: ${analysisDate ?? 'today'}
 Activity model:
 - ${activity.executionCount} account-level execution${activity.executionCount === 1 ? '' : 's'} across ${activity.accountCount} account${activity.accountCount === 1 ? '' : 's'}
-- ${activity.decisionCount} inferred trading decision${activity.decisionCount === 1 ? '' : 's'} (${activity.mirroredDecisionCount} mirrored across accounts)
+- ${activity.decisionCount} inferred grouped trade${activity.decisionCount === 1 ? '' : 's'} (${activity.positionCount} account positions; ${activity.mirroredDecisionCount} mirrored across accounts)
 - Decision outcomes: ${activity.winners}W/${activity.losers}L${activity.breakeven ? `/${activity.breakeven}BE` : ''} · ${activity.winRate.toFixed(1)}% decision win rate
-- Grouping is inferred from matching symbol, direction, and near-identical entry/exit times on different accounts.
+- Scale-ins and partial exits are grouped using overlapping intervals within each account/connection/contract/direction. Matching copied positions are then grouped across accounts.
+- Grouping reliability: ${activity.ungroupedExecutionCount ? `${activity.ungroupedExecutionCount} rows have incomplete identity/timing data or a still-open position. Counts cannot verify a trade-limit violation.` : 'Estimated from available matched rows, not a complete broker position ledger.'}
+- Entry/exit boundaries only; no arbitrary time gap merges a re-entry. Contract quantities below are matched volume, NOT peak simultaneous exposure.
 Financial totals across all account executions: Net P&L ${this.fmtMoney(s.netPnl)} · Execution win rate ${s.winRate.toFixed(1)}% (${s.winners}W/${s.losers}L) · Gross ${this.fmtMoney(s.grossPnl)} · Commissions ${this.fmtMoney(s.commissions)} · Avg execution ${this.fmtMoney(s.avgNetPnl)}
-Coaching instruction: assess frequency and overtrading from ${activity.decisionCount} decisions, not ${activity.executionCount} executions.`,
-      `Trading decisions (chronological):\n${this.decisionLines(activity)}`,
+Coaching instruction: assess frequency and overtrading from ${activity.decisionCount} grouped trades, not ${activity.executionCount} executions.`,
+      `Grouped trades (by completion time):\n${this.decisionLines(activity)}`,
       this.journalContext(),
       this.baselineContext(),
       yesterdayFocus ? `Yesterday you committed to: "${yesterdayFocus}"` : ''
@@ -290,9 +305,9 @@ Coaching instruction: assess frequency and overtrading from ${activity.decisionC
   }
 
   /** One line per inferred decision, keeping mirrored account executions together. */
-  private decisionLines(activity: TradeDecisionSummary): string {
+  private decisionLines(activity: PositionActivity): string {
     return activity.decisions.map((decision, index) => {
-      const trade = decision.trades[0];
+      const trade = aggregateTradeRows(decision.trades, `coach:${index}`);
       const hold = this.holdDuration(trade);
       const direction = trade.direction === 'short' ? 'SHORT' : 'LONG';
       const quantity = decision.minQuantity === decision.maxQuantity
@@ -300,8 +315,8 @@ Coaching instruction: assess frequency and overtrading from ${activity.decisionC
         : `x${decision.minQuantity}–${decision.maxQuantity}/account`;
       const executionContext = decision.mirrored
         ? `${decision.trades.length} mirrored executions across ${decision.accountIds.length} accounts · combined ${this.fmtMoney(decision.totalPnl)} · avg ${this.fmtMoney(decision.averagePnl)}/execution`
-        : `1 execution · ${this.fmtMoney(decision.totalPnl)}`;
-      return `${index + 1}. ${this.fmtTime(trade)} ${trade.symbol} ${direction} ${quantity} · ${executionContext}${hold ? ` · held ${hold}` : ''}`;
+        : `${decision.trades.length} matched execution rows in one position · ${this.fmtMoney(decision.totalPnl)}`;
+      return `${index + 1}. ${this.fmtTime(trade)} ${trade.symbol} ${direction} matched volume ${quantity} · ${executionContext}${hold ? ` · held ${hold}` : ''}`;
     }).join('\n');
   }
 
@@ -346,7 +361,7 @@ Coaching instruction: assess frequency and overtrading from ${activity.decisionC
       dayPnls.set(key, (dayPnls.get(key) ?? 0) + pnl);
       if (key >= windowStart) windowTrades.push(t);
     }
-    const baselineActivity = inferTradeDecisions(windowTrades);
+    const baselineActivity = inferPositionActivity(windowTrades);
     if (baselineActivity.decisionCount === 0) return '';
 
     const windowDays = [...dayPnls.entries()].filter(([d]) => d >= windowStart);
@@ -635,8 +650,8 @@ Coaching instruction: assess frequency and overtrading from ${activity.decisionC
     const main = this.insightState().content.trim();
     if (!main) return '';
     const activity = this.insightActivity();
-    const context = activity && activity.mirroredDecisionCount > 0
-      ? `> **Copy-trade context:** ${activity.decisionCount} inferred decision${activity.decisionCount === 1 ? '' : 's'} from ${activity.executionCount} executions across ${activity.accountCount} accounts.`
+    const context = activity
+      ? `> **Trade-count context:** ${activity.decisionCount} inferred grouped trade${activity.decisionCount === 1 ? '' : 's'} from ${activity.executionCount} executions across ${activity.accountCount} accounts. Scale-ins/partial exits and matching copied positions are grouped; counts are estimates.${activity.ungroupedExecutionCount ? ' Some records have incomplete data or a still-open position; a count-rule violation cannot be verified.' : ''}`
       : '';
     const followUp = this.followUpInsight();
     const sections = [context, main].filter(Boolean);

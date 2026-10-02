@@ -1,5 +1,6 @@
 import { Trade } from '../models/trade.model';
 import { tradeSessionDateStr } from './market-holidays';
+import { tradeTimestamp } from './trade-decisions.utils';
 
 export interface DayStats {
     totalTrades: number;
@@ -66,10 +67,11 @@ export function computeWindowedBalance(base: number, trades: Trade[], cutoffDate
         .reduce((sum, t) => sum + (t.netPnl ?? 0), 0);
 }
 
-export function buildEquityCurve(trades: Trade[], startingBalance = 0): EquityCurve {
+export function buildEquityCurve(trades: Trade[], startingBalance = 0, order: 'entry' | 'exit' = 'entry'): EquityCurve {
     const sorted = [...trades]
         .filter(t => t.status === 'closed')
         .sort((a, b) => {
+            if (order === 'exit') return (tradeTimestamp(a.exitDate, a.exitTime) ?? 0) - (tradeTimestamp(b.exitDate, b.exitTime) ?? 0);
             const aKey = `${a.entryDate}T${a.entryTime ?? '00:00'}`;
             const bKey = `${b.entryDate}T${b.entryTime ?? '00:00'}`;
             return aKey.localeCompare(bKey);
@@ -81,7 +83,7 @@ export function buildEquityCurve(trades: Trade[], startingBalance = 0): EquityCu
 
     sorted.forEach((t, i) => {
         cumulative += (t.netPnl ?? t.pnl ?? 0);
-        labels.push(t.entryTime ? t.entryTime.substring(0, 5) : `#${i + 1}`);
+        labels.push(order === 'exit' ? `#${i + 1}` : t.entryTime ? t.entryTime.substring(0, 5) : `#${i + 1}`);
         values.push(Math.round(cumulative * 100) / 100);
     });
 

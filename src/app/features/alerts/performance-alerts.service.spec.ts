@@ -15,10 +15,10 @@ import { AccountAlertPreferencesService } from './account-alert-preferences.serv
 import { parsePerformanceAlertPreferences } from './performance-alerts.utils';
 
 function closed(id: string, accountId: string, pnl: number): Trade {
-    const date = '2026-08-04T14:00:00';
+    const date = new Date(new Date('2026-08-04T14:00:00').getTime() + (Number(id) || 0) * 60_000).toISOString();
     return {
         id, userId: 'A', accountId, symbol: 'NQ', assetType: 'futures', direction: 'long',
-        entryDate: date, exitDate: date, entryPrice: 1, exitPrice: 2, quantity: 1,
+        entryDate: new Date(Date.parse(date) - 30_000).toISOString(), exitDate: date, entryPrice: 1, exitPrice: 2, quantity: 1,
         netPnl: pnl, status: 'closed', createdAt: date, updatedAt: date,
     };
 }
@@ -168,8 +168,24 @@ describe('performance alert coordinator', () => {
 
         liveMetrics.update(([metric]) => [{ ...metric, completedTrades: 2, updatedAt: 3 }]);
         TestBed.tick();
-        expect(service.event()?.text).toContain('2 completed trades');
+        expect(service.event()?.text).toContain('2 grouped trades');
         trades.set([closed('1', '10', 20), closed('2', '10', 30)]); TestBed.tick();
+        expect(announce).toHaveBeenCalledOnce();
+    });
+    it('waits for reconciled multi-account rows rather than treating copied live completions as separate trades', () => {
+        const service = TestBed.inject(PerformanceAlertsService); TestBed.tick();
+        service.setValue('dailyTrades', 2); service.setEnabled('dailyTrades', true); TestBed.tick();
+        liveMetrics.set([10, 11].map(accountId => ({ connectionId: 'c1', accountId, tradeDate: '2026-08-04',
+            dailyPnl: 0, weeklyPnl: 0, balance: 50_000, completedTrades: 0,
+            baselineKey: `c1:${accountId}:1:2026-08-04`, updatedAt: 1 })));
+        TestBed.tick();
+        liveMetrics.update(metrics => metrics.map(metric => ({ ...metric, completedTrades: 1, updatedAt: 2 })));
+        TestBed.tick(); expect(service.event()).toBeNull();
+        const first = closed('1', '10', 20), second = closed('3', '10', 30);
+        trades.set([first, { ...first, id: 'copy-1', accountId: '11' }]);
+        TestBed.tick(); expect(service.event()).toBeNull();
+        trades.update(rows => [...rows, second, { ...second, id: 'copy-2', accountId: '11' }]);
+        TestBed.tick(); expect(service.event()?.text).toContain('2 grouped trades');
         expect(announce).toHaveBeenCalledOnce();
     });
 });

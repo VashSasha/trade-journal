@@ -1,5 +1,16 @@
 @if (trades.length > 0) {
 <div class="ds-card">
+    <div class="ds-count-view">
+        <div class="ds-count-view__toggle" role="group" aria-label="Trade counting view">
+            <button type="button" [attr.aria-pressed]="tradeView() === 'position'" (click)="tradeView.set('position')">Trades (grouped)</button>
+            <button type="button" [attr.aria-pressed]="tradeView() === 'execution'" (click)="tradeView.set('execution')">Executions</button>
+        </div>
+        <p>{{ dayActivity().decisionCount }} grouped trades · {{ dayActivity().executionCount }} matched rows.
+            Scale-ins and matching copies count once. P&amp;L and fees are unchanged.</p>
+    </div>
+    @if (dayActivity().ungroupedExecutionCount) {
+        <p class="ds-count-view__notice">{{ dayActivity().ungroupedExecutionCount }} records have incomplete data or a still-open position. Grouping is provisional; these counts cannot verify a trade-limit violation.</p>
+    }
 
     <div class="ds-body">
 
@@ -29,7 +40,7 @@
         <div class="ds-stats">
             <div class="ds-stat">
                 <div class="ds-stat__value">{{ stats.totalTrades }}</div>
-                <div class="ds-stat__label">Total Trades</div>
+                <div class="ds-stat__label">{{ tradeView() === 'position' ? 'Grouped trades' : 'Executions' }}</div>
             </div>
             <div class="ds-stat">
                 <div class="ds-stat__value"
@@ -58,7 +69,7 @@
                 } @else {
                 <div class="ds-stat__value">—</div>
                 }
-                <div class="ds-stat__label">Best Trade</div>
+                <div class="ds-stat__label">{{ tradeView() === 'position' ? 'Best Trade' : 'Best execution' }}</div>
             </div>
             <div class="ds-stat">
                 @if (stats.worstTrade) {
@@ -69,7 +80,7 @@
                 } @else {
                 <div class="ds-stat__value">—</div>
                 }
-                <div class="ds-stat__label">Worst Trade</div>
+                <div class="ds-stat__label">{{ tradeView() === 'position' ? 'Worst Trade' : 'Worst execution' }}</div>
             </div>
         </div>
 
@@ -90,7 +101,7 @@
         </div>
         <div class="ds-footer-divider"></div>
         <div class="ds-footer-stat">
-            <span class="ds-footer-stat__label">Avg Trade</span>
+            <span class="ds-footer-stat__label">{{ tradeView() === 'position' ? 'Avg Trade' : 'Avg execution' }}</span>
             <span class="ds-footer-stat__value"
                 [class.positive]="stats.avgNetPnl > 0"
                 [class.negative]="stats.avgNetPnl < 0">
@@ -200,16 +211,16 @@
                             }
                         </div>
                         @if (coachActivity(); as activity) {
-                            @if (activity.mirroredDecisionCount > 0) {
+                            @if (activity.executionCount > 0) {
                                 <div class="ds-coach__activity">
                                     <span class="ds-coach__activity-mark" aria-hidden="true">↗</span>
                                     <span>
-                                        Copy trading recognized:
+                                        Reviewed as grouped trades:
                                         <strong>
-                                            {{ activity.decisionCount }} decision{{ activity.decisionCount === 1 ? '' : 's' }}
+                                            {{ activity.decisionCount }} trade{{ activity.decisionCount === 1 ? '' : 's' }}
                                         </strong>
                                         from {{ activity.executionCount }} executions across
-                                        {{ activity.accountCount }} accounts
+                                        {{ activity.accountCount }} accounts (estimated)
                                     </span>
                                 </div>
                             }

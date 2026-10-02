@@ -10,7 +10,7 @@ import {
     LiveCoachPreferences,
 } from './live-coach.models';
 import { Trade } from '../../core/models/trade.model';
-import { inferTradeDecisions } from '../../core/utils/trade-decisions.utils';
+import { inferPositionActivity } from '../../core/utils/trade-positions.utils';
 import { tradeSessionDateStr } from '../../core/utils/market-holidays';
 import { performanceMetrics } from '../alerts/performance-alerts.utils';
 import { DEFAULT_LIVE_COACH_VOICE, isLiveCoachVoice } from './live-coach-voices';
@@ -183,15 +183,16 @@ export function buildLiveCoachAiPayload(
         const closedAt = trade.exitDate ?? trade.entryDate;
         return !!closedAt && tradeSessionDateStr(closedAt) === current.day;
     });
-    const decisions = inferTradeDecisions(dailyTrades);
+    const decisions = inferPositionActivity(dailyTrades, trades);
     const recentDecisionPnls = decisions.decisions.slice(-5).map(decision => roundMoney(decision.totalPnl));
     let consecutiveLosses = 0;
     for (let index = recentDecisionPnls.length - 1; index >= 0 && recentDecisionPnls[index] < 0; index--) {
         consecutiveLosses++;
     }
-    const sizedDecisions = decisions.decisions.filter(decision => decision.maxQuantity > 0).slice(-20);
+    const sizedDecisions = decisions.decisions.map(decision => Math.max(...decision.trades.map(t => t.quantity ?? 0)))
+        .filter(quantity => quantity > 0).slice(-20);
     const typicalContractsPerAccount = sizedDecisions.length
-        ? roundQuantity(sizedDecisions.reduce((total, decision) => total + decision.maxQuantity, 0) / sizedDecisions.length)
+        ? roundQuantity(sizedDecisions.reduce((total, quantity) => total + quantity, 0) / sizedDecisions.length)
         : null;
     const event = events[events.length - 1];
 
@@ -211,6 +212,8 @@ export function buildLiveCoachAiPayload(
             weeklyPnl: roundMoney(weeklyPnl),
             executionCount: decisions.executionCount,
             decisionCount: decisions.decisionCount,
+            countBasis: 'position',
+            ungroupedExecutionCount: decisions.ungroupedExecutionCount,
             accountCount: decisions.accountCount,
             winRate: roundQuantity(decisions.winRate),
             consecutiveLosses,

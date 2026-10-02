@@ -71,6 +71,8 @@ export interface LiveCoachAiPayload {
         weeklyPnl: number;
         executionCount: number;
         decisionCount: number;
+        countBasis?: 'position';
+        ungroupedExecutionCount?: number;
         accountCount: number;
         winRate: number;
         consecutiveLosses: number;

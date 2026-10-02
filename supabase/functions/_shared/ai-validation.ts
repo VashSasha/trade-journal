@@ -1,6 +1,6 @@
 import { RequestError } from './request-body.ts';
 import { isCoachAiVoice } from './coach-voices.ts';
-import { validateCoachChat } from './coach-chat.ts';
+import { validateCoachChat, validateCountBasis } from './coach-chat.ts';
 
 export const MAX_AI_BODY_BYTES = 4 * 1024 * 1024;
 const object = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -80,6 +80,7 @@ function liveCoachPayload(payload: Record<string, any>, allowSizing = false): Re
             weeklyPnl: session.weeklyPnl,
             executionCount: session.executionCount,
             decisionCount: session.decisionCount,
+            ...validateCountBasis(session, session.executionCount),
             accountCount: session.accountCount,
             winRate: session.winRate,
             consecutiveLosses: session.consecutiveLosses,
