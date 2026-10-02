@@ -91,7 +91,8 @@ export class AlertAudioService {
         if (!context || !this.output || context.state !== 'running') throw new Error('Audio is paused. Enable sounds again.');
         if (volume <= 0 || context.currentTime < this.availableAt) return 0;
         this.setVolume(volume);
-        const resolved = resolveSoundSelection(kind, this.preferences().selections, key => this.customBuffers.has(key), previewSelection);
+        const resolved = resolveSoundSelection(kind, this.preferences().selections,
+            key => this.customBuffers.has(key) || !!this.customSounds()[key], previewSelection);
         kind = resolved.kind;
         const selection = resolved.selection;
         if (selection === 'silent') return 0;

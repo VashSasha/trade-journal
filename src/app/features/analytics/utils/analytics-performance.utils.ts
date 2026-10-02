@@ -1,4 +1,5 @@
 import { Trade, TradeDirection } from '../../../core/models/trade.model';
+import { groupTradePositions } from '../../../core/utils/trade-positions.utils';
 import { inferTradeDecisions } from '../../../core/utils/trade-decisions.utils';
 import { tradeSessionDateStr } from '../../../core/utils/market-holidays';
 
@@ -56,16 +57,6 @@ export interface AnnualPerformance {
     winners: number;
     losers: number;
     winRate: number;
-}
-
-interface MutablePosition {
-    trades: Trade[];
-    accountKey: string;
-    hasAccountIdentity: boolean;
-    symbol: string;
-    direction: TradeDirection;
-    entryTimestamp: number;
-    exitTimestamp: number;
 }
 
 export function analyticsUnitLabel(unit: AnalyticsUnit, plural = true): string {
@@ -133,67 +124,19 @@ export function buildAnalyticsObservations(
  * overlapping same-symbol trades separate, even when only seconds apart.
  */
 function buildPositionObservations(trades: readonly Trade[]): AnalyticsObservation[] {
-    const sorted = trades
-        .map((trade, index) => ({
-            trade,
-            index,
-            entryTimestamp: parseTradeTimestamp(trade.entryDate, trade.entryTime),
-            exitTimestamp: parseTradeTimestamp(trade.exitDate, trade.exitTime)
-                || parseTradeTimestamp(trade.entryDate, trade.entryTime),
-        }))
-        .sort((left, right) => left.entryTimestamp - right.entryTimestamp);
-    const groups: MutablePosition[] = [];
-
-    for (const item of sorted) {
-        const identity = tradeAccountKey(item.trade, item.index);
-        const symbol = item.trade.symbol.trim().toUpperCase();
-        let match: MutablePosition | undefined;
-
-        if (identity.hasAccountIdentity && item.entryTimestamp > 0 && item.exitTimestamp > item.entryTimestamp) {
-            for (let index = groups.length - 1; index >= 0; index--) {
-                const candidate = groups[index];
-                if (candidate.accountKey !== identity.key || candidate.symbol !== symbol) continue;
-                if (candidate.direction !== item.trade.direction) continue;
-                if (item.entryTimestamp >= candidate.exitTimestamp) continue;
-                if (item.exitTimestamp <= candidate.entryTimestamp) continue;
-                match = candidate;
-                break;
-            }
-        }
-
-        if (match) {
-            match.trades.push(item.trade);
-            match.entryTimestamp = Math.min(match.entryTimestamp, item.entryTimestamp);
-            match.exitTimestamp = Math.max(match.exitTimestamp, item.exitTimestamp);
-        } else {
-            groups.push({
-                trades: [item.trade],
-                accountKey: identity.key,
-                hasAccountIdentity: identity.hasAccountIdentity,
-                symbol,
-                direction: item.trade.direction,
-                entryTimestamp: item.entryTimestamp,
-                exitTimestamp: item.exitTimestamp,
-            });
-        }
-    }
-
-    return groups.map((group, index): AnalyticsObservation => {
-        const representative = group.trades[0];
-        return {
-            id: `position:${index}:${representative.id}`,
-            trades: group.trades,
-            representative,
-            pnl: group.trades.reduce((sum, trade) => sum + (trade.netPnl ?? trade.pnl ?? 0), 0),
-            entryTimestamp: group.entryTimestamp,
-            exitTimestamp: group.exitTimestamp,
-            symbol: representative.symbol,
-            direction: representative.direction,
-            setup: group.trades.find(trade => trade.setup?.trim())?.setup?.trim() ?? null,
-            accountCount: group.hasAccountIdentity ? 1 : 0,
-            executionCount: group.trades.length,
-        };
-    }).sort(byRealizationTime);
+    return groupTradePositions(trades).map((group): AnalyticsObservation => ({
+        id: group.aggregate.id,
+        trades: group.trades,
+        representative: group.trades[0],
+        pnl: group.aggregate.netPnl ?? 0,
+        entryTimestamp: group.entryTimestamp ?? 0,
+        exitTimestamp: group.exitTimestamp ?? 0,
+        symbol: group.aggregate.symbol,
+        direction: group.aggregate.direction,
+        setup: group.trades.find(trade => trade.setup?.trim())?.setup?.trim() ?? null,
+        accountCount: group.aggregate.accountId || group.aggregate.accountName ? 1 : 0,
+        executionCount: group.trades.length,
+    })).sort(byRealizationTime);
 }
 
 export function computeAnalyticsPerformance(
@@ -340,14 +283,6 @@ function toExecutionObservation(trade: Trade, index: number): AnalyticsObservati
         accountCount: hasAccount ? 1 : 0,
         executionCount: 1,
     };
-}
-
-function tradeAccountKey(trade: Trade, index: number): { key: string; hasAccountIdentity: boolean } {
-    const accountId = trade.accountId?.trim();
-    if (accountId && accountId !== '0') return { key: `id:${accountId}`, hasAccountIdentity: true };
-    const accountName = trade.accountName?.trim().toLowerCase();
-    if (accountName) return { key: `name:${accountName}`, hasAccountIdentity: true };
-    return { key: `unknown:${trade.id}:${index}`, hasAccountIdentity: false };
 }
 
 function parseTradeTimestamp(date: string | undefined, time: string | undefined): number {

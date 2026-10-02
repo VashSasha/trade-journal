@@ -1,5 +1,6 @@
 import { Trade } from '../../core/models/trade.model';
 import { tradeSessionDateStr } from '../../core/utils/market-holidays';
+import { inferPositionActivity } from '../../core/utils/trade-positions.utils';
 
 export type PerformanceAlertRule = 'dailyProfit' | 'dailyLoss' | 'weeklyProfit' | 'weeklyLoss' | 'dailyTrades';
 
@@ -23,6 +24,7 @@ export interface PerformanceMetrics {
     dailyPnl: number;
     weeklyPnl: number;
     dailyTrades: number;
+    tradeCountUncertain?: boolean;
 }
 
 export interface CrossedPerformanceAlert {
@@ -86,7 +88,7 @@ export function performanceMetrics(trades: Trade[], now = new Date()): Performan
     const week = weekStartFor(day);
     let dailyPnl = 0;
     let weeklyPnl = 0;
-    let dailyTrades = 0;
+    const dayRows: Trade[] = [];
 
     for (const trade of trades) {
         if (trade.status !== 'closed') continue;
@@ -97,10 +99,12 @@ export function performanceMetrics(trades: Trade[], now = new Date()): Performan
         if (tradeDay >= week && tradeDay <= day) weeklyPnl += pnl;
         if (tradeDay === day) {
             dailyPnl += pnl;
-            dailyTrades++;
+            dayRows.push(trade);
         }
     }
-    return { day, week, dailyPnl, weeklyPnl, dailyTrades };
+    const activity = inferPositionActivity(dayRows, trades);
+    return { day, week, dailyPnl, weeklyPnl, dailyTrades: activity.decisionCount,
+        ...(activity.ungroupedExecutionCount ? { tradeCountUncertain: true } : {}) };
 }
 
 export function crossedPerformanceAlerts(
@@ -122,8 +126,9 @@ export function crossedPerformanceAlerts(
     if (preferences.weeklyLoss.enabled && crossedDown(previous.weeklyPnl, current.weeklyPnl, preferences.weeklyLoss.value)) {
         alerts.push({ rule: 'weeklyLoss', tone: 'risk', text: `Weekly loss limit reached at ${money(current.weeklyPnl)}.` });
     }
-    if (preferences.dailyTrades.enabled && crossedUp(previous.dailyTrades, current.dailyTrades, preferences.dailyTrades.value)) {
-        alerts.push({ rule: 'dailyTrades', tone: 'risk', text: `Daily trade limit reached: ${current.dailyTrades} completed trades.` });
+    if (preferences.dailyTrades.enabled && !current.tradeCountUncertain
+        && crossedUp(previous.dailyTrades, current.dailyTrades, preferences.dailyTrades.value)) {
+        alerts.push({ rule: 'dailyTrades', tone: 'risk', text: `Daily trade limit reached: ${current.dailyTrades} grouped trades (estimated).` });
     }
     if (preferences.dailyProfit.enabled && crossedUp(previous.dailyPnl, current.dailyPnl, preferences.dailyProfit.value)) {
         alerts.push({ rule: 'dailyProfit', tone: 'target', text: `Daily profit target reached at ${money(current.dailyPnl)}.` });

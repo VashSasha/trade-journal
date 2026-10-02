@@ -32,11 +32,11 @@
       </div>
       <div class="guardrails__rule">
         <label><input type="checkbox" [checked]="alerts.preferences().dailyTrades.enabled"
-                      (change)="setEnabled('dailyTrades', $event)"/> Completed trades</label>
+                      (change)="setEnabled('dailyTrades', $event)"/> Grouped trades</label>
         <div class="guardrails__value guardrails__value--count"><input type="number" min="1" step="1"
                                                                        [value]="alerts.preferences().dailyTrades.value"
                                                                        (change)="setValue('dailyTrades', $event)"
-                                                                       aria-label="Daily completed trade limit"/><span>max</span>
+                                                                       aria-label="Daily grouped trade limit"/><span>max</span>
         </div>
       </div>
     </div>
@@ -85,8 +85,9 @@
   </div>
 
   <p class="guardrails__note">
-    With two accounts selected, $200 profit on each counts as $400 toward the target. Completed trades also add up
-    across accounts, including copied trades. Select a single account to monitor only that account.
+    With two accounts selected, $200 profit on each counts as $400 toward the target. The trade limit counts
+    grouped positions: scale-ins, partial exits and matching copies count once. Grouping is estimated from saved history;
+    incomplete account/timing data or unconfirmed partial exits pause count alerts. Multi-account counts update after broker sync, not each fill.
   </p>
   <p class="guardrails__note">
     {{ alerts.live.statusDetail() }} Targets sync to your NVZN account. Sound uses the master control above. Live

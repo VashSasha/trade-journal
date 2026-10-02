@@ -45,7 +45,8 @@
                                 </ng-container>
                                 <div coachAnswerContext class="coach-chat__message-context">
                                     <p>{{ turn.context.tradeDate }} — {{ turn.context.accountIds === null ? 'All saved accounts' : turn.context.accountIds.length + ' selected account(s)' }}.</p>
-                                    <p>Captured {{ turn.context.capturedAt | date:'MMM d, h:mm a' }}. {{ turn.context.summary ? turn.context.summary.tradeCount + ' trades, approximately ' + turn.context.summary.decisionCount + ' decisions.' : 'General planning; no usable trade summary.' }}</p>
+                                    <p>Captured {{ turn.context.capturedAt | date:'MMM d, h:mm a' }}. {{ turn.context.summary ? turn.context.summary.tradeCount + ' execution records, approximately ' + turn.context.summary.decisionCount + (turn.context.summary.countBasis === 'position' ? ' grouped trades.' : ' copy-trade groups.') : 'General planning; no usable trade summary.' }}</p>
+                                    @if (turn.context.summary?.ungroupedExecutionCount) { <p>Some records have incomplete data or a still-open position; this count cannot verify a trade-limit violation.</p> }
                                     @if (turn.context.accountIds?.length) { <p>Account IDs: {{ turn.context.accountIds!.join(', ') }}</p> }
                                 </div>
                             </app-live-coach-answer>

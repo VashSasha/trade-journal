@@ -1,4 +1,4 @@
-import { ALERT_SOUND_KINDS, AlertSoundKind, POSITION_SOUND_KINDS, SOUND_FALLBACKS } from './alert-sound-kinds';
+import { ALERT_SOUND_KINDS, AlertSoundKind, SOUND_FALLBACKS } from './alert-sound-kinds';
 
 /** Public, versioned assets. Only selected clips are fetched by the audio engine. */
 export const ALERT_SOUND_PRESETS = [
@@ -37,8 +37,8 @@ export function normalizeSoundSelections(value: unknown): AlertSoundSelections |
 }
 
 export function soundSelection(kind: AlertSoundKind, selections: AlertSoundSelections | undefined, hasUpload: boolean): AlertSoundSelection {
-    return selections?.[kind] ?? (hasUpload ? 'custom' : POSITION_SOUND_KINDS.includes(kind) ? 'silent'
-        : SOUND_FALLBACKS[kind] ? 'inherit' : 'default');
+    // Retain explicit choices and existing uploads; an unconfigured cue is opt-in.
+    return selections?.[kind] ?? (hasUpload ? 'custom' : SOUND_FALLBACKS[kind] ? 'inherit' : 'silent');
 }
 
 /** Resolve legacy shared choices without rewriting preferences or copying private uploads. */
@@ -51,7 +51,7 @@ export function resolveSoundSelection(
         kind = SOUND_FALLBACKS[kind] ?? kind;
         selection = soundSelection(kind, selections, hasUpload(kind));
     }
-    return { kind, selection: selection === 'inherit' ? 'default' : selection };
+    return { kind, selection: selection === 'inherit' ? 'silent' : selection };
 }
 
 export function alertSoundAssetPath(id: AlertSoundPresetId): string {

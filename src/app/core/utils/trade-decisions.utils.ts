@@ -42,7 +42,10 @@ interface MutableDecision {
  * accounts and have the same symbol/direction with near-identical entry and
  * exit times. Missing account identity always stays independent.
  */
-export function inferTradeDecisions(trades: readonly Trade[]): TradeDecisionSummary {
+export function inferTradeDecisions(
+    trades: readonly Trade[],
+    eligible: (trade: Trade) => boolean = () => true,
+): TradeDecisionSummary {
     const sorted = [...trades].sort((left, right) => {
         const leftTime = tradeTimestamp(left.entryDate, left.entryTime);
         const rightTime = tradeTimestamp(right.entryDate, right.entryTime);
@@ -58,12 +61,13 @@ export function inferTradeDecisions(trades: readonly Trade[]): TradeDecisionSumm
         let bestDistance = Number.POSITIVE_INFINITY;
 
         // Account identity is required for conservative copy-trade inference.
-        if (accountId && entryTimestamp !== null) {
+        if (accountId && entryTimestamp !== null && eligible(trade)) {
             for (let index = groups.length - 1; index >= 0; index--) {
                 const candidate = groups[index];
                 if (candidate.entryTimestamp === null) continue;
                 const entryDistance = Math.abs(entryTimestamp - candidate.entryTimestamp);
                 if (entryTimestamp >= candidate.entryTimestamp && entryDistance > ENTRY_TOLERANCE_MS) break;
+                if (!eligible(candidate.trades[0])) continue;
                 if (!decisionMatches(candidate, trade, accountId, entryTimestamp, exitTimestamp)) continue;
 
                 const exitDistance = exitTimestamp !== null && candidate.exitTimestamp !== null
@@ -119,6 +123,7 @@ function decisionMatches(
     exitTimestamp: number | null,
 ): boolean {
     const representative = candidate.trades[0];
+    if (representative.userId !== trade.userId || representative.source !== trade.source) return false;
     if (candidate.accountIds.has(accountId)) return false;
     if (representative.symbol.trim().toUpperCase() !== trade.symbol.trim().toUpperCase()) return false;
     if (representative.direction !== trade.direction || representative.status !== trade.status) return false;
@@ -147,14 +152,14 @@ function toDecision(group: MutableDecision): InferredTradeDecision {
     };
 }
 
-function tradeAccountId(trade: Trade): string | null {
+export function tradeAccountId(trade: Trade): string | null {
     const id = trade.accountId?.trim();
     if (id && id !== '0') return id;
     const name = trade.accountName?.trim().toLowerCase();
     return name ? `name:${name}` : null;
 }
 
-function tradeTimestamp(date: string | undefined, time: string | undefined): number | null {
+export function tradeTimestamp(date: string | undefined, time: string | undefined): number | null {
     if (!date) return null;
     if (/^\d{4}-\d{2}-\d{2}$/.test(date) && !time) return null;
     const value = /^\d{4}-\d{2}-\d{2}$/.test(date) && time ? `${date}T${time}` : date;

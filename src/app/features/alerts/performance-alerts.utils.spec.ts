@@ -6,8 +6,8 @@ import {
 
 function trade(exitDate: string, pnl: number): Trade {
     return {
-        id: exitDate + pnl, userId: 'A', symbol: 'NQ', assetType: 'futures', direction: 'long',
-        entryDate: exitDate, exitDate, entryPrice: 1, exitPrice: 2, quantity: 1,
+        id: exitDate + pnl, userId: 'A', accountId: 'one', symbol: 'NQ', assetType: 'futures', direction: 'long',
+        entryDate: new Date(Date.parse(exitDate) - 60_000).toISOString(), exitDate, entryPrice: 1, exitPrice: 2, quantity: 1,
         netPnl: pnl, status: 'closed', createdAt: exitDate, updatedAt: exitDate,
     };
 }
@@ -27,6 +27,29 @@ describe('performance alert preferences', () => {
 });
 
 describe('performance alert evaluation', () => {
+    it('uses grouped scale-ins/copies for the limit while keeping all account P&L', () => {
+        const rows = ['one', 'two'].flatMap(accountId => [0, 1, 2].map(minute => ({
+            ...trade('2026-08-04T15:00:00', 20), id: `${accountId}:${minute}`, accountId,
+            entryDate: `2026-08-04T14:0${minute}:00`,
+        })));
+        expect(performanceMetrics(rows, new Date('2026-08-04T16:00:00'))).toMatchObject({ dailyTrades: 1, dailyPnl: 120 });
+    });
+    it('does not accuse the trader of a count-limit crossing with incomplete position data', () => {
+        const prefs = parsePerformanceAlertPreferences(JSON.stringify({ dailyTrades: { enabled: true, value: 1 } }));
+        const current = performanceMetrics([{ ...trade('2026-08-04T15:00:00', 20), accountId: undefined }], new Date('2026-08-04T16:00:00'));
+        expect(current.tradeCountUncertain).toBe(true);
+        expect(crossedPerformanceAlerts({ ...current, dailyTrades: 0 }, current, prefs)).toEqual([]);
+    });
+    it('keeps realized partial-exit P&L but pauses the count alert until a known open remainder is closed', () => {
+        const partial = trade('2026-08-04T15:00:00', 20);
+        const open = { ...partial, id: 'remaining', status: 'open' as const, exitDate: undefined };
+        const now = new Date('2026-08-04T16:00:00');
+        const current = performanceMetrics([partial, open], now);
+        expect(current).toMatchObject({ dailyPnl: 20, dailyTrades: 1, tradeCountUncertain: true });
+        const prefs = parsePerformanceAlertPreferences(JSON.stringify({ dailyTrades: { enabled: true, value: 1 } }));
+        expect(crossedPerformanceAlerts({ ...current, dailyTrades: 0 }, current, prefs)).toEqual([]);
+        expect(performanceMetrics([partial], now).tradeCountUncertain).toBeUndefined();
+    });
     it('uses Monday as the week boundary and the CME session date for daily totals', () => {
         expect(weekStartFor('2026-08-05')).toBe('2026-08-03');
         const metrics = performanceMetrics([

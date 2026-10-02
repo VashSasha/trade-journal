@@ -1,5 +1,7 @@
 import { TestBed } from '@angular/core/testing';
-import { Component, Input, signal } from '@angular/core';
+import { Component, Input, NO_ERRORS_SCHEMA, signal } from '@angular/core';
+import { CurrencyPipe, DecimalPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { By } from '@angular/platform-browser';
 import { EquityData } from '../../../../../shared/components/equity-curve-chart/equity-curve-chart.component';
 import { Observable, of, Subscriber } from 'rxjs';
@@ -60,6 +62,36 @@ function trade(id: string, accountId: string): Trade {
 }
 
 describe('DaySummaryComponent AI persistence', () => {
+    it('switches the actual journal controls between grouped positions and executions without changing money or requesting AI', () => {
+        const streamAnalysis = vi.fn();
+        TestBed.configureTestingModule({ providers: [
+            { provide: AccountSettingsService, useValue: { startingBalance: () => 50_000, presets: [25_000, 50_000] } },
+            { provide: AccessPolicyService, useValue: { demo: () => false, ai: () => true } },
+            { provide: OpenAiService, useValue: { streamAnalysis } },
+            ...[AiAnalysisService, DailyJournalService, TradeService, FilterService].map(provide => ({ provide, useValue: {} })),
+        ] }).overrideComponent(DaySummaryComponent, { set: {
+            imports: [CurrencyPipe, DecimalPipe, FormsModule, ChartProbe], schemas: [NO_ERRORS_SCHEMA],
+        } });
+        const fixture = TestBed.createComponent(DaySummaryComponent), component = fixture.componentInstance;
+        fixture.componentRef.setInput('trades', [
+            trade('initial', 'account-a'),
+            { ...trade('add', 'account-a'), entryDate: '2026-08-04T14:32:00.000Z', netPnl: -8, pnl: -6 },
+        ]);
+        fixture.detectChanges();
+        const buttons = fixture.nativeElement.querySelectorAll('.ds-count-view__toggle button') as NodeListOf<HTMLButtonElement>;
+        expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
+        expect(component.stats).toMatchObject({ totalTrades: 1, winners: 1, losers: 0, netPnl: 10, commissions: 4 });
+        expect(component.equityData.values).toEqual([50_000, 50_010]);
+        buttons[1].click(); fixture.detectChanges();
+        expect(buttons[1].getAttribute('aria-pressed')).toBe('true');
+        expect(component.stats).toMatchObject({ totalTrades: 2, winners: 1, losers: 1, netPnl: 10, commissions: 4 });
+        expect(component.equityData.values).toHaveLength(3);
+        expect(component.equityData.values.at(-1)).toBe(50_010);
+        buttons[0].click(); fixture.detectChanges();
+        expect(component.stats.totalTrades).toBe(1);
+        expect(streamAnalysis).not.toHaveBeenCalled();
+        fixture.destroy();
+    });
     it('does not redraw for unrelated UI/AI updates, but refreshes when trades or account balances change', () => {
         const startingBalance = signal(50_000);
         TestBed.configureTestingModule({ providers: [
@@ -77,7 +109,7 @@ describe('DaySummaryComponent AI persistence', () => {
         component.insightState.set({ status: 'streaming', content: 'New chunk', error: null }); fixture.detectChanges();
         fixture.detectChanges(); expect(chart.updates).toBe(1); expect(component.equityData).toBe(initial);
         fixture.componentRef.setInput('trades', [trade('two', 'account-b'), trade('three', 'account-b')]); fixture.detectChanges();
-        expect(chart.updates).toBe(2); expect(component.stats.totalTrades).toBe(2);
+        expect(chart.updates).toBe(2); expect(component.stats.totalTrades).toBe(1);
         fixture.componentRef.setInput('startBalance', 25_000); fixture.detectChanges(); expect(chart.updates).toBe(3);
         startingBalance.set(100_000); fixture.detectChanges(); expect(chart.updates).toBe(3); // Explicit historical balance wins.
         fixture.componentRef.setInput('startBalance', undefined); fixture.detectChanges(); expect(chart.updates).toBe(4);
@@ -122,16 +154,21 @@ describe('DaySummaryComponent AI persistence', () => {
         const fixture = TestBed.createComponent(DaySummaryComponent);
         const component = fixture.componentInstance;
         component.date = '2026-08-04';
-        component.trades = [trade('one', 'account-a'), trade('two', 'account-b')];
+        component.trades = ['account-a', 'account-b'].flatMap(accountId => [0, 1, 2].map(i => ({
+            ...trade(`${accountId}:${i}`, accountId), entryDate: `2026-08-04T14:3${i}:00.000Z`,
+        })));
+        component.tradeView.set('execution'); // The AI still uses positions, independent of the UI view.
 
         await component.generateInsight();
         await vi.waitFor(() => expect(saveAnalysis).toHaveBeenCalledOnce());
 
         const initialContent = saveAnalysis.mock.calls[0][1];
-        // Both executions share the same timestamps on different accounts, so
-        // the saved context must identify one underlying decision.
-        expect(initialContent).toContain('1 inferred decision from 2 executions across 2 accounts');
+        expect(initialContent).toContain('1 inferred grouped trade from 6 executions across 2 accounts');
         expect(initialContent).toContain(MAIN_REVIEW);
+        const messages = streamAnalysis.mock.calls[0][0];
+        expect(messages[0].content).toContain('Scale-ins (even slow adds)');
+        expect(messages[1].content).toContain('1 inferred grouped trade (2 account positions');
+        expect(messages[1].content).toContain('Net P&L +$108.00');
 
         component.tellMeMore();
         await vi.waitFor(() => expect(updateAnalysis).toHaveBeenCalledOnce());
@@ -141,6 +178,7 @@ describe('DaySummaryComponent AI persistence', () => {
         expect(updateAnalysis.mock.calls[0][1]).toContain('## Deeper review');
         expect(updateAnalysis.mock.calls[0][1]).toContain(DEEPER_REVIEW);
         expect(saveAnalysis).toHaveBeenCalledOnce();
+        expect(streamAnalysis.mock.calls[1][0].at(-1).content).toContain('1 inferred grouped trades represented by 6 account-level executions');
 
         fixture.destroy();
     });
@@ -207,6 +245,27 @@ describe('DaySummaryComponent date-scoped coaching', () => {
         expect(component.coach()?.grade).toBe('B+'); expect(streamAnalysis).toHaveBeenCalledOnce();
     });
 
+    it('keeps the verdict across view toggles or equivalent input, but clears it when the selected accounts change', async () => {
+        const { component, streamAnalysis, saveAnalysis } = setup();
+        await component.generateInsight(); await vi.waitFor(() => expect(component.insightSaved()).toBe(true));
+        component.tradeView.set('execution');
+        component.trades = component.trades.map(t => ({ ...t }));
+        expect(component.coach()?.grade).toBe('B+');
+        component.trades = [trade('other', 'account-b')];
+        expect(component.coach()).toBeNull(); expect(component.coachActivity()).toBeNull();
+        expect(component.insightState().status).toBe('idle');
+        expect(streamAnalysis).toHaveBeenCalledOnce(); expect(saveAnalysis).toHaveBeenCalledOnce();
+    });
+
+    it('cancels stale context requests when the trade selection changes on the same day', async () => {
+        const { component, latestAnalysisBefore, streamAnalysis } = setup();
+        const old = deferred<SavedAnalysis | null>(); latestAnalysisBefore.mockReturnValueOnce(old.promise);
+        const run = component.generateInsight();
+        component.trades = [trade('other', 'account-b')];
+        old.resolve(null); await run;
+        expect(streamAnalysis).not.toHaveBeenCalled(); expect(component.insightState().status).toBe('idle');
+    });
+
     it('ignores an old context lookup even after returning to the original date and blocks duplicate starts', async () => {
         const { component, changeDate, latestAnalysisBefore, streamAnalysis } = setup();
         const old = deferred<SavedAnalysis | null>(); latestAnalysisBefore.mockReturnValueOnce(old.promise);
@@ -248,7 +307,7 @@ describe('DaySummaryComponent date-scoped coaching', () => {
         expect(saveAnalysis).toHaveBeenCalledTimes(2);
         oldSave.resolve({ id: 'old-id', date: FIRST, content: MAIN_REVIEW, createdAt: FIRST });
         await Promise.resolve(); expect(component.aiSaving()).toBe(true); expect(component.insightSaved()).toBe(false);
-        newSave.resolve({ id: 'new-id', date: SECOND, content: MAIN_REVIEW, createdAt: SECOND });
+        newSave.resolve({ id: 'new-id', date: SECOND, content: saveAnalysis.mock.calls[1][1], createdAt: SECOND });
         await vi.waitFor(() => expect(component.insightSaved()).toBe(true));
         component.tellMeMore();
         expect(updateAnalysis).toHaveBeenCalledWith('new-id', expect.any(String));

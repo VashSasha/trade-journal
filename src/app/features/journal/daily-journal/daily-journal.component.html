@@ -76,7 +76,7 @@
                     {{ form.dayPnl() > 0 ? '+' : '' }}{{ form.dayPnl() | currency }}
                 </div>
                 <div class="day-stats__count">
-                    {{ form.dayTrades().length }} trade{{ form.dayTrades().length !== 1 ? 's' : '' }}
+                    {{ form.dayTrades().length }} execution record{{ form.dayTrades().length !== 1 ? 's' : '' }}
                 </div>
             </div>
 
@@ -239,14 +239,14 @@
         @let hiddenCount = form.dayTrades().length - TRADES_PAGE_SIZE;
         <div class="dj-trades">
             <div class="dj-trades__header">
-                <h3 class="dj-trades__title">Trades for this day</h3>
-                <span class="dj-trades__count">{{ form.dayTrades().length }} trade{{ form.dayTrades().length !== 1 ? 's' : '' }}</span>
+                <h3 class="dj-trades__title">Execution records for this day</h3>
+                <span class="dj-trades__count">{{ form.dayTrades().length }} record{{ form.dayTrades().length !== 1 ? 's' : '' }}</span>
             </div>
             <app-trade-table [trades]="visibleTrades" [showDate]="false"></app-trade-table>
             @if (form.dayTrades().length > TRADES_PAGE_SIZE) {
             <button class="dj-trades__toggle" (click)="form.showAllTrades.set(!form.showAllTrades())">
                 @if (form.showAllTrades()) { Show less
-                } @else { Show {{ hiddenCount }} more trade{{ hiddenCount !== 1 ? 's' : '' }} }
+                } @else { Show {{ hiddenCount }} more record{{ hiddenCount !== 1 ? 's' : '' }} }
             </button>
             }
         </div>

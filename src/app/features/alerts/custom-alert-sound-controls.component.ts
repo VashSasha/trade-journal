@@ -103,8 +103,8 @@ export class CustomAlertSoundControlsComponent {
         try {
             const wasSelected = this.selection(kind) === 'custom';
             await this.audio.removeCustomSound(kind);
-            if (wasSelected) this.sounds.setSound(kind, 'default');
-            this.message.set(`Uploaded sound removed.${wasSelected ? ' Restored to the default bell.' : ' Your library selection is unchanged.'}`);
+            if (wasSelected) this.sounds.setSound(kind, 'silent');
+            this.message.set(`Uploaded sound removed.${wasSelected ? ' This alert is now silent.' : ' Your sound selection is unchanged.'}`);
         } catch (error) {
             this.error.set(error instanceof Error ? error.message : 'The custom sound could not be removed.');
         } finally {
@@ -113,7 +113,7 @@ export class CustomAlertSoundControlsComponent {
     }
 
     test(kind: AlertSoundKind): void {
-        if (!this.busy() && !this.audio.customSoundsLoading()) void this.sounds.preview(kind);
+        if (this.selection(kind) !== 'silent' && !this.busy() && !this.audio.customSoundsLoading()) void this.sounds.preview(kind);
     }
 
     fileDetails(sound: CustomAlertSoundMetadata): string {

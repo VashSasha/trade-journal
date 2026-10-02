@@ -6,6 +6,7 @@ import { emptyCustomAlertSoundMap } from './custom-alert-sounds.models';
 import { CustomAlertSoundsService } from './custom-alert-sounds.service';
 import { SessionSoundPreferencesService } from './session-sound-preferences.service';
 import { DEFAULT_SESSION_SOUNDS, SessionSoundPreferences } from './session-alerts.utils';
+import { ALERT_SOUND_KINDS } from './alert-sound-kinds';
 
 const gain = () => ({
     gain: { value: 1, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
@@ -68,6 +69,7 @@ describe('local alert audio', () => {
         await activation; expect(audio.running()).toBe(true);
     });
     it('plays a metallic triple opening bell and a descending double closing bell', async () => {
+        preferences.set({ ...DEFAULT_SESSION_SOUNDS, selections: { open: 'default', close: 'default' } });
         const audio = TestBed.inject(AlertAudioService); await audio.activate();
         const context = FakeAudioContext.instances[0];
         expect(audio.play('open', 1000)).toBe(1850);
@@ -92,6 +94,7 @@ describe('local alert audio', () => {
         expect(context.resume).toHaveBeenCalledOnce();
     });
     it('provides distinct semantic cues for targets and risk guardrails', async () => {
+        preferences.set({ ...DEFAULT_SESSION_SOUNDS, selections: { target: 'default', risk: 'default' } });
         const audio = TestBed.inject(AlertAudioService); await audio.activate();
         const context = FakeAudioContext.instances[0];
         expect(audio.play('target', 45)).toBe(1690);
@@ -246,6 +249,12 @@ describe('local alert audio', () => {
         expect(audio.play('open', 45, 'hell-yeah')).toBe(1330);
         expect(preferences().selections).toBeUndefined();
         FakeAudioContext.instances[0].currentTime = 3;
-        expect(audio.play('open', 45)).toBe(1850);
+        expect(audio.play('open', 45)).toBe(0);
+    });
+    it('does not emit sounds for unconfigured triggers even when master audio is enabled', async () => {
+        const audio = TestBed.inject(AlertAudioService); await audio.activate();
+        for (const kind of ALERT_SOUND_KINDS) expect(audio.play(kind, 45)).toBe(0);
+        expect(FakeAudioContext.instances[0].sources).toHaveLength(0);
+        expect(FakeAudioContext.instances[0].oscillators).toHaveLength(0);
     });
 });

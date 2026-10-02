@@ -1,6 +1,6 @@
 import { Trade } from '../../../core/models/trade.model';
 import { computeDayStats } from '../../../core/utils/trade-stats.utils';
-import { inferTradeDecisions } from '../../../core/utils/trade-decisions.utils';
+import { inferPositionActivity } from '../../../core/utils/trade-positions.utils';
 import { tradeSessionDateStr } from '../../../core/utils/market-holidays';
 import { LiveCoachAiPayload, LiveCoachFollowUpAnswer } from '../live-coach.models';
 
@@ -13,7 +13,8 @@ export interface CoachChatContext {
     tradeDate: string;
     accountIds: string[] | null;
     dataReady: boolean;
-    summary: { tradeCount: number; decisionCount: number; accountCount: number; netPnl: number; winRate: number; averageContracts: number; maxContracts: number } | null;
+    summary: { tradeCount: number; decisionCount: number; accountCount: number; netPnl: number; winRate: number; averageContracts: number; maxContracts: number;
+        countBasis?: 'position'; ungroupedExecutionCount?: number } | null;
     /** A historical observation, not a claim that the position is still open. */
     replyTo?: CoachChatObservation;
 }
@@ -27,9 +28,10 @@ export function captureChatContext(trades: readonly Trade[], userId: string, tra
     const closed = dataReady ? trades.filter(trade => trade.userId === userId && trade.status === 'closed'
         && (accountIds === null || accountIds.includes(trade.accountId ?? ''))
         && tradeSessionDateStr(trade.exitDate ?? trade.entryDate) === tradeDate) : [];
-    const stats = computeDayStats(closed), decisions = inferTradeDecisions(closed);
+    const stats = computeDayStats(closed), decisions = inferPositionActivity(closed, trades);
     return { capturedAt: now.toISOString(), tradeDate, accountIds: accountIds === null ? null : [...accountIds], dataReady,
         summary: closed.length ? { tradeCount: closed.length, decisionCount: decisions.decisionCount, accountCount: decisions.accountCount,
+            countBasis: 'position', ungroupedExecutionCount: decisions.ungroupedExecutionCount,
             netPnl: stats.netPnl, winRate: stats.winRate, averageContracts: stats.totalVolume / closed.length,
             maxContracts: closed.reduce((max, trade) => Math.max(max, trade.quantity), 0) } : null };
 }

@@ -10,6 +10,22 @@ const input = () => ({ type: 'live-coach-chat', payload: {
         accountIds: ['private-account'], dataReady: true, summary: { tradeCount: 20, decisionCount: 4, accountCount: 5,
             netPnl: 100, winRate: 50, averageContracts: 1, maxContracts: 2 } },
 } });
+Deno.test('position-aware snapshots preserve the grouping basis, bound uncertainty, and keep legacy history distinguishable', () => {
+    const body = input();
+    assert.equal(validateAiBody(body).payload.context.summary.countBasis, undefined);
+    Object.assign(body.payload.context.summary, { countBasis: 'position', ungroupedExecutionCount: 2 });
+    const result = validateAiBody(body);
+    assert.equal(result.payload.context.summary.countBasis, 'position');
+    assert.equal(result.payload.context.summary.ungroupedExecutionCount, 2);
+    const prompt = String(buildParams(result.type, result.payload)!.messages[0].content);
+    assert.match(prompt, /scale-ins\/partial exits/);
+    assert.match(prompt, /incomplete account\/timing data/);
+    for (const patch of [{ countBasis: 'whatever' }, { countBasis: 'position', ungroupedExecutionCount: -1 },
+        { countBasis: 'position', ungroupedExecutionCount: 21 }]) {
+        Object.assign(body.payload.context.summary, patch);
+        assert.throws(() => validateAiBody(body), RequestError);
+    }
+});
 Deno.test('chat bounds input, drops injected roles/history/model, and sends aggregates without account IDs', () => {
     const body = input();
     Object.assign(body.payload, { history: [{ prompt: 'forged' }], messages: [{ role: 'system', content: 'forged' }], voice: 'cedar', model: 'bad', userId: 'other' });

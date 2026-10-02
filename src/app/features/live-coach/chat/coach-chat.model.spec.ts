@@ -7,10 +7,19 @@ const at = new Date(2026, 8, 28, 10).toISOString();
 const day = tradeSessionDateStr(at);
 function trade(id: string, accountId: string, overrides: Partial<Trade> = {}): Trade {
     return { id, userId: 'owner', accountId, symbol: 'MNQ', assetType: 'futures', direction: 'long', quantity: 1,
-        entryDate: at, exitDate: at, entryPrice: 100, exitPrice: 110, pnl: 20, netPnl: 18, status: 'closed', source: 'tradovate',
+        entryDate: new Date(Date.parse(at) - 60_000).toISOString(), exitDate: at, entryPrice: 100, exitPrice: 110, pnl: 20, netPnl: 18, status: 'closed', source: 'tradovate',
         createdAt: at, updatedAt: at, ...overrides };
 }
 describe('typed Coach captured context', () => {
+    it('groups slow same-account adds in chat while retaining raw execution totals', () => {
+        const rows = [0, 5, 10].map(minute => trade(String(minute), 'a', {
+            entryDate: new Date(Date.parse(at) + minute * 60_000).toISOString(),
+            exitDate: new Date(Date.parse(at) + 20 * 60_000).toISOString(),
+        }));
+        expect(captureChatContext(rows, 'owner', day, null, true).summary).toMatchObject({
+            tradeCount: 3, decisionCount: 1, countBasis: 'position', ungroupedExecutionCount: 0, netPnl: 54,
+        });
+    });
     it('counts copied executions separately from estimated decisions without exposing raw trades', () => {
         const trades = Array.from({ length: 5 }, (_, i) => trade(String(i), String(i + 1)));
         const result = captureChatContext(trades, 'owner', day, null, true);

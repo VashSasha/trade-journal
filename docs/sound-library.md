@@ -10,7 +10,10 @@ auditioning a clip never changes the saved choice. Upload remains available.
 Apply `supabase/migrations/0038_alert_sound_library.sql` before releasing the
 frontend. No Edge Function deployment is required. The existing owner-scoped
 session preference RPC stores selections in `user_settings.prefs.session_sounds`.
-An absent selection preserves the legacy uploaded-sound/default behavior.
+Unconfigured triggers default to Silent. Existing explicit choices and uploaded
+sounds (including legacy shared uploads) are preserved. The selected-sound
+Preview button is disabled for Silent; library clips can still be auditioned
+before selecting. Removing a selected upload returns that trigger to Silent.
 Selecting a preset or the default does not remove private uploads.
 
 Only selected presets are fetched when audio is activated. Decoded sounds are
