@@ -17,6 +17,7 @@ import { LiveCoachNarratorService } from './live-coach-narrator.service';
 import { LiveCoachAiPayload, LiveCoachPreferences, LiveCoachReply } from './live-coach.models';
 import { LiveCoachService } from './live-coach.service';
 import { CoachHistoryService } from './history/coach-history.service';
+import { AiCoachingSettingsService } from '../ai-settings/ai-coaching-settings.service';
 
 const OWNER = '11111111-1111-4111-8111-111111111111';
 
@@ -41,6 +42,7 @@ describe('LiveCoachService', () => {
     const metrics = signal<TradovateLiveAccountMetric[]>([]);
     const performanceEvent = signal<{ id: number; tone: 'target' | 'risk'; text: string } | null>(null);
     const userId = signal<string | null>(OWNER);
+    const toneRevision = signal(0);
     const publish = vi.fn();
     const record = vi.fn();
     const speak = vi.fn(async () => true);
@@ -66,6 +68,7 @@ describe('LiveCoachService', () => {
         metrics.set([]);
         performanceEvent.set(null);
         userId.set(OWNER);
+        toneRevision.set(0);
         liveState.set('live');
         stop.mockClear();
         previewLiveCoachVoice.mockClear();
@@ -78,6 +81,7 @@ describe('LiveCoachService', () => {
         setRequested.mockReset();
 
         TestBed.configureTestingModule({ providers: [
+            { provide: AiCoachingSettingsService, useValue: { revision: toneRevision } },
             { provide: CoachHistoryService, useValue: { record } },
             { provide: SessionAlertsService, useValue: { enabled: masterEnabled } },
             { provide: AccountAlertPreferencesService, useValue: {
@@ -129,6 +133,15 @@ describe('LiveCoachService', () => {
         masterEnabled.set(false); TestBed.tick();
         expect(await service.readChatSummary('Review your plan.')).toBe(false);
         expect(speak).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops previous-tone speech and discards pending live events after a mode change', async () => {
+        TestBed.inject(LiveCoachService); TestBed.tick();
+        events.set([positionEvent()]); TestBed.tick();
+        stop.mockClear(); toneRevision.update(value => value + 1); TestBed.tick();
+        expect(stop).toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(1_000);
+        expect(speak).not.toHaveBeenCalled();
     });
 
     it('chat playback honors revoked AI access and does not interrupt a queued live event', async () => {

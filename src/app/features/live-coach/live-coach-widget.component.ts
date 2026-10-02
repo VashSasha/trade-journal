@@ -10,13 +10,14 @@ import { CoachHistoryService } from './history/coach-history.service';
 import { CoachHistoryComponent } from './history/coach-history.component';
 import { CoachChatComponent } from './chat/coach-chat.component';
 import { CoachChatService } from './chat/coach-chat.service';
+import { AiCoachingBadgeComponent } from '../ai-settings/ai-coaching-badge.component';
 import { CoachActionsComponent, CoachView } from './coach-actions.component';
 import { historyToObservation, SavedCoachObservation } from './history/coach-history.model';
 
 @Component({
     selector: 'app-live-coach-widget',
     standalone: true,
-    imports: [RouterLink, LiveCoachVoiceSelectComponent, CoachHistoryComponent, CoachChatComponent, CoachActionsComponent],
+    imports: [RouterLink, LiveCoachVoiceSelectComponent, CoachHistoryComponent, CoachChatComponent, CoachActionsComponent, AiCoachingBadgeComponent],
     providers: [LiveCoachFollowUpService, CoachChatService],
     templateUrl: './live-coach-widget.component.html',
     styleUrl: './live-coach-widget.component.scss',

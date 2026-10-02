@@ -1,0 +1,25 @@
+:host { display: block; min-width: 0; }
+.coaching-tone {
+    padding: 1.25rem; border: 1px solid var(--color-border); border-radius: 14px;
+    background: var(--color-bg-surface); color: var(--color-text-primary);
+    &--active { border-color: color-mix(in srgb, var(--color-negative) 65%, var(--color-border)); box-shadow: 0 0 18px color-mix(in srgb, var(--color-negative) 12%, transparent); }
+    h3 { display: flex; gap: .5rem; align-items: center; margin: 0; font-size: 1rem; }
+    h4 { margin: 0 0 .5rem; font-size: .9375rem; }
+    p { max-width: 72ch; margin: .5rem 0 0; font-size: .8125rem; line-height: 1.65; color: var(--color-text-secondary); }
+    &__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+    button { min-height: 44px; min-width: 64px; flex-shrink: 0; padding: .5rem .875rem; border: 1px solid var(--color-border);
+        border-radius: 8px; background: var(--color-bg-surface-2); color: var(--color-text-primary); cursor: pointer; font: inherit; font-size: .8125rem; }
+    button[aria-checked='true'], button.coaching-tone__enable { border-color: var(--color-negative); background: color-mix(in srgb, var(--color-negative) 14%, var(--color-bg-surface)); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    button, input, a { &:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; } }
+    a { color: var(--color-text-accent); }
+    &__scope { padding-top: .5rem; }
+    &__consent { margin-top: 1rem; padding: 1rem; border-left: 3px solid var(--color-negative); background: var(--color-bg-surface-2); border-radius: 8px;
+        label { display: flex; align-items: flex-start; gap: .75rem; margin: 1rem 0; font-size: .8125rem; line-height: 1.6; cursor: pointer; min-height: 44px; }
+        input { flex: 0 0 auto; width: 20px; height: 20px; margin-top: .125rem; accent-color: var(--color-negative); }
+    }
+    &__actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+    &__error { margin-top: .75rem; p { margin-bottom: .5rem; } }
+    p.coaching-tone__note { padding-top: .75rem; font-size: .75rem; }
+    @media (max-width: 540px) { padding: 1rem; &__consent { padding: .875rem; } &__actions button { flex: 1; } }
+}

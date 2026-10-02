@@ -43,6 +43,7 @@ export class AccountComponent implements OnInit {
         { path: 'getting-started', label: 'Getting started', detail: 'Set up your workspace' },
         { path: 'integrations', label: 'Broker connections', detail: 'Accounts, sync and imports', feature: 'broker' },
         { path: 'alerts', label: 'Alerts', detail: 'Session bells and guardrails' },
+        { path: 'ai', label: 'AI & coaching', detail: 'Tone, voice and live coaching' },
         { path: 'appearance', label: 'Appearance', detail: 'Theme and display' },
         { path: 'data', label: 'Account data', detail: 'Sessions and account removal' },
     ];

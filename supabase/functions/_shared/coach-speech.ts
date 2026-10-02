@@ -17,7 +17,7 @@ export async function coachSpeech(
     }
     const response = await openai.audio.speech.create({
         model: 'gpt-4o-mini-tts', voice, input: text, response_format: 'mp3',
-        instructions: 'Speak in a calm, clear, concise trading coach voice. Neutral, grounded delivery. Read exactly the supplied text.',
+        instructions: 'Speak in a clear, concise trading coach voice. Match the emphasis of the wording without shouting. Read exactly the supplied text, including any profanity. Do not censor, soften, substitute or add words.',
     }, { timeout: 12_000, signal: AbortSignal.any([signal, AbortSignal.timeout(12_000)]) });
     const reader = response.body?.getReader();
     if (!reader) throw new Error('Empty Coach audio.');

@@ -40,6 +40,10 @@ export const ACCOUNT_ROUTES: Routes = [
                     .then(m => m.AccountAlertsComponent)
             },
             {
+                path: 'ai',
+                loadComponent: () => import('../ai-settings/ai-settings.component').then(m => m.AiSettingsComponent)
+            },
+            {
                 path: 'appearance',
                 loadComponent: () => import('./sections/account-appearance/account-appearance.component')
                     .then(m => m.AccountAppearanceComponent)

@@ -124,7 +124,7 @@ export class AiAnalysisService {
      * The most recent saved analysis strictly BEFORE `date` — used by the
      * coach to check yesterday's commitment. Null when none exists.
      */
-    async latestAnalysisBefore(date: string): Promise<SavedAnalysis | null> {
+    async latestAnalysisBefore(date: string, signal?: AbortSignal): Promise<SavedAnalysis | null> {
         if (this.access.demo()) return null;
         if (!this.userSession.userId()) return null;
         const scope = this.access.capture();
@@ -137,7 +137,7 @@ export class AiAnalysisService {
             .order('date', { ascending: false })
             .order('created_at', { ascending: false })
             .limit(1)
-            .abortSignal(scope.signal).maybeSingle();
+            .abortSignal(signal ? AbortSignal.any([scope.signal, signal]) : scope.signal).maybeSingle();
         this.userSession.assertCurrent(scope);
 
         if (error || !data) return null;

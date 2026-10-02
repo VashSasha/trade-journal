@@ -1,0 +1,39 @@
+<section class="coaching-tone" [class.coaching-tone--active]="settings.active()" aria-labelledby="coaching-tone-title">
+    <div class="coaching-tone__row">
+        <div>
+            <h3 id="coaching-tone-title"><span aria-hidden="true">😈</span> Unhinged Coach</h3>
+            <p>No sugarcoating. Blunt feedback and strong, uncensored profanity, focused on your decisions—not your worth.</p>
+        </div>
+        <button #toggle type="button" role="switch" aria-label="Unhinged Coach" [attr.aria-checked]="settings.enabled()"
+            [disabled]="!settings.ready() || settings.loading() || settings.saving() || (!settings.enabled() && !settings.access.canAct('ai'))"
+            (click)="requestToggle()">
+            {{ settings.saving() ? 'Saving…' : settings.enabled() ? 'On' : 'Off' }}
+        </button>
+    </div>
+    <p class="coaching-tone__scope">One tone for journal reviews, AI reports, chat, follow-ups and personalized live commentary. Voice reads the same words.</p>
+    @if (settings.loading()) { <p role="status">Loading your preference…</p> }
+    @if (settings.error(); as error) {
+        <div class="coaching-tone__error" role="alert"><p>{{ error }}</p>
+            <button type="button" [disabled]="settings.loading() || settings.saving()" (click)="settings.load(true)">Reload preferences</button>
+        </div>
+    }
+    @if (!settings.access.demo() && !settings.access.canAct('ai')) {
+        <p><a routerLink="/account/pricing">Premium+ or individual AI access</a> is required for AI coaching. You can still turn a previously enabled mode off.</p>
+    }
+    @if (settings.access.demo()) { <p>This is a demo. Switch to your workspace to change AI preferences.</p> }
+    @if (confirming()) {
+        <div class="coaching-tone__consent" role="region" aria-labelledby="coaching-consent-title" (keydown.escape)="cancel(); $event.stopPropagation()">
+            <h4 id="coaching-consent-title">Before you turn it on</h4>
+            <p>Expect frequent, uncensored profanity and direct criticism of documented trading behavior, including spoken comments when voice is enabled. It may not suit shared spaces or every listener.</p>
+            <p>This changes the tone, not the accuracy. AI can be wrong; it is not financial advice and never replaces your rules or risk limits. No threats, humiliation, or pressure to chase losses.</p>
+            <label><input #consent type="checkbox" [checked]="accepted()" (change)="accepted.set($any($event.target).checked)" [disabled]="settings.saving()" />
+                <span>I understand and want blunt coaching with strong profanity across my AI features.</span>
+            </label>
+            <div class="coaching-tone__actions">
+                <button type="button" class="coaching-tone__enable" [disabled]="!accepted() || settings.saving() || !settings.ready() || !settings.access.canAct('ai')" (click)="confirm()">{{ settings.saving() ? 'Saving…' : 'Enable Unhinged Coach' }}</button>
+                <button type="button" [disabled]="settings.saving()" (click)="cancel()">Keep Standard</button>
+            </div>
+        </div>
+    }
+    <p class="coaching-tone__note">Default: Standard. You can turn this off anytime. Saved answers keep their original wording; factual alerts and voice previews stay unchanged.</p>
+</section>

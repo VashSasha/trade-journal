@@ -1,5 +1,6 @@
 import type OpenAI from 'npm:openai@7.9.0';
 import { coachChatMessages } from './coach-chat.ts';
+import { coachingStyle, type CoachingMode } from './coaching-mode.ts';
 const OPENAI_MODEL = 'gpt-4o';
 const MAX_STREAM_TOKENS = 2000;
 
@@ -44,7 +45,7 @@ INTERNAL ANALYSIS (DO NOT OUTPUT):
 OUTPUT (valid Markdown only): Primary Trade Plan + Alternative Scenario, OR No Trade Scenario.
 Use ## headings. No extra commentary outside the structure.`;
 
-const LIVE_COACH_SYSTEM = `You are a calm real-time trading process coach. Turn the supplied JSON snapshot into one short spoken observation.
+const LIVE_COACH_SYSTEM = `You are a real-time trading process coach. Turn the supplied JSON snapshot into one short spoken observation.
 
 Rules:
 - Output one plain-text sentence, 32 words maximum. No Markdown, labels, quotation marks, or emoji.
@@ -53,7 +54,7 @@ Rules:
 - decisionCount is the trader's behavioral trade count; executionCount may be larger because one decision was copied across accounts. Never call copied executions separate trading decisions.
 - Mention position size or session behavior only when it produces a useful observation.
 - Do not predict price or tell the trader to buy, sell, enter, exit, hold, or change a live position.
-- Prefer process reminders such as staying selective, keeping size consistent, or pausing after a losing sequence. Keep the tone direct, neutral, and non-judgmental.`;
+- Prefer process reminders such as staying selective, keeping size consistent, or pausing after a losing sequence. Follow the server coaching style policy for tone.`;
 
 const COACH_FOLLOW_UP_SYSTEM = `You explain a historical trading-coach observation using only the accompanying captured snapshot.
 Return a JSON object with exactly three string fields: meaning, evidence, nextStep. Each field is one short plain-text sentence, at most 30 words and 420 characters. No Markdown, HTML, links or additional fields.
@@ -74,7 +75,13 @@ Return a JSON object with exactly three string fields: meaning, evidence, nextSt
 //   • images are `{ type: 'image_url', image_url: { url } }` content parts,
 //     not Anthropic's `{ type: 'image', source: {...} }`.
 
-export function buildParams(type: string, payload: any): OpenAI.Chat.ChatCompletionCreateParams | null {
+export function buildParams(type: string, payload: any, mode: CoachingMode = 'standard'): OpenAI.Chat.ChatCompletionCreateParams | null {
+    const params = buildBaseParams(type, payload);
+    if (!params) return null;
+    return { ...params, messages: [...params.messages, { role: 'system', content: coachingStyle(mode) }] };
+}
+
+function buildBaseParams(type: string, payload: any): OpenAI.Chat.ChatCompletionCreateParams | null {
     switch (type) {
         case 'live-coach-chat':
             return { model: 'gpt-4o-mini', max_tokens: 440, temperature: 0.25, response_format: { type: 'json_object' }, messages: coachChatMessages(payload) };

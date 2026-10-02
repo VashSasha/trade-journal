@@ -8,16 +8,22 @@ import { SupabaseService } from './supabase.service';
 import { UserSessionService } from './user-session.service';
 import { DemoModeService } from './demo-mode.service';
 import { cacheSuspended, setCacheSuspended } from './user-data/user-data.cache';
+import { AiCoachingSettingsService } from '../../features/ai-settings/ai-coaching-settings.service';
 
 describe('paid AI access and streaming failures', () => {
     const plan = signal('premium_plus');
+    const coachingMode = signal('standard');
+    const saving = signal(false);
+    let toneController: AbortController;
     const invoke = vi.fn(async () => ({ data: { text: 'Stay selective.' }, error: null }));
     let ai: OpenAiService;
     beforeEach(() => {
         plan.set('premium_plus'); setCacheSuspended(false);
+        coachingMode.set('standard'); saving.set(false); toneController = new AbortController();
         invoke.mockClear();
         const controller = new AbortController();
         TestBed.configureTestingModule({ providers: [
+            { provide: AiCoachingSettingsService, useValue: { mode: coachingMode, saving, load: async () => {}, get requestSignal() { return toneController.signal; } } },
             { provide: AuthService, useValue: { plan, aiAccess: computed(() => plan() === 'premium_plus'), isAuthenticated: () => true, refreshProfile: async () => {} } },
             { provide: SupabaseService, useValue: { client: { auth: { getSession: async () => ({ data: {
                 session: { user: { id: 'A' }, access_token: 'test' },
@@ -65,7 +71,7 @@ describe('paid AI access and streaming failures', () => {
         await expect(ai.generateLiveCoachComment({ observation: {}, session: {} }, signal))
             .resolves.toBe('Stay selective.');
         expect(invoke).toHaveBeenCalledWith('ai-report', expect.objectContaining({
-            body: { type: 'live-coach', payload: { observation: {}, session: {} } },
+            body: { type: 'live-coach', payload: { observation: {}, session: {} }, coachingMode: 'standard' },
             headers: { Authorization: 'Bearer test' },
             signal: expect.any(AbortSignal),
         }));
@@ -89,7 +95,7 @@ describe('paid AI access and streaming failures', () => {
             replyTo: { id: 'original', observedAt: '2026-09-28T14:00:00Z', title: 'Position increased', text: 'Local text', snapshot: null },
         } })).resolves.toEqual(followUp);
         expect(invoke).toHaveBeenCalledWith('ai-report', expect.objectContaining({ body: {
-            type: 'live-coach-chat', payload: expect.objectContaining({ context: expect.objectContaining({ replyTo: { id: 'original' } }) }),
+            type: 'live-coach-chat', payload: expect.objectContaining({ context: expect.objectContaining({ replyTo: { id: 'original' } }) }), coachingMode: 'standard',
         } }));
     });
 
@@ -101,7 +107,7 @@ describe('paid AI access and streaming failures', () => {
         invoke.mockResolvedValueOnce({ data: { followUp } as any, error: null });
         await expect(ai.generateLiveCoachFollowUp(payload)).resolves.toEqual(followUp);
         expect(invoke).toHaveBeenCalledWith('ai-report', expect.objectContaining({
-            body: { type: 'live-coach-follow-up', payload }, headers: { Authorization: 'Bearer test' },
+            body: { type: 'live-coach-follow-up', payload, coachingMode: 'standard' }, headers: { Authorization: 'Bearer test' },
         }));
         invoke.mockResolvedValueOnce({ data: { followUp: { meaning: 'Partial' } } as any, error: null });
         await expect(ai.generateLiveCoachFollowUp(payload)).rejects.toThrow('incomplete answer');
@@ -114,5 +120,29 @@ describe('paid AI access and streaming failures', () => {
         plan.set('premium_plus'); setCacheSuspended(true);
         await expect(ai.generateLiveCoachFollowUp(payload)).rejects.toThrow('demo mode');
         expect(invoke).not.toHaveBeenCalled();
+    });
+
+    it('passes the confirmed tone on buffered and streaming AI requests', async () => {
+        coachingMode.set('unhinged');
+        await ai.generateLiveCoachReply({ observation: {}, session: {} });
+        expect(invoke.mock.calls[0]).toEqual(['ai-report', expect.objectContaining({ body: expect.objectContaining({ coachingMode: 'unhinged' }) })]);
+        const fetch = vi.fn(async () => new Response('data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Review"}}\n\ndata: {"type":"message_stop"}\n\n'));
+        vi.stubGlobal('fetch', fetch);
+        await lastValueFrom(ai.streamAnalysis([]));
+        expect(JSON.parse((fetch.mock.calls[0] as any)[1].body).coachingMode).toBe('unhinged');
+    });
+
+    it('blocks new generation while consent is saving and cancels a stream on tone change', async () => {
+        saving.set(true);
+        await expect(ai.generateLiveCoachReply({})).rejects.toThrow('preference is saving');
+        expect(invoke).not.toHaveBeenCalled();
+        saving.set(false);
+        const fetch = vi.fn(async () => new Response(new ReadableStream({ start() {} })));
+        vi.stubGlobal('fetch', fetch);
+        const result = lastValueFrom(ai.streamAnalysis([]));
+        const rejected = expect(result).rejects.toThrow('preferences changed');
+        await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+        toneController.abort();
+        await rejected;
     });
 });

@@ -10,6 +10,7 @@ import { UserSessionService } from './user-session.service';
 import type { LiveCoachFollowUpAnswer, LiveCoachFollowUpPayload, LiveCoachReply, LiveCoachVoice } from '../../features/live-coach/live-coach.models';
 import { readCoachFollowUp } from '../../features/live-coach/live-coach-follow-up.utils';
 import type { CoachChatRequest } from '../../features/live-coach/chat/coach-chat.model';
+import { AiCoachingSettingsService } from '../../features/ai-settings/ai-coaching-settings.service';
 
 /**
  * All AI calls go through the ai-report Supabase Edge Function — the
@@ -26,6 +27,7 @@ export class OpenAiService {
     private demo = inject(DemoModeService);
     private access = inject(AccessPolicyService);
     private userSession = inject(UserSessionService);
+    private coaching = inject(AiCoachingSettingsService);
 
     constructor() {
         // Pre-Phase-3 Electron builds kept a user-pasted Anthropic key in
@@ -113,15 +115,18 @@ export class OpenAiService {
     private async callFunctionData(type: string, payload: unknown, signal?: AbortSignal): Promise<LiveCoachReply> {
         this.access.assertAction('ai');
         const scope = this.access.capture();
+        await this.coaching.load();
+        if (this.coaching.saving()) throw new Error('Your AI preference is saving. Please try again shortly.');
+        const coachingMode = this.coaching.mode();
+        const requestSignal = AbortSignal.any([scope.signal, this.coaching.requestSignal, ...(signal ? [signal] : [])]);
         await this.auth.refreshProfile();
         this.access.assertAction('ai');
         const { data: { session } } = await this.supabase.auth.getSession();
         this.userSession.assertCurrent(scope);
         if (!session || session.user.id !== scope.userId) throw new Error('Please sign in again.');
-        const requestSignal = signal ? AbortSignal.any([scope.signal, signal]) : scope.signal;
         requestSignal.throwIfAborted();
         const { data, error } = await this.supabase.functions.invoke('ai-report', {
-            body: { type, payload },
+            body: { type, payload, coachingMode },
             headers: { Authorization: `Bearer ${session.access_token}` },
             signal: requestSignal
         });
@@ -153,6 +158,8 @@ export class OpenAiService {
             const controller = new AbortController();
             const cancel = () => { controller.abort(); subscriber.error(new Error('The session changed. Analysis cancelled.')); };
             scope.signal.addEventListener('abort', cancel, { once: true });
+            let coachingSignal: AbortSignal | undefined;
+            const changed = () => { controller.abort(); subscriber.error(new Error('AI preferences changed. Start a new analysis to use the new tone.')); };
             let buffer = '';
 
             // Fetch a FRESH access token right before the request. getSession()
@@ -160,10 +167,17 @@ export class OpenAiService {
             // signal could send a stale/expired JWT ("Invalid or expired token").
             (async () => {
                 this.userSession.assertCurrent(scope);
+                await this.coaching.load();
+                if (subscriber.closed) return;
+                if (this.coaching.saving()) throw new Error('Your AI preference is saving. Please try again shortly.');
+                coachingSignal = this.coaching.requestSignal;
+                coachingSignal.addEventListener('abort', changed, { once: true });
+                const coachingMode = this.coaching.mode();
                 await this.auth.refreshProfile();
                 this.access.assertAction('ai');
                 const { data: { session } } = await this.supabase.auth.getSession();
                 this.userSession.assertCurrent(scope);
+                controller.signal.throwIfAborted();
                 const token = session?.access_token;
                 if (!token || session?.user.id !== scope.userId) {
                     subscriber.error(new Error('Not authenticated.'));
@@ -179,6 +193,7 @@ export class OpenAiService {
                     },
                     body: JSON.stringify({
                         type: 'stream-analysis',
+                        coachingMode,
                         payload: { messages, maxTokens },
                     }),
                     signal: controller.signal,
@@ -198,6 +213,7 @@ export class OpenAiService {
                 while (true) {
                     const { done, value } = await reader.read();
                     this.userSession.assertCurrent(scope);
+                    controller.signal.throwIfAborted();
                     if (done) break;
 
                     buffer += decoder.decode(value, { stream: true });
@@ -232,7 +248,7 @@ export class OpenAiService {
                 });
             })().catch(err => subscriber.error(err));
 
-            return () => { scope.signal.removeEventListener('abort', cancel); controller.abort(); };
+            return () => { scope.signal.removeEventListener('abort', cancel); coachingSignal?.removeEventListener('abort', changed); controller.abort(); };
         });
     }
 }

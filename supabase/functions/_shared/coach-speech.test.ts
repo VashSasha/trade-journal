@@ -15,10 +15,14 @@ Deno.test('speech uses approved voice/model, exact validated text and bounded ou
     assert.equal(params.model, 'gpt-4o-mini-tts');
     assert.equal(params.input, COACH_VOICE_PREVIEW);
     assert.equal(params.voice, 'marin');
+    assert.match(params.instructions, /Read exactly the supplied text, including any profanity/);
     assert.deepEqual(audio, { mimeType: 'audio/mpeg', base64: 'AQID' });
     assert.equal(await coachSpeech(api, 'Hello.', 'browser', new AbortController().signal), undefined);
     await assert.rejects(coachSpeech(api, 'Hello.', 'unapproved', new AbortController().signal));
     await assert.rejects(coachSpeech(api, 'x'.repeat(221), 'cedar', new AbortController().signal));
+    const strongText = 'Review the fucking decision against your rules.';
+    await coachSpeech(api, strongText, 'cedar', new AbortController().signal);
+    assert.equal(params.input, strongText);
 });
 
 Deno.test('empty and oversized audio are rejected for factual playback fallback', async () => {

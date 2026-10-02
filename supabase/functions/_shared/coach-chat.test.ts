@@ -49,7 +49,8 @@ Deno.test('server-loaded history keeps each turn’s own context and cannot chan
         ...payload.context, tradeDate: '2026-09-27', accountIds: null,
     } }];
     const params = buildParams('live-coach-chat', payload)!;
-    assert.deepEqual(params.messages.map(m => m.role), ['system', 'user']);
+    assert.deepEqual(params.messages.map(m => m.role), ['system', 'user', 'system']);
+    assert.match(String(params.messages.at(-1)!.content), /SERVER COACHING STYLE POLICY/);
     const content = JSON.parse(String(params.messages[1].content));
     assert.equal(content.history[0].context.tradeDate, '2026-09-27');
     assert.equal(content.context.tradeDate, '2026-09-28');
