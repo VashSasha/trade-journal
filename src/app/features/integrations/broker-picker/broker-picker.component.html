@@ -1,0 +1,30 @@
+<section class="broker-picker" aria-label="Choose a broker">
+    <header class="broker-picker__header">
+        <div>
+            <h2 #heading tabindex="-1">Choose your broker</h2>
+            <p>Select where you trade to add a connection.</p>
+        </div>
+        <button type="button" class="broker-picker__close" (click)="cancelled.emit()" aria-label="Cancel adding a connection">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+        </button>
+    </header>
+    <div class="broker-picker__grid">
+        @for (broker of brokers; track broker.id) {
+            <button type="button" class="broker-picker__broker" (click)="brokerSelected.emit(broker.id)"
+                [attr.aria-label]="'Connect ' + broker.name">
+                <img class="broker-picker__logo" [src]="broker.logo" alt="" width="40" height="40" />
+                <span class="broker-picker__info">
+                    <strong>{{ broker.name }}</strong>
+                    <span>{{ broker.description }}</span>
+                    <span class="broker-picker__method">Account sync</span>
+                </span>
+                <svg class="broker-picker__chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+            </button>
+        }
+        <div class="broker-picker__coming">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg>
+            <div><strong>More brokers coming</strong><p>Tradovate is the only supported connection for now.</p></div>
+        </div>
+    </div>
+    <p class="broker-picker__hint">Use the broker your account runs on, even when it’s provided by a prop firm.</p>
+</section>

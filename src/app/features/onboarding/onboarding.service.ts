@@ -17,7 +17,10 @@ export class OnboardingService {
     private readonly loadedFor = signal<string | null>(null);
     private readonly state = signal(parseOnboardingProgress(null));
     private generation = 0;
+    private readonly offered = signal(false);
+    private pendingClose: Partial<OnboardingProgress> | null = null;
 
+    readonly dialogOpen = signal(false);
     readonly progress = this.state.asReadonly();
     readonly loading = signal(false);
     readonly saving = signal(false);
@@ -27,9 +30,12 @@ export class OnboardingService {
     readonly dataLoaded = this.userData.dataLoaded;
     readonly hasTrades = computed(() => !this.access.demo() && this.dataLoaded()
         && this.trades.trades().some(trade => trade.userId === this.session.userId()));
-    readonly completedCount = computed(() => Number(this.hasTrades())
-        + Number(this.progress().accountsReviewed) + Number(this.progress().alertsReviewed));
-    readonly complete = computed(() => this.completedCount() === 3);
+    readonly completedCount = computed(() => Number(this.hasTrades() || this.progress().accountsReviewed)
+        + Number(this.progress().templatesReviewed) + Number(this.progress().alertsReviewed)
+        + Number(this.progress().journalReviewed));
+    readonly complete = computed(() => this.completedCount() === 4);
+    readonly shouldOfferGuide = computed(() => this.ready() && this.dataLoaded() && !this.hasTrades()
+        && !this.progress().started && !this.progress().dismissed && !this.offered());
     readonly showInvitation = computed(() => this.ready() && this.dataLoaded()
         && !this.progress().dismissed && !this.complete()
         // Established workspaces are never forced back through onboarding.
@@ -41,6 +47,9 @@ export class OnboardingService {
             const demo = this.access.demo();
             untracked(() => {
                 this.generation++;
+                this.dialogOpen.set(false);
+                this.offered.set(false);
+                this.pendingClose = null;
                 this.loadedFor.set(null);
                 this.state.set(parseOnboardingProgress(null));
                 this.loading.set(false);
@@ -49,6 +58,21 @@ export class OnboardingService {
                 if (owner && !demo) void this.load();
             });
         });
+    }
+
+    openGuide(): void {
+        if (!this.session.userId() || this.access.demo()) return;
+        this.offered.set(true);
+        this.dialogOpen.set(true);
+    }
+
+    closeGuide(dismiss = true): void {
+        if (!this.dialogOpen()) return;
+        this.dialogOpen.set(false);
+        const patch = { started: true, ...(dismiss ? { dismissed: true } : {}) };
+        // Closing stays immediate, even while a checkbox save is in flight.
+        if (this.saving()) this.pendingClose = patch;
+        else void this.update(patch);
     }
 
     async load(): Promise<void> {
@@ -89,7 +113,12 @@ export class OnboardingService {
             // Don't pretend a failed save will follow the user to another device.
             if (current()) this.error.set('Couldn’t save setup progress. Your changes weren’t saved; please try again.');
         } finally {
-            if (current()) this.saving.set(false);
+            if (current()) {
+                this.saving.set(false);
+                const pending = this.pendingClose;
+                this.pendingClose = null;
+                if (pending) void this.update(pending);
+            }
         }
     }
 }

@@ -12,7 +12,7 @@ function setup(compact = false) {
     const state = {
         progress: signal(parseOnboardingProgress(null)), ready: signal(true), loading: signal(false), saving: signal(false),
         complete: signal(false), completedCount: signal(0), hasTrades: signal(false), dataLoaded: signal(true),
-        showInvitation: signal(true), error: signal<string | null>(null), update: vi.fn(), load: vi.fn(),
+        showInvitation: signal(true), error: signal<string | null>(null), update: vi.fn(), load: vi.fn(), openGuide: vi.fn(),
     };
     TestBed.configureTestingModule({ providers: [
         provideRouter([]),
@@ -42,8 +42,10 @@ describe('getting started UI', () => {
         expect(root.querySelector('a[href="/account/integrations"]')).not.toBeNull();
         expect(root.querySelector('a[href="/account/alerts"]')).not.toBeNull();
         expect(root.querySelector('a[href="/account/pricing"]')).toBeNull();
-        expect(root.textContent).not.toContain('You also have AI Coach access');
-        ai.set(true); fixture.detectChanges(); expect(root.textContent).toContain('You also have AI Coach access');
+        expect(root.querySelector('a[href="/account/ai"]')).toBeNull();
+        ai.set(true); fixture.detectChanges(); expect(root.querySelector('a[href="/account/ai"]')).not.toBeNull();
+        expect(root.querySelector('a[href="/journal/daily?setup=templates"]')).not.toBeNull();
+        expect(root.querySelectorAll('ol > li')).toHaveLength(4);
     });
 
     it('requires review confirmation and does not falsely tick a failed save', () => {
@@ -60,8 +62,8 @@ describe('getting started UI', () => {
     it('keeps the invitation compact, dismissible, and removable without leaving an empty card', () => {
         const { root, state, fixture } = setup(true);
         expect(root.querySelector('ol')).toBeNull();
-        expect(root.querySelector('a[href="/account/getting-started"]')).not.toBeNull();
-        root.querySelector('button')!.click(); expect(state.update).toHaveBeenCalledWith({ dismissed: true });
+        root.querySelector('button')!.click(); expect(state.openGuide).toHaveBeenCalledOnce();
+        root.querySelectorAll('button')[1].click(); expect(state.update).toHaveBeenCalledWith({ dismissed: true });
         state.showInvitation.set(false); fixture.detectChanges(); expect(root.querySelector('section')).toBeNull();
     });
 

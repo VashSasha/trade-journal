@@ -17,6 +17,20 @@ export class AccountSelectorComponent implements OnInit {
     private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton');
 
     dropdownOpen = signal(false);
+    readonly search = signal('');
+    readonly historyExpanded = signal(false);
+    readonly matchingActive = computed(() => this.matchAccounts(this.accountService.accounts()));
+    readonly matchingHistory = computed(() => this.matchAccounts(this.accountService.historicalAccounts()));
+    readonly showHistory = computed(() => !!this.search().trim() || this.historyExpanded());
+    readonly selectedHistoryCount = computed(() => {
+        const selected = new Set(this.accountService.selectedIds());
+        return this.accountService.historicalAccounts().filter(a => selected.has(a.id)).length;
+    });
+
+    private matchAccounts<T extends { id: number; name: string; accountType?: string }>(accounts: T[]): T[] {
+        const query = this.search().trim().toLowerCase();
+        return query ? accounts.filter(a => `${a.name} ${a.id} ${a.accountType ?? ''}`.toLowerCase().includes(query)) : accounts;
+    }
     readonly selectionLabel = computed(() => {
         const ids = this.accountService.selectedIds();
         if (!ids.length) return 'Select accounts';
@@ -39,6 +53,7 @@ export class AccountSelectorComponent implements OnInit {
 
     closeDropdown(restoreFocus = true): void {
         this.dropdownOpen.set(false);
+        this.search.set('');
         if (restoreFocus) this.trigger()?.nativeElement.focus();
     }
 

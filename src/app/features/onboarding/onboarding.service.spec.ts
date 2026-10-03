@@ -74,9 +74,9 @@ afterEach(() => TestBed.resetTestingModule());
 
 describe('setup progress', () => {
     it('validates stored flags without accepting truthy strings or unrelated properties', () => {
-        expect(parseOnboardingProgress(null)).toEqual({ started: false, dismissed: false, accountsReviewed: false, alertsReviewed: false });
+        expect(parseOnboardingProgress(null)).toEqual({ started: false, dismissed: false, accountsReviewed: false, alertsReviewed: false, templatesReviewed: false, journalReviewed: false });
         expect(parseOnboardingProgress({ started: true, dismissed: 'false', alertsReviewed: 1, accountsReviewed: true, enabled: true }))
-            .toEqual({ started: true, dismissed: false, accountsReviewed: true, alertsReviewed: false });
+            .toEqual({ started: true, dismissed: false, accountsReviewed: true, alertsReviewed: false, templatesReviewed: false, journalReviewed: false });
     });
 
     it('waits for cloud data, invites a new owner, and never writes on initial load', async () => {
@@ -104,15 +104,19 @@ describe('setup progress', () => {
         await second.service.update({ dismissed: false }); expect(second.service.showInvitation()).toBe(true);
     });
 
-    it('completes only with real trades and explicit reviews; never changes alerts', async () => {
+    it('supports four explicit reviews without requiring new trades or changing alerts', async () => {
         const h = setup(); await h.settle();
         await h.service.update({ started: true, accountsReviewed: true, alertsReviewed: true });
         expect(h.service.complete()).toBe(false);
         h.trades.set([{ userId: 'owner-a' } as Trade]);
-        expect(h.service.complete()).toBe(true); expect(h.service.showInvitation()).toBe(false);
+        expect(h.service.complete()).toBe(false);
         expect(h.rpc).toHaveBeenCalledExactlyOnceWith('set_my_onboarding_progress', {
             p_patch: { started: true, accountsReviewed: true, alertsReviewed: true },
         });
+        await h.service.update({ templatesReviewed: true, journalReviewed: true });
+        h.trades.set([]);
+        expect(h.service.completedCount()).toBe(4); expect(h.service.complete()).toBe(true);
+        expect(h.service.showInvitation()).toBe(false);
     });
 
     it('does not persist demo progress or flash it after returning to real data', async () => {
@@ -158,5 +162,35 @@ describe('setup progress', () => {
         expect(h.service.progress().dismissed).toBe(false); expect(h.service.error()).toContain('weren’t saved');
         await h.service.update({ dismissed: true }); expect(h.service.progress().dismissed).toBe(true);
         expect(h.service.error()).toBeNull();
+    });
+
+    it('offers the popup once, saves dismissal and allows manual reopening without repeat writes', async () => {
+        const h = setup(); await h.settle();
+        expect(h.service.shouldOfferGuide()).toBe(true);
+        h.service.openGuide(); expect(h.service.dialogOpen()).toBe(true);
+        expect(h.service.shouldOfferGuide()).toBe(false); expect(h.rpc).not.toHaveBeenCalled();
+        h.service.closeGuide(); await vi.waitFor(() => expect(h.service.saving()).toBe(false));
+        expect(h.service.progress().dismissed).toBe(true);
+        h.service.openGuide(); expect(h.service.dialogOpen()).toBe(true);
+        h.switchUser(null); expect(h.service.dialogOpen()).toBe(false);
+    });
+
+    it('waits for loaded data and does not interrupt existing users, dismissed users or demo', async () => {
+        const h = setup(); h.dataLoaded.set(false); await h.settle();
+        expect(h.service.shouldOfferGuide()).toBe(false);
+        h.trades.set([{ userId: 'owner-a' } as Trade]); h.dataLoaded.set(true);
+        expect(h.service.shouldOfferGuide()).toBe(false);
+        h.trades.set([]); await h.service.update({ started: true });
+        expect(h.service.shouldOfferGuide()).toBe(false);
+        h.setDemo(true); h.service.openGuide(); expect(h.service.dialogOpen()).toBe(false);
+    });
+
+    it('queues dismissal behind a pending review save instead of losing it', async () => {
+        const h = setup(); await h.settle(); h.service.openGuide();
+        const resolve = h.hold('write'); const save = h.service.update({ templatesReviewed: true });
+        h.service.closeGuide(); expect(h.service.dialogOpen()).toBe(false);
+        resolve({ data: { templatesReviewed: true }, error: null }); await save;
+        await vi.waitFor(() => expect(h.rpc).toHaveBeenCalledTimes(2));
+        expect(h.service.progress().dismissed).toBe(true);
     });
 });
