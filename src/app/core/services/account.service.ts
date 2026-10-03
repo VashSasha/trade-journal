@@ -9,6 +9,7 @@ import { AccountSettingsService } from './account-settings.service';
 import { UserSessionService } from './user-session.service';
 import { isCacheSuspended, cacheSuspended } from './user-data/user-data.cache';
 import { AccessPolicyService } from './access-policy.service';
+import { newestAccountsFirst } from '../utils/account-order.utils';
 
 const STORAGE_KEY = 'tradovate_selected_account_ids';
 
@@ -78,6 +79,11 @@ export class AccountService {
             });
         }
 
+        for (const account of this.inactiveAccounts()) {
+            if (liveIds.has(account.id) || seen.has(account.id)) continue;
+            seen.add(account.id);
+            result.push(account);
+        }
         for (const t of this.tradeService.trades()) {
             if (!t.accountId || t.accountId === '0') {
                 if (!seen.has(0)) { seen.add(0); result.push({ id: 0, name: 'Unassigned / manual trades', userId: 0, accountType: '', active: false }); }
@@ -88,7 +94,7 @@ export class AccountService {
             seen.add(id);
             result.push({ id, name: t.accountName || t.accountId, userId: 0, accountType: '', active: false });
         }
-        return result;
+        return newestAccountsFirst(result);
     });
 
     selectedIds = signal<number[]>(this.loadSelectedIds());
@@ -202,6 +208,7 @@ export class AccountService {
             this.userSession.userId();
             this.liveBalances.set(new Map());
             this.balanceFailedConnectionIds.set(new Set());
+            this.isRefreshing.set(false);
             if (cacheSuspended()) return;
             this.selectedIds.set(this.loadSelectedIds());
         });
@@ -221,6 +228,7 @@ export class AccountService {
             const stored = this.tradingAccounts.all();
             const storedById = this.tradingAccounts.byId();
             const liveConnIds = new Set(this.tradovateService.connections().map(c => c.id));
+            const brokerAccounts = new Map(this.tradovateService.allAccounts().map(a => [a.id, a]));
 
             // Primary: stored accounts that are active and belong to a live connection.
             const live: TradovateAccount[] = [];
@@ -234,7 +242,8 @@ export class AccountService {
                     name: acc.name || String(acc.accountId),
                     userId: 0,
                     accountType: acc.accountType,
-                    active: true
+                    active: true,
+                    timestamp: brokerAccounts.get(acc.accountId)?.timestamp,
                 });
             }
             // Fallback: blob entries not yet in the stored table.
@@ -246,7 +255,7 @@ export class AccountService {
                     live.push(a);
                 }
             }
-            this.accounts.set(live);
+            this.accounts.set(newestAccountsFirst(live));
 
             // Default to known accounts (including historical) on a new device.
             if (!this.hasStoredSelection()) {
@@ -306,23 +315,17 @@ export class AccountService {
         if (!this.access.canAct('sync')) return;
         // Stored balances from TradingAccountsService already render via accountBalances —
         // no need to wait for the API. Just kick off the live refresh.
-        if (!this.isConnected()) return;
-        const cached = this.tradovateService.allAccounts();
-        if (cached.length === 0) {
-            Promise.all(
-                this.tradovateService.connections().map(conn =>
-                    firstValueFrom(this.tradovateService.getAccountsForConnection(conn)).catch(() => null)
-                )
-            ).then(() => void this.fetchBalances());
-        } else {
-            void this.fetchBalances();
-        }
-    }
-
-    private async fetchBalances(): Promise<void> {
-        await Promise.all(
-            this.tradovateService.connections().map(conn => this.fetchBalancesForConnection(conn))
-        );
+        if (!this.isConnected() || this.isRefreshing()) return;
+        const scope = this.access.capture();
+        const conns = this.tradovateService.connections();
+        this.isRefreshing.set(true);
+        // Refresh status even with cached accounts. Errors leave the saved list intact.
+        void Promise.all([
+            ...conns.map(conn => firstValueFrom(this.tradovateService.getAccountsForConnection(conn)).catch(() => null)),
+            ...conns.map(conn => this.fetchBalancesForConnection(conn)),
+        ]).finally(() => {
+            if (this.access.isCurrent(scope)) this.isRefreshing.set(false);
+        });
     }
 
     private async fetchBalancesForConnection(conn: TradovateConnection): Promise<void> {
@@ -428,6 +431,7 @@ export class AccountService {
     }
 
     async refreshBalances(): Promise<void> {
+        if (this.isRefreshing()) return;
         if (!this.access.requestAction('sync')) return;
         if (!this.isConnected()) return;
         this.isRefreshing.set(true);

@@ -1,0 +1,33 @@
+:host { display: block; min-width: 0; margin-bottom: 1.5rem; }
+.broker-picker {
+    padding: 1.25rem; border: 1px solid var(--color-border); border-radius: .75rem;
+    background: var(--color-bg-surface); color: var(--color-text-primary);
+    &__header { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; margin-bottom: 1rem;
+        h2 { margin: 0; font-size: 1rem; font-weight: 650; }
+        p { margin: .375rem 0 0; font-size: .8125rem; line-height: 1.5; color: var(--color-text-secondary); } }
+    &__close { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; margin-top: -.5rem;
+        border: 0; border-radius: .5rem; background: transparent; color: var(--color-text-secondary); cursor: pointer;
+        &:hover { background: var(--color-bg-surface-2); color: var(--color-text-primary); } }
+    &__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: .75rem; }
+    &__broker { display: flex; align-items: center; gap: .875rem; min-width: 0; padding: 1rem;
+        border: 1px solid var(--color-border); border-radius: .625rem; background: var(--color-bg-surface-2);
+        color: var(--color-text-primary); text-align: left; font: inherit; cursor: pointer;
+        &:hover { border-color: var(--color-accent); background: var(--color-accent-subtle); } }
+    &__logo { width: 40px; height: 40px; object-fit: contain; flex-shrink: 0; }
+    &__info { display: grid; gap: .375rem; min-width: 0;
+        strong { font-size: .9375rem; font-weight: 650; }
+        > span { font-size: .75rem; line-height: 1.5; color: var(--color-text-secondary); }
+        .broker-picker__method { color: var(--color-text-accent); font-size: .6875rem; } }
+    &__chevron { flex-shrink: 0; margin-left: auto; color: var(--color-text-secondary); }
+    &__coming { display: flex; align-items: center; gap: .875rem; padding: 1rem; color: var(--color-text-secondary);
+        > svg { flex-shrink: 0; }
+        strong { font-size: .8125rem; font-weight: 500; }
+        p { margin: .375rem 0 0; max-width: 32ch; font-size: .75rem; line-height: 1.5; } }
+    &__hint { margin: 1rem 0 0; color: var(--color-text-secondary); font-size: .75rem; line-height: 1.5; }
+    button:focus-visible, h2:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+    @media (max-width: 480px) {
+        padding: 1rem;
+        &__broker { padding: .875rem; }
+        &__coming { padding: .5rem 0; }
+    }
+}

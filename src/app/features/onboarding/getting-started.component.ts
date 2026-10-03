@@ -13,10 +13,11 @@ import { OnboardingService } from './onboarding.service';
 })
 export class GettingStartedComponent {
     readonly compact = input(false);
+    readonly embedded = input(false);
     readonly setup = inject(OnboardingService);
     readonly access = inject(AccessPolicyService);
 
-    review(field: 'accountsReviewed' | 'alertsReviewed', event: Event): void {
+    review(field: 'accountsReviewed' | 'templatesReviewed' | 'alertsReviewed' | 'journalReviewed', event: Event): void {
         const checkbox = event.target as HTMLInputElement;
         const checked = checkbox.checked;
         // Keep the control truthful while saving, including on failure.

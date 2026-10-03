@@ -11,7 +11,7 @@ import { TradovateService } from '../../../core/services/tradovate.service';
 import { SyncNoticeComponent } from '../../../shared/components/sync-notice/sync-notice.component';
 import { DemoModeService } from '../../../core/services/demo-mode.service';
 import { DemoBannerComponent } from '../../demo/demo-banner/demo-banner.component';
-import { PostSignupModalComponent } from '../../demo/post-signup-modal/post-signup-modal.component';
+import { OnboardingDialogComponent } from '../../onboarding/onboarding-dialog.component';
 import { UpgradePromptComponent } from '../../demo/upgrade-prompt/upgrade-prompt.component';
 import { PerformanceAlertToastComponent } from '../../alerts/performance-alert-toast.component';
 import { MarketAwarenessDrawerComponent } from '../../market-events/market-awareness-drawer.component';
@@ -25,7 +25,7 @@ const DISMISSED_KEY = 'tj_banner_dismissed_connections';
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, FormsModule, Sidebar, MobileNavComponent, Header, SyncNoticeComponent, DemoBannerComponent, PostSignupModalComponent, UpgradePromptComponent, PerformanceAlertToastComponent, MarketAwarenessDrawerComponent, LiveCoachWidgetComponent],
+  imports: [RouterOutlet, FormsModule, Sidebar, MobileNavComponent, Header, SyncNoticeComponent, DemoBannerComponent, OnboardingDialogComponent, UpgradePromptComponent, PerformanceAlertToastComponent, MarketAwarenessDrawerComponent, LiveCoachWidgetComponent],
   templateUrl: './main-layout.html',
   styleUrl: './main-layout.scss'
 })

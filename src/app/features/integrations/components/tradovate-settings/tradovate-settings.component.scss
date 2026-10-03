@@ -48,8 +48,12 @@
     &__header {
         display: flex;
         align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
         gap: 1rem;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
+
+        > div { flex: 1 1 16rem; min-width: 0; }
     }
 
     &__nav-icon { width: 1.5rem; height: 1.5rem; }
@@ -484,12 +488,20 @@
     }
 
     &__add-btn {
-        width: 100%;
-        padding: 2rem;
-        border: 2px dashed var(--color-border);
-        border-radius: 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        flex-shrink: 0;
+        min-height: 44px;
+        padding: 0.5rem 0.875rem;
+        border: 1px solid var(--color-border);
+        border-radius: 0.5rem;
         background-color: var(--color-bg-surface);
-        text-align: center;
+        color: var(--color-text-primary);
+        font: inherit;
+        font-size: 0.8125rem;
+        font-weight: 600;
         cursor: pointer;
         transition: border-color 0.15s, background-color 0.15s;
 
@@ -497,42 +509,52 @@
             border-color: var(--color-accent);
             background-color: var(--color-bg-surface-2);
         }
+
+        &:focus-visible {
+            outline: 2px solid var(--color-accent);
+            outline-offset: 2px;
+        }
     }
 
     &__add-icon {
-        width: 3rem;
-        height: 3rem;
-        margin: 0 auto;
-        color: var(--color-text-muted);
+        width: 1.125rem;
+        height: 1.125rem;
+        flex-shrink: 0;
     }
 
-    &__add-title {
-        margin-top: 0.5rem;
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: var(--color-text-primary);
-    }
-
-    &__add-subtitle {
-        margin-top: 0.25rem;
-        font-size: 0.75rem;
-        color: var(--color-text-muted);
-    }
+    &__connection-form { margin-bottom: 1.5rem; }
+    &__back { display: inline-flex; align-items: center; gap: .375rem; min-height: 44px; padding: .375rem .5rem;
+        margin: -.25rem 0 .75rem; border: 0; border-radius: .375rem; background: transparent; color: var(--color-text-secondary);
+        font: inherit; font-size: .8125rem; cursor: pointer;
+        &:hover:not(:disabled) { color: var(--color-text-primary); background: var(--color-bg-surface-2); } }
+    &__provider { display: flex; align-items: center; gap: .75rem; min-width: 0;
+        img { flex-shrink: 0; object-fit: contain; }
+        p { margin: .375rem 0 0; font-size: .75rem; line-height: 1.5; color: var(--color-text-secondary); } }
+    &__connection-form :is(button, h2):focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+    &__connection-form button:disabled { opacity: .5; cursor: not-allowed; }
 
     &__form-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: .75rem;
         margin-bottom: 1.5rem;
     }
 
     &__form-title {
-        font-size: 1.25rem;
-        font-weight: 700;
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 650;
         color: var(--color-text-primary);
     }
 
     &__form-close {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        flex-shrink: 0;
+        border-radius: .5rem;
         background: none;
         border: none;
         color: var(--color-text-muted);

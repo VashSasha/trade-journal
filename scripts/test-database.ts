@@ -477,4 +477,87 @@ try {
     assert.deepEqual(await query('select * from trades order by id'), tradesBeforePlus);
     assert.deepEqual((await query('select prefs from user_settings where user_id=$1', [A]))[0].prefs, ownerPrefs);
     console.log('PASS: AI tone explicit consent, current entitlement, service-only verification, owner isolation, anonymous denial, safe rerun, downgrade opt-out and retained data');
+
+    // Admin summary replaces the dashboard's daily view, never the usage table.
+    // A/B deliberately share a display name: identity must remain UUID-based.
+    await query("update profiles set display_name='Shared name' where id in ($1,$2)", [A, B]);
+    const usageOnlyUser = crypto.randomUUID(), unusedUser = crypto.randomUUID();
+    await query('insert into auth.users(id) values ($1),($2)', [usageOnlyUser, unusedUser]);
+    await query('delete from profiles where id=$1', [usageOnlyUser]);
+    await query(`insert into ai_usage(user_id,day,count) values
+        ($1,(now() at time zone 'UTC')::date-1,3),
+        ($1,(now() at time zone 'UTC')::date-2,2),
+        ($2,(now() at time zone 'UTC')::date-1,0),
+        ($3,(now() at time zone 'UTC')::date-1,4)`, [A, B, usageOnlyUser]);
+    const usageBefore = await query('select * from ai_usage order by user_id,day');
+    const coachUsageBefore = await query('select * from live_coach_ai_usage order by user_id,day');
+    const requestsBefore = await query('select * from ai_requests order by user_id,id');
+    const profilesBefore = await query('select * from profiles order by id');
+    const today = (await query("select ((now() at time zone 'UTC')::date)::text as day"))[0].day;
+    await db.exec(`create view ai_usage_admin as
+        select u.user_id,p.email,p.display_name,u.day,u.count from ai_usage u left join profiles p on p.id=u.user_id;
+        grant select on ai_usage_admin to anon,authenticated;`);
+    await migration('0039_ai_usage_admin_summary');
+    await migration('0039_ai_usage_admin_summary'); // Safe to rerun from the SQL editor.
+    const summary = await query('select * from ai_usage_admin order by user_id');
+    assert.equal(new Set(summary.map(row => row.user_id)).size, summary.length);
+    assert.equal(summary.length, profilesBefore.length + 1); // Missing-profile usage is not lost.
+    assert.deepEqual(summary.find(row => row.user_id === A), {
+        user_id: A, email: profilesBefore.find(row => row.id === A).email, display_name: 'Shared name',
+        today_count: 10, total_count: 15, last_usage_day: new Date(`${today}T00:00:00.000Z`),
+    });
+    assert.deepEqual(summary.find(row => row.user_id === B), {
+        user_id: B, email: profilesBefore.find(row => row.id === B).email, display_name: 'Shared name',
+        today_count: 0, total_count: 0, last_usage_day: null,
+    });
+    const unused = summary.find(row => row.user_id === unusedUser);
+    assert.equal(unused.today_count, 0); assert.equal(unused.total_count, 0); assert.equal(unused.last_usage_day, null);
+    const missingProfile = summary.find(row => row.user_id === usageOnlyUser);
+    assert.equal(missingProfile.email, null); assert.equal(missingProfile.display_name, null);
+    assert.equal(missingProfile.today_count, 0); assert.equal(missingProfile.total_count, 4);
+    assert.equal(summary.reduce((sum, row) => sum + row.total_count, 0), usageBefore.reduce((sum, row) => sum + row.count, 0));
+    await db.exec("set time zone 'Pacific/Kiritimati'");
+    assert.deepEqual(await query('select * from ai_usage_admin order by user_id'), summary); // UTC, not session timezone.
+    await db.exec("set time zone 'UTC'");
+    assert.equal((await query("select reloptions from pg_class where oid='public.ai_usage_admin'::regclass"))[0].reloptions.includes('security_invoker=true'), true);
+    for (const role of ['anon', 'authenticated']) {
+        await db.exec(`set role ${role}`);
+        await assert.rejects(query('select * from ai_usage_admin'), /permission denied/);
+        await db.exec('reset role');
+    }
+    await db.exec('set role service_role');
+    assert.deepEqual(await query('select * from ai_usage_admin order by user_id'), summary);
+    await assert.rejects(query('delete from ai_usage_admin'), /permission denied|cannot delete from view/);
+    await db.exec('reset role');
+    assert.deepEqual(await query('select * from ai_usage order by user_id,day'), usageBefore);
+    assert.deepEqual(await query('select * from live_coach_ai_usage order by user_id,day'), coachUsageBefore);
+    assert.deepEqual(await query('select * from ai_requests order by user_id,id'), requestsBefore);
+    assert.deepEqual(await query('select * from profiles order by id'), profilesBefore);
+    // An unknown dependent view must stop replacement and survive unchanged.
+    await db.exec('create view test_usage_dependency as select user_id from ai_usage_admin');
+    await assert.rejects(migration('0039_ai_usage_admin_summary'), /depend on it/);
+    await db.exec('rollback');
+    assert.deepEqual(await query('select * from ai_usage_admin order by user_id'), summary);
+    assert.equal((await query('select * from test_usage_dependency')).length, summary.length);
+    console.log('PASS: AI admin summary one row per UUID, totals, unused/missing profiles, UTC, safe rerun, admin-only grants, dependency protection and unchanged source records');
+    const settingsBeforeGuide = await query('select * from user_settings order by user_id');
+    await migration('0040_onboarding_guide_steps');
+    await migration('0040_onboarding_guide_steps');
+    assert.deepEqual(await query('select * from user_settings order by user_id'), settingsBeforeGuide);
+    await setUser(A);
+    await updateSetup({ templatesReviewed: true });
+    const guide = (await updateSetup({ journalReviewed: true }))[0].progress;
+    assert.deepEqual(guide, { ...ownerPrefs.onboarding, templatesReviewed: true, journalReviewed: true });
+    for (const bad of [{ templatesReviewed: 'true' }, { journalReviewed: null }, { user_id: B }]) {
+        await assert.rejects(updateSetup(bad), /Invalid setup progress/);
+    }
+    const guidePrefs = (await query('select prefs from user_settings'))[0].prefs;
+    assert.deepEqual({ ...guidePrefs, onboarding: ownerPrefs.onboarding }, ownerPrefs);
+    await setUser(B);
+    assert.equal((await query('select prefs from user_settings where user_id=$1', [A])).length, 0);
+    await db.exec('reset role; set role anon');
+    await assert.rejects(updateSetup({ templatesReviewed: true }), /permission denied/);
+    await db.exec('reset role');
+    assert.deepEqual(await query('select * from trades order by id'), tradesBeforePlus);
+    console.log('PASS: expanded setup guide safe rerun, owner-only partial progress, validation, preserved preferences and trades');
 } finally { await db.close(); }

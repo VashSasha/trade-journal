@@ -65,21 +65,39 @@ export class TradingAccountsService {
     /** Persist account metadata from an /account/list fetch. Balance and
      *  starting_balance are preserved; active is written from the broker payload
      *  so broker-deactivated accounts are correctly reflected in the stored table. */
-    recordAccounts(connectionId: string, accounts: TradovateAccount[]): void {
-        if (accounts.length === 0) return;
-        this.merge(accounts.map(a => {
+    recordAccounts(connectionId: string, accounts: TradovateAccount[]): TradovateAccount[] {
+        // Only a complete, valid /account/list snapshot may retire missing accounts.
+        // A network error or malformed payload must never erase their live status.
+        if (!Array.isArray(accounts) || accounts.some(a => !a || !Number.isSafeInteger(a.id)
+            || a.id <= 0 || typeof a.name !== 'string'
+            || (a.active != null && typeof a.active !== 'boolean'))
+            || new Set(accounts.map(a => a.id)).size !== accounts.length) {
+            throw new Error('Invalid account list. Saved accounts were not changed.');
+        }
+        const normalized = accounts.map(a => ({
+            ...a, active: a.active ?? this.accountsMap().get(a.id)?.active ?? true,
+        }));
+        const updates: StoredTradingAccount[] = normalized.map(a => {
             const prev = this.accountsMap().get(a.id);
             return {
                 accountId: a.id,
                 connectionId,
                 name: a.name,
                 accountType: a.accountType ?? '',
-                active: a.active !== false,
+                active: a.active,
                 lastBalance: prev?.lastBalance ?? null,
                 balanceUpdatedAt: prev?.balanceUpdatedAt ?? null,
                 startingBalance: prev?.startingBalance ?? null,
             };
-        }));
+        });
+        const returnedIds = new Set(normalized.map(a => a.id));
+        for (const saved of this.accountsMap().values()) {
+            if (saved.connectionId === connectionId && saved.active && !returnedIds.has(saved.accountId)) {
+                updates.push({ ...saved, active: false });
+            }
+        }
+        this.merge(updates);
+        return normalized;
     }
 
     /** Persist balances from a /cashBalance/list fetch. All other fields preserved. */

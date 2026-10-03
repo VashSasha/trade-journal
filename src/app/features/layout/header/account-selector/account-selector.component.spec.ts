@@ -57,6 +57,7 @@ describe('header account selector', () => {
 
     it('keeps active and historical selection in the existing account service', async () => {
         const { fixture, root, account, ids, open } = setup(); await open();
+        root.querySelector<HTMLButtonElement>('.acct-dropdown__history-toggle')!.click(); fixture.detectChanges();
         const checkboxes = root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
         expect(checkboxes).toHaveLength(2);
         expect(checkboxes[1].checked).toBe(true);
@@ -67,6 +68,29 @@ describe('header account selector', () => {
         root.querySelectorAll<HTMLButtonElement>('.acct-dropdown__action')[1].click(); fixture.detectChanges();
         expect(account.deselectAll).toHaveBeenCalledOnce();
         expect(ids()).toEqual([]);
+    });
+
+    it('collapses historical accounts without changing selections or totals', async () => {
+        const { fixture, root, ids, balance, open } = setup(); await open();
+        const toggle = root.querySelector<HTMLButtonElement>('.acct-dropdown__history-toggle')!;
+        expect(toggle.getAttribute('aria-expanded')).toBe('false');
+        expect(toggle.textContent).toContain('1 selected');
+        expect(root.querySelectorAll('input[type="checkbox"]')).toHaveLength(1);
+        toggle.click(); fixture.detectChanges(); toggle.click(); fixture.detectChanges();
+        expect(ids()).toEqual([1, 2]); expect(balance()).toBe(1200);
+    });
+
+    it('searches historical names and IDs while preserving global selection', async () => {
+        const { fixture, root, ids, open } = setup(); await open();
+        const search = root.querySelector<HTMLInputElement>('input[type="search"]')!;
+        const query = (value: string) => { search.value = value; search.dispatchEvent(new Event('input')); fixture.detectChanges(); };
+        query('EVALUATION');
+        expect(root.querySelectorAll('input[type="checkbox"]')).toHaveLength(1);
+        expect(root.querySelector('.acct-dropdown__item')?.textContent).toContain('Historical evaluation');
+        query('1'); expect(root.querySelector('.acct-dropdown__item')?.textContent).toContain('Live trading');
+        query('nothing'); expect(root.textContent).toContain('No matching historical accounts');
+        query(''); expect(root.querySelector<HTMLButtonElement>('.acct-dropdown__history-toggle')!.getAttribute('aria-expanded')).toBe('false');
+        expect(ids()).toEqual([1, 2]);
     });
 
     it('closes when keyboard focus leaves, without stealing focus back', async () => {

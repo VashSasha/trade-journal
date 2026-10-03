@@ -40,6 +40,9 @@
                     </svg>
                 </button>
             </div>
+            <input type="search" class="acct-dropdown__search" aria-label="Search all accounts"
+                placeholder="Search name, ID or account type" [value]="search()"
+                (input)="search.set($any($event.target).value)" />
             <div class="acct-dropdown__actions">
                 <button type="button" class="acct-dropdown__action" (click)="accountService.selectAll()">Select all</button>
                 <button type="button" class="acct-dropdown__action" (click)="accountService.deselectAll()">Clear selection</button>
@@ -47,7 +50,8 @@
                     [disabled]="accountService.isRefreshing()">{{ accountService.isRefreshing() ? 'Refreshing…' : 'Refresh' }}</button>
             </div>
             <div class="acct-dropdown__list">
-                @for (account of accountService.accounts(); track account.id) {
+                <div class="acct-dropdown__section-label">Active · {{ matchingActive().length }}</div>
+                @for (account of matchingActive(); track account.id) {
                 <label class="acct-dropdown__item">
                     <div class="acct-dropdown__item-left">
                         <input type="checkbox" class="acct-dropdown__checkbox"
@@ -65,12 +69,20 @@
                     </div>
                 </label>
                 } @empty {
-                <div class="acct-dropdown__empty">No accounts found</div>
+                <div class="acct-dropdown__empty">{{ search().trim() ? 'No matching active accounts' : 'No active accounts' }}</div>
                 }
 
                 @if (accountService.historicalAccounts().length > 0) {
-                <div class="acct-dropdown__section-label">Historical</div>
-                @for (account of accountService.historicalAccounts(); track account.id) {
+                <button type="button" class="acct-dropdown__history-toggle"
+                    [attr.aria-expanded]="showHistory()" aria-controls="historical-accounts"
+                    [disabled]="!!search().trim()" (click)="historyExpanded.set(!historyExpanded())">
+                    <span>Historical · {{ matchingHistory().length }} <span class="acct-dropdown__history-count">({{ selectedHistoryCount() }} selected)</span></span>
+                    <span aria-hidden="true">{{ showHistory() ? '−' : '+' }}</span>
+                </button>
+                <p class="acct-dropdown__history-hint">Collapsed or hidden accounts still count when selected.</p>
+                <div id="historical-accounts" [hidden]="!showHistory()">
+                @if (showHistory()) {
+                @for (account of matchingHistory(); track account.id) {
                 <label class="acct-dropdown__item acct-dropdown__item--inactive">
                     <div class="acct-dropdown__item-left">
                         <input type="checkbox" class="acct-dropdown__checkbox"
@@ -90,7 +102,11 @@
                         <div class="acct-dropdown__item-balance acct-dropdown__item-balance--na">—</div>
                     }
                 </label>
+                } @empty {
+                    <div class="acct-dropdown__empty">No matching historical accounts</div>
                 }
+                }
+                </div>
                 }
             </div>
 

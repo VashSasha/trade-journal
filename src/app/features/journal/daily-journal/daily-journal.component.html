@@ -23,6 +23,7 @@
                 </button>
             </div>
             <div class="dj-header__actions">
+                <button type="button" class="dj-header__guide" (click)="setup.openGuide()">Getting started</button>
                 @if (form.isDirty()) {
                 <span class="dj-header__unsaved">
                     <span class="dj-header__unsaved-dot"></span>

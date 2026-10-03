@@ -1109,11 +1109,9 @@ export class TradovateService {
 
     getAccountsForConnection(conn: TradovateConnection): Observable<TradovateAccount[]> {
         return this.authGetFor<TradovateAccount[]>(conn, '/account/list').pipe(
+            map(accounts => this.tradingAccounts.recordAccounts(conn.id, accounts)),
             tap(accounts => {
                 this.updateConnectionAccounts(conn.id, accounts);
-                // Persist to trading_accounts so these keep working after the
-                // connection is removed (rows are never deleted).
-                this.tradingAccounts.recordAccounts(conn.id, accounts);
             })
         );
     }

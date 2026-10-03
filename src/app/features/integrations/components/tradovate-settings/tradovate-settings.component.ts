@@ -1,4 +1,4 @@
-import { Component, signal, inject } from '@angular/core';
+import { afterNextRender, Component, DestroyRef, ElementRef, Injector, signal, inject, viewChild } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -9,11 +9,13 @@ import { TradeService } from '../../../../core/services/trade.service';
 import { DemoModeService } from '../../../../core/services/demo-mode.service';
 import { UserSessionService } from '../../../../core/services/user-session.service';
 import { BrokerSyncStatusComponent } from '../../sync-status/broker-sync-status.component';
+import { BrokerPickerComponent } from '../../broker-picker/broker-picker.component';
+import { BrokerId, TRADOVATE_BROKER } from '../../broker-picker/broker-catalog';
 
 @Component({
     selector: 'app-tradovate-settings',
     standalone: true,
-    imports: [ReactiveFormsModule, FormsModule, BrokerSyncStatusComponent],
+    imports: [ReactiveFormsModule, FormsModule, BrokerSyncStatusComponent, BrokerPickerComponent],
     templateUrl: './tradovate-settings.component.html',
     styleUrl: './tradovate-settings.component.scss'
 })
@@ -25,6 +27,12 @@ export class TradovateSettingsComponent {
     accountSettings = inject(AccountSettingsService);
     private tradeService = inject(TradeService);
     private session = inject(UserSessionService);
+    private readonly injector = inject(Injector);
+    private readonly destroyRef = inject(DestroyRef);
+    private readonly addButton = viewChild<ElementRef<HTMLButtonElement>>('addButton');
+    private readonly formHeading = viewChild<ElementRef<HTMLHeadingElement>>('formHeading');
+    readonly selectedBroker = signal<BrokerId | null>(null);
+    readonly tradovateBroker = TRADOVATE_BROKER;
 
     configForm: FormGroup;
     isSaved = signal(false);
@@ -101,15 +109,37 @@ export class TradovateSettingsComponent {
     toggleAddConnection(): void {
         if (this.isConnecting()) return;
         this.showAddConnection.update(v => !v);
+        this.selectedBroker.set(null);
         if (!this.showAddConnection()) {
-            this.configForm.reset({
-                connectionName: '', environment: 'demo',
-                username: '', password: ''
-            });
+            this.resetConnectionForm();
+            this.focusAddButton();
         }
     }
 
+    selectBroker(broker: BrokerId): void {
+        if (this.isConnecting() || !this.showAddConnection() || broker !== 'tradovate') return;
+        this.selectedBroker.set(broker);
+        afterNextRender(() => this.formHeading()?.nativeElement.focus(), { injector: this.injector });
+    }
+
+    backToBrokers(): void {
+        if (this.isConnecting()) return;
+        this.resetConnectionForm();
+        this.selectedBroker.set(null);
+    }
+
+    private resetConnectionForm(): void {
+        this.configForm.reset({ connectionName: '', environment: 'demo', username: '', password: '' });
+        this.showSecret.set(false);
+    }
+
+    private focusAddButton(): void {
+        if (this.destroyRef.destroyed) return;
+        afterNextRender(() => this.addButton()?.nativeElement.focus(), { injector: this.injector });
+    }
+
     async connect(): Promise<void> {
+        if (this.selectedBroker() !== 'tradovate' || !this.showAddConnection()) return;
         if (!this.demo.requireAccount('connect')) return;
         if (!this.configForm.valid || this.isConnecting()) return;
         const scope = this.session.capture();
@@ -132,8 +162,10 @@ export class TradovateSettingsComponent {
             await firstValueFrom(this.tradovateService.getAccountsForConnection(conn));
             this.session.assertCurrent(scope);
             this.showAddConnection.set(false);
+            this.selectedBroker.set(null);
             this.isSaved.set(true);
-            this.configForm.reset({ connectionName: '', environment: 'demo', username: '', password: '' });
+            this.resetConnectionForm();
+            this.focusAddButton();
             await this.fullSync();
         } catch (err) {
             if (this.session.isCurrent(scope)) this.syncError.set(err instanceof Error ? err.message : 'Connection failed. Please try again.');

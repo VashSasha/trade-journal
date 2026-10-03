@@ -1,4 +1,7 @@
 import { Component, inject } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { OnboardingService } from '../../onboarding/onboarding.service';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TradeTableComponent } from '../../../shared/components/trade-table/trade-table.component';
@@ -31,6 +34,17 @@ export class DailyJournalComponent {
     rules     = inject(JournalRulesState);
     templates = inject(JournalTemplatesState);
     tagsState = inject(JournalTagsState);
+    readonly setup = inject(OnboardingService);
+
+    constructor() {
+        const route = inject(ActivatedRoute);
+        const router = inject(Router);
+        route.queryParamMap.pipe(takeUntilDestroyed()).subscribe(params => {
+            if (params.get('setup') !== 'templates') return;
+            this.templates.openPanel('pre-market');
+            void router.navigate([], { relativeTo: route, queryParams: { setup: null }, queryParamsHandling: 'merge', replaceUrl: true });
+        });
+    }
 
     readonly TRADES_PAGE_SIZE = 5;
     quillModules = QUILL_FULL_MODULES;
