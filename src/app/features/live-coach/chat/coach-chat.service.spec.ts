@@ -66,6 +66,25 @@ function setup() {
 beforeEach(() => localStorage.clear());
 afterEach(() => { TestBed.resetTestingModule(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 describe('Ask Coach state', () => {
+    it('restores the day of a voice-only chat and locks switching/deletion while talking', async () => {
+        const { service, holdRead, calls } = setup();
+        const done = holdRead('coach_conversations'); const loading = service.open('voice-chat');
+        done({ data: { id: 'voice-chat', title: 'Voice', coach_chat_turns: [], coach_voice_messages: [{
+            session_id: 'session', item_id: 'item', role: 'user', content: 'Review my rules.', interrupted: false,
+            created_at: '2026-10-08T12:00:00Z', context: { tradeDate: '2026-10-07' },
+        }] }, error: null });
+        await loading; expect(service.day()).toBe('2026-10-07'); expect(service.voiceMessages()).toHaveLength(1);
+        service.voiceActive.set(true); const count = calls.length;
+        service.newConversation(); await service.open('other'); await service.remove();
+        expect(service.conversationId()).toBe('voice-chat'); expect(calls).toHaveLength(count); expect(service.canReply()).toBe(false);
+    });
+    it('keeps typed chats readable before the optional voice migration is deployed', async () => {
+        const { service, holdRead, calls } = setup();
+        const done = holdRead('coach_conversations'); const loading = service.open('old-chat');
+        done({ data: null, error: { code: 'PGRST200', message: 'Could not find relationship to coach_voice_messages' } });
+        await loading; expect(service.loadFailed()).toBe(false);
+        expect(calls).toHaveLength(2); expect(calls[1].columns).not.toContain('coach_voice_messages');
+    });
     it('keeps the original observation across retries and sends only after it is saved', async () => {
         const { service, askCoach, ensureSaved, switchUser } = setup();
         const comment = { id: 1, historyId: 'saved-observation', time: 1000, title: 'Position increased', text: 'Now 3 contracts.', personalized: false };

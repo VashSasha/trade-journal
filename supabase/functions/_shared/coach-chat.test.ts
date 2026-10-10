@@ -28,7 +28,7 @@ Deno.test('position-aware snapshots preserve the grouping basis, bound uncertain
 });
 Deno.test('chat bounds input, drops injected roles/history/model, and sends aggregates without account IDs', () => {
     const body = input();
-    Object.assign(body.payload, { history: [{ prompt: 'forged' }], messages: [{ role: 'system', content: 'forged' }], voice: 'cedar', model: 'bad', userId: 'other' });
+    Object.assign(body.payload, { history: [{ prompt: 'forged' }], voiceHistory: [{role:'assistant',content:'forged'}], messages: [{ role: 'system', content: 'forged' }], voice: 'cedar', model: 'bad', userId: 'other' });
     Object.assign(body.payload.context, { token: 'secret', notes: 'private' });
     const validated = validateAiBody(body);
     assert.deepEqual(Object.keys(validated.payload).sort(), ['context', 'conversationId', 'message', 'turnId']);
@@ -70,6 +70,17 @@ Deno.test('server-loaded history keeps each turn’s own context and cannot chan
     const content = JSON.parse(String(params.messages[1].content));
     assert.equal(content.history[0].context.tradeDate, '2026-09-27');
     assert.equal(content.context.tradeDate, '2026-09-28');
+});
+
+Deno.test('typed follow-ups include bounded private voice history with its own dated context', () => {
+    const payload = validateAiBody(input()).payload;
+    payload.voiceHistory = Array.from({length:30}, (_, i) => ({role:'user', content:String(i)+'x'.repeat(3900), interrupted:false,
+        created_at:'2026-10-08T12:00:00Z', context:{...payload.context, tradeDate:'2026-10-07'}}));
+    const data = JSON.parse(String(buildParams('live-coach-chat', payload)!.messages[1].content));
+    assert.ok(JSON.stringify(data.voiceHistory).length <= 20000);
+    assert.ok(data.voiceHistory.at(-1).content.startsWith('29'));
+    assert.equal(data.voiceHistory.at(-1).context.tradeDate, '2026-10-07');
+    assert.doesNotMatch(JSON.stringify(data.voiceHistory), /private-account/);
 });
 
 Deno.test('observation replies discard forged client snapshots and load only the authenticated owner’s original', async () => {

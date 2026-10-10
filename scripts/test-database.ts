@@ -560,4 +560,27 @@ try {
     await db.exec('reset role');
     assert.deepEqual(await query('select * from trades order by id'), tradesBeforePlus);
     console.log('PASS: expanded setup guide safe rerun, owner-only partial progress, validation, preserved preferences and trades');
+    await migration('0041_coach_voice_messages');
+    await migration('0041_coach_voice_messages');
+    const voiceConversation = '55555555-5555-4555-8555-555555555555';
+    await query('insert into coach_conversations(user_id,id,title) values ($1,$2,$3)', [A, voiceConversation, 'Voice review']);
+    const insertVoice = () => query(`insert into coach_voice_messages(user_id,conversation_id,session_id,item_id,role,content,context)
+        values ($1,$2,$3,'item_voice','assistant','Review your process.','{}')`, [A, voiceConversation, token]);
+    await setUser(A);
+    await assert.rejects(insertVoice(), /permission denied/);
+    await db.exec('reset role; set role service_role');
+    await insertVoice();
+    await setUser(A);
+    assert.equal((await query('select * from coach_voice_messages')).length, 1);
+    await assert.rejects(query("update coach_voice_messages set content='Forged reply'"), /permission denied/);
+    await setUser(B);
+    assert.equal((await query('select * from coach_voice_messages')).length, 0);
+    await db.exec('reset role; set role anon');
+    await assert.rejects(query('select * from coach_voice_messages'), /permission denied/);
+    await setUser(A);
+    await query('delete from coach_conversations where id=$1', [voiceConversation]);
+    await db.exec('reset role');
+    assert.equal((await query('select * from coach_voice_messages where conversation_id=$1', [voiceConversation])).length, 0);
+    assert.deepEqual(await query('select * from trades order by id'), tradesBeforePlus);
+    console.log('PASS: voice transcripts owner-only, server-only writes, parent deletion, safe rerun and preserved trades');
 } finally { await db.close(); }

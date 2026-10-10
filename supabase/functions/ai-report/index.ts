@@ -94,12 +94,19 @@ Deno.serve(async req => {
             if (conversation.error) throw new RequestError('Unable to load this conversation. Please try again.', 503);
             if (!conversation.data) throw new RequestError('Conversation not found. Start a new conversation.', 404);
             await attachChatObservation(admin, userId, body.payload.context, controller.signal);
-            const history = await admin.from('coach_chat_turns').select('prompt,answer,context', { count: 'exact' })
+            const history = await admin.from('coach_chat_turns').select('prompt,answer,context,created_at', { count: 'exact' })
                 .eq('user_id', userId).eq('conversation_id', body.payload.conversationId)
                 .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(6).abortSignal(controller.signal);
             if (history.error) throw new RequestError('Unable to load conversation history. Please try again.', 503);
             if ((history.count ?? 0) >= 100) throw new RequestError('This conversation is full. Start a new conversation.', 409);
             body.payload.history = (history.data ?? []).reverse();
+            const voiceHistory = await admin.from('coach_voice_messages').select('role,content,interrupted,context,created_at')
+                .eq('user_id', userId).eq('conversation_id', body.payload.conversationId)
+                .order('created_at', { ascending: false }).limit(12).abortSignal(controller.signal);
+            // Keep text chat usable during rollout before the optional voice table exists.
+            if (voiceHistory.error && !['42P01', 'PGRST205'].includes(voiceHistory.error.code))
+                throw new RequestError('Unable to load voice conversation history. Please try again.', 503);
+            body.payload.voiceHistory = (voiceHistory.data ?? []).reverse();
         }
         // Speech reads existing words unchanged; only newly generated coaching gets a style.
         const mode = body.type === 'live-coach-preview' || body.type === 'live-coach-speech' ? 'standard'

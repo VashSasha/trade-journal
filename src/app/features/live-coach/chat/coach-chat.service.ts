@@ -8,7 +8,7 @@ import { UserDataService } from '../../../core/services/user-data/user-data.serv
 import { readCache } from '../../../core/services/user-data/user-data.cache';
 import { UserOperation, UserSessionService } from '../../../core/services/user-session.service';
 import { tradeSessionDateStr } from '../../../core/utils/market-holidays';
-import { captureChatContext, CoachChatObservation, CoachChatRequest, CoachChatTurn, CoachConversation } from './coach-chat.model';
+import { captureChatContext, CoachChatObservation, CoachChatRequest, CoachChatTurn, CoachConversation, CoachVoiceMessage } from './coach-chat.model';
 import { CoachHistoryService } from '../history/coach-history.service';
 import { captureCoachSnapshot } from '../history/coach-history.model';
 import { LiveCoachObservation } from '../live-coach.models';
@@ -32,6 +32,8 @@ export class CoachChatService {
     readonly conversationId = signal<string | null>(null);
     readonly conversationTitle = signal<string | null>(null);
     readonly turns = signal<CoachChatTurn[]>([]);
+    readonly voiceMessages = signal<CoachVoiceMessage[]>([]);
+    readonly voiceActive = signal(false);
     readonly draft = signal('');
     readonly replyTo = signal<CoachChatObservation | null>(null);
     readonly day = signal(tradeSessionDateStr(new Date().toISOString()));
@@ -50,7 +52,7 @@ export class CoachChatService {
     readonly allowanceLoading = signal(false);
     readonly canReview = computed(() => !!this.session.userId() && !this.access.demo());
     readonly canReply = computed(() => this.canReview() && this.access.canAct('ai')
-        && !this.pending() && !this.busy() && !this.loading() && !this.loadFailed() && !this.deleting());
+        && !this.voiceActive() && !this.pending() && !this.busy() && !this.loading() && !this.loadFailed() && !this.deleting());
     readonly accountIds = computed(() => this.filters.filters().accountSelectionActive ? [...this.filters.filters().accountIds] : null);
     readonly dataReady = this.data.dataLoaded;
     private generation = 0;
@@ -71,7 +73,7 @@ export class CoachChatService {
             owner = nextOwner; demo = nextDemo;
             untracked(() => {
                 this.cancel(false); this.invalidateConversations(); this.invalidateAllowance();
-                this.conversations.set([]); this.conversationId.set(null); this.turns.set([]); this.draft.set('');
+                this.conversations.set([]); this.conversationId.set(null); this.turns.set([]); this.voiceMessages.set([]); this.draft.set('');
                 this.conversationTitle.set(null); this.selectionInitialized = false;
                 this.loadFailed.set(false); this.notice.set(null); this.storageWarning.set(false);
                 this.pending.set(null); this.replyTo.set(null); this.error.set(null); this.listError.set(null); this.allowance.set(null);
@@ -169,12 +171,12 @@ export class CoachChatService {
     }
 
     newConversation(): void {
-        if (this.busy() || this.deleting()) return;
+        if (this.voiceActive() || this.busy() || this.deleting()) return;
         this.resetConversation(); this.rememberSelection(null);
     }
 
     private resetConversation(): void {
-        this.cancel(false); this.conversationId.set(null); this.turns.set([]); this.draft.set('');
+        this.cancel(false); this.conversationId.set(null); this.turns.set([]); this.voiceMessages.set([]); this.draft.set('');
         this.pending.set(null); this.replyTo.set(null); this.error.set(null); this.loading.set(false);
         this.conversationTitle.set(null); this.loadFailed.set(false); this.notice.set(null);
         this.selectionInitialized = true;
@@ -189,23 +191,33 @@ export class CoachChatService {
     }
 
     async open(id: string): Promise<void> {
-        if (!this.canReview() || this.busy() || this.deleting() || !id) return;
+        if (!this.canReview() || this.voiceActive() || this.busy() || this.deleting() || !id) return;
         const same = id === this.conversationId();
         const restoreDay = !same || this.loadFailed();
         this.cancel(false);
         this.selectionInitialized = true;
         const scope = this.access.capture(), revision = this.generation;
-        this.conversationId.set(id); this.turns.set([]); this.error.set(null); this.loading.set(true);
+        this.conversationId.set(id); this.turns.set([]); this.voiceMessages.set([]); this.error.set(null); this.loading.set(true);
         this.conversationTitle.set(null); this.loadFailed.set(false); this.notice.set(null);
         if (!same) { this.draft.set(''); this.pending.set(null); this.replyTo.set(null); }
         try {
             // Read the parent and its bounded history together: an empty chat is not a deleted chat.
-            const { data, error } = await this.client.from('coach_conversations')
-                .select('id,title,coach_chat_turns(id,conversation_id,prompt,answer,context,created_at)')
+            const query = (withVoice: boolean) => {
+                let read = this.client.from('coach_conversations')
+                .select('id,title,coach_chat_turns(id,conversation_id,prompt,answer,context,created_at)' + (withVoice ? ',coach_voice_messages(session_id,item_id,role,content,interrupted,context,created_at)' : ''))
                 .eq('user_id', scope.userId).eq('id', id)
                 .order('created_at', { referencedTable: 'coach_chat_turns' })
                 .order('id', { referencedTable: 'coach_chat_turns' })
-                .limit(100, { referencedTable: 'coach_chat_turns' }).abortSignal(this.signal(scope)).maybeSingle();
+                .limit(100, { referencedTable: 'coach_chat_turns' });
+                if (withVoice) read = read.order('created_at', { referencedTable: 'coach_voice_messages' })
+                    .order('item_id', { referencedTable: 'coach_voice_messages' }).limit(200, { referencedTable: 'coach_voice_messages' });
+                return read.abortSignal(this.signal(scope)).maybeSingle();
+            };
+            let result = await query(true);
+            // Rolling deploy: missing optional voice migration must not break existing typed chats.
+            if (result.error?.code === 'PGRST200' && result.error.message.includes('coach_voice_messages')) result = await query(false);
+            const { error } = result;
+            const data = result.data as unknown as (CoachConversation & { coach_chat_turns: CoachChatTurn[]; coach_voice_messages?: CoachVoiceMessage[] }) | null;
             if (!this.current(scope) || revision !== this.generation) return;
             if (error) throw error;
             if (!data) {
@@ -217,9 +229,11 @@ export class CoachChatService {
                 return;
             }
             this.turns.set(data.coach_chat_turns as CoachChatTurn[]);
+            this.voiceMessages.set((data.coach_voice_messages ?? []) as CoachVoiceMessage[]);
             this.conversationTitle.set(data.title);
             this.rememberSelection(id);
-            if (restoreDay && this.turns().length) this.day.set(this.turns().at(-1)!.context.tradeDate);
+            const latest = [...this.turns(), ...this.voiceMessages()].sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '')).at(-1);
+            if (restoreDay && latest) this.day.set(latest.context.tradeDate);
             if (this.turns().some(turn => turn.id === this.pending()?.turnId)) { this.pending.set(null); this.draft.set(''); this.replyTo.set(null); }
         } catch {
             if (this.current(scope) && revision === this.generation) {
@@ -231,7 +245,7 @@ export class CoachChatService {
     }
 
     async send(retry = false): Promise<void> {
-        if (!this.canReview() || !this.access.canAct('ai') || this.busy() || this.loading() || this.loadFailed() || this.deleting()) return;
+        if (this.voiceActive() || !this.canReview() || !this.access.canAct('ai') || this.busy() || this.loading() || this.loadFailed() || this.deleting()) return;
         this.selectionInitialized = true;
         const message = this.draft().trim();
         if (!retry && (!message || message.length > 1000 || this.pending())) return;
@@ -290,7 +304,7 @@ export class CoachChatService {
 
     async remove(): Promise<void> {
         const id = this.conversationId();
-        if (!id || !this.canReview() || this.deleting() || this.busy()) return;
+        if (!id || this.voiceActive() || !this.canReview() || this.deleting() || this.busy()) return;
         const scope = this.access.capture();
         this.deleting.set(true); this.error.set(null);
         try {
@@ -307,6 +321,29 @@ export class CoachChatService {
     private invalidateConversations(): void {
         // Ignore reads started before a create/delete, even if they finish afterwards.
         this.listGeneration++; this.listLoadedAt = null; this.listing.set(false);
+    }
+
+    /** The voice UI holds voiceActive while creating/using this shared conversation. */
+    async prepareVoice(signal: AbortSignal): Promise<{ conversationId: string; context: CoachChatRequest['context'] }> {
+        if (!this.canReview() || !this.access.canAct('ai') || this.pending() || this.busy() || this.loading() || this.loadFailed() || this.deleting())
+            throw new Error('Finish the current chat action before starting voice.');
+        const scope = this.access.capture();
+        const context = { ...captureChatContext(this.trades.trades(), scope.userId, this.day(), this.accountIds(), this.dataReady()),
+            ...(this.replyTo() ? { replyTo: this.replyTo()! } : {}) };
+        if (context.replyTo && !await this.history.ensureSaved(context.replyTo.id)) throw new Error('Save the original Coach update first.');
+        signal.throwIfAborted();
+        let id = this.conversationId();
+        if (!id) {
+            id = crypto.randomUUID();
+            const title = `Voice review · ${this.day()}`;
+            const { error } = await this.client.from('coach_conversations').insert({ id, user_id: scope.userId, title }).abortSignal(signal);
+            if (error) throw new Error('Could not create a conversation.');
+            signal.throwIfAborted();
+            if (!this.current(scope)) throw new Error('Your session changed.');
+            this.conversationId.set(id); this.conversationTitle.set(title); this.rememberSelection(id);
+            this.selectionInitialized = true; this.invalidateConversations();
+        }
+        return { conversationId: id, context };
     }
 
     private rememberSelection(id: string | null, onlyIf?: string): void {

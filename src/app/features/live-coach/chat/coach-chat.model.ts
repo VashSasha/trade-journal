@@ -19,6 +19,10 @@ export interface CoachChatContext {
     replyTo?: CoachChatObservation;
 }
 export interface CoachConversation { id: string; title: string; created_at: string; }
+export interface CoachVoiceMessage {
+    session_id: string; item_id: string; role: 'user' | 'assistant'; content: string;
+    interrupted: boolean; context: CoachChatContext; created_at: string;
+}
 export interface CoachChatTurn {
     id: string; conversation_id: string; prompt: string; answer: LiveCoachFollowUpAnswer; context: CoachChatContext; created_at: string;
 }

@@ -5,26 +5,66 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveCoachService } from '../live-coach.service';
 import { CoachChatComponent } from './coach-chat.component';
 import { CoachChatService } from './coach-chat.service';
-import { CoachChatObservation, CoachChatTurn } from './coach-chat.model';
+import { CoachChatObservation, CoachChatTurn, CoachVoiceMessage } from './coach-chat.model';
+import { CoachVoiceService } from '../voice/coach-voice.service';
 
 function setup() {
     const ai = signal(true);
-    const chat = { access: { canAct: () => ai() }, conversations: signal([]), conversationId: signal<string | null>(null),
+    const chat = { access: { canAct: () => ai(), demo: () => false }, conversations: signal([]), conversationId: signal<string | null>(null),
         busy: signal(false), deleting: signal(false), loading: signal(false), listing: signal(false), hasMore: signal(false),
-        listError: signal(null), error: signal(null), pending: signal(null), turns: signal<CoachChatTurn[]>([]), draft: signal(''),
+        listError: signal(null), error: signal(null), pending: signal(null), turns: signal<CoachChatTurn[]>([]), voiceMessages: signal<CoachVoiceMessage[]>([]), draft: signal(''),
         replyTo: signal<CoachChatObservation | null>(null), reply: vi.fn(() => true), canReply: signal(true),
         loadFailed: signal(false), notice: signal<string | null>(null), storageWarning: signal(false),
         day: signal('2026-09-28'), accountIds: signal(null), dataReady: signal(false), allowance: signal({ day: '2026-09-28', remaining: 26 }),
         send: vi.fn(), remove: vi.fn(), refreshAllowance: vi.fn(), invalidateAllowance: vi.fn(), open: vi.fn(), newConversation: vi.fn(), cancel: vi.fn() };
     const coach = { paused: signal(false), readingSummary: signal(false), readChatSummary: vi.fn(async () => true) };
     TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: CoachChatService, useValue: chat }, { provide: LiveCoachService, useValue: coach }] });
+    const voice = { configured: false, supported: true, active: signal(false), state: signal('listening'),
+        muted: signal(false), remaining: signal(180), allowance: signal(null), heard: signal(''), reply: signal(''), notice: signal(''),
+        error: signal(''), start: vi.fn(), toggleMute: vi.fn(), end: vi.fn(async () => {}) };
+    TestBed.overrideComponent(CoachChatComponent, { set: { providers: [{ provide: CoachVoiceService, useValue: voice }] } });
     const fixture = TestBed.createComponent(CoachChatComponent); fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
     const button = (text: string) => [...root.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent?.trim() === text || b.getAttribute('aria-label') === text)!;
-    return { fixture, root, button, chat, coach, ai };
+    return { fixture, root, button, chat, coach, ai, voice };
 }
 afterEach(() => TestBed.resetTestingModule());
 describe('Ask Coach interface', () => {
+    it('keeps idle voice in the composer and active transcripts in the conversation', () => {
+        const { fixture, root, voice } = setup();
+        expect(root.querySelector('.coach-chat__composer app-coach-voice')).not.toBeNull();
+        expect(root.querySelectorAll('app-coach-voice')).toHaveLength(1);
+        expect(root.textContent).not.toContain('Talk to Coach');
+        voice.active.set(true); voice.heard.set('How was my day?'); voice.reply.set('<b>Review your sizing.</b>');
+        fixture.detectChanges();
+        expect(root.querySelectorAll('app-coach-voice')).toHaveLength(1);
+        expect(root.querySelector('.coach-chat__composer')).toBeNull();
+        expect(root.querySelector('.coach-chat__turns')?.textContent).toContain('How was my day?');
+        expect(root.querySelector('.coach-chat__turns')?.textContent).toContain('<b>Review your sizing.</b>');
+        expect(root.querySelector('.coach-chat__turns b')).toBeNull();
+        expect(root.querySelector('app-coach-voice')?.textContent).not.toContain('Review your sizing.');
+        voice.active.set(false); fixture.detectChanges();
+        expect(root.querySelector('.coach-chat__turns')?.textContent).not.toContain('How was my day?');
+        expect(root.querySelector('.coach-chat__composer app-coach-voice')).not.toBeNull();
+        expect(voice.start).not.toHaveBeenCalled();
+    });
+    it('keeps voice failures above the composer, outside the scrollable history', () => {
+        const { fixture, root, voice } = setup();
+        voice.error.set('Daily voice allowance reached. Text chat is still available.');
+        fixture.detectChanges();
+        const alert = root.querySelector('[role="alert"]')!;
+        expect(alert.textContent).toContain('Daily voice allowance reached');
+        expect(alert.closest('.coach-chat__scroll')).toBeNull();
+        expect(root.querySelector('textarea')).not.toBeNull();
+    });
+    it('renders saved voice safely and ends when hidden, even without component destruction', () => {
+        const { fixture, root, chat, voice } = setup();
+        chat.voiceMessages.set([{ session_id:'session', item_id:'item', role:'assistant', content:'<img src=x onerror=bad()>',
+            interrupted:false, created_at:'2026-10-08T12:00:00Z', context:{capturedAt:'2026-10-08T12:00:00Z', tradeDate:'2026-10-08', accountIds:null, dataReady:false, summary:null} }]);
+        fixture.detectChanges(); expect(root.querySelector('img')).toBeNull(); expect(root.textContent).toContain('Coach · voice');
+        voice.active.set(true); fixture.detectChanges(); expect(root.querySelector('textarea')).toBeNull();
+        fixture.componentRef.setInput('visible', false); fixture.detectChanges(); expect(voice.end).toHaveBeenCalledOnce();
+    });
     it('shows a historical reply in the timeline and focuses the composer without sending', async () => {
         const { fixture, root, chat, coach } = setup();
         chat.replyTo.set({ id: 'old', title: 'Position increased', text: 'A saved observation.', observedAt: '2026-09-18T15:00:00Z', snapshot: null });

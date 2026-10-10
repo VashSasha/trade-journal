@@ -3,7 +3,7 @@
         @if (chat.loading()) { <p class="coach-chat__hint" role="status">Loading chat…</p> }
         @if (chat.notice()) { <p class="coach-chat__notice" role="status">{{ chat.notice() }}</p> }
         @if (chat.storageWarning()) { <p class="coach-chat__hint" role="status">This browser couldn’t remember your selection. Your saved chats are still available in Saved chats.</p> }
-        @if (!timeline().length && !chat.loading() && !chat.loadFailed() && !chat.pending()) {
+        @if (!voice.active() && !timeline().length && !chat.loading() && !chat.loadFailed() && !chat.pending()) {
             <div class="coach-chat__intro">
                 <h3>What would you like to review?</h3>
                 @if (chat.access.canAct('ai')) {
@@ -18,6 +18,12 @@
         <ol class="coach-chat__turns" aria-label="Conversation messages">
             @for (entry of timeline(); track entry.key) {
                 <li>
+                    @if (entry.voice; as message) {
+                        <div [class.coach-chat__question]="message.role === 'user'" [class.coach-chat__answer]="message.role === 'assistant'">
+                            <small class="coach-chat__hint">{{ message.role === 'user' ? 'You · voice' : 'Coach · voice' }}{{ message.interrupted ? ' · interrupted' : '' }}</small>
+                            <p class="coach-chat__voice-text">{{ message.content }}</p>
+                        </div>
+                    }
                     @if (entry.comment; as comment) {
                         <div class="coach-chat__observation">
                             <div class="coach-chat__observation-label"><span>{{ comment.title }}</span><time [attr.datetime]="comment.time | date:'yyyy-MM-ddTHH:mm:ssZZZZZ'">{{ comment.time | date:'MMM d, h:mm a' }}</time></div>
@@ -54,7 +60,16 @@
                     }
                 </li>
             }
+            @if (voice.active()) {
+                @if (voice.heard()) {
+                    <li><div class="coach-chat__question"><small class="coach-chat__hint">You · voice</small><p class="coach-chat__voice-text">{{ voice.heard() }}</p></div></li>
+                }
+                @if (voice.reply()) {
+                    <li><div class="coach-chat__answer"><small class="coach-chat__hint">Coach · live transcript</small><p class="coach-chat__voice-text">{{ voice.reply() }}</p></div></li>
+                }
+            }
         </ol>
+        @if (voice.notice()) { <p class="coach-chat__hint" role="status">{{ voice.notice() }}</p> }
         @if (speechNotice()) { <p role="status" class="coach-chat__notice">{{ speechNotice() }}</p> }
         @if (chat.pending(); as request) { <p class="coach-chat__question"><span class="coach-chat__sr">You: </span>{{ request.message }}</p> }
         @if (chat.busy()) { <p class="coach-chat__hint" role="status">Thinking…</p> }
@@ -73,7 +88,9 @@
         }
     </div>
     @if (!following()) { <button type="button" class="coach-chat__latest" (click)="latest()">Jump to latest ↓</button> }
+    @if (voice.error()) { <p class="coach-chat__notice coach-chat__notice--error" role="alert">{{ voice.error() }}</p> }
     @if (chat.access.canAct('ai')) {
+        @if (!voice.active()) {
         <form class="coach-chat__composer" (ngSubmit)="send()">
             @if (chat.replyTo(); as original) {
                 <div class="coach-chat__reply-preview">
@@ -106,8 +123,16 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg>
                     </button>
                 }
+                <app-coach-voice />
             </div>
         </form>
+        }
+        @if (voice.active()) { <app-coach-voice /> }
         <p class="coach-chat__footer">Saved privately. AI can make mistakes.</p>
-    } @else { <p class="coach-chat__notice"><a routerLink="/account/pricing">Unlock chat with Premium+</a>. Your saved chats stay available.</p> }
+    } @else {
+        <div class="coach-chat__locked">
+            <p class="coach-chat__notice"><a routerLink="/account/pricing">Unlock chat with Premium+</a>. Your saved chats stay available.</p>
+            <app-coach-voice />
+        </div>
+    }
 </div>
