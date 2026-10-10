@@ -70,7 +70,8 @@ export class LiveCoachService {
     readonly voiceWarning = signal<string | null>(null);
     readonly previewing = signal(false);
     /** Audio only: written coaching continues when muted. */
-    readonly paused = computed(() => !this.sounds.enabled() || !this.preferences().voiceEnabled);
+    readonly voiceConversationActive = signal(false);
+    readonly paused = computed(() => this.voiceConversationActive() || !this.sounds.enabled() || !this.preferences().voiceEnabled);
     readonly recentComments = signal<readonly LiveCoachObservation[]>([]);
     readonly lastComment = signal<LiveCoachNarration | null>(null);
     readonly lastSpokenText = signal<string | null>(null);

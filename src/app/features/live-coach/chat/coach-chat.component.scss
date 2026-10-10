@@ -17,6 +17,7 @@
     &__question { width: fit-content; max-width: 88%; margin: 0 0 1.25rem auto; padding: .625rem 1rem;
         border-radius: 16px 16px 4px 16px; background: var(--color-bg-surface-2); white-space: pre-wrap; }
     &__answer { max-width: 68ch; }
+    &__voice-text { white-space: pre-wrap; margin: .25rem 0 0; }
     &__observation { max-width: 68ch; padding-left: .75rem; border-left: 2px solid var(--color-accent);
         p { margin: .375rem 0 0; } }
     &__observation-label { display: flex; align-items: baseline; flex-wrap: wrap; gap: .25rem .75rem; font-size: .6875rem; color: var(--color-text-secondary); }
@@ -32,7 +33,9 @@
     &__message-context { min-width: 0; margin-bottom: .75rem; color: var(--color-text-secondary); font-size: .75rem;
         p { margin: .25rem 0; } }
     &__actions { display: flex; gap: .5rem; font-size: .75rem; }
-    &__notice { padding: .75rem; background: var(--color-bg-surface-2); border-left: 2px solid var(--color-accent); font-size: .75rem; }
+    &__notice { padding: .75rem; background: var(--color-bg-surface-2); border-left: 2px solid var(--color-accent); font-size: .75rem;
+        &--error { flex-shrink: 0; border-color: var(--color-negative); color: var(--color-text-primary); margin: .5rem 0; line-height: 1.5; overflow-wrap: anywhere; }
+    }
     &__hint { color: var(--color-text-secondary); font-size: .75rem; }
     &__composer { flex-shrink: 0; position: relative; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-bg-base);
         &:focus-within { border-color: var(--color-text-muted); }
@@ -48,10 +51,11 @@
         label { display: grid; gap: .5rem; } input { min-height: 44px; min-width: 0; width: 100%; border: 1px solid var(--color-border); border-radius: 6px;
             padding: .5rem; color: var(--color-text-primary); background: var(--color-bg-surface-2); }
         p { color: var(--color-text-secondary); margin: .75rem 0 0; } }
-    &__account-hint { flex: 1; color: var(--color-text-secondary); font-size: .6875rem; }
-    &__composer-tools &__send { display: grid; place-items: center; width: 44px; padding: 0; border-radius: 12px;
+    &__account-hint { flex: 1; min-width: 0; color: var(--color-text-secondary); font-size: .6875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    &__composer-tools &__send { display: grid; place-items: center; width: 44px; flex-shrink: 0; padding: 0; border-radius: 12px;
         background: var(--color-accent-subtle); color: var(--color-text-accent); }
     &__footer { flex-shrink: 0; margin: .375rem 0 .625rem; text-align: center; font-size: .625rem; color: var(--color-text-secondary); }
+    &__locked { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; .coach-chat__notice { flex: 1; min-width: 0; } }
     &__sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     @media (max-width: 700px) { input, textarea { font-size: 1rem; } }
 }

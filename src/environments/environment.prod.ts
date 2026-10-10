@@ -1,5 +1,6 @@
 export const environment = {
     production: true,
+    coachVoiceUrl: 'https://nvzn-coach-voice.oleksandr-m-vashchuk.workers.dev', // Enable only after deploying the voice Worker and migration 0041.
     anthropicApiUrl: 'https://api.anthropic.com/v1/messages', // Electron-only: direct Anthropic call
     aiProxyUrl: 'https://ai-proxy.nvzn-journal.com',          // Web: server-side key store + AI proxy
     betaGate: false,

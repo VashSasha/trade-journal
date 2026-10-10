@@ -5,25 +5,31 @@ import { RouterLink } from '@angular/router';
 import { LiveCoachAnswerComponent } from '../live-coach-answer.component';
 import { LiveCoachService } from '../live-coach.service';
 import { CoachChatService } from './coach-chat.service';
-import { CoachChatTurn } from './coach-chat.model';
+import { CoachChatTurn, CoachVoiceMessage } from './coach-chat.model';
+import { CoachVoiceService } from '../voice/coach-voice.service';
+import { CoachVoiceComponent } from '../voice/coach-voice.component';
 import { LiveCoachObservation } from '../live-coach.models';
 
-// Both payload keys are explicit so template tooling can resolve them without
+// Payload keys are explicit so template tooling can resolve them without
 // narrowing an intersection through a separate `kind` check. Only one is populated.
 type ChatEntry =
-    | { key: string; time: number; kind: 'observation'; comment: LiveCoachObservation; turn: null }
-    | { key: string; time: number; kind: 'turn'; comment: null; turn: CoachChatTurn };
+    | { key: string; time: number; kind: 'observation'; comment: LiveCoachObservation; turn: null; voice: null }
+    | { key: string; time: number; kind: 'turn'; comment: null; turn: CoachChatTurn; voice: null }
+    | { key: string; time: number; kind: 'voice'; comment: null; turn: null; voice: CoachVoiceMessage };
 
 @Component({
     selector: 'app-coach-chat', standalone: true,
-    imports: [DatePipe, FormsModule, RouterLink, LiveCoachAnswerComponent],
+    imports: [DatePipe, FormsModule, RouterLink, LiveCoachAnswerComponent, CoachVoiceComponent],
+    providers: [CoachVoiceService],
     templateUrl: './coach-chat.component.html', styleUrl: './coach-chat.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CoachChatComponent {
     readonly chat = inject(CoachChatService);
     readonly coach = inject(LiveCoachService);
+    readonly voice = inject(CoachVoiceService);
     readonly observations = input<readonly LiveCoachObservation[]>([]);
+    readonly visible = input(true);
     readonly following = signal(true);
     readonly timeline = computed<ChatEntry[]>(() => {
         const turns = this.chat.turns();
@@ -34,8 +40,9 @@ export class CoachChatComponent {
                 time: Date.parse(original.observedAt), title: original.title, text: original.text, personalized: false, snapshot: original.snapshot ?? undefined });
         }
         return [
-            ...[...comments.entries()].map(([id, comment]): ChatEntry => ({ key: `observation-${id}`, kind: 'observation', time: comment.time, comment, turn: null })),
-            ...turns.map((turn): ChatEntry => ({ key: `turn-${turn.id}`, kind: 'turn', time: Date.parse(turn.created_at), comment: null, turn })),
+            ...[...comments.entries()].map(([id, comment]): ChatEntry => ({ key: `observation-${id}`, kind: 'observation', time: comment.time, comment, turn: null, voice: null })),
+            ...turns.map((turn): ChatEntry => ({ key: `turn-${turn.id}`, kind: 'turn', time: Date.parse(turn.created_at), comment: null, turn, voice: null })),
+            ...this.chat.voiceMessages().map((voice): ChatEntry => ({ key: `voice-${voice.session_id}-${voice.item_id}`, kind: 'voice', time: Date.parse(voice.created_at), comment: null, turn: null, voice })),
         ].sort((a, b) => a.time - b.time || a.key.localeCompare(b.key));
     });
     readonly speechNotice = signal('');
@@ -50,13 +57,15 @@ export class CoachChatComponent {
     private readonly context = viewChild<ElementRef<HTMLDetailsElement>>('context');
     private readonly injector = inject(Injector);
     constructor() {
+        effect(() => { if (!this.visible()) untracked(() => { void this.voice.end('Voice ended because the chat was closed.'); }); });
         effect(() => {
             // A history reply opens this component; focus without sending or reading aloud.
             if (this.chat.replyTo()) afterNextRender(() => this.focusMessage(), { injector: this.injector });
         });
         effect(() => {
             const entries = this.timeline(), pending = this.chat.pending();
-            if ((!entries.length && !pending) || !untracked(this.following)) return;
+            const heard = this.voice.heard(), reply = this.voice.reply(), notice = this.voice.notice();
+            if ((!entries.length && !pending && !heard && !reply && !notice) || !untracked(this.following)) return;
             afterNextRender(() => {
                 const element = this.scroll()?.nativeElement;
                 if (element) element.scrollTop = element.scrollHeight;

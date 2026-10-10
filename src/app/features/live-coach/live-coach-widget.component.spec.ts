@@ -13,6 +13,8 @@ import { CoachHistoryService } from './history/coach-history.service';
 import { CoachChatService } from './chat/coach-chat.service';
 import { SavedCoachObservation } from './history/coach-history.model';
 import { AiCoachingSettingsService } from '../ai-settings/ai-coaching-settings.service';
+import { CoachChatComponent } from './chat/coach-chat.component';
+import { CoachVoiceService } from './voice/coach-voice.service';
 
 describe('floating Live Coach', () => {
     function setup() {
@@ -35,10 +37,10 @@ describe('floating Live Coach', () => {
             setVoiceEnabled: vi.fn((voiceEnabled: boolean) => preferences.update(p => ({ ...p, voiceEnabled }))),
             setVoice: vi.fn(), setAiCommentary: vi.fn(), preview: vi.fn(), readingSummary: signal(false),
         };
-        const chat = { canReview: history.canReview, access: { canAct: () => paid() },
+        const chat = { canReview: history.canReview, access: { canAct: () => paid(), demo },
             conversations: signal([{ id: 'saved-chat', title: 'My session', created_at: '2026-09-28' }]), conversationId: signal<string | null>(null),
             busy: signal(false), deleting: signal(false), loading: signal(false), listing: signal(false), hasMore: signal(false),
-            listError: signal<string | null>(null), error: signal(null), pending: signal(null), turns: signal([]), draft: signal(''),
+            listError: signal<string | null>(null), error: signal(null), pending: signal(null), turns: signal([]), voiceMessages: signal([]), voiceActive: signal(false), draft: signal(''),
             replyTo: signal(null), reply: vi.fn(() => true), canReply: signal(true), resume: vi.fn(),
             loadFailed: signal(false), notice: signal(null), storageWarning: signal(false), conversationTitle: signal<string | null>(null),
             day: signal('2026-09-28'), accountIds: signal(null), dataReady: signal(false), allowance: signal(null), allowanceLoading: signal(false),
@@ -54,6 +56,11 @@ describe('floating Live Coach', () => {
             { provide: AccessPolicyService, useValue: { demo, canAct: () => !demo() && paid(), promptReason: signal(null) } },
         ] });
         TestBed.overrideComponent(LiveCoachWidgetComponent, { add: { providers: [{ provide: CoachChatService, useValue: chat }] } });
+        TestBed.overrideComponent(CoachChatComponent, { set: { providers: [{ provide: CoachVoiceService, useValue: {
+            configured: false, supported: true, active: signal(false), state: signal('listening'), muted: signal(false), remaining: signal(180),
+            allowance: signal(null), heard: signal(''), reply: signal(''), notice: signal(''), error: signal(''),
+            start: vi.fn(), toggleMute: vi.fn(), end: vi.fn(async () => {}),
+        } }] } });
         const fixture = TestBed.createComponent(LiveCoachWidgetComponent);
         fixture.detectChanges();
         const component = fixture.componentInstance;

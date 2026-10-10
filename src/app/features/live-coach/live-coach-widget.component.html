@@ -37,7 +37,7 @@
             @if (access.demo()) {
                 <div class="coach-widget__empty"><h3>Your coach, wherever you trade.</h3><p>Switch to your workspace to chat or follow live updates.</p></div>
             } @else if (view() === 'chat' && history.canReview()) {
-                @if (rendered()) { <app-coach-chat [observations]="comments()" /> }
+                @if (rendered()) { <app-coach-chat [observations]="comments()" [visible]="open() && !market.open()" /> }
             } @else if (view() === 'history' && history.canReview()) {
                 @if (rendered()) {
                     <app-coach-history [replyEnabled]="access.canAct('ai')" [replyBlocked]="!chat.canReply()"

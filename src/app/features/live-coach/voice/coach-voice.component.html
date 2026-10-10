@@ -1,0 +1,28 @@
+@if (voice.active()) {
+    <div class="coach-voice__call" aria-label="Voice conversation">
+        <div class="coach-voice__status" role="status">
+            <svg class="coach-voice__wave" [class.coach-voice__wave--muted]="voice.muted()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 10v4m4-7v10m4-13v16m4-13v10m4-7v4"/></svg>
+            <span>{{ status() }}</span>
+        </div>
+        <span class="coach-voice__time" [attr.aria-label]="voice.remaining() + ' seconds remaining'">{{ timeLeft() }}</span>
+        <button type="button" class="coach-voice__button" (click)="voice.toggleMute()"
+                [disabled]="voice.state() === 'connecting' || voice.state() === 'ending'" [attr.aria-pressed]="voice.muted()"
+                [attr.aria-label]="voice.muted() ? 'Unmute microphone' : 'Mute microphone'" [title]="voice.muted() ? 'Unmute microphone' : 'Mute microphone'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+                @if (voice.muted()) { <path d="m3 3 18 18M9 9v3a3 3 0 0 0 5 2M9 5a3 3 0 0 1 6 0v5M5 10v2a7 7 0 0 0 12 5m2-5v-2M12 19v3m-4 0h8"/> }
+                @else { <rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"/> }
+            </svg>
+        </button>
+        <button type="button" class="coach-voice__button coach-voice__button--end" (click)="voice.end()" [disabled]="voice.state() === 'ending'" aria-label="End voice conversation" title="End voice conversation">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>
+        </button>
+    </div>
+} @else {
+    <div class="coach-voice__trigger" (pointerenter)="showTooltip()" (pointerleave)="tooltipOpen.set(false)">
+        <button type="button" class="coach-voice__button coach-voice__button--start" (click)="start()" (focus)="showTooltip()" (blur)="tooltipOpen.set(false)"
+                [attr.aria-disabled]="!!unavailable()" [attr.aria-describedby]="tooltipId" aria-label="Start voice conversation">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 10v4m4-7v10m4-13v16m4-13v10m4-7v4"/></svg>
+        </button>
+        <span class="coach-voice__tooltip" [class.coach-voice__tooltip--open]="tooltipOpen()" [id]="tooltipId" role="tooltip">{{ tooltip() }}</span>
+    </div>
+}
