@@ -1,6 +1,7 @@
 import { boundedRecentHistory, coachChatContext, COACH_CHAT_SYSTEM, validateCoachChat } from '../../supabase/functions/_shared/coach-chat.ts';
 import { coachingStyle, CoachingMode } from '../../supabase/functions/_shared/coaching-mode.ts';
 import { RequestError } from '../../supabase/functions/_shared/request-body.ts';
+import { audioOnlySdp, VOICE_PROTOCOL } from './controls.ts';
 
 export const CALL_MS = 180_000;
 export const HEARTBEAT_MS = 35_000;
@@ -11,10 +12,11 @@ export const allowedOrigin = (origin: string, app: string) => [app, 'http://loca
     || /^https:\/\/(?:[a-z0-9-]+\.)?trade-journal-2go\.pages\.dev$/i.test(origin);
 
 export function validateStart(body: Record<string, unknown>) {
-    if (!uuid(body.sessionId) || typeof body.sdp !== 'string' || !body.sdp.startsWith('v=0') || body.sdp.length > 32000)
-        throw new RequestError('Invalid voice session.');
+    if (!uuid(body.sessionId)) throw new RequestError('Invalid voice session.');
+    if (body.protocol !== VOICE_PROTOCOL) throw new RequestError('Voice security was updated. Refresh the app and try again.', 409);
+    const sdp = audioOnlySdp(body.sdp);
     const validated = validateCoachChat({ ...body, message: 'Start a voice review.', turnId: body.sessionId });
-    return { sessionId: body.sessionId, sdp: body.sdp, conversationId: validated.conversationId as string,
+    return { sessionId: body.sessionId, sdp, conversationId: validated.conversationId as string,
         context: validated.context as Record<string, unknown>,
         voice: typeof body.voice === 'string' && REALTIME_VOICES.includes(body.voice) ? body.voice : 'cedar' };
 }

@@ -35,6 +35,7 @@ export class CoachVoiceService {
     private stream: MediaStream | null = null;
     private audio: HTMLAudioElement | null = null;
     private controller: AbortController | null = null;
+    private feedReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
     private call: { id: string; conversationId: string | null; owner: string; deadline: number } | null = null;
     private timer: ReturnType<typeof setInterval> | undefined;
     private connectingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -100,20 +101,22 @@ export class CoachVoiceService {
                 track.onended = () => { if (this.current(revision)) void this.end('Microphone disconnected.'); };
             });
             pc.onconnectionstatechange = () => {
+                if (this.current(revision) && pc.connectionState === 'connected') {
+                    clearTimeout(this.connectingTimer); this.state.set('listening');
+                }
                 if (this.current(revision) && ['failed', 'disconnected', 'closed'].includes(pc.connectionState)) void this.end('Voice connection lost. You can continue typing.');
             };
-            const channel = pc.createDataChannel('oai-events');
-            channel.onmessage = event => { if (this.current(revision)) this.receive(event.data); };
-            channel.onopen = () => {
-                if (this.current(revision)) { clearTimeout(this.connectingTimer); this.state.set('listening'); }
-            };
+            // Audio only: provider commands belong to the server, not a browser data channel.
             const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
             const result = await this.request('start', { ...prepared, sessionId: this.call!.id, sdp: offer.sdp,
-                voice: this.coach.preferences().voice, coachingMode: this.tone.mode() }, this.controller.signal);
+                protocol: 'audio-only-v1', voice: this.coach.preferences().voice, coachingMode: this.tone.mode() }, this.controller.signal);
             if (!this.current(revision)) return;
-            if (typeof result['sdp'] !== 'string' || typeof result['deadline'] !== 'number') throw new Error('Invalid voice connection response.');
+            if (result['protocol'] !== 'audio-only-v1' || typeof result['sdp'] !== 'string' || typeof result['deadline'] !== 'number')
+                throw new Error('Voice needs the updated server. Please try again after the update.');
             this.call!.deadline = result['deadline'];
             this.remaining.set(Math.max(0, Math.ceil((this.call!.deadline - Date.now()) / 1000)));
+            await this.openFeed(revision);
+            if (!this.current(revision)) return;
             await pc.setRemoteDescription({ type: 'answer', sdp: result['sdp'] });
             if (!this.current(revision)) return;
             let ticks = 0;
@@ -127,6 +130,45 @@ export class CoachVoiceService {
             if (this.current(revision)) await this.end(error instanceof DOMException && error.name === 'NotAllowedError'
                 ? 'Microphone permission was denied. Allow it in your browser, then try again.'
                 : error instanceof Error ? error.message : 'Could not start voice. You can still type.', true);
+        }
+    }
+
+    private async openFeed(revision: number): Promise<void> {
+        const call = this.call!, signal = this.controller!.signal;
+        const { data, error } = await this.auth.getSession();
+        if (!this.current(revision)) return;
+        if (error || !data.session || call.owner !== this.session.userId()) throw new Error('Please sign in again.');
+        // The overall connection timer bounds the handshake. Do not abort a healthy stream at 10/25 seconds.
+        const response = await fetch(`${environment.coachVoiceUrl}/events`, { method: 'POST', signal,
+            headers: { Authorization: `Bearer ${data.session.access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId: call.id }) });
+        if (!this.current(revision)) { await response.body?.cancel(); return; }
+        if (!response.ok || !response.headers.get('Content-Type')?.startsWith('application/x-ndjson') || !response.body)
+            throw new Error('Voice updates could not connect. Please try again.');
+        const reader = this.feedReader = response.body.getReader();
+        void this.readFeed(reader, revision);
+    }
+
+    private async readFeed(reader: ReadableStreamDefaultReader<Uint8Array>, revision: number): Promise<void> {
+        const decoder = new TextDecoder();
+        let pending = '';
+        try {
+            while (this.current(revision)) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                pending += decoder.decode(value, { stream: true });
+                if (pending.length > 100000) throw new Error('Voice update too large');
+                let end: number;
+                while ((end = pending.indexOf('\n')) !== -1) {
+                    const line = pending.slice(0, end); pending = pending.slice(end + 1);
+                    if (this.current(revision)) this.receive(line);
+                }
+            }
+        } catch { /* End locally and let the authenticated end request explain any server stop. */ }
+        finally {
+            reader.releaseLock();
+            if (this.feedReader === reader) this.feedReader = null;
+            if (this.current(revision)) await this.end('Voice updates disconnected. You can continue typing.');
         }
     }
 
@@ -178,6 +220,7 @@ export class CoachVoiceService {
     private async finish(message: string): Promise<void> {
         const call = this.call!; this.call = null; ++this.revision;
         this.state.set('ending'); this.controller?.abort(); this.controller = null;
+        void this.feedReader?.cancel().catch(() => undefined);
         clearInterval(this.timer);
         clearTimeout(this.connectingTimer);
         this.stream?.getTracks().forEach(track => { track.onended = null; track.stop(); }); this.stream = null;

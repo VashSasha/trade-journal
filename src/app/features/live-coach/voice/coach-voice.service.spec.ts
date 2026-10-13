@@ -15,20 +15,25 @@ function setup(connect = true) {
     const stream = { getTracks: () => [track], getAudioTracks: () => [track] };
     const media = vi.fn(async () => stream);
     vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: media } });
-    let channel: { onopen?: () => void; onmessage?: (event: { data: string }) => void } = {};
-    const close = vi.fn();
+    let feed!: ReadableStreamDefaultController<Uint8Array>;
+    const close = vi.fn(), createDataChannel = vi.fn(), cancelFeed = vi.fn();
+    const sdp = 'v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\n';
     class Peer {
-        ontrack = null; onconnectionstatechange = null;
+        ontrack = null; onconnectionstatechange: (() => void) | null = null;
+        connectionState = 'new';
         addTrack = vi.fn(); close = close;
-        createDataChannel() { return channel = {}; }
-        createOffer = async () => ({ sdp: 'v=0\r\ntest', type: 'offer' });
+        createDataChannel = createDataChannel;
+        createOffer = async () => ({ sdp, type: 'offer' });
         setLocalDescription = async () => {};
-        setRemoteDescription = async () => { if (connect) channel.onopen?.(); };
+        setRemoteDescription = async () => { if (connect) { this.connectionState = 'connected'; this.onconnectionstatechange?.(); } };
     }
     vi.stubGlobal('RTCPeerConnection', Peer);
     vi.stubGlobal('Audio', class { autoplay = false; srcObject = null; pause() {} play() { return Promise.resolve(); } });
-    const fetcher = vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/start')
-        ? { sdp: 'v=0\r\nanswer', deadline: Date.now() + 180000 } : { ended: url.endsWith('/end') }), { status: 200 }));
+    const fetcher = vi.fn(async (url: string) => url.endsWith('/events')
+        ? new Response(new ReadableStream<Uint8Array>({ start: controller => { feed = controller; }, cancel: cancelFeed }),
+            { headers: { 'Content-Type': 'application/x-ndjson' } })
+        : Response.json(url.endsWith('/start') ? { protocol: 'audio-only-v1', sdp, deadline: Date.now() + 180000 }
+            : { ended: url.endsWith('/end') }));
     vi.stubGlobal('fetch', fetcher);
     const chat = { access: { canAct: () => allowed(), demo: () => false }, canReply: computed(() => allowed() && !voiceActive()),
         voiceActive, conversationId, day: signal('2026-10-08'), accountIds: signal<string[] | null>(null), open: vi.fn(async () => {}),
@@ -41,7 +46,9 @@ function setup(connect = true) {
         { provide: AiCoachingSettingsService, useValue: { mode } },
     ] });
     const voice = TestBed.inject(CoachVoiceService); TestBed.tick();
-    return { voice, chat, coach, owner, allowed, mode, track, stream, media, fetcher, close, event: (type: string, extra = {}) => channel.onmessage?.({ data: JSON.stringify({ type, ...extra }) }) };
+    const chunk = async (text: string) => { feed.enqueue(new TextEncoder().encode(text)); await Promise.resolve(); await Promise.resolve(); };
+    return { voice, chat, coach, owner, allowed, mode, track, stream, media, fetcher, close, createDataChannel, cancelFeed, chunk,
+        closeFeed: () => feed.close(), event: (type: string, extra = {}) => chunk(JSON.stringify({ type, ...extra }) + '\n') };
 }
 afterEach(async () => { TestBed.resetTestingModule(); await Promise.resolve(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe('Coach voice call lifecycle', () => {
@@ -51,19 +58,49 @@ describe('Coach voice call lifecycle', () => {
         expect(t.coach.voiceConversationActive()).toBe(true); expect(t.chat.voiceActive()).toBe(true);
         const args = t.fetcher.mock.calls[0] as unknown as [string, RequestInit];
         expect(args[0]).toContain('/start'); expect(args[1].headers).toMatchObject({ Authorization: 'Bearer test-jwt' });
-        expect(JSON.parse(String(args[1].body))).toMatchObject({ conversationId: 'conversation', voice: 'cedar', coachingMode: 'standard' });
+        expect(JSON.parse(String(args[1].body))).toMatchObject({ protocol: 'audio-only-v1', conversationId: 'conversation', voice: 'cedar', coachingMode: 'standard' });
+        expect(t.createDataChannel).not.toHaveBeenCalled();
+        expect(t.fetcher.mock.calls[1][0]).toContain('/events');
+        expect((t.fetcher.mock.calls[1] as unknown as [string, RequestInit])[1].headers).toMatchObject({ Authorization: 'Bearer test-jwt' });
         await t.voice.end(); expect(t.track.stop).toHaveBeenCalledOnce(); expect(t.close).toHaveBeenCalledOnce();
+        expect(t.cancelFeed).toHaveBeenCalledOnce();
         expect(t.chat.open).toHaveBeenCalledWith('conversation'); expect(t.coach.voiceConversationActive()).toBe(false);
     });
     it('mutes only the microphone and updates listening/thinking/speaking from real events', async () => {
         const t = setup(); await t.voice.start(); t.voice.toggleMute(); expect(t.track.enabled).toBe(false);
         t.voice.toggleMute(); expect(t.track.enabled).toBe(true);
-        t.event('response.created'); expect(t.voice.state()).toBe('thinking');
-        t.event('output_audio_buffer.started'); expect(t.voice.state()).toBe('speaking');
-        t.event('response.output_audio_transcript.delta', { delta: 'Review sizing.' }); expect(t.voice.reply()).toBe('Review sizing.');
-        t.event('conversation.item.truncated'); expect(t.voice.reply()).toContain('interrupted');
-        t.event('input_audio_buffer.speech_started'); expect(t.voice.state()).toBe('listening');
+        await t.event('response.created'); expect(t.voice.state()).toBe('thinking');
+        await t.event('output_audio_buffer.started'); expect(t.voice.state()).toBe('speaking');
+        await t.event('response.output_audio_transcript.delta', { delta: 'Review sizing.' }); expect(t.voice.reply()).toBe('Review sizing.');
+        await t.event('conversation.item.truncated'); expect(t.voice.reply()).toContain('interrupted');
+        await t.event('input_audio_buffer.speech_started'); expect(t.voice.state()).toBe('listening');
         await t.voice.end();
+    });
+    it('handles split display events and keeps a healthy feed beyond the handshake timeout', async () => {
+        vi.useFakeTimers(); const t = setup(); await t.voice.start();
+        await t.chunk('{"type":"response.output_audio_transcript.delta","delta":"Hel');
+        expect(t.voice.reply()).toBe(''); await t.chunk('lo"}\n'); expect(t.voice.reply()).toBe('Hello');
+        await vi.advanceTimersByTimeAsync(31000);
+        expect(t.voice.active()).toBe(true); expect(t.cancelFeed).not.toHaveBeenCalled();
+        await t.voice.end();
+    });
+    it('ends and frees devices when the read-only feed disconnects', async () => {
+        const t = setup(); await t.voice.start(); t.closeFeed();
+        await vi.waitFor(() => expect(t.voice.active()).toBe(false));
+        expect(t.track.stop).toHaveBeenCalledOnce(); expect(t.voice.notice()).toContain('updates disconnected');
+    });
+    it('rejects a legacy server without opening a provider control channel', async () => {
+        const t = setup(); t.fetcher.mockImplementationOnce(async () => Response.json({ sdp: 'v=0', deadline: Date.now() + 180000 }));
+        await t.voice.start(); expect(t.voice.error()).toContain('updated server');
+        expect(t.createDataChannel).not.toHaveBeenCalled(); expect(t.track.stop).toHaveBeenCalledOnce();
+        expect(t.fetcher.mock.calls.some(([url]) => url.endsWith('/events'))).toBe(false);
+    });
+    it('stops when authenticated display updates cannot connect', async () => {
+        const t = setup();
+        t.fetcher.mockImplementationOnce(async () => Response.json({ protocol: 'audio-only-v1', sdp: 'v=0', deadline: Date.now() + 180000 }));
+        t.fetcher.mockImplementationOnce(async () => Response.json({ error: 'Forbidden' }, { status: 403 }));
+        await t.voice.start(); expect(t.voice.error()).toContain('updates could not connect');
+        expect(t.voice.active()).toBe(false); expect(t.track.stop).toHaveBeenCalledOnce();
     });
     it('does not reconnect or double start; stops a microphone granted after cancellation', async () => {
         const t = setup(); let grant!: (stream: typeof t.stream) => void;
@@ -118,7 +155,7 @@ describe('Coach voice call lifecycle', () => {
         expect(t.voice.active()).toBe(false); expect(t.track.stop).toHaveBeenCalled();
         expect(t.voice.notice()).toContain('changed');
     });
-    it('times out even when signaling succeeds but the audio/data connection never opens', async () => {
+    it('times out even when signaling succeeds but the audio connection never opens', async () => {
         vi.useFakeTimers(); const t = setup(false); await t.voice.start();
         expect(t.voice.state()).toBe('connecting');
         await vi.advanceTimersByTimeAsync(30000);

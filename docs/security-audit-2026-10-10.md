@@ -2,6 +2,8 @@
 
 **Status update — 2026-10-11:** the two P1 fixes below are implemented and regression-tested locally, but not deployed. Hold promotion until their staging checks and the remaining P2 release-risk decisions are complete. Review the voice-control boundary before broadly enabling paid voice.
 
+**Status update — 2026-10-12:** P1 fixes committed and pushed as `c4a0923` on `release/v1_4_9`; no deployment performed here. Finding 3 now has a separate local implementation and mock regression coverage. Real-provider audio-only negotiation remains a release blocker for this voice change; do not treat passing mocks as production verification.
+
 Audit baseline: `release/v1_4_9`, commit `be6abe4`. Read-only application review: authentication, tenant isolation, Supabase policies/RPCs, broker credentials and proxy, AI/voice authorization and usage accounting, Stripe, deletion, rendering, Electron, dependencies, and release workflows. The evidence/line references below describe that baseline. Subsequent local P1 fixes are recorded separately below. No production data or configuration was changed.
 
 This is a source review with local fixtures and limited public-header checks, not a penetration-test certification. Deployed database policies, dashboard-only settings, secrets, WAF rules, and provider behavior were not independently verified.
@@ -39,6 +41,8 @@ Deletion removes only `open`, `close`, `target`, and `risk`. Upload policies now
 **Regression tests:** one fixture for every supported sound type, orphaned upload without a metadata row, partial Storage failure, retry after billing cancellation, missing bucket, and another user's files remaining untouched.
 
 ### 3. P2 — Direct Realtime commands are outside the voice configuration guard
+
+**Remediation: implemented locally; pending provider/browser verification and coordinated deployment.** The browser no longer opens a provider data channel. Server-side offer/answer validation permits one audio media section only and rejects SCTP/control transports. Display events use an authenticated, owner-scoped, read-only stream with an explicit field allowlist. Automatic provider replies are disabled; the existing per-user coordinator atomically reserves allowance before each server-issued reply and permits only one in-flight response. Unexpected response creation closes the call and retains conservative usage accounting. Context/output limits, existing alarms, transcript persistence, entitlement checks and consent checks remain enforced. This closes the identified control path in local tests, not all prompt-injection risks; speech itself remains untrusted input.
 
 **Evidence:** `src/app/features/live-coach/voice/coach-voice.service.ts:105`; `coach-voice/src/index.ts:202` and `:222`.
 
@@ -138,4 +142,13 @@ Reachability matters: this is a client-rendered app; no SSR/hydration usage was 
   ```
 
 - In staging, verify a same-owner reconnect/offline restore and a shared-browser A→B switch. Using disposable test users and test billing only, verify deletion with newer sound types and an interrupted cleanup retry; verify another user's uploads remain intact. Automated Storage mocks do not prove live provider behavior.
+
+## P2 voice verification and rollout — 2026-10-12
+
+- Angular: **102 files passed; 799 tests passed, 7 todo**. New cases cover the authenticated caption stream, fragmented messages, connection/stream cleanup, legacy-server rejection and healthy connections beyond the handshake timeout.
+- Edge/shared/voice unit tests: **60 passed**, including audio-only SDP rejection, bounded answers, display field filtering, server-only generation and allowance holds.
+- Local workerd integration suite: lifecycle, quota/deduplication, UTC rollover, private event streams, sequential reply authorization, insufficient allowance before inference, unknown usage and transport rejection exercised against mocked providers only. Cancellation can be delayed by HTTP/proxy layers; the durable heartbeat lease remains the guaranteed cleanup fallback.
+- Worker TypeScript and deployment dry-run pass. No production build, provider call, live microphone, deployment, SQL change or production data mutation performed.
+- **No new migration.** Deploy matching frontend and `coach-voice` Worker in a test environment, then verify a real multi-turn call, interruption, captions, saved history, quota feedback, two-tab denial, logout/refresh and Chrome/Safari mobile playback. Confirm the provider accepts an audio-only offer and rejects attempted control transport negotiation before enabling broadly. A failed negotiation must never restore the previous data channel as a fallback.
+- This is not a hard billing ceiling. Input transcription is still metered after completion; in-flight work/provider failures can exceed a threshold. Keep provider-side spending controls. If rollout fails, disable voice while retaining typed chat and saved transcripts; see `coach-voice/README.md`.
 - The remaining P2 findings and release-process gaps have **not** been fixed by this slice. Trading accounts, trades, and connections are not deleted on logout or broker disconnect by these changes.

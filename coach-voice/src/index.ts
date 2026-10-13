@@ -6,11 +6,13 @@ import { attachChatObservation } from '../../supabase/functions/_shared/coach-ch
 import { coachChatContext } from '../../supabase/functions/_shared/coach-chat';
 import { allowedOrigin, CALL_MS, callIdFromLocation, HEARTBEAT_MS, IDLE_MS, transcript, uuid, validateStart, voiceInstructions } from './policy';
 import { allowance, DailyUsage, limitMessage, providerUsage, tokenLimit, UNREPORTED_TOKENS, UsageEntry, utcDay } from './usage';
+import { CONTEXT_TOKENS, displayEvent, OUTPUT_TOKENS, readAnswer, replyReservation, voiceSession, VOICE_PROTOCOL } from './controls';
 
 type VoiceEnv = Omit<Env, 'VOICE_ENABLED'> & { VOICE_ENABLED: string; OPENAI_API_KEY: string; SB_SECRET_KEY: string };
 type ActiveCall = { sessionId: string; userId: string; conversationId: string; context: Record<string, unknown>;
     callId?: string; deadline: number; lease: number; activity: number; closing?: boolean; instructions?: string; mode?: 'standard' | 'unhinged'; unplayed?: string[];
-    usage?: Record<string, UsageEntry> };
+    usage?: Record<string, UsageEntry>; protocol?: string; voice?: string; queuedInput?: string;
+    committedInputs?: string[]; reply?: { requestId: string; responseId?: string; day: string; reservedTokens: number } };
 type Message = { user_id: string; conversation_id: string; session_id: string; item_id: string; role: string;
     content: string; interrupted: boolean; context: Record<string, unknown>; created_at: string };
 function admin(env: VoiceEnv) {
@@ -48,7 +50,7 @@ export default {
         let response: Response;
         try {
             const action = new URL(req.url).pathname.slice(1);
-            if (req.method !== 'POST' || !['start', 'heartbeat', 'end'].includes(action)) throw new RequestError('Not found.', 404);
+            if (req.method !== 'POST' || !['start', 'heartbeat', 'end', 'events'].includes(action)) throw new RequestError('Not found.', 404);
             if (action !== 'end' && env.VOICE_ENABLED !== 'true') throw new RequestError('Voice conversations are not enabled yet.', 503);
             const token = req.headers.get('Authorization')?.match(/^Bearer (.{1,8000})$/)?.[1];
             if (!token) throw new RequestError('Please sign in again.', 401);
@@ -75,6 +77,7 @@ export class CoachVoiceSession extends DurableObject<VoiceEnv> {
     private receivedItems = new Set<string>();
     private itemTimes = new Map<string, string>();
     private flushing: Promise<void> | null = null;
+    private feed: { sessionId: string; controller: ReadableStreamDefaultController<Uint8Array> } | null = null;
 
     async handle(userId: string, action: string, body: Record<string, unknown>): Promise<Response> {
         try {
@@ -92,6 +95,10 @@ export class CoachVoiceSession extends DurableObject<VoiceEnv> {
             if (action === 'start') return await this.start(userId, body);
             const active = await this.ctx.storage.get<ActiveCall>('active');
             if (!active || active.sessionId !== body.sessionId || active.closing) return await this.ended(body.sessionId);
+            if (active.protocol !== VOICE_PROTOCOL) {
+                await this.end(active.sessionId, 'Voice security was updated. Refresh the app and try again.');
+                return await this.ended(body.sessionId);
+            }
             if (Date.now() >= active.deadline) { await this.end(active.sessionId); return Response.json({ ended: true }); }
             if (active.mode === 'unhinged' && await resolveCoachingMode(client, userId, 'unhinged', AbortSignal.timeout(8000)) !== 'unhinged') {
                 await this.end(active.sessionId); return Response.json({ ended: true });
@@ -101,6 +108,7 @@ export class CoachVoiceSession extends DurableObject<VoiceEnv> {
             if (conversation.error || !conversation.data) { await this.end(active.sessionId); throw new RequestError('Conversation is no longer available.', 409); }
             const current = await this.ctx.storage.get<ActiveCall>('active');
             if (!current || current.sessionId !== active.sessionId || current.closing) return await this.ended(body.sessionId);
+            if (action === 'events') return this.openEvents(current.sessionId);
             current.lease = Date.now() + HEARTBEAT_MS;
             await this.ctx.storage.put('active', current);
             await this.schedule(current);
@@ -144,12 +152,14 @@ export class CoachVoiceSession extends DurableObject<VoiceEnv> {
         const instructions = voiceInstructions(context, history, mode);
         const now = Date.now();
         const active: ActiveCall = { sessionId: input.sessionId, userId, conversationId: input.conversationId,
-            context, deadline: now + CALL_MS, lease: now + HEARTBEAT_MS, activity: now, instructions, mode };
+            context, deadline: now + CALL_MS, lease: now + HEARTBEAT_MS, activity: now, instructions, mode,
+            protocol: VOICE_PROTOCOL, voice: input.voice };
         // Atomic admission prevents simultaneous tabs/devices and repeated starts bypassing the quota.
         await this.ctx.storage.transaction(async storage => {
             if (await storage.get('active')) throw new RequestError('A voice call is already active. End it or wait for it to expire.', 409);
             const usage = allowance(await storage.get<DailyUsage>(`usage:${utcDay(now)}`), tokenLimit(this.env.VOICE_DAILY_TOKEN_LIMIT));
             if (!usage.remainingTokens) throw new RequestError(limitMessage(usage.resetsAt), 429);
+            if (usage.remainingTokens < replyReservation(instructions)) throw new RequestError('Not enough voice allowance for another reply. Text chat is still available.', 429);
             const starts = (await storage.get<number[]>('starts') ?? []).filter(time => time > now - 60_000);
             if (starts.length >= 10) throw new RequestError('Too many voice starts. Wait a minute and try again. Text chat is still available.', 429);
             // No daily call cap or token charge just for starting. Keep a short abuse throttle.
@@ -160,11 +170,7 @@ export class CoachVoiceSession extends DurableObject<VoiceEnv> {
         try {
             const form = new FormData();
             form.set('sdp', input.sdp);
-            form.set('session', JSON.stringify({ type: 'realtime', model: this.env.VOICE_MODEL, instructions,
-                output_modalities: ['audio'], max_output_tokens: 512, tools: [],
-                audio: { input: { transcription: { model: 'gpt-4o-mini-transcribe' },
-                    turn_detection: { type: 'semantic_vad', eagerness: 'medium', interrupt_response: true, create_response: true } },
-                    output: { voice: input.voice } } }));
+            form.set('session', JSON.stringify(voiceSession(this.env.VOICE_MODEL, instructions, input.voice)));
             const created = await provider(this.env, 'realtime/calls', { method: 'POST', body: form });
             if (!created.ok) throw new RequestError('Voice provider could not start the call. Please try later.', 502);
             const callId = callIdFromLocation(created.headers.get('Location'));
@@ -174,8 +180,7 @@ export class CoachVoiceSession extends DurableObject<VoiceEnv> {
             }
             current.callId = callId;
             await this.ctx.storage.put('active', current);
-            const sdp = await created.text();
-            if (sdp.length > 64000) throw new Error('Unexpected SDP size');
+            const sdp = await readAnswer(created); // Reject a control channel even in an unexpected answer.
             // Server observes transcripts; browser cannot submit fabricated assistant replies to Supabase.
             const upgraded = await connectSideband(this.env, callId);
             const ws = upgraded.webSocket;
@@ -189,13 +194,62 @@ export class CoachVoiceSession extends DurableObject<VoiceEnv> {
                     // Fail closed on persistence/control errors. Alarm retries pending transcripts.
                     this.ctx.waitUntil(this.end(active.sessionId));
                 });
+                this.ctx.waitUntil(this.events);
             });
             const disconnected = () => { this.ctx.waitUntil(this.end(active.sessionId)); };
             ws.addEventListener('close', disconnected); ws.addEventListener('error', disconnected);
-            return Response.json({ sdp, sessionId: active.sessionId, deadline: active.deadline, voice: input.voice, usage: await this.usageSnapshot() });
+            return Response.json({ protocol: VOICE_PROTOCOL, sdp, sessionId: active.sessionId, deadline: active.deadline, voice: input.voice, usage: await this.usageSnapshot() });
         } catch (error) {
             await this.end(active.sessionId);
             throw error;
+        }
+    }
+
+    /** Read-only authenticated stream; no provider commands or session configuration cross this boundary. */
+    private openEvents(sessionId: string): Response {
+        if (this.feed) throw new RequestError('Voice updates are already connected.', 409);
+        const body = new ReadableStream<Uint8Array>({
+            start: controller => {
+                this.feed = { sessionId, controller };
+                controller.enqueue(new TextEncoder().encode('{"type":"voice.ready"}\n'));
+            },
+            cancel: () => {
+                if (this.feed?.sessionId === sessionId) this.feed = null;
+                this.ctx.waitUntil(this.end(sessionId));
+            },
+        }, { highWaterMark: 32 });
+        return new Response(body, { headers: { 'Content-Type': 'application/x-ndjson', 'Cache-Control': 'no-store' } });
+    }
+
+    private publish(sessionId: string, event: Record<string, unknown>): void {
+        const safe = displayEvent(event), feed = this.feed;
+        if (!safe || !feed || feed.sessionId !== sessionId) return;
+        if ((feed.controller.desiredSize ?? 0) <= 0) throw new Error('Voice display stream is not consuming updates');
+        feed.controller.enqueue(new TextEncoder().encode(JSON.stringify(safe) + '\n'));
+    }
+
+    /** Reserve before issuing inference, and allow only one server-authorized response at a time. */
+    private async requestReply(sessionId: string): Promise<void> {
+        let command: { type: string; response: { metadata: { server_turn: string }; max_output_tokens: number } } | undefined;
+        await this.ctx.storage.transaction(async storage => {
+            const active = await storage.get<ActiveCall>('active');
+            if (!active || active.sessionId !== sessionId || active.closing || active.reply || !active.queuedInput) return;
+            if (Date.now() >= Math.min(active.deadline, active.lease, active.activity + IDLE_MS))
+                throw new RequestError('Voice session expired. Start a new call to continue.', 409);
+            const day = utcDay(), key = `usage:${day}`;
+            const budget = await storage.get<DailyUsage>(key) ?? { tokens: 0, estimatedTokens: 0 };
+            const reservedTokens = replyReservation(active.instructions ?? '');
+            if (allowance(budget, tokenLimit(this.env.VOICE_DAILY_TOKEN_LIMIT)).remainingTokens < reservedTokens)
+                throw new RequestError('Not enough voice allowance for another reply. Text chat is still available.', 429);
+            active.reply = { requestId: crypto.randomUUID(), day, reservedTokens };
+            active.queuedInput = undefined;
+            budget.reservedTokens = (budget.reservedTokens ?? 0) + reservedTokens;
+            await storage.put({ active, [key]: budget });
+            command = { type: 'response.create', response: { metadata: { server_turn: active.reply.requestId }, max_output_tokens: OUTPUT_TOKENS } };
+        });
+        if (command) {
+            if (!this.sideband) throw new Error('Voice control unavailable');
+            this.sideband.send(JSON.stringify(command));
         }
     }
 
@@ -204,25 +258,66 @@ export class CoachVoiceSession extends DurableObject<VoiceEnv> {
         const observed = await this.ctx.storage.get<ActiveCall>('active');
         if (!observed || observed.sessionId !== sessionId) return;
         const event = JSON.parse(raw);
+        if (event.type === 'response.created' || event.type === 'response.done') {
+            const reply = observed.reply;
+            const responseId = event.response?.id;
+            const duplicateDone = event.type === 'response.done' && typeof responseId === 'string'
+                && observed.usage?.[`response:${responseId}`]?.tokens != null;
+            if (!duplicateDone && (!reply || (reply.responseId && reply.responseId !== responseId)
+                || ((event.type === 'response.created' || !reply.responseId) && event.response?.metadata?.server_turn !== reply.requestId))) {
+                // Record any unexpected provider work before terminating; never count it as free.
+                const unexpected = providerUsage(event);
+                if (unexpected) await this.recordUsage(sessionId, unexpected);
+                this.ctx.waitUntil(this.end(sessionId, 'Voice control could not be verified. Please start a new call.'));
+                return;
+            }
+            if (!duplicateDone && reply) {
+                reply.responseId = responseId;
+                await this.ctx.storage.put('active', observed);
+            }
+        }
         const usage = providerUsage(event);
         if (usage) {
             await this.recordUsage(sessionId, usage);
             const budget = await this.usageSnapshot();
-            if (!budget.remainingTokens || (usage.complete && usage.tokens === null)) {
-                this.ctx.waitUntil(this.end(sessionId, !budget.remainingTokens ? limitMessage(budget.resetsAt)
+            if (budget.usedTokens >= budget.limitTokens || (usage.complete && usage.tokens === null)) {
+                this.ctx.waitUntil(this.end(sessionId, budget.usedTokens >= budget.limitTokens ? limitMessage(budget.resetsAt)
                     : 'Voice usage could not be verified. Please try again later; text chat is still available.'));
+                return;
             }
         }
-        const active = await this.ctx.storage.get<ActiveCall>('active');
+        let active = await this.ctx.storage.get<ActiveCall>('active');
         if (!active || active.sessionId !== sessionId) return;
         const itemId = event.item_id ?? event.item?.id;
         if (['input_audio_buffer.speech_started', 'conversation.item.added', 'conversation.item.created', 'response.output_item.added'].includes(event.type)
             && typeof itemId === 'string' && this.itemTimes.size < 100 && !this.itemTimes.has(itemId)) this.itemTimes.set(itemId, new Date().toISOString());
         if (event.type === 'error') { this.ctx.waitUntil(this.end(sessionId)); return; }
         if (event.type === 'session.updated' && (event.session?.instructions !== active.instructions
-            || event.session?.max_output_tokens !== 512 || event.session?.tools?.length
-            || !String(event.session?.model).startsWith(this.env.VOICE_MODEL))) {
+            || event.session?.max_output_tokens !== OUTPUT_TOKENS || !Array.isArray(event.session?.tools) || event.session.tools.length !== 0
+            || !(event.session?.model === this.env.VOICE_MODEL || String(event.session?.model).startsWith(`${this.env.VOICE_MODEL}-`))
+            || event.session?.truncation?.type !== 'retention_ratio'
+            || event.session?.truncation?.token_limits?.post_instructions !== CONTEXT_TOKENS
+            || event.session?.audio?.input?.turn_detection?.create_response !== false
+            || event.session?.audio?.input?.transcription?.model !== 'gpt-4o-mini-transcribe'
+            || event.session?.audio?.output?.voice !== active.voice)) {
             this.ctx.waitUntil(this.end(sessionId)); return;
+        }
+        this.publish(sessionId, event);
+        if (event.type === 'input_audio_buffer.committed' && !active.committedInputs?.includes(event.item_id)) {
+            if ((active.committedInputs?.length ?? 0) >= 40) { this.ctx.waitUntil(this.end(sessionId)); return; }
+            active.committedInputs = [...(active.committedInputs ?? []), event.item_id];
+            active.queuedInput = event.item_id;
+            await this.ctx.storage.put('active', active);
+        }
+        if (!active.closing && active.queuedInput && !active.reply) {
+            try { await this.requestReply(sessionId); }
+            catch (error) {
+                this.ctx.waitUntil(this.end(sessionId, error instanceof RequestError ? error.message : undefined));
+                return;
+            }
+            // requestReply persists a reservation; never overwrite it with the earlier snapshot.
+            active = await this.ctx.storage.get<ActiveCall>('active');
+            if (!active || active.sessionId !== sessionId) return;
         }
         if (event.type === 'input_audio_buffer.speech_started' || event.type === 'output_audio_buffer.stopped') {
             if (event.type === 'output_audio_buffer.stopped') active.unplayed = [];
@@ -255,13 +350,21 @@ export class CoachVoiceSession extends DurableObject<VoiceEnv> {
             const previous = entries[item.key];
             if (previous && previous.tokens !== null) return; // Redelivery is not new usage.
             if (!previous && Object.keys(entries).length >= 100) throw new Error('Voice usage event limit reached');
-            const day = previous?.day ?? utcDay();
+            const isReply = item.key.startsWith('response:') && active.reply?.responseId === item.key.slice(9);
+            const day = previous?.day ?? (isReply ? active.reply!.day : utcDay());
             entries[item.key] = { day, tokens: item.tokens };
             if (item.tokens !== null) {
                 const key = `usage:${day}`;
                 const budget = await storage.get<DailyUsage>(key) ?? { tokens: 0, estimatedTokens: 0 };
                 budget.tokens += item.tokens;
                 await storage.put(key, budget);
+            }
+            if (isReply && item.complete && item.tokens !== null) {
+                const key = `usage:${active.reply!.day}`;
+                const budget = await storage.get<DailyUsage>(key) ?? { tokens: 0, estimatedTokens: 0 };
+                budget.reservedTokens = Math.max(0, (budget.reservedTokens ?? 0) - active.reply!.reservedTokens);
+                await storage.put(key, budget);
+                active.reply = undefined;
             }
             await storage.put('active', active);
         });
@@ -273,6 +376,15 @@ export class CoachVoiceSession extends DurableObject<VoiceEnv> {
         await this.ctx.storage.transaction(async storage => {
             const active = await storage.get<ActiveCall>('active');
             if (!active || active.sessionId !== sessionId) return;
+            if (active.reply) {
+                const key = `usage:${active.reply.day}`;
+                const budget = await storage.get<DailyUsage>(key) ?? { tokens: 0, estimatedTokens: 0 };
+                budget.reservedTokens = Math.max(0, (budget.reservedTokens ?? 0) - active.reply.reservedTokens);
+                // If the socket closes before even response.created, inference was still authorized.
+                if (!active.reply.responseId) budget.estimatedTokens += active.reply.reservedTokens;
+                await storage.put(key, budget);
+                active.reply = undefined;
+            }
             for (const entry of Object.values(active.usage ?? {})) {
                 if (entry.tokens !== null) continue;
                 const key = `usage:${entry.day}`;
@@ -348,6 +460,7 @@ export class CoachVoiceSession extends DurableObject<VoiceEnv> {
         if (active.callId) await this.hangup(active.callId);
         await this.events;
         this.sideband?.close(); this.sideband = null;
+        if (this.feed?.sessionId === sessionId) { this.feed.controller.close(); this.feed = null; }
         await this.settleUnreportedUsage(sessionId);
         await this.ctx.storage.delete('active');
         await this.flush();

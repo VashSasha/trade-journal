@@ -1,5 +1,5 @@
 // Usage comes only from the authenticated provider sideband, never browser events.
-export type DailyUsage = { tokens: number; estimatedTokens: number };
+export type DailyUsage = { tokens: number; estimatedTokens: number; reservedTokens?: number };
 export type UsageEntry = { day: string; tokens: number | null };
 export const UNREPORTED_TOKENS = 32_768;
 export const utcDay = (now = Date.now()) => new Date(now).toISOString().slice(0, 10);
@@ -10,7 +10,8 @@ export function tokenLimit(value: unknown): number {
 export function allowance(usage: DailyUsage | undefined, limit: number, day = utcDay()) {
     const usedTokens = (usage?.tokens ?? 0) + (usage?.estimatedTokens ?? 0);
     return { usedTokens, estimatedTokens: usage?.estimatedTokens ?? 0, limitTokens: limit,
-        remainingTokens: Math.max(0, limit - usedTokens), resetsAt: new Date(Date.parse(day + 'T00:00:00Z') + 86_400_000).toISOString() };
+        reservedTokens: usage?.reservedTokens ?? 0,
+        remainingTokens: Math.max(0, limit - usedTokens - (usage?.reservedTokens ?? 0)), resetsAt: new Date(Date.parse(day + 'T00:00:00Z') + 86_400_000).toISOString() };
 }
 export const limitMessage = (resetsAt: string) => `Daily voice allowance reached. Resets at ${resetsAt.slice(11, 16)} UTC on ${resetsAt.slice(0, 10)}. Text chat is still available.`;
 
