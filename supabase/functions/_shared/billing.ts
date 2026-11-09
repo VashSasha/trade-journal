@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@17.7.0';
 import { listSubscriptions } from './billing-lifecycle.ts';
+import { appCorsHeaders } from './cors.ts';
 export { isPaid, isUnfinished } from './billing-lifecycle.ts';
 
 export { Stripe };
@@ -45,13 +46,7 @@ export async function subscriptions(customer: string): Promise<Stripe.Subscripti
 }
 
 export function cors(req: Request): Record<string, string> {
-    const origin = req.headers.get('Origin') ?? '';
-    const pagesOrigin = /^https:\/\/(?:[a-z0-9-]+\.)?trade-journal-2go\.pages\.dev$/i;
-    if (!['http://localhost:4200', 'http://127.0.0.1:4200', Deno.env.get('APP_ORIGIN')].includes(origin)
-        && !pagesOrigin.test(origin)) return {};
-    return { 'Access-Control-Allow-Origin': origin, Vary: 'Origin',
-        'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS' };
+    return appCorsHeaders(req, Deno.env.get('APP_ORIGIN'));
 }
 export function json(body: unknown, status: number, headers: Record<string, string>): Response {
     return new Response(JSON.stringify(body), { status, headers: { ...headers, 'Content-Type': 'application/json' } });

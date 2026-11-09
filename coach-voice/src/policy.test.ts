@@ -11,6 +11,7 @@ Deno.test('voice validates context, SDP and ids; never accepts client models or 
         assert.throws(() => validateStart({ ...start, ...patch }));
 });
 Deno.test('origin and provider call identifiers are narrowly scoped', () => {
+    assert.equal(allowedOrigin('https://release-v1-5.nvzn-journal.pages.dev', 'https://nvzn-journal.com'), true);
     assert.equal(allowedOrigin('https://release-1-5.trade-journal-2go.pages.dev', 'https://nvzn-journal.com'), true);
     for (const origin of ['null', 'https://evil.pages.dev', 'https://nvzn-journal.com.evil.test', 'https://foo.trade-journal-2go.pages.dev.evil.test'])
         assert.equal(allowedOrigin(origin, 'https://nvzn-journal.com'), false);

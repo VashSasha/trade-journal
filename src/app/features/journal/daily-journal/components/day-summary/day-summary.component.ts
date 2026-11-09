@@ -18,6 +18,7 @@ import {
 import { SharePnlComponent, SharePnlStats } from '../../../../../shared/components/share-pnl/share-pnl.component';
 import { AiAnalysisService } from '../saved-analyses/ai-analysis.service';
 import { JournalFormState } from '../../state/journal-form.state';
+import { stripHtml } from '../../utils/html-text.utils';
 import { AiCoachingBadgeComponent } from '../../../../ai-settings/ai-coaching-badge.component';
 import { AccessPolicyService } from '../../../../../core/services/access-policy.service';
 import {
@@ -326,7 +327,7 @@ Coaching instruction: assess frequency and overtrading from ${activity.decisionC
     const form = this.journalForm;
 
     const planRaw = form ? form.preMarketPlan() : note?.preMarketPlan ?? '';
-    const plan = this.stripHtml(planRaw).trim().slice(0, 500);
+    const plan = stripHtml(planRaw).slice(0, 500);
     const mood = form ? form.mood() : note?.mood ?? 0;
     const discipline = form ? form.discipline() : note?.discipline ?? 0;
     const followed = form ? [...form.checkedRules()] : note?.rulesFollowed ?? [];
@@ -475,13 +476,6 @@ Coaching instruction: assess frequency and overtrading from ${activity.decisionC
     const mins = Math.round((exit - entry) / 60_000);
     if (mins < 60) return `${mins}m`;
     return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m`;
-  }
-
-  private stripHtml(html: string): string {
-    if (!html) return '';
-    const div = document.createElement('div');
-    div.innerHTML = html;
-    return div.textContent ?? '';
   }
 
   private shiftDate(date: string, days: number): string {
