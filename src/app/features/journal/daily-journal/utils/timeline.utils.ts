@@ -1,4 +1,5 @@
 import { DailyNote } from '../../../../core/models/daily-journal.model';
+import { stripHtml } from './html-text.utils';
 
 export interface TimelineEntry {
     date: string;
@@ -13,14 +14,6 @@ export interface TimelineEntry {
 export interface MonthGroup {
     monthYear: string;
     entries: TimelineEntry[];
-}
-
-function stripHtml(html: string): string {
-    // Use the browser parser so tags are removed AND HTML entities are
-    // decoded (&#39; → ', &nbsp; → space) — a plain regex leaves those raw.
-    const text = new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
-    // Collapse the non-breaking spaces + any run of whitespace into single spaces.
-    return text.replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 export function buildTimelineEntry(

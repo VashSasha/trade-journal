@@ -2,15 +2,13 @@ import { boundedRecentHistory, coachChatContext, COACH_CHAT_SYSTEM, validateCoac
 import { coachingStyle, CoachingMode } from '../../supabase/functions/_shared/coaching-mode.ts';
 import { RequestError } from '../../supabase/functions/_shared/request-body.ts';
 import { audioOnlySdp, VOICE_PROTOCOL } from './controls.ts';
+export { isAllowedAppOrigin as allowedOrigin } from '../../supabase/functions/_shared/cors.ts';
 
 export const CALL_MS = 180_000;
 export const HEARTBEAT_MS = 35_000;
 export const IDLE_MS = 60_000;
 export const REALTIME_VOICES = ['cedar', 'marin', 'alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse'];
 export const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(value);
-export const allowedOrigin = (origin: string, app: string) => [app, 'http://localhost:4200', 'http://127.0.0.1:4200'].includes(origin)
-    || /^https:\/\/(?:[a-z0-9-]+\.)?trade-journal-2go\.pages\.dev$/i.test(origin);
-
 export function validateStart(body: Record<string, unknown>) {
     if (!uuid(body.sessionId)) throw new RequestError('Invalid voice session.');
     if (body.protocol !== VOICE_PROTOCOL) throw new RequestError('Voice security was updated. Refresh the app and try again.', 409);

@@ -3,6 +3,7 @@
 // normalized contract. No third-party news key is required.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { readJson, RequestError } from '../_shared/request-body.ts';
+import { appCorsHeaders } from '../_shared/cors.ts';
 import {
     MarketFeedDefinition, MarketHeadline, MarketHeadlineSource, parseMarketFeed, uniqueNewest,
 } from './rss.ts';
@@ -44,13 +45,6 @@ const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SB_SECRE
         signal: AbortSignal.any([...(init?.signal ? [init.signal] : []), AbortSignal.timeout(10_000)]),
     }) },
 });
-const allowed = new Set(['http://localhost:4200', Deno.env.get('APP_ORIGIN') ?? ''].filter(Boolean));
-
-function isAllowedOrigin(origin: string | null): origin is string {
-    if (!origin) return false;
-    return allowed.has(origin) || /^https:\/\/(?:[a-z0-9-]+\.)?trade-journal-2go\.pages\.dev$/i.test(origin);
-}
-
 function requestedLimit(value: unknown): number {
     if (value === undefined) return 30;
     if (!Number.isInteger(value) || Number(value) < 5 || Number(value) > MAX_HEADLINES) {
@@ -74,12 +68,7 @@ async function fetchFeed(definition: MarketFeedDefinition, signal: AbortSignal):
 }
 
 Deno.serve(async req => {
-    const origin = req.headers.get('Origin');
-    const cors: Record<string, string> = isAllowedOrigin(origin) ? {
-        'Access-Control-Allow-Origin': origin, Vary: 'Origin',
-        'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    } : {};
+    const cors = appCorsHeaders(req, Deno.env.get('APP_ORIGIN'));
     const json = (body: unknown, status = 200, cache = 'no-store') => new Response(JSON.stringify(body), {
         status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': cache },
     });

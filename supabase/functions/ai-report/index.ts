@@ -8,22 +8,15 @@ import { aiTextStream } from '../_shared/ai-stream.ts';
 import { coachSpeech, COACH_VOICE_PREVIEW } from '../_shared/coach-speech.ts';
 import { attachChatObservation } from '../_shared/coach-chat-observation.ts';
 import { resolveCoachingMode } from '../_shared/coaching-mode.ts';
+import { appCorsHeaders } from '../_shared/cors.ts';
 
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SB_SECRET_KEY')!, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { fetch: (input, init) => fetch(input, { ...init,
         signal: AbortSignal.any([...(init?.signal ? [init.signal] : []), AbortSignal.timeout(10_000)]) }) },
 });
-const allowed = new Set(['http://localhost:4200', 'http://127.0.0.1:4200', Deno.env.get('APP_ORIGIN') ?? ''].filter(Boolean));
-const pagesOrigin = /^https:\/\/(?:[a-z0-9-]+\.)?trade-journal-2go\.pages\.dev$/i;
-
 Deno.serve(async req => {
-    const origin = req.headers.get('Origin');
-    const cors: Record<string, string> = origin && (allowed.has(origin) || pagesOrigin.test(origin)) ? {
-        'Access-Control-Allow-Origin': origin, Vary: 'Origin',
-        'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    } : {};
+    const cors = appCorsHeaders(req, Deno.env.get('APP_ORIGIN'));
     const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
         status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
     });
