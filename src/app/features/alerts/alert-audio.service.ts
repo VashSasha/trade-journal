@@ -8,7 +8,7 @@ import { CustomAlertSoundsService } from './custom-alert-sounds.service';
 import { AlertSoundKind } from './session-alerts.utils';
 import { SessionSoundPreferencesService } from './session-sound-preferences.service';
 import { alertSoundAssetPath, AlertSoundPresetId, AlertSoundSelection, isAlertSoundPreset, resolveSoundSelection } from './alert-sound-library';
-import { SOUND_FALLBACKS } from './alert-sound-kinds';
+import { POSITION_SOUND_KINDS, SOUND_FALLBACKS } from './alert-sound-kinds';
 
 /** Local audio engine: built-in synthesized cues plus private account-synced user files. */
 @Injectable({ providedIn: 'root' })
@@ -87,6 +87,8 @@ export class AlertAudioService {
 
     /** Returns audible duration in milliseconds, or 0 when another bell is ringing. */
     play(kind: AlertSoundKind, volume: number, previewSelection?: AlertSoundSelection): number {
+        // Legacy preferences/uploads survive, but retired position cues stay silent.
+        if (POSITION_SOUND_KINDS.includes(kind)) return 0;
         const context = this.context;
         if (!context || !this.output || context.state !== 'running') throw new Error('Audio is paused. Enable sounds again.');
         if (volume <= 0 || context.currentTime < this.availableAt) return 0;
@@ -100,9 +102,6 @@ export class AlertAudioService {
             : selection === 'custom' ? this.customBuffers.get(kind) : undefined;
         if (buffer) return this.playCustom(context, buffer);
         kind = SOUND_FALLBACKS[kind] ?? kind;
-        if (kind === 'positionOpened' || kind === 'positionIncreased') kind = 'open';
-        else if (kind === 'positionReversed') kind = 'risk';
-        else if (kind === 'positionClosed' || kind === 'positionReduced') kind = 'close';
         // Opening resembles a brisk exchange-floor bell; closing uses a slower,
         // descending double toll. Inharmonic partials create the metallic body.
         const strikes = kind === 'open'

@@ -1,6 +1,22 @@
+@use '@angular/material' as mat;
+
 /* Third-party foundational styles */
 @import 'gridstack/dist/gridstack.min.css';
 @import 'quill/dist/quill.snow.css';
+
+/* Only tooltip tokens: no global Material theme or typography reset. */
+.nvzn-help-tooltip {
+  @include mat.tooltip-overrides((
+    container-color: var(--color-bg-surface-2),
+    container-shape: 8px,
+    supporting-text-color: var(--color-text-primary),
+    supporting-text-font: inherit,
+    supporting-text-size: 0.8125rem,
+    supporting-text-line-height: 1.5,
+    supporting-text-weight: 400,
+    supporting-text-tracking: normal,
+  ));
+}
 
 /* ============================================================
    CSS Custom Properties — Theme Variables

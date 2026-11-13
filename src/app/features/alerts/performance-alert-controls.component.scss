@@ -47,12 +47,14 @@
             color: var(--color-text-muted);
         }
     }
+    &__title, &__rule-name { display: flex; align-items: center; gap: 4px; min-width: 0; }
+    &__title h3 { margin: 0; }
 
     &__period {
         display: grid;
         grid-template-columns: 90px minmax(0, 1fr);
         gap: 18px;
-        padding: 16px 22px;
+        padding: 12px 22px;
         border-bottom: 1px solid var(--color-border);
 
         h4 { margin: 8px 0 0; color: var(--color-text-primary); font-size: 0.8125rem; }
@@ -74,7 +76,7 @@
             font-size: 0.8125rem;
             cursor: pointer;
         }
-        input[type='checkbox'] { width: 16px; height: 16px; margin: 0; accent-color: var(--color-accent); }
+        input[type='checkbox'] { width: 16px; height: 16px; flex-shrink: 0; margin: 0; accent-color: var(--color-accent); }
     }
 
     &__value {
@@ -152,8 +154,11 @@
 
 @media (max-width: 560px) {
     .guardrails {
+        &__head { padding: 16px; flex-wrap: wrap; gap: 8px; }
+        &__period, &__note, &__open-pnl-section { padding-inline: 16px; }
         &__period { grid-template-columns: 1fr; gap: 8px; }
         &__period h4 { margin-top: 0; }
-        &__value { width: 116px; }
+        &__value { width: 100px; flex-shrink: 0; }
+        &__rule { gap: 6px; }
     }
 }

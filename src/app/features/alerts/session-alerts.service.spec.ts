@@ -87,7 +87,7 @@ describe('session sound coordinator', () => {
         header.detectChanges(); settings.detectChanges();
         expect(sounds.enabled()).toBe(true);
         const mute = [...settings.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>]
-            .find(b => b.textContent === 'Mute all sounds')!;
+            .find(b => b.textContent?.trim() === 'Mute all sounds')!;
         mute.click(); header.detectChanges(); settings.detectChanges();
         expect(button.getAttribute('aria-pressed')).toBe('false');
         expect(sounds.preferences()).toMatchObject({ armed: false, opens: true, closes: false });

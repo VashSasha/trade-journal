@@ -14,7 +14,8 @@ describe('session sound controls', () => {
             toggle: vi.fn(), enable: vi.fn(), mute: vi.fn(), preview: vi.fn(), setVolume: vi.fn(), setKind: vi.fn(),
         };
         TestBed.configureTestingModule({ providers: [{ provide: SessionAlertsService, useValue: sounds }] });
-        Object.assign(sounds, { toggleLabel: computed(() => sounds.enabled() ? 'Mute all sounds' : 'Enable all sounds') });
+        Object.assign(sounds, { toggleLabel: computed(() => sounds.state() === 'enabling' ? 'Cancel enabling sounds'
+            : sounds.enabled() ? 'Mute all sounds' : 'Enable all sounds') });
         const fixture = TestBed.createComponent(SessionAlertControlsComponent);
         fixture.detectChanges();
         const element = fixture.nativeElement as HTMLElement;
@@ -43,8 +44,31 @@ describe('session sound controls', () => {
         fixture.detectChanges();
         expect(element.querySelectorAll('[type="checkbox"]')).toHaveLength(0);
         expect(element.querySelector('[type="range"]')).not.toBeNull();
-        button('Test sound').click();
-        expect(sounds.preview).toHaveBeenCalledWith('open');
+        expect(button('Test sound')).toBeUndefined();
+        expect(button('Mute all sounds').classList.contains('session-sounds__master')).toBe(true);
+        button('Mute all sounds').click();
+        expect(sounds.toggle).toHaveBeenCalledOnce();
+    });
+    it('keeps activation inline in the same button without inserting a temporary progress row', () => {
+        const { sounds, fixture, element, button } = setup();
+        fixture.componentRef.setInput('section', 'master');
+        fixture.detectChanges();
+        const master = button('Enable all sounds');
+        const notesBefore = element.querySelectorAll('.session-sounds__note').length;
+        sounds.state.set('enabling');
+        sounds.status.set({ label: 'Enabling', detail: 'Activating audio in this tab…' });
+        fixture.detectChanges();
+        expect(element.querySelector('.session-sounds__master')).toBe(master);
+        expect(master.textContent?.trim()).toBe('Enabling…');
+        expect(master.getAttribute('aria-label')).toBe('Cancel enabling sounds');
+        expect(master.getAttribute('aria-busy')).toBe('true');
+        expect(master.disabled).toBe(false); // Activation remains cancellable.
+        expect(element.querySelectorAll('.session-sounds__note')).toHaveLength(notesBefore);
+        master.click();
+        expect(sounds.toggle).toHaveBeenCalledOnce();
+        sounds.state.set('on'); sounds.enabled.set(true); fixture.detectChanges();
+        expect(button('Mute all sounds')).toBe(master);
+        expect(master.getAttribute('aria-busy')).toBe('false');
     });
     it('shows only bell settings and previews when embedded with sessions', () => {
         const { fixture, element, button, sounds } = setup();
@@ -58,7 +82,16 @@ describe('session sound controls', () => {
         sounds.enabled.set(true); fixture.detectChanges();
         button('Test opening bell').click();
         expect(sounds.preview).toHaveBeenCalledWith('open');
-        expect(element.textContent).toContain('Sounds are active');
+        expect(element.textContent).not.toContain('Enable sounds in the Sound section');
+    });
+    it('avoids duplicate preview buttons in settings and keeps bell controls available', () => {
+        const { fixture, element, button } = setup();
+        fixture.componentRef.setInput('section', 'bells');
+        fixture.componentRef.setInput('settingsView', true);
+        fixture.detectChanges();
+        expect(element.querySelectorAll('[type="checkbox"]')).toHaveLength(2);
+        expect(button('Test opening bell')).toBeUndefined();
+        expect(button('Test closing bell')).toBeUndefined();
     });
     it('exposes mute and blocks test-button spam while playing', () => {
         const { sounds, fixture, button } = setup();
@@ -87,7 +120,7 @@ describe('session sound controls', () => {
         const { sounds, fixture, element, button } = setup();
         sounds.error.set('Audio was blocked.'); sounds.status.set({ label: 'Needs attention', detail: 'Audio was blocked.' });
         sounds.preferences.update(p => ({ ...p, volume: 0 })); fixture.detectChanges();
-        expect(element.querySelector('[role="status"]')?.textContent).toContain('blocked');
+        expect(element.querySelector('.session-sounds__error[role="status"]')?.textContent).toContain('blocked');
         expect(element.querySelector('[role="alert"]')?.textContent).toContain('blocked');
         expect(element.querySelector('summary')?.textContent).toContain('Needs attention');
         expect(button('Enable all sounds').disabled).toBe(false);

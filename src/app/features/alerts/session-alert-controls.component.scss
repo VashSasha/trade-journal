@@ -8,9 +8,13 @@
     }
     &__body { padding: 0 1.25rem 1rem; }
     &__head {
-        display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+        display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;
         p { font-size: 0.6875rem; color: var(--color-text-secondary); margin: 0.2rem 0 0; }
     }
+    &__state { display: flex; align-items: center; gap: 8px; font-size: 0.8125rem; }
+    &__state strong { min-inline-size: 9ch; }
+    &__indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-muted); }
+    &__indicator--on { background: var(--color-accent); }
     button {
         padding: 0.4rem 0.6rem; min-height: 2.5rem; font: inherit; font-size: 0.75rem;
         border: 1px solid var(--color-border); border-radius: 0.4rem;
@@ -22,12 +26,19 @@
     &__kinds label { display: flex; align-items: center; gap: 0.4rem; min-height: 2rem; font-size: 0.75rem; cursor: pointer; }
     input { accent-color: var(--color-accent); }
     input[type='checkbox'] { width: 1rem; height: 1rem; margin: 0; }
-    &__volume { display: block; font-size: 0.75rem; margin: 0.5rem 0; }
-    &__volume > span { display: flex; justify-content: space-between; }
+    button.session-sounds__master {
+        display: inline-flex; gap: 8px; align-items: center; justify-content: center;
+        inline-size: 12rem; max-inline-size: 100%; flex-shrink: 0; white-space: nowrap;
+        min-height: 44px; padding: 8px 16px; border-radius: 9px; font-size: 0.875rem; font-weight: 600;
+        border-color: var(--color-accent); background: var(--color-accent); color: var(--color-text-on-accent);
+        &:hover:not(:disabled) { background: var(--color-accent-hover); color: var(--color-text-on-accent); border-color: var(--color-accent-hover); }
+        svg { width: 18px; height: 18px; flex-shrink: 0; }
+    }
+    &__volume { display: grid; grid-template-columns: auto minmax(0, 1fr) 40px; gap: 14px; align-items: center; font-size: 0.75rem; margin: 1rem 0 0; }
+    &__volume output { text-align: right; font-variant-numeric: tabular-nums; color: var(--color-text-secondary); }
     &__volume input { display: block; width: 100%; min-height: 2rem; margin: 0; }
     &__tests { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    &__note, &__last, &__error { font-size: 0.6875rem; line-height: 1.5; margin: 0.65rem 0 0; color: var(--color-text-secondary); }
-    &__last { color: var(--color-accent); }
+    &__note, &__error { font-size: 0.6875rem; line-height: 1.5; margin: 0.65rem 0 0; color: var(--color-text-secondary); }
     &__error { color: var(--color-text-primary); border-left: 2px solid var(--color-negative); padding-left: 0.5rem; }
     &__sr-only {
         position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -50,4 +61,5 @@
         .session-sounds__kinds label { min-height: 44px; }
         .session-sounds__tests button { min-height: 44px; }
     }
+    @media (max-width: 600px) { &--settings:not(.session-sounds--bells) .session-sounds__body { padding-inline: 16px; } }
 }

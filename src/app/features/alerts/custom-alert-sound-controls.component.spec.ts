@@ -37,9 +37,14 @@ describe('custom alert sound controls', () => {
         return { audio, sounds, fixture, element: fixture.nativeElement as HTMLElement };
     }
 
-    it('renders all semantic cues with upload and preview controls', () => {
+    it('renders only the nine supported cues with upload and preview controls', () => {
         const { element } = setup();
-        expect(element.querySelectorAll('.custom-sound')).toHaveLength(14);
+        expect(element.querySelectorAll('.custom-sound')).toHaveLength(9);
+        expect(element.textContent).not.toContain('Position opened');
+        expect(element.textContent).not.toContain('Position closed');
+        expect(element.textContent).not.toContain('Position increased');
+        expect(element.textContent).not.toContain('Position reduced');
+        expect(element.textContent).not.toContain('Position reversed');
         expect(element.querySelector('details')).toBeNull();
         expect(element.textContent).not.toContain('Default cues');
         expect(element.textContent).not.toContain('Target default');
@@ -65,7 +70,7 @@ describe('custom alert sound controls', () => {
     it('defaults to Silent, disables selected-sound previews, and reenables only the configured cue', () => {
         const { sounds, fixture, element } = setup();
         const buttons = [...element.querySelectorAll<HTMLButtonElement>('.custom-sound__actions button')];
-        expect(buttons).toHaveLength(14);
+        expect(buttons).toHaveLength(9);
         expect(buttons.every(button => button.disabled)).toBe(true);
         expect([...element.querySelectorAll('.sound-picker__trigger')].every(button => button.textContent?.includes('Silent'))).toBe(true);
         fixture.componentInstance.test('open');
@@ -92,7 +97,7 @@ describe('custom alert sound controls', () => {
     it('offers all ten presets for each alert and changes just the chosen alert', () => {
         const { audio, sounds, fixture, element } = setup();
         const trigger = element.querySelector<HTMLButtonElement>('.sound-picker__trigger')!;
-        expect(element.querySelectorAll('app-alert-sound-picker')).toHaveLength(14);
+        expect(element.querySelectorAll('app-alert-sound-picker')).toHaveLength(9);
         trigger.click(); fixture.detectChanges();
         expect(element.querySelectorAll('.sound-picker__preview')).toHaveLength(11);
         const choice = [...element.querySelectorAll<HTMLButtonElement>('.sound-picker__choice')].find(button => button.textContent?.includes('Stock market bell'))!;
@@ -125,7 +130,7 @@ describe('custom alert sound controls', () => {
         audio.customSoundStorageSupported = false;
         sounds.enabled.set(false);
         fixture.detectChanges();
-        expect(element.querySelectorAll('app-alert-sound-picker')).toHaveLength(14);
+        expect(element.querySelectorAll('app-alert-sound-picker')).toHaveLength(9);
         expect(element.querySelector('input[type="file"]')).toBeNull();
         expect(element.querySelector<HTMLButtonElement>('.custom-sound__actions button')?.disabled).toBe(true);
         expect(element.textContent).toContain('Enable sounds');

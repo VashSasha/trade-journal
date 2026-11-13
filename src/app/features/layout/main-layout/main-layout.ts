@@ -1,5 +1,6 @@
 import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { CdkScrollable } from '@angular/cdk/scrolling';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
@@ -18,14 +19,13 @@ import { MarketAwarenessDrawerComponent } from '../../market-events/market-aware
 import { LiveCoachService } from '../../live-coach/live-coach.service';
 import { LiveCoachWidgetComponent } from '../../live-coach/live-coach-widget.component';
 import { SessionAlertsService } from '../../alerts/session-alerts.service';
-import { PositionSoundAlertsService } from '../../alerts/position-sound-alerts.service';
 
 const DISMISSED_KEY = 'tj_banner_dismissed_connections';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, FormsModule, Sidebar, MobileNavComponent, Header, SyncNoticeComponent, DemoBannerComponent, OnboardingDialogComponent, UpgradePromptComponent, PerformanceAlertToastComponent, MarketAwarenessDrawerComponent, LiveCoachWidgetComponent],
+  imports: [RouterOutlet, FormsModule, CdkScrollable, Sidebar, MobileNavComponent, Header, SyncNoticeComponent, DemoBannerComponent, OnboardingDialogComponent, UpgradePromptComponent, PerformanceAlertToastComponent, MarketAwarenessDrawerComponent, LiveCoachWidgetComponent],
   templateUrl: './main-layout.html',
   styleUrl: './main-layout.scss'
 })
@@ -47,7 +47,6 @@ export class MainLayoutComponent {
     constructor() {
         // Keep session bells alive across pages, independently of Settings UI.
         inject(SessionAlertsService).attach(inject(DestroyRef));
-        inject(PositionSoundAlertsService).attach(inject(DestroyRef));
         // Construct once for the authenticated shell so coaching survives route changes.
         inject(LiveCoachService);
         effect(() => {

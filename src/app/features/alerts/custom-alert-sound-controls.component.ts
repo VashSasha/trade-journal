@@ -6,6 +6,7 @@ import { AlertSoundKind } from './session-alerts.utils';
 import { ALERT_SOUND_PRESETS, AlertSoundSelection, isAlertSoundSelection, resolveSoundSelection } from './alert-sound-library';
 import { AlertSoundPickerComponent } from './alert-sound-picker.component';
 import { ALERT_SOUND_OPTIONS, SOUND_FALLBACKS } from './alert-sound-kinds';
+import { HelpTipComponent } from '../../shared/components/help-tip/help-tip.component';
 
 interface SoundOption {
     kind: AlertSoundKind;
@@ -16,7 +17,7 @@ interface SoundOption {
 @Component({
     selector: 'app-custom-alert-sound-controls',
     standalone: true,
-    imports: [AlertSoundPickerComponent],
+    imports: [AlertSoundPickerComponent, HelpTipComponent],
     templateUrl: './custom-alert-sound-controls.component.html',
     styleUrl: './custom-alert-sound-controls.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,

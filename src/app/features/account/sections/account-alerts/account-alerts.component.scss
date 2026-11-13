@@ -1,7 +1,7 @@
 .alerts-settings {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 20px;
 
     &__header { margin-bottom: 2px; }
     &__title {
@@ -29,19 +29,16 @@
         align-items: flex-start;
         justify-content: space-between;
         gap: 16px;
-        padding: 20px 22px 14px;
+        padding: 18px 22px 8px;
 
         h3 { margin: 0 0 4px; color: var(--color-text-primary); font-size: 1rem; }
         p { margin: 0; color: var(--color-text-secondary); font-size: 0.8125rem; }
     }
     &__card--sounds { overflow: visible; }
-    &__badge {
-        flex: 0 0 auto;
-        padding: 4px 8px;
-        border-radius: 999px;
-        background: var(--color-bg-surface-3);
-        color: var(--color-text-muted);
-        font-size: 0.6875rem;
-        font-weight: 650;
+    &__coach-link {
+        align-self: flex-start; display: inline-flex; gap: 10px; align-items: center; min-height: 44px;
+        color: var(--color-text-accent); font-size: 0.8125rem; text-underline-offset: 4px;
+        &:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
     }
+    @media (max-width: 600px) { &__card-head { padding-inline: 16px; } }
 }

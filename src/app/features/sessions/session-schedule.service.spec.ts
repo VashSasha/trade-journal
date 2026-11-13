@@ -66,7 +66,8 @@ describe('custom session schedules', () => {
         const { root, edit } = settings();
         expect(root.querySelectorAll('.session-settings__summary')).toHaveLength(3);
         expect(root.querySelectorAll('form')).toHaveLength(0);
-        expect(root.querySelector<HTMLDetailsElement>('.session-settings__help')?.open).toBe(false);
+        expect(root.querySelector('.session-settings__help')).toBeNull();
+        expect(root.querySelector('[aria-label="About session hours"].mat-mdc-tooltip-trigger')).not.toBeNull();
         edit();
         expect(root.querySelectorAll('form')).toHaveLength(1);
         expect(root.querySelector('form')?.id).toBe('session-editor-asia');

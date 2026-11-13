@@ -3,12 +3,24 @@
     <div class="session-sounds__body">
     @if (section() !== 'bells') {
     <div class="session-sounds__head">
-        <div>
-            <p>Sounds: {{ sounds.status().label }}. {{ sounds.status().detail }}</p>
+        <div class="session-sounds__state">
+            <span class="session-sounds__indicator" [class.session-sounds__indicator--on]="sounds.enabled()"></span>
+            <strong role="status">{{ sounds.status().label }}</strong>
+            <app-help-tip label="About sound controls"
+                text="Volume, sound choices and your on/off preference save to your NVZN account. Playback is local to this browser and may need a click or keypress after opening or reloading. This control covers alerts and narrated coaching, not a two-way voice call. Keep NVZN open to receive alerts." />
         </div>
-        <button type="button" (click)="sounds.toggle()" [disabled]="!sounds.supported || sounds.preferencesLoading()"
-            [attr.aria-pressed]="sounds.enabled()">{{ sounds.toggleLabel() }}</button>
+        <button type="button" class="session-sounds__master" (click)="sounds.toggle()" [disabled]="!sounds.supported || sounds.preferencesLoading()"
+            [attr.aria-pressed]="sounds.enabled()" [attr.aria-label]="sounds.toggleLabel()"
+            [attr.aria-busy]="sounds.state() === 'enabling'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M4 9h4l5-4v14l-5-4H4z" />
+                @if (sounds.enabled()) { <path d="m17 9 5 6m0-6-5 6" /> }
+                @else { <path d="M17 8a6 6 0 010 8m3-11a10 10 0 010 14" /> }
+            </svg>
+            {{ sounds.state() === 'enabling' ? 'Enabling…' : sounds.toggleLabel() }}
+        </button>
     </div>
+    @if (sounds.waitingForGesture()) { <p class="session-sounds__note" role="status">{{ sounds.status().detail }}</p> }
     }
     @if (!sounds.supported) {
         <p class="session-sounds__note">Sound alerts need a supported browser on HTTPS or localhost.</p>
@@ -21,30 +33,26 @@
         }
         @if (section() !== 'bells') {
         <label class="session-sounds__volume">
-            <span>Volume <span>{{ sounds.preferences().volume }}%</span></span>
+            <span>Volume</span>
             <input type="range" min="0" max="100" step="5" [value]="sounds.preferences().volume"
                 (input)="volume($event)" aria-label="Master sound volume" [attr.aria-valuetext]="sounds.preferences().volume + '%'" />
+            <output>{{ sounds.preferences().volume }}%</output>
         </label>
         }
         @if (section() !== 'master') {
-        <div class="session-sounds__tests">
+        @if (!settingsView()) { <div class="session-sounds__tests">
             <button type="button" (click)="sounds.preview('open')" [disabled]="!sounds.enabled() || sounds.previewing() || !sounds.preferences().volume">Test opening bell</button>
             <button type="button" (click)="sounds.preview('close')" [disabled]="!sounds.enabled() || sounds.previewing() || !sounds.preferences().volume">Test closing bell</button>
-        </div>
-        <p class="session-sounds__note">Bells apply to the sessions selected above. {{ sounds.enabled() ? 'Sounds are active in this tab.' : 'Enable sounds in the Sound section above to hear scheduled bells.' }}</p>
-        } @else {
-        <div class="session-sounds__tests"><button type="button" (click)="sounds.preview('open')" [disabled]="!sounds.enabled() || sounds.previewing() || !sounds.preferences().volume">Test sound</button></div>
-        <p class="session-sounds__note">Master sound controls bells, alert sounds, and AI voice. Muting keeps your individual selections. Enable sounds before testing. Keep the app open; after reloading, click or press a key to reactivate audio.</p>
+        </div> }
+        @if (!sounds.enabled()) { <p class="session-sounds__note">Enable sounds in the Sound section to hear bells.</p> }
         }
         @if (!sounds.preferences().volume) { <p class="session-sounds__note">Increase volume to enable or test sounds.</p> }
-        @if (section() !== 'master' && !sounds.preferences().opens && !sounds.preferences().closes) { <p class="session-sounds__note">Session bells are off. Performance and market-event alerts can still use sound.</p> }
-        @if (section() !== 'master') { @if (sounds.lastAlert(); as alert) { <p class="session-sounds__last">Last alert: {{ alert }}</p> } }
+        @if (section() !== 'master' && !sounds.preferences().opens && !sounds.preferences().closes) { <p class="session-sounds__note">Session bells are off.</p> }
     }
-    @if (sounds.state() === 'enabling') { <p class="session-sounds__note" role="status">Enabling audio…</p> }
     @if (sounds.previewing()) { <p class="session-sounds__note" role="status">Playing test sound…</p> }
     @if (sounds.preferencesLoading()) { <p class="session-sounds__note" role="status">Syncing sound preferences…</p> }
     @if (sounds.error(); as error) { <p class="session-sounds__error" role="status">{{ error }}</p> }
-    @if (sounds.syncWarning()) { <p class="session-sounds__note" role="status">Could not sync sound preferences. This browser copy still works and will retry when you reconnect.</p> }
+    @if (sounds.syncWarning()) { <p class="session-sounds__note" role="status">Not synced. Changes are saved in this browser; we'll retry when you reconnect.</p> }
     @if (sounds.storageWarning()) { <p class="session-sounds__note" role="status">This browser could not cache your sound preferences.</p> }
     </div>
 </details>

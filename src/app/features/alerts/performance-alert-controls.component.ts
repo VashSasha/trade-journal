@@ -1,10 +1,12 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { PerformanceAlertsService } from './performance-alerts.service';
 import { PerformanceAlertRule } from './performance-alerts.utils';
+import { HelpTipComponent } from '../../shared/components/help-tip/help-tip.component';
 
 @Component({
     selector: 'app-performance-alert-controls',
     standalone: true,
+    imports: [HelpTipComponent],
     templateUrl: './performance-alert-controls.component.html',
     styleUrl: './performance-alert-controls.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,

@@ -41,7 +41,7 @@ describe('performance guardrail controls', () => {
         const input = element.querySelector<HTMLInputElement>('.guardrails__open-pnl input')!;
         const descriptionId = input.getAttribute('aria-describedby');
         expect(descriptionId).toBeTruthy();
-        expect(element.querySelector(`#${descriptionId}`)?.textContent).toContain('no orders are placed');
+        expect(element.querySelector(`#${descriptionId}`)?.textContent).toContain('No orders are placed');
         expect(element.querySelector('[role="status"]')).toBeNull();
         alerts.setIncludeOpenPnl(true); fixture.detectChanges();
         expect(element.querySelector('[role="status"]')?.textContent).toContain('Waiting for fresh live quotes');
@@ -52,7 +52,7 @@ describe('performance guardrail controls', () => {
         alerts.setIncludeOpenPnl(true); fixture.detectChanges();
         const label = element.querySelector('.guardrails__open-pnl')!;
         expect(label.closest('.guardrails__period')).toBeNull();
-        expect(label.parentElement?.classList.contains('guardrails__open-pnl-section')).toBe(true);
+        expect(label.closest('.guardrails__open-pnl-section')).not.toBeNull();
         expect(element.querySelector('.guardrails__open-pnl-details [role="status"]')).not.toBeNull();
         expect(element.querySelector('.guardrails__open-pnl-details .guardrails__note')).toBeNull();
     });

@@ -6,7 +6,7 @@ import { emptyCustomAlertSoundMap } from './custom-alert-sounds.models';
 import { CustomAlertSoundsService } from './custom-alert-sounds.service';
 import { SessionSoundPreferencesService } from './session-sound-preferences.service';
 import { DEFAULT_SESSION_SOUNDS, SessionSoundPreferences } from './session-alerts.utils';
-import { ALERT_SOUND_KINDS } from './alert-sound-kinds';
+import { ALERT_SOUND_KINDS, POSITION_SOUND_KINDS } from './alert-sound-kinds';
 
 const gain = () => ({
     gain: { value: 1, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
@@ -251,6 +251,28 @@ describe('local alert audio', () => {
         FakeAudioContext.instances[0].currentTime = 3;
         expect(audio.play('open', 45)).toBe(0);
     });
+    it('never plays retired position cues, including saved presets and uploads, without deleting them', async () => {
+        preferences.set({ ...DEFAULT_SESSION_SOUNDS, selections: {
+            positionOpened: 'default', positionIncreased: 'hell-yeah', positionReduced: 'custom',
+            positionClosed: 'default', positionReversed: 'hell-yeah',
+        } });
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array([1]), { headers: { 'content-type': 'audio/mpeg' } })));
+        const audio = TestBed.inject(AlertAudioService);
+        await audio.installCustomSound('positionReduced', {
+            name: 'legacy.mp3', size: 2, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(2),
+        } as File);
+        const savedSelections = preferences().selections;
+        const context = FakeAudioContext.instances[0];
+        for (const kind of POSITION_SOUND_KINDS) {
+            expect(audio.play(kind, 45)).toBe(0);
+            expect(audio.play(kind, 45, 'hell-yeah')).toBe(0);
+        }
+        expect(context.sources).toHaveLength(0);
+        expect(context.oscillators).toHaveLength(0);
+        expect(library.remove).not.toHaveBeenCalled();
+        expect(preferences().selections).toEqual(savedSelections);
+    });
+
     it('does not emit sounds for unconfigured triggers even when master audio is enabled', async () => {
         const audio = TestBed.inject(AlertAudioService); await audio.activate();
         for (const kind of ALERT_SOUND_KINDS) expect(audio.play(kind, 45)).toBe(0);

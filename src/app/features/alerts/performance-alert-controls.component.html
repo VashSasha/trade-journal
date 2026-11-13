@@ -1,8 +1,10 @@
 <section class="guardrails">
   <div class="guardrails__head">
     <div>
-      <h3>Performance guardrails</h3>
-      <p>Limits apply to the combined totals of the accounts selected in the header, not separately to each account.</p>
+      <div class="guardrails__title"><h3>Performance guardrails</h3>
+        <app-help-tip label="How guardrails work" text="Money limits use the combined totals of accounts selected in the header. For example, $200 on each of two accounts counts as $400. Targets save to your NVZN account. Monitoring runs while NVZN is open; saved trades reconcile after a position closes. Alerts do not place orders." />
+      </div>
+      <p>Combined totals of selected accounts.</p>
     </div>
     <span
       class="guardrails__status"
@@ -31,8 +33,10 @@
                                                             aria-label="Daily loss limit"/></div>
       </div>
       <div class="guardrails__rule">
-        <label><input type="checkbox" [checked]="alerts.preferences().dailyTrades.enabled"
+        <div class="guardrails__rule-name"><label><input type="checkbox" [checked]="alerts.preferences().dailyTrades.enabled"
                       (change)="setEnabled('dailyTrades', $event)"/> Grouped trades</label>
+          <app-help-tip label="How trades are counted" text="Scale-ins, partial exits and matching copied positions count once when history supports grouping. Missing account or timing data and unconfirmed partial exits pause count alerts. Multi-account counts update after broker sync, not each fill." />
+        </div>
         <div class="guardrails__value guardrails__value--count"><input type="number" min="1" step="1"
                                                                        [value]="alerts.preferences().dailyTrades.value"
                                                                        (change)="setValue('dailyTrades', $event)"
@@ -65,16 +69,18 @@
   </div>
 
   <div class="guardrails__open-pnl-section">
+    <div class="guardrails__title">
     <label class="guardrails__open-pnl">
       <input type="checkbox" [checked]="alerts.preferences().dailyProfit.includeOpenPnl === true"
              aria-describedby="open-pnl-description"
              (change)="alerts.setIncludeOpenPnl(checked($event))"/>
-      <span>Include open P&L in daily profit-target alerts</span>
+      <span>Include open P&amp;L in daily target</span>
     </label>
+      <app-help-tip label="About open P&L alerts" text="Adds today's realized P&L to current unrealized P&L across selected accounts. Requires the daily profit target above, fresh broker quotes and supported currencies. It is an estimate, not a guaranteed exit price." />
+    </div>
     <div class="guardrails__open-pnl-details">
       <p id="open-pnl-description">
-        Realized today + unrealized across the selected accounts. Enable the daily profit target
-        above. This is an estimate, not a guaranteed exit price; no orders are placed.
+        Estimates only. No orders are placed.
       </p>
 
       @if (alerts.preferences().dailyProfit.includeOpenPnl) {
@@ -85,13 +91,7 @@
   </div>
 
   <p class="guardrails__note">
-    With two accounts selected, $200 profit on each counts as $400 toward the target. The trade limit counts
-    grouped positions: scale-ins, partial exits and matching copies count once. Grouping is estimated from saved history;
-    incomplete account/timing data or unconfirmed partial exits pause count alerts. Multi-account counts update after broker sync, not each fill.
-  </p>
-  <p class="guardrails__note">
-    {{ alerts.live.statusDetail() }} Targets sync to your NVZN account. Sound uses the master control above. Live
-    monitoring works while NVZN is open; saved trades reconcile shortly after a position closes.
+    {{ alerts.live.statusDetail() }}
   </p>
   @if (alerts.preferencesLoading()) {
     <p class="guardrails__note" role="status">Syncing guardrails…</p>
