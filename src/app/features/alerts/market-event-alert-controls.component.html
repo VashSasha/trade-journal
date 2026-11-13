@@ -1,32 +1,32 @@
 <section class="event-alerts">
     <div class="event-alerts__head">
         <div>
-            <h3>Economic event warnings</h3>
-            <p>Get a heads-up before scheduled U.S. releases that can increase volatility.</p>
+            <h3>Economic events</h3>
+            <p>Warnings before scheduled U.S. releases.</p>
         </div>
-        <span class="event-alerts__badge">Account synced</span>
+        <app-help-tip label="About economic event warnings" text="Warnings run while NVZN is open, using the available event calendar—not a complete live news feed. Timing and impact choices save to your account. Sound follows your master volume. Desktop notifications are enabled separately in each browser." />
     </div>
 
     <div class="event-alerts__rows">
         <label class="event-alerts__row">
-            <span><strong>In-app warnings</strong><small>Runs while NVZN is open</small></span>
+            <span><strong>Event warnings</strong></span>
             <input type="checkbox" [checked]="alerts.preferences().enabled" (change)="alerts.setEnabled(checked($event))" />
         </label>
 
         <label class="event-alerts__row" [class.event-alerts__row--disabled]="!alerts.preferences().enabled">
-            <span><strong>Warn me before</strong><small>Sound follows the master volume above</small></span>
+            <span><strong>Remind me</strong></span>
             <select [value]="alerts.preferences().leadMinutes" (change)="alerts.setLeadMinutes(number($event))" [disabled]="!alerts.preferences().enabled" aria-label="Economic event warning lead time">
-                @for (minutes of alerts.leadOptions; track minutes) { <option [value]="minutes">{{ minutes }} minutes</option> }
+                @for (minutes of alerts.leadOptions; track minutes) { <option [value]="minutes">{{ minutes }} min before</option> }
             </select>
         </label>
 
         <label class="event-alerts__row" [class.event-alerts__row--disabled]="!alerts.preferences().enabled">
-            <span><strong>High impact only</strong><small>Turn off to include selected medium-impact releases</small></span>
+            <span><strong>High impact only</strong><small>Off includes other impact levels</small></span>
             <input type="checkbox" [checked]="alerts.preferences().highOnly" (change)="alerts.setHighOnly(checked($event))" [disabled]="!alerts.preferences().enabled" />
         </label>
 
         <label class="event-alerts__row" [class.event-alerts__row--disabled]="!alerts.preferences().enabled || !alerts.desktopSupported">
-            <span><strong>Desktop notification</strong><small>{{ alerts.desktopSupported ? 'Useful when the tab is in the background' : 'Not supported by this browser' }}</small></span>
+            <span><strong>Desktop notifications</strong>@if (!alerts.desktopSupported) { <small>Unavailable in this browser</small> }</span>
             <input type="checkbox" [checked]="alerts.preferences().desktopNotifications"
                 (change)="alerts.setDesktopNotifications(checked($event))"
                 [disabled]="!alerts.preferences().enabled || !alerts.desktopSupported" />
@@ -35,7 +35,6 @@
 
     <div class="event-alerts__actions">
         <button type="button" (click)="alerts.testAlert()">Test warning</button>
-        <p>Warning choices sync to your account. Desktop-notification permission stays specific to each browser.</p>
     </div>
     @if (alerts.lastAlert(); as alert) { <p class="event-alerts__last">Last alert: {{ alert }}</p> }
     @if (alerts.preferencesLoading()) { <p class="event-alerts__last" role="status">Syncing warning preferences…</p> }

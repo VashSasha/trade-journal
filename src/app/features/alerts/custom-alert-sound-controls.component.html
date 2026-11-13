@@ -1,29 +1,18 @@
 <section class="custom-sounds" aria-labelledby="custom-sounds-title">
     <header class="custom-sounds__header">
         <div>
-            <h4 id="custom-sounds-title">Sound library</h4>
-            <p>Alerts are silent until you choose a sound or upload your own.</p>
+            <h4 id="custom-sounds-title">Alert sounds</h4>
+            <p>Choose a sound for each enabled alert.</p>
         </div>
-        <span>Synced to your account</span>
+        <app-help-tip label="About alert sounds" text="New alerts are silent until you choose a sound. Existing sound choices are kept. Enable the matching session, warning or guardrail below for automatic playback. Uploads are private, up to 3 MB and 10 seconds. Switching sounds keeps your uploads." />
     </header>
 
     <div class="custom-sounds__list">
         @for (option of options; track option.kind) {
             <article class="custom-sound" [class.custom-sound--custom]="selection(option.kind) !== 'default' && selection(option.kind) !== 'silent'">
                 <div class="custom-sound__identity">
-                    <span class="custom-sound__icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                            @if (selection(option.kind) === 'silent') {
-                                <path d="M11 5L6 9H3v6h3l5 4V5zM16 9l6 6m0-6l-6 6"/>
-                            } @else {
-                                <path d="M11 5L6 9H3v6h3l5 4V5zM15.5 8.5a5 5 0 010 7M18 6a8.5 8.5 0 010 12"/>
-                            }
-                        </svg>
-                    </span>
-                    <div>
-                        <strong>{{ option.label }}</strong>
-                        <span>{{ option.detail }}</span>
-                    </div>
+                    <strong>{{ option.label }}</strong>
+                    <app-help-tip [label]="'About ' + option.label.toLowerCase()" [text]="option.detail" />
                 </div>
 
                 <div class="custom-sound__selection">
@@ -32,14 +21,15 @@
                         [legacyUploadName]="legacyUploadName(option.kind)"
                         [disabled]="busy() || audio.customSoundsLoading() || sounds.preferencesLoading()"
                         (changed)="chooseSound(option.kind, $event)" />
-                    <span [id]="'alert-sound-detail-' + option.kind">{{ selectionDetail(option.kind) }}</span>
+                    @if (selection(option.kind) !== 'silent') {
+                        <span [id]="'alert-sound-detail-' + option.kind">{{ selectionDetail(option.kind) }}</span>
+                    }
                 </div>
 
                 <div class="custom-sound__actions">
-                    <button type="button" (click)="test(option.kind)" [attr.aria-label]="'Preview ' + option.label + ' sound'"
+                    <button type="button" class="custom-sound__preview" (click)="test(option.kind)" [attr.aria-label]="'Preview ' + option.label + ' sound'" title="Preview sound"
                         [disabled]="selection(option.kind) === 'silent' || !sounds.enabled() || busy() || audio.customSoundsLoading() || sounds.preferencesLoading() || sounds.previewing() || sounds.state() === 'enabling' || !sounds.preferences().volume">
                         <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M5 3v10l8-5z" fill="currentColor"/></svg>
-                        Preview
                     </button>
                     @if (audio.customSoundStorageSupported) {
                     <label class="custom-sound__upload" [class.is-disabled]="busy() || audio.customSoundsLoading() || sounds.preferencesLoading() || sounds.previewing()">
@@ -60,11 +50,7 @@
         }
     </div>
 
-    <footer class="custom-sounds__footer">
-        Switching sounds keeps your uploads. Uploads stay private · up to 3 MB and 10 seconds.
-        <span>Guardrail sounds use your enabled limits and selected accounts. Position sounds are off until you choose one; matching copy-trade updates play once.</span>
-        @if (!sounds.enabled() || !sounds.preferences().volume) { <span>Enable sounds and turn up the volume above to preview.</span> }
-    </footer>
+    @if (!sounds.enabled() || !sounds.preferences().volume) { <p class="custom-sounds__footer">Enable sounds to preview.</p> }
     @if (!audio.customSoundStorageSupported) {
         <p class="custom-sounds__notice" role="status">Uploads are unavailable in this browser. You can still choose library sounds.</p>
     }

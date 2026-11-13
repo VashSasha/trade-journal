@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
 import { SessionAlertsService } from './session-alerts.service';
+import { HelpTipComponent } from '../../shared/components/help-tip/help-tip.component';
 
 @Component({
     selector: 'app-session-alert-controls',
     standalone: true,
+    imports: [HelpTipComponent],
     templateUrl: './session-alert-controls.component.html',
     styleUrl: './session-alert-controls.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,

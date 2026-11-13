@@ -11,6 +11,7 @@ export const SOUND_FALLBACKS: Partial<Record<AlertSoundKind, BaseAlertSoundKind>
     dailyProfit: 'target', weeklyProfit: 'target', dailyProfitOpen: 'target',
     dailyLoss: 'risk', weeklyLoss: 'risk', dailyTrades: 'risk', marketEvent: 'risk',
 };
+/** Retired cues: retain persisted keys/uploads for compatibility, never play. */
 export const POSITION_SOUND_KINDS: readonly AlertSoundKind[] = [
     'positionOpened', 'positionIncreased', 'positionReduced', 'positionClosed', 'positionReversed',
 ];
@@ -24,11 +25,6 @@ export const ALERT_SOUND_OPTIONS: readonly { kind: AlertSoundKind; label: string
     { kind: 'dailyProfitOpen', label: 'Target with open P&L', detail: 'Daily target touched including unrealized profit' },
     { kind: 'dailyLoss', label: 'Daily loss limit', detail: 'Your daily loss guardrail is reached' },
     { kind: 'weeklyLoss', label: 'Weekly loss limit', detail: 'Your weekly loss guardrail is reached' },
-    { kind: 'dailyTrades', label: 'Daily trade limit', detail: 'Your completed-trade limit is reached' },
-    { kind: 'positionOpened', label: 'Position opened', detail: 'A new position is opened' },
-    { kind: 'positionIncreased', label: 'Position increased', detail: 'Contracts added to a position' },
-    { kind: 'positionReduced', label: 'Position reduced', detail: 'Part of a position is closed' },
-    { kind: 'positionClosed', label: 'Position closed', detail: 'A position becomes flat' },
-    { kind: 'positionReversed', label: 'Position reversed', detail: 'A position changes direction' },
+    { kind: 'dailyTrades', label: 'Daily trade limit', detail: 'Your grouped-trade limit is reached. Scale-ins, partial exits and matching copies count once when the history supports grouping.' },
     { kind: 'marketEvent', label: 'Upcoming economic event', detail: 'Before a scheduled news release' },
 ];

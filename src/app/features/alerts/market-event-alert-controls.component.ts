@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MarketEventAlertsService } from './market-event-alerts.service';
+import { HelpTipComponent } from '../../shared/components/help-tip/help-tip.component';
 
 @Component({
     selector: 'app-market-event-alert-controls',
     standalone: true,
+    imports: [HelpTipComponent],
     templateUrl: './market-event-alert-controls.component.html',
     styleUrl: './market-event-alert-controls.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,

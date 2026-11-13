@@ -1,16 +1,14 @@
 <section class="alerts-settings">
     <header class="alerts-settings__header">
         <h2 class="alerts-settings__title">Alerts</h2>
-        <p class="alerts-settings__description">Stay aware with session bells, economic-event warnings, and your own trading limits.</p>
+        <p class="alerts-settings__description">Choose what you hear and when.</p>
     </header>
 
     <div class="alerts-settings__card alerts-settings__card--sounds">
         <div class="alerts-settings__card-head">
             <div>
                 <h3>Sound</h3>
-                <p>One account-synced master volume for every audible alert. Each browser still requires one activation click.</p>
             </div>
-            <span class="alerts-settings__badge">Account synced</span>
         </div>
         <app-session-alert-controls section="master" [expanded]="true" [settingsView]="true" />
         <app-custom-alert-sound-controls />
@@ -18,9 +16,8 @@
 
     <app-session-schedule-controls />
 
-    <p class="alerts-settings__description">Looking for the Coach? Manage tone, voice and automatic commentary in <a routerLink="/account/ai">AI &amp; coaching</a>.</p>
-
     <app-market-event-alert-controls />
 
     <app-performance-alert-controls />
+    <a class="alerts-settings__coach-link" routerLink="/account/ai">AI voice &amp; coaching settings <span aria-hidden="true">↗</span></a>
 </section>

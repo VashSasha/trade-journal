@@ -2,7 +2,7 @@
 .session-settings {
     padding: 1.25rem; border: 1px solid var(--color-border); border-radius: 0.85rem;
     background: var(--color-bg-surface); color: var(--color-text-primary);
-    &__header { margin-bottom: 0.75rem; h3 { margin: 0; font-size: 1rem; } p { margin: 0.3rem 0 0; } }
+    &__header { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 0.75rem; h3 { margin: 0; font-size: 1rem; } p { margin: 0.3rem 0 0; } }
     p { color: var(--color-text-secondary); font-size: 0.8rem; line-height: 1.6; }
     &__row { border-top: 1px solid var(--color-border); }
     &__summary { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 1rem; padding: 0.5rem 0; }
@@ -29,7 +29,6 @@
     &__editor-label { margin-bottom: 0.6rem; font-size: 0.7rem; color: var(--color-text-muted); }
     &__actions { display: flex; flex-wrap: wrap; gap: 0.25rem; }
     button.session-settings__save { background: var(--color-accent-subtle); color: var(--color-accent); }
-    &__help { border-top: 1px solid var(--color-border); font-size: 0.75rem; color: var(--color-text-muted); summary { width: fit-content; padding-top: 0.75rem; padding-bottom: 0.25rem; cursor: pointer; } p { max-width: 75ch; } }
     :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
     :disabled { opacity: 0.6; cursor: not-allowed; }
     @media (max-width: 540px) {

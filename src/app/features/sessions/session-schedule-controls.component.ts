@@ -2,11 +2,12 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { SessionScheduleService } from './session-schedule.service';
 import { sessionWallTime } from './sessions.utils';
 import { SessionAlertControlsComponent } from '../alerts/session-alert-controls.component';
+import { HelpTipComponent } from '../../shared/components/help-tip/help-tip.component';
 
 @Component({
     selector: 'app-session-schedule-controls',
     standalone: true,
-    imports: [SessionAlertControlsComponent],
+    imports: [SessionAlertControlsComponent, HelpTipComponent],
     templateUrl: './session-schedule-controls.component.html',
     styleUrl: './session-schedule-controls.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
